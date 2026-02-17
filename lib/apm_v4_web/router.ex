@@ -75,12 +75,34 @@ defmodule ApmV4Web.Router do
     # v4-only endpoints
     get "/projects", ApiController, :projects
 
+    # v2 export/import
+    get "/v2/export", ApiController, :export
+    post "/v2/import", ApiController, :import_data
+
     # CCEM environment manager endpoints
     get "/environments", ApiController, :environments
     get "/environments/:name", ApiController, :environment_detail
     post "/environments/:name/exec", ApiController, :exec_command
     post "/environments/:name/session/start", ApiController, :start_session
     post "/environments/:name/session/stop", ApiController, :stop_session
+  end
+
+  # v2 REST API (Phase 3.1)
+  scope "/api/v2", ApmV4Web.V2 do
+    pipe_through :api
+
+    get "/agents", ApiV2Controller, :list_agents
+    get "/agents/:id", ApiV2Controller, :get_agent
+    get "/sessions", ApiV2Controller, :list_sessions
+    get "/metrics", ApiV2Controller, :fleet_metrics
+    get "/metrics/:agent_id", ApiV2Controller, :agent_metrics
+    get "/slos", ApiV2Controller, :list_slos
+    get "/slos/:name", ApiV2Controller, :get_slo
+    get "/alerts", ApiV2Controller, :list_alerts
+    get "/alerts/rules", ApiV2Controller, :list_alert_rules
+    post "/alerts/rules", ApiV2Controller, :create_alert_rule
+    get "/audit", ApiV2Controller, :list_audit
+    get "/openapi.json", ApiV2Controller, :openapi
   end
 
   # A2UI flexible format endpoint

@@ -13,6 +13,7 @@ defmodule ApmV4Web.DashboardLive do
 
   alias ApmV4.AgentRegistry
   alias ApmV4.ConfigLoader
+  alias ApmV4.DashboardStore
   alias ApmV4.ProjectStore
   alias ApmV4.Ralph
 
@@ -59,6 +60,8 @@ defmodule ApmV4Web.DashboardLive do
       |> assign(:ralph_data, ralph_data)
       |> assign(:graph_expanded, false)
       |> assign(:show_anon, false)
+      |> assign(:saved_layouts, DashboardStore.list_layouts())
+      |> assign(:saved_presets, DashboardStore.list_presets())
       # Global filter bar state (Splunk/ELK-style)
       |> assign(:filter_status, nil)
       |> assign(:filter_namespace, nil)
@@ -152,6 +155,33 @@ defmodule ApmV4Web.DashboardLive do
                 </li>
               </ul>
             </div>
+            <%!-- Layout picker --%>
+            <div class="dropdown dropdown-bottom">
+              <div tabindex="0" role="button" class="btn btn-ghost btn-xs gap-1">
+                <.icon name="hero-squares-2x2" class="size-3" />
+                Layouts
+                <.icon name="hero-chevron-down" class="size-3" />
+              </div>
+              <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-48">
+                <li :for={layout <- @saved_layouts}>
+                  <button phx-click="load_layout" phx-value-id={layout["id"]}>
+                    {layout["name"]}
+                  </button>
+                </li>
+                <li :if={@saved_layouts == []}>
+                  <span class="text-base-content/40">No saved layouts</span>
+                </li>
+              </ul>
+            </div>
+            <%!-- Save buttons --%>
+            <button class="btn btn-ghost btn-xs gap-1" phx-click="save_layout" phx-value-name="Quick Save">
+              <.icon name="hero-bookmark" class="size-3" />
+              Save Layout
+            </button>
+            <button class="btn btn-ghost btn-xs gap-1" phx-click="save_filter_preset" phx-value-name="Quick Filters">
+              <.icon name="hero-funnel" class="size-3" />
+              Save Filters
+            </button>
           </div>
           <div class="flex items-center gap-3">
             <span class="text-xs text-base-content/50" id="clock" phx-hook="Clock">
@@ -673,6 +703,51 @@ defmodule ApmV4Web.DashboardLive do
 
   def handle_event("graph_anon_toggled", %{"show" => show}, socket) do
     {:noreply, assign(socket, :show_anon, show)}
+  end
+
+  def handle_event("save_layout", %{"name" => name}, socket) do
+    panels = []
+    {:ok, _layout} = DashboardStore.save_layout(name, panels)
+    {:noreply, assign(socket, :saved_layouts, DashboardStore.list_layouts())}
+  end
+
+  def handle_event("load_layout", %{"id" => id}, socket) do
+    case DashboardStore.load_layout(id) do
+      nil -> {:noreply, socket}
+      _layout -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("save_filter_preset", %{"name" => name}, socket) do
+    filters = %{
+      "status" => socket.assigns.filter_status,
+      "namespace" => socket.assigns.filter_namespace,
+      "agent_type" => socket.assigns.filter_agent_type,
+      "search" => socket.assigns.filter_query
+    }
+
+    {:ok, _preset} = DashboardStore.save_preset(name, filters)
+    {:noreply, assign(socket, :saved_presets, DashboardStore.list_presets())}
+  end
+
+  def handle_event("load_filter_preset", %{"id" => id}, socket) do
+    case DashboardStore.load_preset(id) do
+      nil ->
+        {:noreply, socket}
+
+      preset ->
+        filters = preset["filters"]
+
+        socket =
+          socket
+          |> assign(:filter_status, filters["status"])
+          |> assign(:filter_namespace, filters["namespace"])
+          |> assign(:filter_agent_type, filters["agent_type"])
+          |> assign(:filter_query, filters["search"] || "")
+          |> push_filtered_graph()
+
+        {:noreply, socket}
+    end
   end
 
   # --- PubSub Handlers ---

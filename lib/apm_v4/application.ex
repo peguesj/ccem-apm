@@ -14,6 +14,7 @@ defmodule ApmV4.Application do
       {DNSCluster, query: Application.get_env(:apm_v4, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ApmV4.PubSub},
       ApmV4.ConfigLoader,
+      ApmV4.DashboardStore,
       ApmV4.ApiKeyStore,
       ApmV4.AuditLog,
       ApmV4.ProjectStore,

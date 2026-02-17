@@ -529,4 +529,71 @@ defmodule ApmV4Web.ApiController do
       :exit, _ -> nil
     end
   end
+
+  # ============================
+  # Export / Import Endpoints
+  # ============================
+
+  @doc "GET /api/v2/export -- export APM data as JSON or CSV"
+  def export(conn, params) do
+    case Map.get(params, "format") do
+      "csv" ->
+        section = params |> Map.get("section", "agents") |> String.to_existing_atom()
+
+        case ApmV4.ExportManager.export_csv(section) do
+          {:error, reason} ->
+            conn |> put_status(400) |> json(%{error: to_string(reason)})
+
+          csv when is_binary(csv) ->
+            conn
+            |> put_resp_content_type("text/csv")
+            |> put_resp_header("content-disposition", "attachment; filename=\"#{section}.csv\"")
+            |> send_resp(200, csv)
+        end
+
+      _ ->
+        opts = build_export_opts(params)
+        data = ApmV4.ExportManager.export(opts)
+        json(conn, data)
+    end
+  end
+
+  @doc "POST /api/v2/import -- import APM data from JSON"
+  def import_data(conn, params) do
+    case ApmV4.ExportManager.import(params) do
+      {:ok, summary} ->
+        json(conn, %{status: "ok", summary: summary})
+
+      {:error, reason} ->
+        conn |> put_status(422) |> json(%{error: to_string(reason)})
+    end
+  end
+
+  defp build_export_opts(params) do
+    opts = []
+
+    opts =
+      case Map.get(params, "sections") do
+        nil -> opts
+        sections when is_list(sections) ->
+          Keyword.put(opts, :sections, Enum.map(sections, &String.to_existing_atom/1))
+        _ -> opts
+      end
+
+    opts =
+      case Map.get(params, "since") do
+        nil -> opts
+        since_str ->
+          case DateTime.from_iso8601(since_str) do
+            {:ok, dt, _} -> Keyword.put(opts, :since, dt)
+            _ -> opts
+          end
+      end
+
+    case Map.get(params, "agent_ids") do
+      nil -> opts
+      ids when is_list(ids) -> Keyword.put(opts, :agent_ids, ids)
+      _ -> opts
+    end
+  end
 end
