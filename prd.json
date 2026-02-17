@@ -166,8 +166,8 @@
         "Multiple browser tabs all receive updates simultaneously"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "PubSub topics apm:agents and apm:notifications configured. AgentRegistry broadcasts {:agent_registered, agent} on register_agent, {:agent_updated, agent} on update_status (covers heartbeat), and {:notification_added, notif} on add_notification. DashboardLive subscribes to both topics on connected mount via Phoenix.PubSub.subscribe/2. handle_info callbacks refresh agent list, stat counts, and D3 graph data via push_graph_data/2. Notification toasts update in real-time. Multiple browser tabs all receive updates simultaneously. 9 new test cases covering: new agent appears via PubSub, status change updates, stat card updates, notification appears, rapid multi-agent registration, graph container persistence, heartbeat triggers update, multi-tab concurrent updates, topology change triggers graph push. 144/144 tests pass. Zero compiler warnings."
     },
     {
       "id": "US-010",
@@ -185,8 +185,8 @@
         "mix test passes with at least 5 test cases including edge cases"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "ApmV4.SessionParser module with parse_jsonl/1 accepting file path. Extracts input_tokens + output_tokens (including cache_creation and cache_read tokens) from assistant messages. Counts tool_use blocks by tool name (e.g. Read, Bash, Edit). Calculates duration_seconds from first to last timestamp via DateTime.from_iso8601. Counts conversation turns from user messages (excludes tool_result-only messages). Returns structured map %{tokens: %{input, output}, tools: %{}, duration_seconds, turns}. Handles missing files, empty files, and malformed JSONL lines gracefully with Logger.warning and zero-value defaults. 11 test cases covering: missing file, empty file, token extraction with cache tokens, tool counting by name, user turn counting, duration calculation, malformed lines, entries without message field, no-usage assistant messages, full realistic integration, non-message-only files. 155/155 tests pass. Zero compiler warnings."
     },
     {
       "id": "US-011",

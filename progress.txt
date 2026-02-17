@@ -153,3 +153,36 @@ Started: Tue Feb 17 09:23:35 EST 2026
 - 22 new test cases, 135/135 total pass, zero compiler warnings
 - Learnings: D3.js flowchart rendering in LiveView works well with the same phx-update="ignore" pattern used for the dependency graph. Absolute positioning via a POSITIONS map is simpler than force simulation for a predetermined flowchart layout. SVG viewBox with preserveAspectRatio="xMidYMid meet" handles responsive scaling without recalculating positions. Bezier curves via computePath with horizontal/vertical dominance detection produce clean routing between nodes at various angles. Edge labels need a background rect for readability against the dark theme.
 ---
+
+## US-009 - Add PubSub real-time updates for LiveView clients
+- Configured Phoenix.PubSub with topic "apm:agents" for agent state changes (register, update_status/heartbeat)
+- Configured Phoenix.PubSub with topic "apm:notifications" for notification broadcasts
+- AgentRegistry broadcasts on register_agent ({:agent_registered, agent}), update_status ({:agent_updated, agent}), and add_notification ({:notification_added, notif})
+- DashboardLive subscribes to both PubSub topics on connected mount via Phoenix.PubSub.subscribe/2
+- handle_info callbacks: {:agent_registered, _} and {:agent_updated, _} trigger refresh_agents/1 which re-fetches agents, updates all stat counts, and pushes graph data for D3 re-render
+- {:notification_added, _} re-fetches notifications for real-time toast display
+- Agent cards update in real-time without page refresh when status changes
+- New agent registrations appear in the grid immediately via PubSub
+- Notification toasts appear in real-time when POST /api/notify is called
+- D3.js dependency graph re-renders via push_graph_data when agent topology changes
+- Multiple browser tabs all receive updates simultaneously (verified by test)
+- Files changed: lib/apm_v4/agent_registry.ex (modified - added 3 PubSub broadcasts), lib/apm_v4_web/live/dashboard_live.ex (modified - added subscribe + 3 handle_info + refresh_agents helper), test/apm_v4_web/controllers/page_controller_test.exs (modified - 9 new test cases)
+- 9 new test cases: PubSub agent registration, status change, stat card updates, notification appearance, rapid multi-agent registration, graph container persistence, heartbeat update, multi-tab concurrent updates, topology change graph push
+- 144/144 tests pass, zero compiler warnings
+- Learnings: Phoenix.PubSub.subscribe must be guarded by connected?(socket) to avoid subscribing during static render. The refresh_agents pattern of re-fetching all agents from ETS is simpler and more reliable than trying to merge individual updates into the assigns. push_graph_data in handle_info ensures D3 gets re-rendered on topology changes without needing a separate mechanism.
+---
+
+## US-010 - Implement session JSONL parser for metrics extraction
+- Created ApmV4.SessionParser module with parse_jsonl/1 accepting a file path string
+- Extracts total input_tokens and output_tokens from assistant messages (includes cache_creation_input_tokens and cache_read_input_tokens in input total)
+- Counts tool_use blocks by tool name from assistant message content arrays (e.g. %{"Read" => 3, "Bash" => 1, "Edit" => 1})
+- Calculates session duration from first to last message timestamp using DateTime.from_iso8601/1
+- Counts conversation turns from user messages (plain text strings or lists with text blocks; excludes tool_result-only messages)
+- Returns structured map: %{tokens: %{input, output}, tools: %{}, duration_seconds, turns}
+- Handles missing files (returns zero defaults), empty files (returns zero defaults), and malformed JSONL lines (logs warning, skips line)
+- Handles entries without message field (e.g. file-history-snapshot, progress entries) gracefully
+- Files changed: lib/apm_v4/session_parser.ex (new), test/apm_v4/session_parser_test.exs (new)
+- 11 new test cases: missing file, empty file, token extraction with cache tokens, tool counting by name, user turn counting, duration calculation, malformed line handling, entries without message field, no-usage assistant messages, full realistic integration, non-message-only files
+- 155/155 tests pass, zero compiler warnings
+- Learnings: Claude Code JSONL files contain mixed entry types (file-history-snapshot, progress, user, assistant) so the parser must handle entries without a "message" field. User messages can be plain strings or lists of content blocks; tool_result blocks in user messages should not count as conversation turns. Cache tokens (cache_creation_input_tokens + cache_read_input_tokens) are significant in Claude Code sessions and should be included in input token totals for accurate reporting.
+---
