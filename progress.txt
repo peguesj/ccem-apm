@@ -12,3 +12,30 @@ Started: Tue Feb 17 09:23:35 EST 2026
 - Files created: mix.exs, config/{config,dev,test,runtime,prod}.exs, lib/apm_v4/{application,apm_v4}.ex, lib/apm_v4_web/{endpoint,router,telemetry,gettext}.ex, lib/apm_v4_web/components/{core_components,layouts}.ex, lib/apm_v4_web/controllers/{page_controller,page_html,error_html,error_json}.ex, test/*, assets/*, priv/*
 - Learnings: Phoenix 1.8.3 generator includes daisyUI/Tailwind v4 out of the box, uses Bandit as default adapter, includes heroicons vendor files
 ---
+
+## US-002 - Port agent registry and session management to ETS/GenServer
+- Created ApmV4.AgentRegistry GenServer with 3 ETS tables: :apm_agents, :apm_sessions, :apm_notifications
+- Agent API: register_agent/2, get_agent/1, list_agents/0, update_status/2 with last_seen timestamps
+- Session API: register_session/1, get_session/1, list_sessions/0 with project and status tracking
+- Notification API: add_notification/1, get_notifications/0 (reverse chronological), clear_notifications/0 with 200-item cap
+- Added AgentRegistry to Application supervision tree (before Endpoint)
+- Files changed: lib/apm_v4/agent_registry.ex (new), lib/apm_v4/application.ex (modified), test/apm_v4/agent_registry_test.exs (new)
+- 14 new test cases, 19/19 total pass, zero compiler warnings
+- Learnings: ETS :public read_concurrency tables allow direct reads bypassing GenServer for get_agent/1 and list_agents/0, while writes go through GenServer for serialization. This matches the Python threading.Lock pattern but with better read performance.
+---
+
+## US-003 - Port HTTP API endpoints to Phoenix controllers
+- Created ApmV4Web.ApiController with 5 actions: status, register, heartbeat, agents, notify
+- GET /api/status returns JSON with uptime, agent_count, session_id, server_version
+- POST /api/register accepts agent_id (or id), name, tier, status, deps, metadata; returns 201 on success, 400 on missing ID
+- POST /api/heartbeat accepts agent_id + status, updates last_seen; returns 404 for unknown agent, 400 for missing ID
+- GET /api/agents returns JSON array of all registered agents
+- POST /api/notify accepts title, message, level; creates notification with defaults for missing fields
+- Added :api pipeline routes in router.ex under /api scope
+- Stored server_start_time in Application env for uptime calculation
+- Added clear_all/0 to AgentRegistry for safe test isolation (avoids GenServer.stop which disrupted supervision tree)
+- Updated AgentRegistryTest to use clear_all/0 instead of stop/restart pattern
+- Files changed: lib/apm_v4_web/controllers/api_controller.ex (new), lib/apm_v4_web/router.ex (modified), lib/apm_v4/application.ex (modified), lib/apm_v4/agent_registry.ex (modified), test/apm_v4_web/controllers/api_controller_test.exs (new), test/apm_v4/agent_registry_test.exs (modified)
+- 16 new test cases, 35/35 total pass, zero compiler warnings
+- Learnings: In Phoenix tests, never stop supervised GenServers (GenServer.stop) as it can cascade to other supervised children (Endpoint ETS table loss). Use a clear_all/0 pattern instead that resets state without disrupting the supervision tree.
+---

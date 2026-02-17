@@ -4,12 +4,7 @@ defmodule ApmV4.AgentRegistryTest do
   alias ApmV4.AgentRegistry
 
   setup do
-    # Clear all ETS tables between tests by stopping and restarting the GenServer
-    if Process.whereis(AgentRegistry) do
-      GenServer.stop(AgentRegistry)
-    end
-
-    {:ok, _pid} = AgentRegistry.start_link([])
+    AgentRegistry.clear_all()
     :ok
   end
 

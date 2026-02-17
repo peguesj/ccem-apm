@@ -35,8 +35,8 @@
         "mix test passes for AgentRegistry with at least 6 test cases"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "GenServer with 3 ETS tables (agents, sessions, notifications). 14 test cases covering agent CRUD, session tracking, notification queue with 200-cap, and error handling. 19/19 tests pass. Zero compiler warnings."
     },
     {
       "id": "US-003",
@@ -53,8 +53,8 @@
         "mix test passes for all controller actions with at least 10 test cases"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Phoenix API controller with 5 endpoints: GET /api/status, POST /api/register, POST /api/heartbeat, GET /api/agents, POST /api/notify. Proper HTTP status codes (201 for register, 400 for missing fields, 404 for not found). 16 test cases covering happy paths, error handling, and content-type validation. Also added clear_all/0 to AgentRegistry for safe test isolation. 35/35 tests pass. Zero compiler warnings."
     },
     {
       "id": "US-004",

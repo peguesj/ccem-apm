@@ -20,10 +20,15 @@ defmodule ApmV4Web.Router do
     get "/", PageController, :home
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", ApmV4Web do
-  #   pipe_through :api
-  # end
+  scope "/api", ApmV4Web do
+    pipe_through :api
+
+    get "/status", ApiController, :status
+    post "/register", ApiController, :register
+    post "/heartbeat", ApiController, :heartbeat
+    get "/agents", ApiController, :agents
+    post "/notify", ApiController, :notify
+  end
 
   # Enable LiveDashboard in development
   if Application.compile_env(:apm_v4, :dev_routes) do

@@ -7,6 +7,8 @@ defmodule ApmV4.Application do
 
   @impl true
   def start(_type, _args) do
+    Application.put_env(:apm_v4, :server_start_time, System.monotonic_time(:second))
+
     children = [
       ApmV4Web.Telemetry,
       {DNSCluster, query: Application.get_env(:apm_v4, :dns_cluster_query) || :ignore},

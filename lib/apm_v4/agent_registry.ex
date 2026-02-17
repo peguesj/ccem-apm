@@ -92,6 +92,12 @@ defmodule ApmV4.AgentRegistry do
     GenServer.call(__MODULE__, :clear_notifications)
   end
 
+  @doc "Clear all agents, sessions, and notifications. Resets notification counter."
+  @spec clear_all() :: :ok
+  def clear_all do
+    GenServer.call(__MODULE__, :clear_all)
+  end
+
   # --- GenServer Callbacks ---
 
   @impl true
@@ -191,5 +197,12 @@ defmodule ApmV4.AgentRegistry do
   def handle_call(:clear_notifications, _from, state) do
     :ets.delete_all_objects(@notifications_table)
     {:reply, :ok, state}
+  end
+
+  def handle_call(:clear_all, _from, _state) do
+    :ets.delete_all_objects(@agents_table)
+    :ets.delete_all_objects(@sessions_table)
+    :ets.delete_all_objects(@notifications_table)
+    {:reply, :ok, %{notification_counter: 0}}
   end
 end
