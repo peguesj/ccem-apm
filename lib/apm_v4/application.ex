@@ -11,8 +11,7 @@ defmodule ApmV4.Application do
       ApmV4Web.Telemetry,
       {DNSCluster, query: Application.get_env(:apm_v4, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ApmV4.PubSub},
-      # Start a worker by calling: ApmV4.Worker.start_link(arg)
-      # {ApmV4.Worker, arg},
+      ApmV4.AgentRegistry,
       # Start to serve requests, typically the last entry
       ApmV4Web.Endpoint
     ]
