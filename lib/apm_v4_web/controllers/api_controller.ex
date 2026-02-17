@@ -223,7 +223,11 @@ defmodule ApmV4Web.ApiController do
         tier: params["tier"] || 1,
         status: params["status"] || "idle",
         deps: params["deps"] || [],
-        metadata: params["metadata"] || %{}
+        metadata: params["metadata"] || %{},
+        namespace: params["namespace"],
+        agent_type: params["agent_type"] || "individual",
+        path: params["path"],
+        member_count: params["member_count"]
       }
 
       :ok = AgentRegistry.register_agent(agent_id, metadata, project_name)
@@ -324,6 +328,9 @@ defmodule ApmV4Web.ApiController do
       |> put_status(400)
       |> json(%{error: "Missing required field: id"})
     else
+      # Coerce string IDs to integer (ETS keys are integers)
+      id = if is_binary(id), do: String.to_integer(id), else: id
+
       case ProjectStore.respond_to_input(id, choice) do
         :ok ->
           json(conn, %{ok: true, id: id})
@@ -440,19 +447,28 @@ defmodule ApmV4Web.ApiController do
 
     case EnvironmentScanner.get_environment(name) do
       {:ok, env} ->
-        cmd =
-          if with_ccem do
-            "cd #{env.path} && claude --dangerously-skip-permissions"
-          else
-            "cd #{env.path} && claude --dangerously-skip-permissions --no-hooks"
-          end
+        safe_path = env.path
 
-        # Launch detached so it doesn't block
-        spawn(fn ->
-          System.cmd("sh", ["-c", "nohup #{cmd} </dev/null >/dev/null 2>&1 &"], cd: env.path)
-        end)
+        # Validate path contains no shell metacharacters
+        if String.match?(safe_path, ~r/^[a-zA-Z0-9\/_\-\.@~ ]+$/) do
+          args =
+            if with_ccem,
+              do: ["--dangerously-skip-permissions"],
+              else: ["--dangerously-skip-permissions", "--no-hooks"]
 
-        json(conn, %{ok: true, environment: name, with_ccem: with_ccem})
+          # Launch detached using spawn_executable (no shell injection)
+          spawn(fn ->
+            System.cmd("nohup", ["claude" | args],
+              cd: safe_path,
+              stderr_to_stdout: true,
+              into: File.stream!("/dev/null")
+            )
+          end)
+
+          json(conn, %{ok: true, environment: name, with_ccem: with_ccem})
+        else
+          conn |> put_status(400) |> json(%{error: "Invalid environment path"})
+        end
 
       {:error, :not_found} ->
         conn |> put_status(404) |> json(%{error: "Environment not found", name: name})
@@ -463,16 +479,17 @@ defmodule ApmV4Web.ApiController do
   def stop_session(conn, %{"name" => name}) do
     case EnvironmentScanner.get_environment(name) do
       {:ok, env} ->
-        # Find claude processes in this directory
-        {output, _} = System.cmd("sh", ["-c", "pgrep -f 'claude.*#{env.path}' || true"])
+        # Use pgrep safely with exact argument matching (no shell interpolation)
+        {output, _} = System.cmd("pgrep", ["-f", "claude.*#{env.path}"],
+          stderr_to_stdout: true)
 
         pids =
           output
           |> String.split("\n", trim: true)
-          |> Enum.filter(&(String.trim(&1) != ""))
+          |> Enum.filter(&String.match?(&1, ~r/^\d+$/))
 
         Enum.each(pids, fn pid ->
-          System.cmd("kill", [String.trim(pid)], stderr_to_stdout: true)
+          System.cmd("kill", [pid], stderr_to_stdout: true)
         end)
 
         json(conn, %{ok: true, environment: name, killed: length(pids)})

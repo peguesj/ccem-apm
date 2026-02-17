@@ -112,7 +112,7 @@ defmodule ApmV4Web.DashboardLiveTest do
 
   test "graph container has correct CSS classes for sizing", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/")
-    assert html =~ "h-48"
+    assert html =~ "h-80"
     assert html =~ "bg-base-300"
   end
 

@@ -11,12 +11,19 @@ defmodule ApmV4.CommandRunner do
   @max_timeout :timer.seconds(120)
 
   @dangerous_patterns [
-    ~r/rm\s+-rf\s+\//,
+    ~r/rm\s+-rf\s+[~\/]/,
     ~r/sudo\s/,
     ~r/mkfs/,
     ~r/dd\s+if=/,
     ~r/>\s*\/dev\//,
-    ~r/chmod\s+777\s+\//
+    ~r/chmod\s+777\s+\//,
+    ~r/curl\s.*\|\s*(ba)?sh/,
+    ~r/wget\s.*\|\s*(ba)?sh/,
+    ~r/\bprintenv\b/,
+    ~r/\benv\b\s*$/,
+    ~r/nc\s+-[elp]/,
+    ~r/\/dev\/tcp\//,
+    ~r/bash\s+-i\s+/
   ]
 
   # --- Client API ---
@@ -74,7 +81,7 @@ defmodule ApmV4.CommandRunner do
 
           :ets.insert(@table, {request_id, info})
 
-          result = run_command(command, env.path, timeout, topic)
+          result = run_command(command, env.path, timeout, topic, request_id)
 
           :ets.delete(@table, request_id)
           {:reply, {:ok, Map.put(result, :request_id, request_id)}, state}
@@ -105,13 +112,23 @@ defmodule ApmV4.CommandRunner do
     end)
   end
 
-  defp run_command(command, cwd, timeout, topic) do
+  defp run_command(command, cwd, timeout, topic, request_id) do
+    table = @table
+
     task =
       Task.async(fn ->
         port =
-          Port.open({:spawn, "sh -c '#{escape_command(command)}'"},
-            [:binary, :exit_status, :stderr_to_stdout, cd: cwd]
+          Port.open({:spawn_executable, "/bin/sh"},
+            [:binary, :exit_status, :stderr_to_stdout,
+             args: ["-c", command], cd: to_charlist(cwd)]
           )
+
+        # Store the task pid so kill/1 can find it
+        case :ets.lookup(table, request_id) do
+          [{^request_id, info}] ->
+            :ets.insert(table, {request_id, %{info | pid: self()}})
+          _ -> :ok
+        end
 
         collect_output(port, "", topic)
       end)
@@ -138,10 +155,6 @@ defmodule ApmV4.CommandRunner do
       @max_timeout ->
         %{exit_code: 124, output: acc <> "\n[collect timeout]"}
     end
-  end
-
-  defp escape_command(cmd) do
-    String.replace(cmd, "'", "'\\''")
   end
 
   defp generate_id do

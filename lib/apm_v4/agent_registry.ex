@@ -163,6 +163,10 @@ defmodule ApmV4.AgentRegistry do
         deps: Map.get(metadata, :deps, []),
         metadata: Map.get(metadata, :metadata, %{}),
         project_name: project_name,
+        namespace: Map.get(metadata, :namespace, nil),
+        agent_type: Map.get(metadata, :agent_type, "individual"),
+        path: Map.get(metadata, :path, nil),
+        member_count: Map.get(metadata, :member_count, nil),
         registered_at: now,
         last_seen: now
       }
@@ -288,6 +292,10 @@ defmodule ApmV4.AgentRegistry do
           |> maybe_put(fields, "deps", :deps)
           |> maybe_put(fields, "metadata", :metadata)
           |> maybe_put(fields, "project_name", :project_name)
+          |> maybe_put(fields, "namespace", :namespace)
+          |> maybe_put(fields, "agent_type", :agent_type)
+          |> maybe_put(fields, "path", :path)
+          |> maybe_put(fields, "member_count", :member_count)
           |> Map.put(:last_seen, now)
 
         :ets.insert(@agents_table, {agent_id, updated})

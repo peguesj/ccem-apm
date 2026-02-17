@@ -141,7 +141,10 @@ defmodule ApmV4.EnvironmentScanner do
       detected_at: DateTime.utc_now()
     }
   rescue
-    _ -> nil
+    e in [File.Error, ArgumentError, MatchError] ->
+      require Logger
+      Logger.warning("Failed to build environment for #{project_path}: #{inspect(e)}")
+      nil
   end
 
   defp detect_stack(path) do
