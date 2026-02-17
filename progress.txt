@@ -1,0 +1,14 @@
+# Ralph Progress Log
+Started: Tue Feb 17 09:23:35 EST 2026
+---
+
+## US-001 - Scaffold Phoenix project with deps and supervision tree
+- Scaffolded Phoenix 1.8.3 project via `mix phx.new apm_v4 --no-ecto --no-mailer` in temp dir, copied to project root
+- mix.exs includes: phoenix ~> 1.8.3, phoenix_live_view ~> 1.1.0, jason ~> 1.4, bandit ~> 1.5, plus daisyUI/Tailwind/esbuild tooling
+- Application module supervision tree: Telemetry, DNSCluster, Phoenix.PubSub (ApmV4.PubSub), ApmV4Web.Endpoint
+- Port 3031 configured in dev.exs and runtime.exs (matching existing APM convention)
+- `mix deps.get` succeeded, `mix compile --warnings-as-errors` passed with zero warnings
+- `mix test` passed: 5 tests, 0 failures
+- Files created: mix.exs, config/{config,dev,test,runtime,prod}.exs, lib/apm_v4/{application,apm_v4}.ex, lib/apm_v4_web/{endpoint,router,telemetry,gettext}.ex, lib/apm_v4_web/components/{core_components,layouts}.ex, lib/apm_v4_web/controllers/{page_controller,page_html,error_html,error_json}.ex, test/*, assets/*, priv/*
+- Learnings: Phoenix 1.8.3 generator includes daisyUI/Tailwind v4 out of the box, uses Bandit as default adapter, includes heroicons vendor files
+---
