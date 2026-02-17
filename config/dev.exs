@@ -63,6 +63,11 @@ config :apm_v4, dev_routes: true
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 
+# JSON formatter available for structured logging (opt-in via Logger backend config)
+# To use: config :logger, :default_formatter,
+#   format: {ApmV4.Logger.JsonFormatter, :format}, metadata: [:module, :function]
+config :apm_v4, :json_logger_enabled, false
+
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
 config :phoenix, :stacktrace_depth, 20

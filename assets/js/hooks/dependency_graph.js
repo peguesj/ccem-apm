@@ -72,6 +72,8 @@ const DependencyGraph = {
     this.svg = d3.select(this.el).append("svg")
       .attr("width", "100%")
       .attr("height", "100%")
+      .attr("role", "img")
+      .attr("aria-labelledby", "dep-graph-title dep-graph-desc")
 
     this.tooltip = d3.select(this.el).append("div")
       .attr("class", "absolute hidden bg-base-100 border border-base-300 rounded-lg shadow-xl p-3 text-xs z-50 pointer-events-none max-w-[260px]")
@@ -115,6 +117,20 @@ const DependencyGraph = {
 
     this.svg.selectAll("*").remove()
     this.svg.attr("viewBox", `0 0 ${width} ${height}`)
+
+    // Accessible title and description
+    const statusCounts = {}
+    this.agents.forEach(a => {
+      const s = a.status || "idle"
+      statusCounts[s] = (statusCounts[s] || 0) + 1
+    })
+    const summaryParts = Object.entries(statusCounts).map(([s, c]) => `${c} ${s}`)
+    const summaryText = summaryParts.length > 0
+      ? `${this.agents.length} agents: ${summaryParts.join(", ")}`
+      : "No agents registered"
+
+    this.svg.append("title").attr("id", "dep-graph-title").text("Agent Dependency Graph")
+    this.svg.append("desc").attr("id", "dep-graph-desc").text(summaryText)
 
     if (this.agents.length === 0) {
       this.svg.append("text")
@@ -284,6 +300,10 @@ const DependencyGraph = {
     // Nodes
     const node = zoomG.append("g")
       .selectAll("g").data(nodes).enter().append("g")
+      .attr("class", "graph-node")
+      .attr("tabindex", "0")
+      .attr("role", "button")
+      .attr("aria-label", d => `Agent ${d.name || d.id}, status ${d.status}`)
       .style("cursor", "grab")
       .call(this.drag(this.simulation))
 
@@ -410,6 +430,31 @@ const DependencyGraph = {
       .on("click", function(event, d) {
         pushEvent("select_agent", { agent_id: d.id })
       })
+
+    // Keyboard navigation for nodes
+    node.on("keydown", function(event, d) {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault()
+        pushEvent("select_agent", { agent_id: d.id })
+      }
+      // Arrow key navigation between nodes
+      const allNodes = node.nodes()
+      const currentIndex = allNodes.indexOf(this)
+      let targetIndex = -1
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+        event.preventDefault()
+        targetIndex = (currentIndex + 1) % allNodes.length
+      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+        event.preventDefault()
+        targetIndex = (currentIndex - 1 + allNodes.length) % allNodes.length
+      }
+      if (targetIndex >= 0) {
+        allNodes[targetIndex].focus()
+      }
+    })
+
+    // Mark decorative SVG elements
+    this.svg.selectAll("defs").attr("aria-hidden", "true").attr("focusable", "false")
 
     // ANON count indicator (bottom-right of canvas, outside zoom)
     if (anonCount > 0 && !this.showAnon) {

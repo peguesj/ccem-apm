@@ -9,6 +9,8 @@ defmodule ApmV4Web.DashboardLive do
 
   use ApmV4Web, :live_view
 
+  import ApmV4Web.Accessibility
+
   alias ApmV4.AgentRegistry
   alias ApmV4.ConfigLoader
   alias ApmV4.ProjectStore
@@ -117,7 +119,7 @@ defmodule ApmV4Web.DashboardLive do
       </aside>
 
       <%!-- Main content --%>
-      <div class="flex-1 flex flex-col overflow-hidden">
+      <div id="main-content" class="flex-1 flex flex-col overflow-hidden">
         <%!-- Top bar --%>
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
           <div class="flex items-center gap-3">
@@ -180,23 +182,25 @@ defmodule ApmV4Web.DashboardLive do
                         Clear all
                       </button>
                     </div>
-                    <div class="space-y-1 max-h-64 overflow-y-auto">
-                      <div
-                        :for={notif <- Enum.take(@notifications, 10)}
-                        class="p-2 rounded bg-base-300 text-xs"
-                      >
-                        <div class="flex items-center gap-2 mb-1">
-                          <span class={["badge badge-xs", notif_badge_class(notif.level)]}>
-                            {notif.level}
-                          </span>
-                          <span class="font-semibold truncate">{notif.title}</span>
+                    <.live_region id="notification-list" politeness="polite">
+                      <div class="space-y-1 max-h-64 overflow-y-auto">
+                        <div
+                          :for={notif <- Enum.take(@notifications, 10)}
+                          class="p-2 rounded bg-base-300 text-xs"
+                        >
+                          <div class="flex items-center gap-2 mb-1">
+                            <span class={["badge badge-xs", notif_badge_class(notif.level)]}>
+                              {notif.level}
+                            </span>
+                            <span class="font-semibold truncate">{notif.title}</span>
+                          </div>
+                          <p class="text-base-content/60 truncate">{notif.message}</p>
                         </div>
-                        <p class="text-base-content/60 truncate">{notif.message}</p>
+                        <p :if={@notifications == []} class="text-center text-base-content/40 py-4">
+                          No notifications
+                        </p>
                       </div>
-                      <p :if={@notifications == []} class="text-center text-base-content/40 py-4">
-                        No notifications
-                      </p>
-                    </div>
+                    </.live_region>
                   </div>
                 </div>
               </div>
@@ -275,14 +279,16 @@ defmodule ApmV4Web.DashboardLive do
           <%!-- Left panel: stats + agents --%>
           <div class="flex-1 overflow-y-auto p-4 space-y-4">
             <%!-- Stats grid --%>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              <.stat_card label="Agents" value={@agent_count} color="text-primary" />
-              <.stat_card label="Active" value={@active_count} color="text-success" />
-              <.stat_card label="Idle" value={@idle_count} color="text-base-content/60" />
-              <.stat_card label="Errors" value={@error_count} color="text-error" />
-              <.stat_card label="Sessions" value={@session_count} color="text-info" />
-              <.stat_card label="Notifications" value={length(@notifications)} color="text-warning" />
-            </div>
+            <.live_region id="agent-status-summary" politeness="polite">
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <.stat_card label="Agents" value={@agent_count} color="text-primary" />
+                <.stat_card label="Active" value={@active_count} color="text-success" />
+                <.stat_card label="Idle" value={@idle_count} color="text-base-content/60" />
+                <.stat_card label="Errors" value={@error_count} color="text-error" />
+                <.stat_card label="Sessions" value={@session_count} color="text-info" />
+                <.stat_card label="Notifications" value={length(@notifications)} color="text-warning" />
+              </div>
+            </.live_region>
 
             <%!-- D3 Dependency Graph --%>
             <div class={[

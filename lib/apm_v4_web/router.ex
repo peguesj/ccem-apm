@@ -2,6 +2,7 @@ defmodule ApmV4Web.Router do
   use ApmV4Web, :router
 
   pipeline :browser do
+    plug ApmV4Web.Plugs.CorrelationId
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_live_flash
@@ -11,8 +12,10 @@ defmodule ApmV4Web.Router do
   end
 
   pipeline :api do
+    plug ApmV4Web.Plugs.CorrelationId
     plug :accepts, ["json"]
     plug ApmV4Web.Plugs.CORS
+    plug ApmV4Web.Plugs.ApiAuth
   end
 
   pipeline :api_flexible do
