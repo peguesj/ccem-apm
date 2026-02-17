@@ -202,3 +202,18 @@ Started: Tue Feb 17 09:23:35 EST 2026
 - swift build succeeds with Swift 6.1.2 (zero errors, zero warnings), 155/155 Elixir tests pass, zero compiler warnings
 - Learnings: Swift Package Manager executables on macOS need explicit NSApplication.shared.run() instead of @main attribute for AppKit apps. WKWebView's didFailProvisionalNavigation fires for connection refused errors (server not running), while didFail fires for mid-navigation errors. NSUserDefaults with NSStringFromRect/NSRectFromString is the simplest window frame persistence pattern without needing Codable. The .build/ directory from SPM contains compiled binaries, module caches, and debug symbols that should always be gitignored.
 ---
+
+## US-012 - Integration testing across all components
+- Created test/integration/full_stack_test.exs with 21 integration test cases across 7 describe blocks
+- API end-to-end flow: register agent via POST -> verify via GET /api/agents -> send heartbeat -> check /api/status (multi-agent batch test, notification creation test)
+- LiveView DashboardLive: mounts with pre-registered agent cards, stat cards with correct counts, D3 graph container with hook attribute
+- LiveView RalphFlowchartLive: mounts at /ralph with flowchart container, renders all 10 Ralph methodology steps, step progression controls (reset/next)
+- AG-UI SSE streaming: RUN_STARTED emitted on agent register, full lifecycle RUN_STARTED->RUN_FINISHED, STATE_SNAPSHOT on SSE connect with current fleet
+- A2UI JSONL: GET /api/a2ui/components returns valid JSONL with all 6 component types (card, table, chart, alert, badge, progress), content negotiation via Accept: application/json
+- PubSub real-time: agent registration appears in LiveView via PubSub, status change updates display, notification appears, rapid multi-agent registration all visible
+- SessionParser integration: JSONL fixture at test/fixtures/sample_session.jsonl with 3 assistant messages; verified token extraction (1150 input, 450 output), tool counts (Read x2, Bash x1, Edit x1), duration (30 seconds), turns (2)
+- Cross-component tests: agent registered via API visible in agents list, A2UI ComponentBuilder table/chart/badges, and EventStream lifecycle events
+- Files created: test/integration/full_stack_test.exs (new), test/fixtures/sample_session.jsonl (new)
+- 21 new test cases, 176/176 total pass, zero compiler warnings
+- Learnings: A2UI JSON content negotiation wraps components in a %{"components" => list} map (not bare list), so integration tests must account for the envelope structure. ConnCase with async: false is essential for integration tests sharing GenServer state. PubSub-driven LiveView updates need a small Process.sleep(100) for the async message delivery to complete before re-rendering. Test fixture JSONL files work well in test/fixtures/ directory alongside the test code.
+---
