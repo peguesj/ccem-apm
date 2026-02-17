@@ -109,6 +109,7 @@ defmodule ApmV4Web.DashboardLive do
           <.nav_item icon="hero-squares-2x2" label="Dashboard" active={@active_nav == :dashboard} href="/" />
           <.nav_item icon="hero-globe-alt" label="All Projects" active={@active_nav == :all} href="/apm-all" />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={@active_nav == :ralph} href="/ralph" />
+          <.nav_item icon="hero-clock" label="Timeline" active={@active_nav == :timeline} href="/timeline" />
         </nav>
         <div class="p-3 border-t border-base-300">
           <div class="text-xs text-base-content/40">

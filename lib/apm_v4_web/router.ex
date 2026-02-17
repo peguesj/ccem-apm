@@ -30,6 +30,7 @@ defmodule ApmV4Web.Router do
     live "/", DashboardLive, :index
     live "/apm-all", AllProjectsLive, :index
     live "/ralph", RalphFlowchartLive, :index
+    live "/timeline", SessionTimelineLive, :index
   end
 
   # v3-compatible health check (outside /api scope)
