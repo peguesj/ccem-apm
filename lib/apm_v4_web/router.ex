@@ -14,6 +14,10 @@ defmodule ApmV4Web.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :api_flexible do
+    plug :accepts, ["json", "jsonl"]
+  end
+
   scope "/", ApmV4Web do
     pipe_through :browser
 
@@ -29,6 +33,12 @@ defmodule ApmV4Web.Router do
     get "/agents", ApiController, :agents
     post "/notify", ApiController, :notify
     get "/ag-ui/events", AgUiController, :events
+  end
+
+  scope "/api", ApmV4Web do
+    pipe_through :api_flexible
+
+    get "/a2ui/components", A2uiController, :components
   end
 
   # Enable LiveDashboard in development

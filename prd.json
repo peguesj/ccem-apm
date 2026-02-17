@@ -90,8 +90,8 @@
         "Graph renders correctly with 0, 1, 5, and 20+ agents"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "D3.js v7 added to vendor. DependencyGraph LiveView JS hook at assets/js/hooks/dependency_graph.js with force simulation, draggable nodes, status color-coding (green=active, gray=idle, red=error, blue=discovered), directional arrow edges, hover tooltips showing agent details, click-to-inspect via select_agent event. phx-update=ignore on container. push_graph_data/2 builds edges from agent deps and pushes agents_updated event. Inspector tab shows selected agent details. 9 new test cases (graph container, hook attribute, empty state, multi-agent, 5+ agents, select_agent, unknown agent, CSS sizing). 52/52 tests pass. Zero compiler warnings."
     },
     {
       "id": "US-006",
@@ -109,8 +109,8 @@
         "Client can filter events by agent_id via query parameter"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "ApmV4.EventStream GenServer with sequence counter, event storage (500 cap), and PubSub broadcasting. SSE controller at GET /api/ag-ui/events with text/event-stream Content-Type, chunked transfer encoding, keepalive comments every 30s. Initial STATE_SNAPSHOT on connect with full fleet state. Agent_id query param filtering. AgentRegistry emits RUN_STARTED on register_agent and RUN_FINISHED on completed/finished status transitions. All 9 AG-UI event types supported: TEXT_MESSAGE_START/CONTENT/END, TOOL_CALL_START/ARGS/END, STATE_SNAPSHOT, RUN_STARTED, RUN_FINISHED. Monotonically increasing sequence numbers. 28 new test cases (16 EventStream + 12 controller). 80/80 tests pass. Zero compiler warnings."
     },
     {
       "id": "US-007",
@@ -128,8 +128,8 @@
         "Endpoint accepts Accept header to negotiate between JSONL stream and single JSON response"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "A2UI JSONL streaming endpoint at GET /api/a2ui/components with content negotiation (application/jsonl default, application/json via Accept header). ComponentBuilder module generates 6 component types: card (4 stat cards with title/body/footer/variant), chart (pie chart of status distribution with chart_type/data/labels), table (agents table with columns/rows/sortable), alert (from notifications with level/message/dismissible), badge (per-agent status with label/value/variant), progress (tier distribution with value/max/percentage). Custom MIME type registered in config.exs. Flexible API pipeline for jsonl+json Accept headers. Unique IDs on all components for incremental updates. 33 new test cases (21 ComponentBuilder + 12 controller). 113/113 tests pass. Zero compiler warnings."
     },
     {
       "id": "US-008",

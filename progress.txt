@@ -58,3 +58,64 @@ Started: Tue Feb 17 09:23:35 EST 2026
 - 11 new LiveView test cases (replacing 1 old PageController test), 45/45 total pass, zero compiler warnings
 - Learnings: Phoenix 1.8.3 ships with daisyUI v5 + Tailwind v4 preconfigured. The `app` layout function wraps LiveView content, so for full-screen dashboards, simplify it to passthrough. LiveView uses `html_helpers` which aliases Layouts, so theme_toggle must be called as `Layouts.theme_toggle` not bare `<.theme_toggle />`. Phoenix colocated hooks use `phoenix-colocated/apm_v4` import and can be spread alongside custom hooks.
 ---
+
+## US-005 - Implement D3.js dependency graph as LiveView JS hook
+- Added D3.js v7 (279KB minified) to assets/vendor/d3.min.js
+- Created DependencyGraph LiveView JS hook at assets/js/hooks/dependency_graph.js
+- D3.js force simulation with forceLink, forceManyBody, forceCenter, forceCollide, forceX/Y
+- Nodes rendered as SVG circles with status color-coding: green=active, gray=idle, red=error, blue=discovered
+- Dependency edges drawn as lines with SVG arrow markers (directional)
+- Nodes fully draggable with D3 drag behavior (grab/grabbing cursors, fx/fy pinning during drag)
+- Graph updates via pushEvent "agents_updated" from LiveView with agent list + computed edges
+- Tooltip on hover showing agent name, ID, tier, status, and dependencies (positioned relative to container)
+- Glow filter applied to hovered nodes for visual feedback
+- Click on node pushes "select_agent" event to LiveView, which switches to Inspector tab and shows agent details
+- Active agents get animated dashed outer ring
+- Empty state handled gracefully with "No agents registered" text
+- ResizeObserver re-renders graph when container is resized
+- Container uses phx-update="ignore" to prevent LiveView from clobbering D3-managed DOM
+- Updated DashboardLive: push_graph_data/2 helper builds graph payload from agent deps, select_agent event handler, selected_agent assign, enhanced Inspector tab
+- Registered DependencyGraph hook in app.js alongside Clock and colocated hooks
+- 9 new test cases: hook attribute verification, phx-update=ignore, empty state, multi-agent rendering, 5+ agents, select_agent event, unknown agent graceful handling, CSS sizing
+- Files changed: assets/vendor/d3.min.js (new), assets/js/hooks/dependency_graph.js (new), assets/js/app.js (modified), lib/apm_v4_web/live/dashboard_live.ex (modified), test/apm_v4_web/controllers/page_controller_test.exs (modified)
+- 52/52 tests pass, zero compiler warnings
+- Learnings: D3.js force simulation works well inside LiveView JS hooks with phx-update="ignore" to prevent DOM conflicts. push_event in mount runs before the hook's mounted() callback, so handleEvent must be registered in mounted() to catch the initial data. Building edges from agent deps server-side (in push_graph_data) keeps the JS hook focused on rendering. ResizeObserver is needed since the container may not have final dimensions when mounted() fires.
+---
+
+## US-006 - Implement AG-UI event streaming endpoint
+- Created ApmV4.EventStream GenServer with sequence counter, event storage (500-item cap), and PubSub broadcasting on topic "ag_ui:events"
+- Created ApmV4Web.AgUiController with SSE endpoint at GET /api/ag-ui/events using chunked transfer encoding
+- SSE response sets text/event-stream Content-Type, cache-control: no-cache, x-accel-buffering: no headers
+- Initial STATE_SNAPSHOT emitted on connect containing current agents, sessions, and notifications
+- Event loop receives PubSub messages and forwards as SSE `id:/event:/data:` formatted lines
+- Keepalive comment sent every 30 seconds to prevent connection timeout
+- agent_id query parameter filters events to specific agent (global events like STATE_SNAPSHOT always pass through)
+- Integrated with AgentRegistry: register_agent emits RUN_STARTED, update_status to "completed"/"finished" emits RUN_FINISHED
+- All 9 AG-UI event types supported: TEXT_MESSAGE_START/CONTENT/END, TOOL_CALL_START/ARGS/END, STATE_SNAPSHOT, RUN_STARTED, RUN_FINISHED
+- Convenience emitter functions generate unique IDs: run_id (run-*), message_id (msg-*), tool_call_id (tc-*) using crypto.strong_rand_bytes
+- EventStream added to Application supervision tree between AgentRegistry and Endpoint
+- Route added: GET /api/ag-ui/events in /api scope
+- Files changed: lib/apm_v4/event_stream.ex (new), lib/apm_v4_web/controllers/ag_ui_controller.ex (new), lib/apm_v4/agent_registry.ex (modified), lib/apm_v4/application.ex (modified), lib/apm_v4_web/router.ex (modified), test/apm_v4/event_stream_test.exs (new), test/apm_v4_web/controllers/ag_ui_controller_test.exs (new)
+- 28 new test cases, 80/80 total pass, zero compiler warnings
+- Learnings: Phoenix SSE is best implemented with send_chunked/2 + chunk/2 and a receive loop, not with Phoenix Channels. The AG-UI protocol maps naturally to SSE with id/event/data fields. Process.whereis/1 guards in AgentRegistry prevent crashes when EventStream hasn't started yet (e.g., during early boot or isolated tests). Testing SSE controllers requires Task.async + Task.shutdown pattern since the connection blocks indefinitely.
+---
+
+## US-007 - Implement A2UI declarative component rendering endpoint
+- Created ApmV4.A2ui.ComponentBuilder module that builds declarative UI component specs from current APM state
+- 6 component types supported: card, chart, table, alert, badge, progress
+- Card components (4): stat cards for agents/sessions/notifications/errors with title, body, footer, variant
+- Chart component: pie chart of agent status distribution with chart_type, labels, data fields
+- Table component: agents table with columns, rows, sortable fields
+- Alert components: generated from notifications with level, message, dismissible fields (capped at 10)
+- Badge components: per-agent status badges with label, value, variant mapped from agent status
+- Progress components: tier distribution with value, max, percentage fields
+- Created ApmV4Web.A2uiController with content negotiation via Accept header:
+  - application/jsonl (default): chunked JSONL stream, one JSON object per line
+  - application/json: single JSON array response
+- Registered custom MIME type `application/jsonl` in config.exs, rebuilt mime dep
+- Created :api_flexible pipeline in router accepting ["json", "jsonl"] for A2UI route
+- All components include unique IDs for incremental updates
+- Files changed: lib/apm_v4/a2ui/component_builder.ex (new), lib/apm_v4_web/controllers/a2ui_controller.ex (new), lib/apm_v4_web/router.ex (modified), config/config.exs (modified), test/apm_v4/a2ui/component_builder_test.exs (new), test/apm_v4_web/controllers/a2ui_controller_test.exs (new)
+- 33 new test cases (21 ComponentBuilder + 12 controller), 113/113 total pass, zero compiler warnings
+- Learnings: Phoenix's :api pipeline enforces Accept header restrictions via `plug :accepts`. Custom MIME types need both `config :mime, :types` registration and `mix deps.clean --build mime` to recompile. A separate pipeline (:api_flexible) is cleaner than modifying the existing :api pipeline when different routes need different content types. JSONL streaming works well with send_chunked/2 + chunk/2, same pattern as SSE but simpler (no event/id fields needed).
+---

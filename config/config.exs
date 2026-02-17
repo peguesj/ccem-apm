@@ -47,6 +47,11 @@ config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
 
+# Register application/jsonl MIME type for A2UI endpoint
+config :mime, :types, %{
+  "application/jsonl" => ["jsonl"]
+}
+
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
