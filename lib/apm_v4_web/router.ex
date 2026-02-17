@@ -28,6 +28,7 @@ defmodule ApmV4Web.Router do
     post "/heartbeat", ApiController, :heartbeat
     get "/agents", ApiController, :agents
     post "/notify", ApiController, :notify
+    get "/ag-ui/events", AgUiController, :events
   end
 
   # Enable LiveDashboard in development

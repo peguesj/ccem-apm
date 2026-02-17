@@ -14,6 +14,7 @@ defmodule ApmV4.Application do
       {DNSCluster, query: Application.get_env(:apm_v4, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ApmV4.PubSub},
       ApmV4.AgentRegistry,
+      ApmV4.EventStream,
       # Start to serve requests, typically the last entry
       ApmV4Web.Endpoint
     ]

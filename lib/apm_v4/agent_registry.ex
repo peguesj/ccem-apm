@@ -126,6 +126,12 @@ defmodule ApmV4.AgentRegistry do
       }
 
     :ets.insert(@agents_table, {agent_id, agent})
+
+    # Emit AG-UI RUN_STARTED event if EventStream is running
+    if Process.whereis(ApmV4.EventStream) do
+      ApmV4.EventStream.emit_run_started(agent_id, Map.get(metadata, :metadata, %{}))
+    end
+
     {:reply, :ok, state}
   end
 
@@ -135,6 +141,15 @@ defmodule ApmV4.AgentRegistry do
         now = DateTime.utc_now() |> DateTime.to_iso8601()
         updated = %{agent | status: status, last_seen: now}
         :ets.insert(@agents_table, {agent_id, updated})
+
+        # Emit AG-UI events for status transitions
+        if Process.whereis(ApmV4.EventStream) do
+          if status in ["completed", "finished"] do
+            run_id = Map.get(agent.metadata, "run_id", "run-#{agent_id}")
+            ApmV4.EventStream.emit_run_finished(agent_id, run_id)
+          end
+        end
+
         {:reply, :ok, state}
 
       [] ->
