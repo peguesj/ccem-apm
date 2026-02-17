@@ -56,9 +56,38 @@ defmodule ApmV4Web.DashboardLive do
       |> assign(:commands, commands)
       |> assign(:ralph_data, ralph_data)
       |> assign(:graph_expanded, false)
+      |> assign(:show_anon, false)
+      # Global filter bar state (Splunk/ELK-style)
+      |> assign(:filter_status, nil)
+      |> assign(:filter_namespace, nil)
+      |> assign(:filter_agent_type, nil)
+      |> assign(:filter_query, "")
       |> push_graph_data(agents)
 
     {:ok, socket}
+  end
+
+  defp filter_by_status(agents, nil), do: agents
+  defp filter_by_status(agents, ""), do: agents
+  defp filter_by_status(agents, status), do: Enum.filter(agents, &(&1.status == status))
+
+  defp filter_by_namespace(agents, nil), do: agents
+  defp filter_by_namespace(agents, ""), do: agents
+  defp filter_by_namespace(agents, ns), do: Enum.filter(agents, &(&1[:namespace] == ns))
+
+  defp filter_by_agent_type(agents, nil), do: agents
+  defp filter_by_agent_type(agents, ""), do: agents
+  defp filter_by_agent_type(agents, t), do: Enum.filter(agents, &((&1[:agent_type] || "individual") == t))
+
+  defp filter_by_query(agents, nil), do: agents
+  defp filter_by_query(agents, ""), do: agents
+  defp filter_by_query(agents, q) do
+    q = String.downcase(q)
+    Enum.filter(agents, fn a ->
+      String.contains?(String.downcase(a.name || ""), q) ||
+      String.contains?(String.downcase(a.id || ""), q) ||
+      String.contains?(String.downcase(a[:namespace] || ""), q)
+    end)
   end
 
   @impl true
@@ -176,6 +205,71 @@ defmodule ApmV4Web.DashboardLive do
           </div>
         </header>
 
+        <%!-- Filter bar (Splunk/ELK-style global query) --%>
+        <div class="bg-base-200 border-b border-base-300 px-4 py-1.5 flex items-center gap-2 flex-shrink-0">
+          <.icon name="hero-funnel" class="size-3.5 text-base-content/40" />
+          <input
+            type="text"
+            placeholder="Search agents by name, id, namespace..."
+            value={@filter_query}
+            phx-keyup="update_filter_query"
+            phx-debounce="200"
+            class="input input-xs input-bordered bg-base-300 w-48 text-xs"
+          />
+          <%!-- Status filter --%>
+          <div class="dropdown dropdown-bottom">
+            <div tabindex="0" role="button" class={["btn btn-xs gap-1", @filter_status && "btn-primary" || "btn-ghost"]}>
+              {if @filter_status, do: @filter_status, else: "Status"}
+              <.icon name="hero-chevron-down" class="size-2.5" />
+            </div>
+            <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-32">
+              <li><button phx-click="set_filter" phx-value-field="status" phx-value-value="">All</button></li>
+              <li :for={s <- ["active", "idle", "error", "discovered", "completed"]}>
+                <button phx-click="set_filter" phx-value-field="status" phx-value-value={s}>{s}</button>
+              </li>
+            </ul>
+          </div>
+          <%!-- Agent type filter --%>
+          <div class="dropdown dropdown-bottom">
+            <div tabindex="0" role="button" class={["btn btn-xs gap-1", @filter_agent_type && "btn-info" || "btn-ghost"]}>
+              {if @filter_agent_type, do: @filter_agent_type, else: "Type"}
+              <.icon name="hero-chevron-down" class="size-2.5" />
+            </div>
+            <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-36">
+              <li><button phx-click="set_filter" phx-value-field="agent_type" phx-value-value="">All</button></li>
+              <li :for={t <- ["individual", "squadron", "swarm", "orchestrator"]}>
+                <button phx-click="set_filter" phx-value-field="agent_type" phx-value-value={t}>{t}</button>
+              </li>
+            </ul>
+          </div>
+          <%!-- Namespace filter --%>
+          <div :if={namespaces_from_agents(@agents) != []} class="dropdown dropdown-bottom">
+            <div tabindex="0" role="button" class={["btn btn-xs gap-1", @filter_namespace && "btn-accent" || "btn-ghost"]}>
+              {if @filter_namespace, do: @filter_namespace, else: "Namespace"}
+              <.icon name="hero-chevron-down" class="size-2.5" />
+            </div>
+            <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-44 max-h-48 overflow-y-auto">
+              <li><button phx-click="set_filter" phx-value-field="namespace" phx-value-value="">All</button></li>
+              <li :for={ns <- namespaces_from_agents(@agents)}>
+                <button phx-click="set_filter" phx-value-field="namespace" phx-value-value={ns}>{ns}</button>
+              </li>
+            </ul>
+          </div>
+          <%!-- Show unnamed toggle --%>
+          <label class="flex items-center gap-1 text-[10px] text-base-content/40 ml-auto cursor-pointer">
+            <input type="checkbox" class="checkbox checkbox-xs" phx-click="toggle_show_anon" checked={@show_anon} />
+            Show unnamed
+          </label>
+          <%!-- Clear filters --%>
+          <button
+            :if={@filter_status || @filter_namespace || @filter_agent_type || @filter_query != ""}
+            class="btn btn-ghost btn-xs text-error"
+            phx-click="clear_filters"
+          >
+            Clear
+          </button>
+        </div>
+
         <%!-- Dashboard body --%>
         <div class="flex-1 flex overflow-hidden">
           <%!-- Left panel: stats + agents --%>
@@ -221,7 +315,7 @@ defmodule ApmV4Web.DashboardLive do
                   id="dep-graph"
                   class={[
                     "w-full rounded bg-base-300 relative",
-                    @graph_expanded && "h-[calc(100%-2rem)]" || "h-48"
+                    @graph_expanded && "h-[calc(100%-2rem)]" || "h-80"
                   ]}
                   phx-hook="DependencyGraph"
                   phx-update="ignore"
@@ -246,7 +340,7 @@ defmodule ApmV4Web.DashboardLive do
               <%!-- Agent rows --%>
               <div class="space-y-1">
                 <div
-                  :for={agent <- @agents}
+                  :for={agent <- filtered_agents(assigns)}
                   class="card bg-base-200 border border-base-300 hover:border-primary/50 transition-colors cursor-pointer"
                   phx-click="select_agent"
                   phx-value-agent_id={agent.id}
@@ -527,6 +621,53 @@ defmodule ApmV4Web.DashboardLive do
     {:noreply, socket}
   end
 
+  # --- Filter Event Handlers ---
+
+  def handle_event("set_filter", %{"field" => "status", "value" => val}, socket) do
+    val = if val == "", do: nil, else: val
+    socket = assign(socket, :filter_status, val) |> push_filtered_graph()
+    {:noreply, socket}
+  end
+
+  def handle_event("set_filter", %{"field" => "agent_type", "value" => val}, socket) do
+    val = if val == "", do: nil, else: val
+    socket = assign(socket, :filter_agent_type, val) |> push_filtered_graph()
+    {:noreply, socket}
+  end
+
+  def handle_event("set_filter", %{"field" => "namespace", "value" => val}, socket) do
+    val = if val == "", do: nil, else: val
+    socket = assign(socket, :filter_namespace, val) |> push_filtered_graph()
+    {:noreply, socket}
+  end
+
+  def handle_event("update_filter_query", %{"value" => val}, socket) do
+    socket = assign(socket, :filter_query, val || "") |> push_filtered_graph()
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle_show_anon", _params, socket) do
+    new_val = !socket.assigns.show_anon
+    socket = assign(socket, :show_anon, new_val) |> push_event("graph_toggle_anon", %{})
+    {:noreply, socket}
+  end
+
+  def handle_event("clear_filters", _params, socket) do
+    socket =
+      socket
+      |> assign(:filter_status, nil)
+      |> assign(:filter_namespace, nil)
+      |> assign(:filter_agent_type, nil)
+      |> assign(:filter_query, "")
+      |> push_filtered_graph()
+
+    {:noreply, socket}
+  end
+
+  def handle_event("graph_anon_toggled", %{"show" => show}, socket) do
+    {:noreply, assign(socket, :show_anon, show)}
+  end
+
   # --- PubSub Handlers ---
 
   @impl true
@@ -644,6 +785,27 @@ defmodule ApmV4Web.DashboardLive do
   end
 
   # --- Private Helpers ---
+
+  defp filtered_agents(assigns) do
+    assigns.agents
+    |> filter_by_status(assigns[:filter_status])
+    |> filter_by_namespace(assigns[:filter_namespace])
+    |> filter_by_agent_type(assigns[:filter_agent_type])
+    |> filter_by_query(assigns[:filter_query])
+  end
+
+  defp push_filtered_graph(socket) do
+    filtered = filtered_agents(socket.assigns)
+    push_graph_data(socket, filtered)
+  end
+
+  defp namespaces_from_agents(agents) do
+    agents
+    |> Enum.map(& &1[:namespace])
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
 
   defp push_graph_data(socket, agents) do
     graph_agents =

@@ -1,14 +1,8 @@
 /**
  * DependencyGraph LiveView JS Hook
  *
- * Renders a D3.js force-directed graph of agents with:
- *   - Tier-lane hierarchy: T0 top, T1 middle, T2+ bottom (forceY by tier)
- *   - Agent classification: unnamed agents typed by UUID/metadata heuristics
- *   - Degree-scaled nodes: r = 12 + min(degree, 5) * 2
- *   - Namespace group outlines: convex hull per namespace (or project fallback)
- *   - Squadron/swarm nodes: larger, distinct rendering with member count badge
- *   - Richer tooltips: type, project, namespace, agent_type, start_time, deps
- *   - Completed nodes: check badge
+ * Force-directed graph with adaptive layout, tier lanes, namespace hulls,
+ * agent type rendering, and zoom/pan support.
  */
 import * as d3 from "../../vendor/d3.min.js"
 
@@ -34,48 +28,43 @@ const STATUS_FILL = {
   standby:    "#f0883e22"
 }
 
-// Agent type visual config
 const AGENT_TYPE_CONFIG = {
-  squadron:    { sizeMultiplier: 1.8, strokeDash: "6 3", icon: "SQ" },
-  swarm:       { sizeMultiplier: 2.2, strokeDash: "3 2", icon: "SW" },
-  orchestrator:{ sizeMultiplier: 1.5, strokeDash: null,   icon: "ORC" },
-  individual:  { sizeMultiplier: 1.0, strokeDash: null,   icon: null }
+  squadron:    { sizeMultiplier: 1.8, strokeDash: "6 3" },
+  swarm:       { sizeMultiplier: 2.2, strokeDash: "3 2" },
+  orchestrator:{ sizeMultiplier: 1.5, strokeDash: null },
+  individual:  { sizeMultiplier: 1.0, strokeDash: null }
 }
 
-const UUID_SHORT_RE = /^[0-9a-f]{7,8}$/i
+const UUID_RE = /^[0-9a-f]{7,8}$/i
 
 function classify(agent) {
   const name = (agent.name || "").toLowerCase()
   const meta = agent.metadata || {}
   const type = (meta.type || "").toLowerCase()
-  const agentType = (agent.agentType || "individual").toLowerCase()
+  const at = (agent.agentType || "individual").toLowerCase()
 
-  // Squadron/swarm gets special classification
-  if (agentType === "squadron") return { label: "squadron", tag: "SQ" }
-  if (agentType === "swarm")    return { label: "swarm",    tag: "SW" }
-
-  if (type === "orchestrator" || agentType === "orchestrator") return { label: "orchestrator", tag: "ORC" }
-  if (type === "session")                           return { label: "session", tag: "SESS" }
-  if (type === "tool-runner" || type === "tool_runner") return { label: "tool",    tag: "TOOL" }
+  if (at === "squadron") return { label: "squadron", tag: "SQ" }
+  if (at === "swarm")    return { label: "swarm",    tag: "SW" }
+  if (type === "orchestrator" || at === "orchestrator") return { label: "orchestrator", tag: "ORC" }
+  if (type === "session")                           return { label: "session",  tag: "SESS" }
+  if (type === "tool-runner" || type === "tool_runner") return { label: "tool",  tag: "TOOL" }
   if (name.includes("explore") || name.includes("search")) return { label: "explore", tag: "EXPL" }
   if (name.includes("fix") || name.includes("repair"))     return { label: "fix",     tag: "FIX" }
   if (name.includes("test") || name.includes("spec"))      return { label: "test",    tag: "TEST" }
   if (name.includes("build") || name.includes("compile"))  return { label: "build",   tag: "BILD" }
   if (name.includes("monitor") || name.includes("watch"))  return { label: "watch",   tag: "WTCH" }
   if (name.includes("plan") || name.includes("analyze"))   return { label: "plan",    tag: "PLAN" }
-  if (UUID_SHORT_RE.test(name) || name === "unknown" || name === "") return { label: "agent", tag: "ANON" }
+  if (UUID_RE.test(name) || name === "unknown" || name === "") return { label: "agent", tag: "ANON" }
 
   const parts = name.split(":")
-  const short = parts[parts.length - 1].substring(0, 4).toUpperCase()
-  return { label: name, tag: short }
+  return { label: name, tag: parts[parts.length - 1].substring(0, 4).toUpperCase() }
 }
 
-const TIER_Y = { 0: 0.13, 1: 0.38, 2: 0.63, 3: 0.83 }
-function tierY(tier, height) {
-  return (TIER_Y[tier] ?? 0.75) * height
+function isAnon(agent) {
+  const name = agent.name || agent.id || ""
+  return UUID_RE.test(name) || name === "unknown" || name === ""
 }
 
-// Namespace/project hull colors
 const HULL_COLORS = ["#1f6feb", "#8957e5", "#f0883e", "#3fb950", "#f85149", "#58a6ff", "#d2a8ff"]
 
 const DependencyGraph = {
@@ -91,10 +80,17 @@ const DependencyGraph = {
     this.simulation = null
     this.agents = []
     this.edges = []
+    this.showAnon = false  // hide ANON by default
 
     this.handleEvent("agents_updated", (data) => {
       this.agents = data.agents || []
       this.edges = data.edges || []
+      this.draw()
+    })
+
+    // Listen for filter toggle from LiveView
+    this.handleEvent("graph_toggle_anon", () => {
+      this.showAnon = !this.showAnon
       this.draw()
     })
 
@@ -114,8 +110,8 @@ const DependencyGraph = {
 
   draw() {
     const container = this.el
-    const width  = container.clientWidth  || 400
-    const height = container.clientHeight || 220
+    const width  = container.clientWidth  || 600
+    const height = container.clientHeight || 400
 
     this.svg.selectAll("*").remove()
     this.svg.attr("viewBox", `0 0 ${width} ${height}`)
@@ -124,13 +120,13 @@ const DependencyGraph = {
       this.svg.append("text")
         .attr("x", width / 2).attr("y", height / 2)
         .attr("text-anchor", "middle")
-        .attr("fill", "#8b949e").attr("opacity", 0.4).attr("font-size", 12)
+        .attr("fill", "#8b949e").attr("opacity", 0.4).attr("font-size", 13)
         .text("No agents registered")
       return
     }
 
-    // Build nodes with enriched metadata
-    const nodes = this.agents.map(a => {
+    // Build nodes, optionally filtering ANON
+    let allAgents = this.agents.map(a => {
       const meta = a.metadata || {}
       return {
         id:          a.id,
@@ -139,19 +135,41 @@ const DependencyGraph = {
         status:      a.status || "idle",
         deps:        a.deps || [],
         metadata:    meta,
-        project:     meta.project    || meta["project"]     || a.project_name || null,
-        namespace:   a.namespace     || meta.namespace       || null,
-        agentType:   a.agent_type    || meta.agent_type      || "individual",
-        memberCount: a.member_count  || meta.member_count    || null,
-        path:        a.path          || meta.path            || null,
-        startTime:   meta.start_time || meta["start_time"]   || null,
+        project:     meta.project || meta["project"] || a.project_name || null,
+        namespace:   a.namespace  || meta.namespace   || null,
+        agentType:   a.agent_type || meta.agent_type  || "individual",
+        memberCount: a.member_count || meta.member_count || null,
+        path:        a.path || meta.path || null,
+        startTime:   meta.start_time || meta["start_time"] || null,
       }
     })
 
-    // Compute degree map for node sizing
+    const totalCount = allAgents.length
+    const anonCount = allAgents.filter(isAnon).length
+
+    // Filter ANON unless toggled on
+    const nodes = this.showAnon ? allAgents : allAgents.filter(n => !isAnon(n))
+
+    if (nodes.length === 0) {
+      this.svg.append("text")
+        .attr("x", width / 2).attr("y", height / 2)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#8b949e").attr("opacity", 0.4).attr("font-size", 13)
+        .text(`${anonCount} unnamed agents hidden`)
+      return
+    }
+
+    // Adaptive layout params based on node count and canvas size
+    const n = nodes.length
+    const density = n / (width * height / 10000) // nodes per 100x100 area
+    const baseRadius = n > 40 ? 10 : n > 20 ? 12 : 14
+    const chargeStrength = Math.min(-120, -60 * Math.sqrt(n))   // scales with node count
+    const linkDistance = Math.max(50, Math.min(120, width / (n * 0.3)))
+    const collisionPad = n > 40 ? 3 : 6
+
+    // Compute degree map
     const degree = {}
     nodes.forEach(n => { degree[n.id] = 0 })
-
     const nodeIds = new Set(nodes.map(n => n.id))
     const allLinks = []
 
@@ -172,20 +190,36 @@ const DependencyGraph = {
       }
     })
 
-    // Node radius: base + degree bonus, scaled by agent type
-    const nodeRadius = n => {
-      const typeConf = AGENT_TYPE_CONFIG[n.agentType] || AGENT_TYPE_CONFIG.individual
-      const base = 12 + Math.min(degree[n.id] || 0, 5) * 2
-      return base * typeConf.sizeMultiplier
+    const nodeRadius = nd => {
+      const conf = AGENT_TYPE_CONFIG[nd.agentType] || AGENT_TYPE_CONFIG.individual
+      const base = baseRadius + Math.min(degree[nd.id] || 0, 5) * 1.5
+      return base * conf.sizeMultiplier
     }
 
-    // Namespace groups (prefer namespace, fall back to project)
+    // Compute tier positions adaptively -- spread across full canvas height
+    const tierSet = [...new Set(nodes.map(n => n.tier))].sort()
+    const tierCount = tierSet.length
+    const tierYMap = {}
+    const margin = 0.12  // 12% padding top/bottom
+    tierSet.forEach((t, i) => {
+      if (tierCount === 1) {
+        tierYMap[t] = 0.5
+      } else {
+        tierYMap[t] = margin + (1 - 2 * margin) * (i / (tierCount - 1))
+      }
+    })
+    const getTierY = (tier) => (tierYMap[tier] ?? 0.5) * height
+
+    // Tier force strength -- weaker with more agents so they can spread
+    const tierStrength = n > 30 ? 0.12 : n > 15 ? 0.18 : 0.25
+
+    // Namespace groups
     const groupMap = {}
-    nodes.forEach(n => {
-      const groupKey = n.namespace || n.project
-      if (groupKey) {
-        if (!groupMap[groupKey]) groupMap[groupKey] = { nodes: [], isNamespace: !!n.namespace }
-        groupMap[groupKey].nodes.push(n)
+    nodes.forEach(nd => {
+      const key = nd.namespace || nd.project
+      if (key) {
+        if (!groupMap[key]) groupMap[key] = { nodes: [], isNamespace: !!nd.namespace }
+        groupMap[key].nodes.push(nd)
       }
     })
     const groupKeys = Object.keys(groupMap)
@@ -205,49 +239,55 @@ const DependencyGraph = {
     feMerge.append("feMergeNode").attr("in", "coloredBlur")
     feMerge.append("feMergeNode").attr("in", "SourceGraphic")
 
-    // Group hull layer (behind everything)
-    const hullLayer = this.svg.append("g").attr("class", "hull-layer")
+    // Zoom container
+    const zoomG = this.svg.append("g")
+    const zoom = d3.zoom()
+      .scaleExtent([0.3, 4])
+      .on("zoom", (event) => { zoomG.attr("transform", event.transform) })
+    this.svg.call(zoom)
+
+    // Hull layer
+    const hullLayer = zoomG.append("g").attr("class", "hull-layer")
 
     // Tier lane dividers
-    const tierSet = [...new Set(nodes.map(n => n.tier))].sort()
-    if (tierSet.length > 1) {
-      const laneG = this.svg.append("g")
+    if (tierCount > 1) {
+      const laneG = zoomG.append("g")
       for (let i = 0; i < tierSet.length - 1; i++) {
-        const y = (tierY(tierSet[i], height) + tierY(tierSet[i + 1], height)) / 2
+        const y = (getTierY(tierSet[i]) + getTierY(tierSet[i + 1])) / 2
         laneG.append("line")
           .attr("x1", 0).attr("x2", width).attr("y1", y).attr("y2", y)
           .attr("stroke", "#30363d").attr("stroke-width", 0.5)
-          .attr("stroke-dasharray", "4 6").attr("opacity", 0.3)
+          .attr("stroke-dasharray", "4 6").attr("opacity", 0.25)
       }
       tierSet.forEach(t => {
         laneG.append("text")
-          .attr("x", 4).attr("y", tierY(t, height) - 4)
-          .attr("font-size", 8).attr("fill", "#8b949e").attr("opacity", 0.4)
+          .attr("x", 6).attr("y", getTierY(t) - 6)
+          .attr("font-size", 9).attr("fill", "#8b949e").attr("opacity", 0.35)
           .text("T" + t)
       })
     }
 
-    // Force simulation with tier Y anchoring
+    // Force simulation -- adaptive params
     this.simulation = d3.forceSimulation(nodes)
-      .force("link",      d3.forceLink(allLinks).id(d => d.id).distance(75).strength(0.4))
-      .force("charge",    d3.forceManyBody().strength(-180))
-      .force("collision", d3.forceCollide().radius(d => nodeRadius(d) + 5))
-      .force("x",         d3.forceX(width / 2).strength(0.04))
-      .force("tierY",     d3.forceY(d => tierY(d.tier, height)).strength(0.35))
+      .force("link",      d3.forceLink(allLinks).id(d => d.id).distance(linkDistance).strength(0.3))
+      .force("charge",    d3.forceManyBody().strength(chargeStrength))
+      .force("collision", d3.forceCollide().radius(d => nodeRadius(d) + collisionPad))
+      .force("x",         d3.forceX(width / 2).strength(0.03))
+      .force("tierY",     d3.forceY(d => getTierY(d.tier)).strength(tierStrength))
 
     // Links
-    const link = this.svg.append("g")
+    const link = zoomG.append("g")
       .selectAll("line").data(allLinks).enter().append("line")
       .attr("stroke", "#30363d").attr("stroke-width", 1.5)
-      .attr("stroke-opacity", 0.55).attr("marker-end", "url(#arrowhead)")
+      .attr("stroke-opacity", 0.45).attr("marker-end", "url(#arrowhead)")
 
     // Nodes
-    const node = this.svg.append("g")
+    const node = zoomG.append("g")
       .selectAll("g").data(nodes).enter().append("g")
       .style("cursor", "grab")
       .call(this.drag(this.simulation))
 
-    // Main circle -- squadrons/swarms get double ring
+    // Main circle
     node.append("circle")
       .attr("r", d => nodeRadius(d))
       .attr("fill",   d => STATUS_FILL[d.status]   || STATUS_FILL.idle)
@@ -268,15 +308,12 @@ const DependencyGraph = {
       .attr("stroke-dasharray", d => d.agentType === "swarm" ? "2 2" : "4 3")
       .attr("opacity", 0.5)
 
-    // Member count badge for squadrons/swarms (top-right)
+    // Member count badge
     node.filter(d => d.memberCount && d.memberCount > 1)
       .append("circle")
       .attr("cx", d => nodeRadius(d) * 0.7)
       .attr("cy", d => -nodeRadius(d) * 0.7)
-      .attr("r", 8)
-      .attr("fill", "#1f6feb")
-      .attr("stroke", "#0d1117")
-      .attr("stroke-width", 1.5)
+      .attr("r", 8).attr("fill", "#1f6feb").attr("stroke", "#0d1117").attr("stroke-width", 1.5)
 
     node.filter(d => d.memberCount && d.memberCount > 1)
       .append("text")
@@ -286,7 +323,7 @@ const DependencyGraph = {
       .attr("font-size", 7).attr("font-weight", "bold").attr("fill", "#fff")
       .text(d => d.memberCount)
 
-    // Animated ring for active nodes
+    // Animated ring for active
     node.filter(d => d.status === "active" || d.status === "running")
       .append("circle")
       .attr("r", d => nodeRadius(d) + 4)
@@ -311,7 +348,7 @@ const DependencyGraph = {
       .attr("fill", d => STATUS_COLORS[d.status] || STATUS_COLORS.idle)
       .text(d => classify(d).tag)
 
-    // Name label below
+    // Name label
     node.append("text")
       .attr("text-anchor", "middle")
       .attr("dy", d => nodeRadius(d) + 11)
@@ -319,19 +356,19 @@ const DependencyGraph = {
       .text(d => {
         const parts = (d.name || d.id).split(":")
         const seg = parts[parts.length - 1]
-        return seg.length > 14 ? seg.substring(0, 12) + ".." : seg
+        return seg.length > 16 ? seg.substring(0, 14) + ".." : seg
       })
 
-    // Namespace label (smaller, above name, only for namespaced agents)
+    // Namespace label (below name)
     node.filter(d => d.namespace)
       .append("text")
       .attr("text-anchor", "middle")
       .attr("dy", d => nodeRadius(d) + 21)
       .attr("font-size", 6).attr("fill", "#8b949e").attr("opacity", 0.6)
-      .text(d => d.namespace.length > 12 ? d.namespace.substring(0, 10) + ".." : d.namespace)
+      .text(d => d.namespace.length > 14 ? d.namespace.substring(0, 12) + ".." : d.namespace)
 
     // Tooltip
-    const tooltip   = this.tooltip
+    const tooltip = this.tooltip
     const pushEvent = this.pushEvent.bind(this)
 
     node
@@ -340,31 +377,21 @@ const DependencyGraph = {
         const depsStr = d.deps.length > 0
           ? d.deps.slice(0, 3).join(", ") + (d.deps.length > 3 ? ` +${d.deps.length - 3}` : "")
           : "none"
-        const proj  = d.project   || "\u2014"
-        const ns    = d.namespace || "\u2014"
-        const aType = d.agentType || "individual"
-        const members = d.memberCount ? ` (${d.memberCount} agents)` : ""
-        const start = d.startTime ? d.startTime.substring(0, 16).replace("T", " ") : "\u2014"
-
         tooltip.classed("hidden", false).html(`
-          <div class="font-semibold mb-1 truncate">${d.name}${members}</div>
+          <div class="font-semibold mb-1 truncate">${d.name}${d.memberCount ? ` (${d.memberCount})` : ""}</div>
           <div class="space-y-0.5 text-base-content/60">
             <div><span class="text-base-content/40">ID:</span> <span class="font-mono">${d.id.substring(0, 12)}</span></div>
-            <div><span class="text-base-content/40">Tier:</span> T${d.tier}</div>
+            <div><span class="text-base-content/40">Tier:</span> T${d.tier} <span class="text-base-content/40 ml-2">Type:</span> ${cl.label} (${d.agentType})</div>
             <div><span class="text-base-content/40">Status:</span> <span style="color:${STATUS_COLORS[d.status] || '#8b949e'}">${d.status}</span></div>
-            <div><span class="text-base-content/40">Type:</span> ${cl.label} <span class="opacity-50">(${aType})</span></div>
-            <div><span class="text-base-content/40">Namespace:</span> ${ns}</div>
-            <div><span class="text-base-content/40">Project:</span> ${proj}</div>
-            <div><span class="text-base-content/40">Started:</span> ${start}</div>
+            ${d.namespace ? `<div><span class="text-base-content/40">NS:</span> ${d.namespace}</div>` : ""}
+            ${d.project ? `<div><span class="text-base-content/40">Project:</span> ${d.project}</div>` : ""}
             <div><span class="text-base-content/40">Deps:</span> ${depsStr}</div>
           </div>
         `)
-
         const rect = container.getBoundingClientRect()
         tooltip
           .style("left", (event.clientX - rect.left + 14) + "px")
           .style("top",  (event.clientY - rect.top  - 12) + "px")
-
         d3.select(this).select("circle")
           .attr("stroke-width", 3).attr("filter", "url(#glow)")
       })
@@ -384,47 +411,63 @@ const DependencyGraph = {
         pushEvent("select_agent", { agent_id: d.id })
       })
 
+    // ANON count indicator (bottom-right of canvas, outside zoom)
+    if (anonCount > 0 && !this.showAnon) {
+      this.svg.append("text")
+        .attr("x", width - 8).attr("y", height - 8)
+        .attr("text-anchor", "end")
+        .attr("font-size", 10).attr("fill", "#8b949e").attr("opacity", 0.5)
+        .attr("cursor", "pointer")
+        .text(`+${anonCount} unnamed hidden`)
+        .on("click", () => {
+          this.showAnon = true
+          this.draw()
+          pushEvent("graph_anon_toggled", { show: true })
+        })
+    }
+
     // Tick
     this.simulation.on("tick", () => {
+      const pad = 20
       nodes.forEach(d => {
         const r = nodeRadius(d)
-        d.x = Math.max(r + 2, Math.min(width  - r - 2, d.x))
-        d.y = Math.max(r + 2, Math.min(height - r - 16, d.y))
+        d.x = Math.max(r + pad, Math.min(width  - r - pad, d.x))
+        d.y = Math.max(r + pad, Math.min(height - r - pad, d.y))
       })
 
-      // Convex hull group indicators (namespace > project)
+      // Convex hulls
       if (groupKeys.length > 0) {
         hullLayer.selectAll("*").remove()
         groupKeys.forEach((key, i) => {
           const group = groupMap[key]
-          const members = group.nodes.filter(n => n.x !== undefined)
+          const members = group.nodes.filter(nd => nd.x !== undefined)
           if (members.length < 2) return
-          const pad = group.isNamespace ? 18 : 14
-          const pts = members.flatMap(n => [
-            [n.x - pad, n.y - pad], [n.x + pad, n.y - pad],
-            [n.x - pad, n.y + pad], [n.x + pad, n.y + pad]
+          const hullPad = group.isNamespace ? 22 : 16
+          const pts = members.flatMap(nd => [
+            [nd.x - hullPad, nd.y - hullPad], [nd.x + hullPad, nd.y - hullPad],
+            [nd.x - hullPad, nd.y + hullPad], [nd.x + hullPad, nd.y + hullPad]
           ])
           const hull = d3.polygonHull(pts)
           if (!hull) return
           const color = HULL_COLORS[i % HULL_COLORS.length]
-          const fillOpacity = group.isNamespace ? "33" : "18"
-          const strokeOpacity = group.isNamespace ? "88" : "55"
+          const fillOp = group.isNamespace ? "28" : "14"
+          const strokeOp = group.isNamespace ? "77" : "44"
           hullLayer.append("path")
             .attr("d", "M" + hull.map(p => p.join(",")).join("L") + "Z")
-            .attr("fill", color + fillOpacity)
-            .attr("stroke", color + strokeOpacity)
+            .attr("fill", color + fillOp)
+            .attr("stroke", color + strokeOp)
             .attr("stroke-width", group.isNamespace ? 1.5 : 1)
             .attr("stroke-dasharray", group.isNamespace ? null : "5 3")
+            .attr("rx", 8)
 
-          // Namespace label on hull
           if (group.isNamespace) {
-            const cx = d3.mean(members, n => n.x)
-            const minY = d3.min(members, n => n.y) - pad - 6
+            const cx = d3.mean(members, nd => nd.x)
+            const minY = d3.min(members, nd => nd.y) - hullPad - 8
             hullLayer.append("text")
               .attr("x", cx).attr("y", minY)
               .attr("text-anchor", "middle")
-              .attr("font-size", 9).attr("font-weight", "600")
-              .attr("fill", color).attr("opacity", 0.7)
+              .attr("font-size", 10).attr("font-weight", "600")
+              .attr("fill", color).attr("opacity", 0.65)
               .text(key)
           }
         })
