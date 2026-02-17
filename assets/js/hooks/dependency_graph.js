@@ -5,9 +5,10 @@
  *   - Tier-lane hierarchy: T0 top, T1 middle, T2+ bottom (forceY by tier)
  *   - Agent classification: unnamed agents typed by UUID/metadata heuristics
  *   - Degree-scaled nodes: r = 12 + min(degree, 5) * 2
- *   - Project group outlines: convex hull per project
- *   - Richer tooltips: type, project, start_time, deps
- *   - Completed nodes: ✓ badge
+ *   - Namespace group outlines: convex hull per namespace (or project fallback)
+ *   - Squadron/swarm nodes: larger, distinct rendering with member count badge
+ *   - Richer tooltips: type, project, namespace, agent_type, start_time, deps
+ *   - Completed nodes: check badge
  */
 import * as d3 from "../../vendor/d3.min.js"
 
@@ -16,7 +17,10 @@ const STATUS_COLORS = {
   idle:       "#8b949e",
   error:      "#f85149",
   discovered: "#58a6ff",
-  completed:  "#d2a8ff"
+  completed:  "#d2a8ff",
+  running:    "#3fb950",
+  complete:   "#d2a8ff",
+  standby:    "#f0883e"
 }
 
 const STATUS_FILL = {
@@ -24,17 +28,33 @@ const STATUS_FILL = {
   idle:       "#8b949e22",
   error:      "#f8514933",
   discovered: "#58a6ff33",
-  completed:  "#d2a8ff22"
+  completed:  "#d2a8ff22",
+  running:    "#3fb95033",
+  complete:   "#d2a8ff22",
+  standby:    "#f0883e22"
 }
 
-// UUID-like short ID pattern
+// Agent type visual config
+const AGENT_TYPE_CONFIG = {
+  squadron:    { sizeMultiplier: 1.8, strokeDash: "6 3", icon: "SQ" },
+  swarm:       { sizeMultiplier: 2.2, strokeDash: "3 2", icon: "SW" },
+  orchestrator:{ sizeMultiplier: 1.5, strokeDash: null,   icon: "ORC" },
+  individual:  { sizeMultiplier: 1.0, strokeDash: null,   icon: null }
+}
+
 const UUID_SHORT_RE = /^[0-9a-f]{7,8}$/i
 
 function classify(agent) {
   const name = (agent.name || "").toLowerCase()
   const meta = agent.metadata || {}
-  const type = (meta.type || meta["type"] || "").toLowerCase()
+  const type = (meta.type || "").toLowerCase()
+  const agentType = (agent.agentType || "individual").toLowerCase()
 
+  // Squadron/swarm gets special classification
+  if (agentType === "squadron") return { label: "squadron", tag: "SQ" }
+  if (agentType === "swarm")    return { label: "swarm",    tag: "SW" }
+
+  if (type === "orchestrator" || agentType === "orchestrator") return { label: "orchestrator", tag: "ORC" }
   if (type === "session")                           return { label: "session", tag: "SESS" }
   if (type === "tool-runner" || type === "tool_runner") return { label: "tool",    tag: "TOOL" }
   if (name.includes("explore") || name.includes("search")) return { label: "explore", tag: "EXPL" }
@@ -50,14 +70,13 @@ function classify(agent) {
   return { label: name, tag: short }
 }
 
-// Tier-lane Y anchors as fraction of height
 const TIER_Y = { 0: 0.13, 1: 0.38, 2: 0.63, 3: 0.83 }
 function tierY(tier, height) {
   return (TIER_Y[tier] ?? 0.75) * height
 }
 
-// Project group hull colors
-const HULL_COLORS = ["#1f6feb", "#8957e5", "#f0883e", "#3fb950", "#f85149"]
+// Namespace/project hull colors
+const HULL_COLORS = ["#1f6feb", "#8957e5", "#f0883e", "#3fb950", "#f85149", "#58a6ff", "#d2a8ff"]
 
 const DependencyGraph = {
   mounted() {
@@ -66,7 +85,7 @@ const DependencyGraph = {
       .attr("height", "100%")
 
     this.tooltip = d3.select(this.el).append("div")
-      .attr("class", "absolute hidden bg-base-100 border border-base-300 rounded-lg shadow-xl p-3 text-xs z-50 pointer-events-none max-w-[220px]")
+      .attr("class", "absolute hidden bg-base-100 border border-base-300 rounded-lg shadow-xl p-3 text-xs z-50 pointer-events-none max-w-[260px]")
       .style("position", "absolute")
 
     this.simulation = null
@@ -114,15 +133,18 @@ const DependencyGraph = {
     const nodes = this.agents.map(a => {
       const meta = a.metadata || {}
       return {
-        id:        a.id,
-        name:      a.name || a.id,
-        tier:      a.tier ?? 1,
-        status:    a.status || "idle",
-        deps:      a.deps || [],
-        metadata:  meta,
-        project:   meta.project   || meta["project"]    || null,
-        startTime: meta.start_time || meta["start_time"] || null,
-        agType:    meta.type       || meta["type"]       || null
+        id:          a.id,
+        name:        a.name || a.id,
+        tier:        a.tier ?? 1,
+        status:      a.status || "idle",
+        deps:        a.deps || [],
+        metadata:    meta,
+        project:     meta.project    || meta["project"]     || a.project_name || null,
+        namespace:   a.namespace     || meta.namespace       || null,
+        agentType:   a.agent_type    || meta.agent_type      || "individual",
+        memberCount: a.member_count  || meta.member_count    || null,
+        path:        a.path          || meta.path            || null,
+        startTime:   meta.start_time || meta["start_time"]   || null,
       }
     })
 
@@ -150,17 +172,23 @@ const DependencyGraph = {
       }
     })
 
-    const nodeRadius = n => 12 + Math.min(degree[n.id] || 0, 5) * 2
+    // Node radius: base + degree bonus, scaled by agent type
+    const nodeRadius = n => {
+      const typeConf = AGENT_TYPE_CONFIG[n.agentType] || AGENT_TYPE_CONFIG.individual
+      const base = 12 + Math.min(degree[n.id] || 0, 5) * 2
+      return base * typeConf.sizeMultiplier
+    }
 
-    // Project groups for convex hull outlines
-    const projectMap = {}
+    // Namespace groups (prefer namespace, fall back to project)
+    const groupMap = {}
     nodes.forEach(n => {
-      if (n.project) {
-        if (!projectMap[n.project]) projectMap[n.project] = []
-        projectMap[n.project].push(n)
+      const groupKey = n.namespace || n.project
+      if (groupKey) {
+        if (!groupMap[groupKey]) groupMap[groupKey] = { nodes: [], isNamespace: !!n.namespace }
+        groupMap[groupKey].nodes.push(n)
       }
     })
-    const projectKeys = Object.keys(projectMap)
+    const groupKeys = Object.keys(groupMap)
 
     // SVG defs
     const defs = this.svg.append("defs")
@@ -219,33 +247,67 @@ const DependencyGraph = {
       .style("cursor", "grab")
       .call(this.drag(this.simulation))
 
-    // Main circle
+    // Main circle -- squadrons/swarms get double ring
     node.append("circle")
       .attr("r", d => nodeRadius(d))
       .attr("fill",   d => STATUS_FILL[d.status]   || STATUS_FILL.idle)
       .attr("stroke", d => STATUS_COLORS[d.status] || STATUS_COLORS.idle)
-      .attr("stroke-width", 2)
+      .attr("stroke-width", d => d.agentType !== "individual" ? 3 : 2)
+      .attr("stroke-dasharray", d => {
+        const conf = AGENT_TYPE_CONFIG[d.agentType]
+        return conf ? conf.strokeDash : null
+      })
+
+    // Outer ring for squadrons/swarms
+    node.filter(d => d.agentType === "squadron" || d.agentType === "swarm")
+      .append("circle")
+      .attr("r", d => nodeRadius(d) + 5)
+      .attr("fill", "none")
+      .attr("stroke", d => STATUS_COLORS[d.status] || STATUS_COLORS.idle)
+      .attr("stroke-width", 1)
+      .attr("stroke-dasharray", d => d.agentType === "swarm" ? "2 2" : "4 3")
+      .attr("opacity", 0.5)
+
+    // Member count badge for squadrons/swarms (top-right)
+    node.filter(d => d.memberCount && d.memberCount > 1)
+      .append("circle")
+      .attr("cx", d => nodeRadius(d) * 0.7)
+      .attr("cy", d => -nodeRadius(d) * 0.7)
+      .attr("r", 8)
+      .attr("fill", "#1f6feb")
+      .attr("stroke", "#0d1117")
+      .attr("stroke-width", 1.5)
+
+    node.filter(d => d.memberCount && d.memberCount > 1)
+      .append("text")
+      .attr("x", d => nodeRadius(d) * 0.7)
+      .attr("y", d => -nodeRadius(d) * 0.7)
+      .attr("text-anchor", "middle").attr("dy", "0.35em")
+      .attr("font-size", 7).attr("font-weight", "bold").attr("fill", "#fff")
+      .text(d => d.memberCount)
 
     // Animated ring for active nodes
-    node.filter(d => d.status === "active")
+    node.filter(d => d.status === "active" || d.status === "running")
       .append("circle")
       .attr("r", d => nodeRadius(d) + 4)
       .attr("fill", "none")
       .attr("stroke", STATUS_COLORS.active)
       .attr("stroke-width", 1).attr("stroke-dasharray", "4 3").attr("opacity", 0.5)
 
-    // ✓ for completed
-    node.filter(d => d.status === "completed")
+    // Checkmark for completed
+    node.filter(d => d.status === "completed" || d.status === "complete")
       .append("text")
       .attr("text-anchor", "middle").attr("dy", "0.35em")
-      .attr("font-size", 10).attr("fill", STATUS_COLORS.completed)
-      .text("✓")
+      .attr("font-size", d => d.agentType !== "individual" ? 14 : 10)
+      .attr("fill", STATUS_COLORS.completed)
+      .text("\u2713")
 
     // Classification tag for non-completed
-    node.filter(d => d.status !== "completed")
+    node.filter(d => d.status !== "completed" && d.status !== "complete")
       .append("text")
       .attr("text-anchor", "middle").attr("dy", "0.35em")
-      .attr("font-size", 8).attr("font-weight", "bold")
+      .attr("font-size", d => d.agentType !== "individual" ? 10 : 8)
+      .attr("font-weight", "bold")
       .attr("fill", d => STATUS_COLORS[d.status] || STATUS_COLORS.idle)
       .text(d => classify(d).tag)
 
@@ -257,8 +319,16 @@ const DependencyGraph = {
       .text(d => {
         const parts = (d.name || d.id).split(":")
         const seg = parts[parts.length - 1]
-        return seg.length > 12 ? seg.substring(0, 10) + ".." : seg
+        return seg.length > 14 ? seg.substring(0, 12) + ".." : seg
       })
+
+    // Namespace label (smaller, above name, only for namespaced agents)
+    node.filter(d => d.namespace)
+      .append("text")
+      .attr("text-anchor", "middle")
+      .attr("dy", d => nodeRadius(d) + 21)
+      .attr("font-size", 6).attr("fill", "#8b949e").attr("opacity", 0.6)
+      .text(d => d.namespace.length > 12 ? d.namespace.substring(0, 10) + ".." : d.namespace)
 
     // Tooltip
     const tooltip   = this.tooltip
@@ -270,16 +340,20 @@ const DependencyGraph = {
         const depsStr = d.deps.length > 0
           ? d.deps.slice(0, 3).join(", ") + (d.deps.length > 3 ? ` +${d.deps.length - 3}` : "")
           : "none"
-        const proj  = d.project   || "—"
-        const start = d.startTime ? d.startTime.substring(0, 16).replace("T", " ") : "—"
+        const proj  = d.project   || "\u2014"
+        const ns    = d.namespace || "\u2014"
+        const aType = d.agentType || "individual"
+        const members = d.memberCount ? ` (${d.memberCount} agents)` : ""
+        const start = d.startTime ? d.startTime.substring(0, 16).replace("T", " ") : "\u2014"
 
         tooltip.classed("hidden", false).html(`
-          <div class="font-semibold mb-1 truncate">${d.name}</div>
+          <div class="font-semibold mb-1 truncate">${d.name}${members}</div>
           <div class="space-y-0.5 text-base-content/60">
             <div><span class="text-base-content/40">ID:</span> <span class="font-mono">${d.id.substring(0, 12)}</span></div>
             <div><span class="text-base-content/40">Tier:</span> T${d.tier}</div>
             <div><span class="text-base-content/40">Status:</span> <span style="color:${STATUS_COLORS[d.status] || '#8b949e'}">${d.status}</span></div>
-            <div><span class="text-base-content/40">Type:</span> ${cl.label}</div>
+            <div><span class="text-base-content/40">Type:</span> ${cl.label} <span class="opacity-50">(${aType})</span></div>
+            <div><span class="text-base-content/40">Namespace:</span> ${ns}</div>
             <div><span class="text-base-content/40">Project:</span> ${proj}</div>
             <div><span class="text-base-content/40">Started:</span> ${start}</div>
             <div><span class="text-base-content/40">Deps:</span> ${depsStr}</div>
@@ -303,7 +377,8 @@ const DependencyGraph = {
       .on("mouseout", function() {
         tooltip.classed("hidden", true)
         d3.select(this).select("circle")
-          .attr("stroke-width", 2).attr("filter", null)
+          .attr("stroke-width", d => d.agentType !== "individual" ? 3 : 2)
+          .attr("filter", null)
       })
       .on("click", function(event, d) {
         pushEvent("select_agent", { agent_id: d.id })
@@ -317,13 +392,14 @@ const DependencyGraph = {
         d.y = Math.max(r + 2, Math.min(height - r - 16, d.y))
       })
 
-      // Convex hull group indicators
-      if (projectKeys.length > 1) {
+      // Convex hull group indicators (namespace > project)
+      if (groupKeys.length > 0) {
         hullLayer.selectAll("*").remove()
-        projectKeys.forEach((proj, i) => {
-          const members = projectMap[proj].filter(n => n.x !== undefined)
+        groupKeys.forEach((key, i) => {
+          const group = groupMap[key]
+          const members = group.nodes.filter(n => n.x !== undefined)
           if (members.length < 2) return
-          const pad = 14
+          const pad = group.isNamespace ? 18 : 14
           const pts = members.flatMap(n => [
             [n.x - pad, n.y - pad], [n.x + pad, n.y - pad],
             [n.x - pad, n.y + pad], [n.x + pad, n.y + pad]
@@ -331,11 +407,26 @@ const DependencyGraph = {
           const hull = d3.polygonHull(pts)
           if (!hull) return
           const color = HULL_COLORS[i % HULL_COLORS.length]
+          const fillOpacity = group.isNamespace ? "33" : "18"
+          const strokeOpacity = group.isNamespace ? "88" : "55"
           hullLayer.append("path")
             .attr("d", "M" + hull.map(p => p.join(",")).join("L") + "Z")
-            .attr("fill", color + "22")
-            .attr("stroke", color + "66")
-            .attr("stroke-width", 1).attr("stroke-dasharray", "5 3")
+            .attr("fill", color + fillOpacity)
+            .attr("stroke", color + strokeOpacity)
+            .attr("stroke-width", group.isNamespace ? 1.5 : 1)
+            .attr("stroke-dasharray", group.isNamespace ? null : "5 3")
+
+          // Namespace label on hull
+          if (group.isNamespace) {
+            const cx = d3.mean(members, n => n.x)
+            const minY = d3.min(members, n => n.y) - pad - 6
+            hullLayer.append("text")
+              .attr("x", cx).attr("y", minY)
+              .attr("text-anchor", "middle")
+              .attr("font-size", 9).attr("font-weight", "600")
+              .attr("fill", color).attr("opacity", 0.7)
+              .text(key)
+          }
         })
       }
 

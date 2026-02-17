@@ -200,7 +200,14 @@ defmodule ApmV4Web.DashboardLive do
                   <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
                     Dependency Graph
                   </h3>
-                  <div class="flex gap-1">
+                  <div class="flex items-center gap-3">
+                    <%!-- Legend --%>
+                    <div class="flex items-center gap-2 text-[9px] text-base-content/40">
+                      <span class="flex items-center gap-0.5"><span class="inline-block w-2.5 h-2.5 rounded-full border-2 border-base-content/30"></span> agent</span>
+                      <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-3 rounded-full border-2 border-dashed border-info/60"></span> squadron</span>
+                      <span class="flex items-center gap-0.5"><span class="inline-block w-3.5 h-3.5 rounded-full border-2 border-dotted border-warning/60"></span> swarm</span>
+                      <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-1.5 rounded bg-primary/20 border border-primary/50"></span> namespace</span>
+                    </div>
                     <button
                       class="btn btn-ghost btn-xs"
                       phx-click="toggle_graph"
@@ -229,10 +236,11 @@ defmodule ApmV4Web.DashboardLive do
                 Agent Fleet
               </h3>
               <%!-- Column headers --%>
-              <div class="grid grid-cols-[24px_1fr_80px_80px] gap-2 px-3 mb-1 text-[10px] uppercase tracking-wider text-base-content/30">
+              <div class="grid grid-cols-[24px_1fr_80px_60px_80px] gap-2 px-3 mb-1 text-[10px] uppercase tracking-wider text-base-content/30">
                 <span></span>
                 <span>Agent</span>
                 <span class="text-right">Last Seen</span>
+                <span class="text-center">Type</span>
                 <span class="text-center">Status</span>
               </div>
               <%!-- Agent rows --%>
@@ -240,17 +248,32 @@ defmodule ApmV4Web.DashboardLive do
                 <div
                   :for={agent <- @agents}
                   class="card bg-base-200 border border-base-300 hover:border-primary/50 transition-colors cursor-pointer"
+                  phx-click="select_agent"
+                  phx-value-agent_id={agent.id}
                 >
-                  <div class="grid grid-cols-[24px_1fr_80px_80px] gap-2 items-center px-3 py-2">
+                  <div class="grid grid-cols-[24px_1fr_80px_60px_80px] gap-2 items-center px-3 py-2">
                     <div class={["badge badge-xs", tier_badge_class(agent.tier)]}>
                       {agent.tier}
                     </div>
                     <div>
-                      <div class="text-sm font-medium truncate">{agent.name}</div>
-                      <div class="text-[10px] text-base-content/30">{agent.id}</div>
+                      <div class="text-sm font-medium truncate flex items-center gap-1.5">
+                        {agent.name}
+                        <span :if={agent[:member_count] && agent[:member_count] > 1} class="badge badge-xs badge-info">
+                          {agent[:member_count]}
+                        </span>
+                      </div>
+                      <div class="text-[10px] text-base-content/30 flex items-center gap-1">
+                        <span class="font-mono">{agent.id}</span>
+                        <span :if={agent[:namespace]} class="text-primary/60">/ {agent[:namespace]}</span>
+                      </div>
                     </div>
                     <div class="text-right text-xs text-base-content/40">
                       {format_last_seen(agent.last_seen)}
+                    </div>
+                    <div class="text-center">
+                      <span class={["badge badge-xs", agent_type_badge_class(agent[:agent_type])]}>
+                        {agent[:agent_type] || "individual"}
+                      </span>
                     </div>
                     <div class="text-center">
                       <span class={["badge badge-sm", status_badge_class(agent.status)]}>
@@ -304,12 +327,32 @@ defmodule ApmV4Web.DashboardLive do
                       </span>
                     </div>
                     <div class="flex justify-between">
-                      <span class="text-base-content/50">Last Seen</span>
-                      <span>{format_last_seen(@selected_agent.last_seen)}</span>
+                      <span class="text-base-content/50">Type</span>
+                      <span class={["badge badge-xs", agent_type_badge_class(@selected_agent[:agent_type])]}>
+                        {@selected_agent[:agent_type] || "individual"}
+                      </span>
+                    </div>
+                    <div :if={@selected_agent[:member_count]} class="flex justify-between">
+                      <span class="text-base-content/50">Members</span>
+                      <span class="badge badge-xs badge-info">{@selected_agent[:member_count]} agents</span>
+                    </div>
+                    <div :if={@selected_agent[:namespace]} class="flex justify-between">
+                      <span class="text-base-content/50">Namespace</span>
+                      <span class="text-primary">{@selected_agent[:namespace]}</span>
                     </div>
                     <div :if={@selected_agent[:project_name]} class="flex justify-between">
                       <span class="text-base-content/50">Project</span>
                       <span>{@selected_agent.project_name}</span>
+                    </div>
+                    <div :if={@selected_agent[:path]} class="flex justify-between">
+                      <span class="text-base-content/50">Path</span>
+                      <span class="font-mono text-[10px] truncate max-w-[160px]" title={@selected_agent[:path]}>
+                        {Path.basename(@selected_agent[:path] || "")}
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-base-content/50">Last Seen</span>
+                      <span>{format_last_seen(@selected_agent.last_seen)}</span>
                     </div>
                     <div :if={@selected_agent.deps != []} class="pt-1">
                       <span class="text-base-content/50">Dependencies:</span>
@@ -611,7 +654,12 @@ defmodule ApmV4Web.DashboardLive do
           tier: agent.tier,
           status: agent.status,
           deps: agent.deps || [],
-          metadata: agent.metadata || %{}
+          metadata: agent.metadata || %{},
+          namespace: agent[:namespace],
+          agent_type: agent[:agent_type] || "individual",
+          member_count: agent[:member_count],
+          path: agent[:path],
+          project_name: agent[:project_name]
         }
       end)
 
@@ -661,6 +709,11 @@ defmodule ApmV4Web.DashboardLive do
   defp status_badge_class("discovered"), do: "badge-info"
   defp status_badge_class("completed"), do: "badge-accent"
   defp status_badge_class(_), do: "badge-ghost"
+
+  defp agent_type_badge_class("squadron"), do: "badge-info"
+  defp agent_type_badge_class("swarm"), do: "badge-warning"
+  defp agent_type_badge_class("orchestrator"), do: "badge-accent"
+  defp agent_type_badge_class(_), do: "badge-ghost"
 
   defp tier_badge_class(1), do: "badge-primary"
   defp tier_badge_class(2), do: "badge-secondary"
