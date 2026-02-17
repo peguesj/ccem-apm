@@ -25,6 +25,8 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/apm_v4"
 import topbar from "../vendor/topbar"
 
+import DependencyGraph from "./hooks/dependency_graph"
+
 // Custom hooks for LiveView
 const Hooks = {
   Clock: {
@@ -37,7 +39,8 @@ const Hooks = {
     destroyed() {
       clearInterval(this.interval)
     }
-  }
+  },
+  DependencyGraph
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

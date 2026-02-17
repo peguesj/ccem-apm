@@ -50,9 +50,71 @@ defmodule ApmV4Web.DashboardLiveTest do
     assert html =~ "active"
   end
 
-  test "dashboard shows dependency graph placeholder", %{conn: conn} do
-    {:ok, _view, html} = live(conn, ~p"/")
+  test "dashboard renders D3 dependency graph container with hook", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/")
     assert html =~ "Dependency Graph"
+    assert has_element?(view, ~s{div[id="dep-graph"][phx-hook="DependencyGraph"]})
+  end
+
+  test "dependency graph container uses phx-update=ignore", %{conn: conn} do
+    {:ok, _view, html} = live(conn, ~p"/")
+    assert html =~ ~s(phx-update="ignore")
+    assert html =~ ~s(phx-hook="DependencyGraph")
+  end
+
+  test "graph renders with zero agents (empty state)", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
+    # Graph element should still be present even with no agents
+    assert has_element?(view, "#dep-graph")
+  end
+
+  test "graph data pushed with registered agents", %{conn: conn} do
+    AgentRegistry.register_agent("graph-agent-1", %{name: "Graph Agent 1", tier: 1, status: "active", deps: []})
+    AgentRegistry.register_agent("graph-agent-2", %{name: "Graph Agent 2", tier: 2, status: "idle", deps: ["graph-agent-1"]})
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    # Agents should be visible in the agent fleet
+    assert render(view) =~ "Graph Agent 1"
+    assert render(view) =~ "Graph Agent 2"
+    # Hook element should be present for D3 to render into
+    assert has_element?(view, "#dep-graph")
+  end
+
+  test "graph renders with many agents (5+)", %{conn: conn} do
+    for i <- 1..5 do
+      tier = if i <= 2, do: 1, else: if(i <= 4, do: 2, else: 3)
+      AgentRegistry.register_agent("agent-#{i}", %{name: "Agent #{i}", tier: tier, status: "active"})
+    end
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    assert has_element?(view, "#dep-graph")
+    html = render(view)
+    for i <- 1..5, do: assert(html =~ "Agent #{i}")
+  end
+
+  test "select_agent event switches to inspector tab with agent details", %{conn: conn} do
+    AgentRegistry.register_agent("inspect-me", %{name: "Inspector Agent", tier: 2, status: "active", deps: []})
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    # Simulate clicking on a graph node (pushes select_agent event)
+    html = render_hook(view, "select_agent", %{"agent_id" => "inspect-me"})
+    assert html =~ "Inspector Agent"
+    assert html =~ "inspect-me"
+    assert html =~ "active"
+  end
+
+  test "select_agent with unknown agent_id does not crash", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
+    # Should handle gracefully without error
+    html = render_hook(view, "select_agent", %{"agent_id" => "nonexistent"})
+    # Should still show the default inspector message
+    assert html =~ "Click an agent or graph node to inspect"
+  end
+
+  test "graph container has correct CSS classes for sizing", %{conn: conn} do
+    {:ok, _view, html} = live(conn, ~p"/")
+    assert html =~ "w-full h-48"
+    assert html =~ "bg-base-300"
   end
 
   test "switching tabs updates the active tab", %{conn: conn} do

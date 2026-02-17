@@ -29,6 +29,8 @@ defmodule ApmV4Web.DashboardLive do
       |> assign(:error_count, Enum.count(agents, &(&1.status == "error")))
       |> assign(:active_nav, :dashboard)
       |> assign(:active_tab, :inspector)
+      |> assign(:selected_agent, nil)
+      |> push_graph_data(agents)
 
     {:ok, socket}
   end
@@ -140,14 +142,18 @@ defmodule ApmV4Web.DashboardLive do
               <.stat_card label="Notifications" value={length(@notifications)} color="text-warning" />
             </div>
 
-            <%!-- D3 Graph placeholder --%>
+            <%!-- D3 Dependency Graph --%>
             <div class="card bg-base-200 border border-base-300">
               <div class="card-body p-3">
                 <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">
                   Dependency Graph
                 </h3>
-                <div id="dep-graph" class="w-full h-48 rounded bg-base-300 flex items-center justify-center">
-                  <span class="text-xs text-base-content/30">D3.js graph renders here</span>
+                <div
+                  id="dep-graph"
+                  class="w-full h-48 rounded bg-base-300 relative"
+                  phx-hook="DependencyGraph"
+                  phx-update="ignore"
+                >
                 </div>
               </div>
             </div>
@@ -211,8 +217,41 @@ defmodule ApmV4Web.DashboardLive do
 
             <div class="flex-1 overflow-y-auto p-3">
               <%!-- Inspector tab --%>
-              <div :if={@active_tab == :inspector} class="text-center text-base-content/30 py-8 text-xs">
-                Click an agent or graph node to inspect
+              <div :if={@active_tab == :inspector}>
+                <div :if={@selected_agent == nil} class="text-center text-base-content/30 py-8 text-xs">
+                  Click an agent or graph node to inspect
+                </div>
+                <div :if={@selected_agent} class="space-y-3">
+                  <h3 class="text-sm font-semibold">{@selected_agent.name}</h3>
+                  <div class="space-y-1 text-xs">
+                    <div class="flex justify-between">
+                      <span class="text-base-content/50">ID</span>
+                      <span class="font-mono">{@selected_agent.id}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-base-content/50">Tier</span>
+                      <span>{@selected_agent.tier}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-base-content/50">Status</span>
+                      <span class={["badge badge-xs", status_badge_class(@selected_agent.status)]}>
+                        {@selected_agent.status}
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-base-content/50">Last Seen</span>
+                      <span>{format_last_seen(@selected_agent.last_seen)}</span>
+                    </div>
+                    <div :if={@selected_agent.deps != []} class="pt-1">
+                      <span class="text-base-content/50">Dependencies:</span>
+                      <div class="flex flex-wrap gap-1 mt-1">
+                        <span :for={dep <- @selected_agent.deps} class="badge badge-xs badge-ghost">
+                          {dep}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <%!-- Ralph tab --%>
@@ -264,6 +303,21 @@ defmodule ApmV4Web.DashboardLive do
     {:noreply, assign(socket, :notifications, [])}
   end
 
+  def handle_event("select_agent", %{"agent_id" => agent_id}, socket) do
+    agent = AgentRegistry.get_agent(agent_id)
+
+    socket =
+      if agent do
+        socket
+        |> assign(:active_tab, :inspector)
+        |> assign(:selected_agent, agent)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
   # --- Helper Components ---
 
   attr :icon, :string, required: true
@@ -303,6 +357,33 @@ defmodule ApmV4Web.DashboardLive do
   end
 
   # --- Private Helpers ---
+
+  defp push_graph_data(socket, agents) do
+    graph_agents =
+      Enum.map(agents, fn agent ->
+        %{
+          id: agent.id,
+          name: agent.name,
+          tier: agent.tier,
+          status: agent.status,
+          deps: agent.deps || [],
+          metadata: agent.metadata || %{}
+        }
+      end)
+
+    # Build edges from agent deps
+    agent_ids = MapSet.new(Enum.map(agents, & &1.id))
+
+    edges =
+      agents
+      |> Enum.flat_map(fn agent ->
+        (agent.deps || [])
+        |> Enum.filter(&MapSet.member?(agent_ids, &1))
+        |> Enum.map(fn dep_id -> %{source: dep_id, target: agent.id} end)
+      end)
+
+    push_event(socket, "agents_updated", %{agents: graph_agents, edges: edges})
+  end
 
   defp calculate_uptime do
     start_time = Application.get_env(:apm_v4, :server_start_time, System.system_time(:second))
