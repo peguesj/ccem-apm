@@ -39,3 +39,22 @@ Started: Tue Feb 17 09:23:35 EST 2026
 - 16 new test cases, 35/35 total pass, zero compiler warnings
 - Learnings: In Phoenix tests, never stop supervised GenServers (GenServer.stop) as it can cascade to other supervised children (Endpoint ETS table loss). Use a clear_all/0 pattern instead that resets state without disrupting the supervision tree.
 ---
+
+## US-004 - Create LiveView dashboard layout with daisyUI/Tailwind
+- Created ApmV4Web.DashboardLive LiveView module mounted at root path /
+- Replaced PageController route with `live "/", DashboardLive, :index` in router
+- daisyUI and Tailwind CSS were already configured by Phoenix 1.8.3 scaffold (app.css imports daisyUI plugins, vendor dir has daisyui.js + daisyui-theme.js)
+- Sidebar navigation with 5 links: Dashboard, Agents, Ralph, Sessions, Settings (using heroicons)
+- Top bar with: project name, agent count badge, clock JS hook (updates every second), LIVE status badge, notification bell dropdown with clear-all, theme toggle (system/light/dark)
+- Main content area: 6 stat cards grid (Agents, Active, Idle, Errors, Sessions, Notifications), D3 dependency graph placeholder, agent fleet grid with tier badges, status badges, last_seen relative time formatting
+- Right panel with 4 tabs (Inspector, Ralph, Commands, TODOs) switchable via phx-click events
+- Notification toast area in dropdown with badge count, level-colored badges, truncated messages
+- Responsive layout: grid-cols-2 (mobile) -> md:grid-cols-3 -> lg:grid-cols-6 (desktop)
+- Dark theme set as default in root.html.heex theme initialization script
+- App layout simplified to passthrough (LiveView owns full layout)
+- Clock JS hook added to assets/js/app.js alongside colocated hooks
+- Updated page_controller_test.exs -> dashboard_live_test.exs with 11 LiveView test cases
+- Files changed: lib/apm_v4_web/live/dashboard_live.ex (new), lib/apm_v4_web/router.ex (modified), lib/apm_v4_web/components/layouts.ex (modified), lib/apm_v4_web/components/layouts/root.html.heex (modified), assets/js/app.js (modified), test/apm_v4_web/controllers/page_controller_test.exs (rewritten)
+- 11 new LiveView test cases (replacing 1 old PageController test), 45/45 total pass, zero compiler warnings
+- Learnings: Phoenix 1.8.3 ships with daisyUI v5 + Tailwind v4 preconfigured. The `app` layout function wraps LiveView content, so for full-screen dashboards, simplify it to passthrough. LiveView uses `html_helpers` which aliases Layouts, so theme_toggle must be called as `Layouts.theme_toggle` not bare `<.theme_toggle />`. Phoenix colocated hooks use `phoenix-colocated/apm_v4` import and can be spread alongside custom hooks.
+---

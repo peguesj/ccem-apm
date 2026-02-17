@@ -72,8 +72,8 @@
         "LiveView mounts and renders without JavaScript errors"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "DashboardLive LiveView at / with daisyUI/Tailwind. Sidebar nav (Dashboard, Agents, Ralph, Sessions, Settings), top bar with agent count badge + LIVE indicator + clock JS hook + notification bell dropdown + theme toggle. Stats grid (6 cards: Agents, Active, Idle, Errors, Sessions, Notifications). Agent fleet grid with tier badges, status badges, last_seen formatting. Right panel with 4 tabs (Inspector, Ralph, Commands, TODOs). D3 graph placeholder. Dark theme default. Responsive layout (lg:grid-cols-6). 11 new LiveView test cases. 45/45 tests pass. Zero compiler warnings."
     },
     {
       "id": "US-005",

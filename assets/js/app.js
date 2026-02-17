@@ -25,11 +25,26 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/apm_v4"
 import topbar from "../vendor/topbar"
 
+// Custom hooks for LiveView
+const Hooks = {
+  Clock: {
+    mounted() {
+      this.interval = setInterval(() => {
+        const now = new Date()
+        this.el.textContent = now.toLocaleTimeString("en-US", { hour12: false })
+      }, 1000)
+    },
+    destroyed() {
+      clearInterval(this.interval)
+    }
+  }
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks},
+  hooks: {...colocatedHooks, ...Hooks},
 })
 
 // Show progress bar on live navigation and form submits

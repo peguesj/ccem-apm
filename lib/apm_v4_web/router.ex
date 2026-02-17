@@ -17,7 +17,7 @@ defmodule ApmV4Web.Router do
   scope "/", ApmV4Web do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", DashboardLive, :index
   end
 
   scope "/api", ApmV4Web do
