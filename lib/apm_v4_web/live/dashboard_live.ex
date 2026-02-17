@@ -13,6 +13,11 @@ defmodule ApmV4Web.DashboardLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:agents")
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:notifications")
+    end
+
     agents = AgentRegistry.list_agents()
     notifications = AgentRegistry.get_notifications()
     uptime = calculate_uptime()
@@ -314,6 +319,37 @@ defmodule ApmV4Web.DashboardLive do
       else
         socket
       end
+
+    {:noreply, socket}
+  end
+
+  # --- PubSub Handlers ---
+
+  @impl true
+  def handle_info({:agent_registered, _agent}, socket) do
+    refresh_agents(socket)
+  end
+
+  def handle_info({:agent_updated, _agent}, socket) do
+    refresh_agents(socket)
+  end
+
+  def handle_info({:notification_added, _notif}, socket) do
+    notifications = AgentRegistry.get_notifications()
+    {:noreply, assign(socket, :notifications, notifications)}
+  end
+
+  defp refresh_agents(socket) do
+    agents = AgentRegistry.list_agents()
+
+    socket =
+      socket
+      |> assign(:agents, agents)
+      |> assign(:agent_count, length(agents))
+      |> assign(:active_count, Enum.count(agents, &(&1.status == "active")))
+      |> assign(:idle_count, Enum.count(agents, &(&1.status == "idle")))
+      |> assign(:error_count, Enum.count(agents, &(&1.status == "error")))
+      |> push_graph_data(agents)
 
     {:noreply, socket}
   end

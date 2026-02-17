@@ -132,6 +132,9 @@ defmodule ApmV4.AgentRegistry do
       ApmV4.EventStream.emit_run_started(agent_id, Map.get(metadata, :metadata, %{}))
     end
 
+    # Broadcast agent registration to LiveView clients
+    Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:agents", {:agent_registered, agent})
+
     {:reply, :ok, state}
   end
 
@@ -149,6 +152,9 @@ defmodule ApmV4.AgentRegistry do
             ApmV4.EventStream.emit_run_finished(agent_id, run_id)
           end
         end
+
+        # Broadcast status change to LiveView clients
+        Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:agents", {:agent_updated, updated})
 
         {:reply, :ok, state}
 
@@ -194,6 +200,9 @@ defmodule ApmV4.AgentRegistry do
       }
 
     :ets.insert(@notifications_table, {counter, notif})
+
+    # Broadcast notification to LiveView clients
+    Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:notifications", {:notification_added, notif})
 
     # Cap at 200 notifications (matching Python behavior)
     all_ids =

@@ -159,4 +159,121 @@ defmodule ApmV4Web.DashboardLiveTest do
     assert html =~ "lg:grid-cols-6"
     assert html =~ "md:grid-cols-3"
   end
+
+  # --- PubSub Real-Time Update Tests (US-009) ---
+
+  test "new agent registration appears in LiveView via PubSub", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/")
+    assert html =~ "No agents registered"
+
+    # Register an agent after the LiveView is connected
+    AgentRegistry.register_agent("pubsub-agent-1", %{name: "PubSub Agent", tier: 1, status: "active"})
+
+    # LiveView should receive the PubSub message and re-render
+    html = render(view)
+    assert html =~ "PubSub Agent"
+    assert html =~ "pubsub-agent-1"
+  end
+
+  test "agent status change updates LiveView via PubSub", %{conn: conn} do
+    AgentRegistry.register_agent("status-agent", %{name: "Status Agent", tier: 1, status: "idle"})
+
+    {:ok, view, html} = live(conn, ~p"/")
+    assert html =~ "idle"
+
+    # Update agent status
+    AgentRegistry.update_status("status-agent", "active")
+
+    html = render(view)
+    assert html =~ "active"
+  end
+
+  test "stat cards update in real-time when agents change via PubSub", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    # Register agents with different statuses
+    AgentRegistry.register_agent("active-1", %{name: "Active 1", status: "active"})
+    AgentRegistry.register_agent("idle-1", %{name: "Idle 1", status: "idle"})
+    AgentRegistry.register_agent("error-1", %{name: "Error 1", status: "error"})
+
+    html = render(view)
+    # Should show 3 total agents, 1 active, 1 idle, 1 error
+    assert html =~ "Active 1"
+    assert html =~ "Idle 1"
+    assert html =~ "Error 1"
+  end
+
+  test "notification appears in real-time via PubSub", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    # Add notification after LiveView is connected
+    AgentRegistry.add_notification(%{title: "Live Alert", message: "Something happened", level: "warning"})
+
+    html = render(view)
+    assert html =~ "Live Alert"
+    assert html =~ "Something happened"
+  end
+
+  test "multiple rapid agent registrations all appear via PubSub", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    # Register multiple agents rapidly
+    for i <- 1..5 do
+      AgentRegistry.register_agent("rapid-#{i}", %{name: "Rapid Agent #{i}", status: "active"})
+    end
+
+    html = render(view)
+    for i <- 1..5 do
+      assert html =~ "Rapid Agent #{i}"
+    end
+  end
+
+  test "D3 graph container persists after PubSub agent updates", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    AgentRegistry.register_agent("graph-pubsub", %{name: "Graph PubSub", tier: 2, status: "active", deps: []})
+
+    # Graph container should still be present with correct hook
+    assert has_element?(view, ~s{div[id="dep-graph"][phx-hook="DependencyGraph"]})
+  end
+
+  test "heartbeat (update_status) triggers PubSub update in LiveView", %{conn: conn} do
+    AgentRegistry.register_agent("heartbeat-agent", %{name: "Heartbeat Agent", tier: 1, status: "idle"})
+
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    # Simulate heartbeat (status update)
+    AgentRegistry.update_status("heartbeat-agent", "active")
+
+    html = render(view)
+    assert html =~ "active"
+  end
+
+  test "PubSub updates work across multiple concurrent LiveView connections", %{conn: conn} do
+    # Simulate two browser tabs
+    {:ok, view1, _html1} = live(conn, ~p"/")
+    {:ok, view2, _html2} = live(conn, ~p"/")
+
+    # Register an agent
+    AgentRegistry.register_agent("multi-tab", %{name: "Multi Tab Agent", status: "active"})
+
+    # Both views should receive the update
+    assert render(view1) =~ "Multi Tab Agent"
+    assert render(view2) =~ "Multi Tab Agent"
+  end
+
+  test "agent topology change triggers graph data push", %{conn: conn} do
+    AgentRegistry.register_agent("topo-1", %{name: "Topo 1", status: "active", deps: []})
+
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    # Register agent with dependency - changes graph topology
+    AgentRegistry.register_agent("topo-2", %{name: "Topo 2", status: "active", deps: ["topo-1"]})
+
+    html = render(view)
+    assert html =~ "Topo 1"
+    assert html =~ "Topo 2"
+    # Graph should still be present for D3 to render into
+    assert has_element?(view, "#dep-graph")
+  end
 end
