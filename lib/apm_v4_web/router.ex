@@ -22,6 +22,7 @@ defmodule ApmV4Web.Router do
     pipe_through :browser
 
     live "/", DashboardLive, :index
+    live "/ralph", RalphFlowchartLive, :index
   end
 
   scope "/api", ApmV4Web do

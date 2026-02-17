@@ -26,6 +26,7 @@ import {hooks as colocatedHooks} from "phoenix-colocated/apm_v4"
 import topbar from "../vendor/topbar"
 
 import DependencyGraph from "./hooks/dependency_graph"
+import RalphFlowchart from "./hooks/ralph_flowchart"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -40,7 +41,8 @@ const Hooks = {
       clearInterval(this.interval)
     }
   },
-  DependencyGraph
+  DependencyGraph,
+  RalphFlowchart
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

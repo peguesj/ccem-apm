@@ -119,3 +119,37 @@ Started: Tue Feb 17 09:23:35 EST 2026
 - 33 new test cases (21 ComponentBuilder + 12 controller), 113/113 total pass, zero compiler warnings
 - Learnings: Phoenix's :api pipeline enforces Accept header restrictions via `plug :accepts`. Custom MIME types need both `config :mime, :types` registration and `mix deps.clean --build mime` to recompile. A separate pipeline (:api_flexible) is cleaner than modifying the existing :api pipeline when different routes need different content types. JSONL streaming works well with send_chunked/2 + chunk/2, same pattern as SSE but simpler (no event/id fields needed).
 ---
+
+## US-008 - Rebuild Ralph flowchart as LiveView + D3.js
+- Created ApmV4Web.RalphFlowchartLive LiveView module mounted at /ralph
+- Ported 10 Ralph methodology steps from React/xyflow to D3.js: 4 phases (setup=blue, loop=gray, decision=amber, done=green)
+- D3.js RalphFlowchart JS hook at assets/js/hooks/ralph_flowchart.js with:
+  - Custom-styled rectangular nodes with phase color-coding (bg, border, text per phase)
+  - Animated dashed edges with SVG arrow markers and bezier curve paths
+  - Glow filter applied to active (most recently revealed) step with bold border
+  - Phase indicator dots on each node, step number badges
+  - Tooltips on hover showing step name, description, phase, step number
+  - Click-to-select pushing select_step event to LiveView
+  - ResizeObserver for responsive re-rendering
+  - Smooth opacity fade-in transitions (500ms nodes, 400ms edges)
+- Step progression controls: next_step, prev_step, reset_steps, advance_step, jump_to_step
+  - All steps visible by default (step 10 of 10)
+  - Reset returns to step 1, Next/Previous increment/decrement with bounds clamping
+  - jump_to_step accepts step number string for programmatic control
+- Sidebar panel with:
+  - Step details: phase badge (color-coded), label, description, step number
+  - Complete steps list with phase-colored dots and visibility-based opacity
+  - Click step in list to select and view details
+- Edge routing: computeEdgePoints calculates boundary exit points, computePath generates smooth cubic bezier curves
+  - Loop-back edge 9->4 labeled "Yes", exit edge 9->10 labeled "No"
+  - Edge labels rendered with dark background rect for readability
+- Layout: absolute coordinates in POSITIONS map for top-to-bottom flowchart arrangement
+  - Setup phase: vertical column left (steps 1-3)
+  - Loop phase: distributed across canvas (steps 4-8)
+  - Decision/Done: bottom section (steps 9-10)
+- Registered RalphFlowchart hook in app.js alongside Clock and DependencyGraph
+- Added `live "/ralph", RalphFlowchartLive, :index` route in router.ex browser scope
+- Files changed: lib/apm_v4_web/live/ralph_flowchart_live.ex (new), assets/js/hooks/ralph_flowchart.js (new), assets/js/app.js (modified), lib/apm_v4_web/router.ex (modified), test/apm_v4_web/live/ralph_flowchart_live_test.exs (new)
+- 22 new test cases, 135/135 total pass, zero compiler warnings
+- Learnings: D3.js flowchart rendering in LiveView works well with the same phx-update="ignore" pattern used for the dependency graph. Absolute positioning via a POSITIONS map is simpler than force simulation for a predetermined flowchart layout. SVG viewBox with preserveAspectRatio="xMidYMid meet" handles responsive scaling without recalculating positions. Bezier curves via computePath with horizontal/vertical dominance detection produce clean routing between nodes at various angles. Edge labels need a background rect for readability against the dark theme.
+---
