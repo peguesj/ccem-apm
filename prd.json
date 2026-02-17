@@ -204,8 +204,8 @@
         "App icon placeholder included in Assets.xcassets"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Swift Package Manager project at swift-wrapper/ with Package.swift (macOS 13+, swift-tools-version 5.9). Single-file AppKit app (main.swift) with NSWindow + WKWebView loading localhost:3031. Window title 'CCEM APM v4', default 1200x800, min 800x600. NSUserDefaults persistence for window frame (position + size) via NSStringFromRect/NSRectFromString. Menu bar: App menu (About, Quit), File (Close Window), View (Reload Cmd+R, Open in Browser Cmd+Shift+B, Toggle Full Screen), Window (Minimize, Zoom). WKNavigationDelegate shows connection error view on didFailProvisionalNavigation/didFail with retry button and server start instructions. Developer extras enabled in WKWebView config. Assets.xcassets with AppIcon.appiconset placeholder (all 10 macOS sizes defined). .gitignore for .build/ and .swiftpm/. swift build succeeds with Swift 6.1.2. 155/155 Elixir tests pass. Zero compiler warnings."
     },
     {
       "id": "US-012",

@@ -186,3 +186,19 @@ Started: Tue Feb 17 09:23:35 EST 2026
 - 155/155 tests pass, zero compiler warnings
 - Learnings: Claude Code JSONL files contain mixed entry types (file-history-snapshot, progress, user, assistant) so the parser must handle entries without a "message" field. User messages can be plain strings or lists of content blocks; tool_result blocks in user messages should not count as conversation turns. Cache tokens (cache_creation_input_tokens + cache_read_input_tokens) are significant in Claude Code sessions and should be included in input token totals for accurate reporting.
 ---
+
+## US-011 - Build Swift WebKit wrapper app for macOS
+- Created Swift Package Manager project at swift-wrapper/ with Package.swift targeting macOS 13+, swift-tools-version 5.9
+- Single-file AppKit application (main.swift) with NSApplication + AppDelegate pattern (no @main attribute, explicit app.run() for SPM compatibility)
+- NSWindow with WKWebView loading http://localhost:3031 on launch, default size 1200x800, minimum 800x600
+- Window frame persistence via NSUserDefaults using NSStringFromRect/NSRectFromString, saved on move/resize/terminate, restored on launch
+- Menu bar with 4 menus: App (About, Quit Cmd+Q), File (Close Window Cmd+W), View (Reload Cmd+R, Open in Browser Cmd+Shift+B, Toggle Full Screen Cmd+Ctrl+F), Window (Minimize Cmd+M, Zoom)
+- Connection error view with dark theme background, warning icon, error title, instructions to start server, and Retry Connection button
+- WKNavigationDelegate handles didFailProvisionalNavigation and didFail to show error view, didFinish to restore WebView
+- Developer extras enabled in WKWebView config for Web Inspector access
+- Assets.xcassets with AppIcon.appiconset containing all 10 macOS icon size slots (16-512 @1x/@2x)
+- .gitignore added for .build/ and .swiftpm/ directories
+- Files created: swift-wrapper/Package.swift, swift-wrapper/Sources/APMv4App/main.swift, swift-wrapper/Resources/Assets.xcassets/Contents.json, swift-wrapper/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json, swift-wrapper/.gitignore
+- swift build succeeds with Swift 6.1.2 (zero errors, zero warnings), 155/155 Elixir tests pass, zero compiler warnings
+- Learnings: Swift Package Manager executables on macOS need explicit NSApplication.shared.run() instead of @main attribute for AppKit apps. WKWebView's didFailProvisionalNavigation fires for connection refused errors (server not running), while didFail fires for mid-navigation errors. NSUserDefaults with NSStringFromRect/NSRectFromString is the simplest window frame persistence pattern without needing Codable. The .build/ directory from SPM contains compiled binaries, module caches, and debug symbols that should always be gitignored.
+---
