@@ -13,8 +13,13 @@ defmodule ApmV4.Application do
       ApmV4Web.Telemetry,
       {DNSCluster, query: Application.get_env(:apm_v4, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ApmV4.PubSub},
+      ApmV4.ConfigLoader,
+      ApmV4.ProjectStore,
       ApmV4.AgentRegistry,
       ApmV4.EventStream,
+      ApmV4.AgentDiscovery,
+      ApmV4.EnvironmentScanner,
+      ApmV4.CommandRunner,
       # Start to serve requests, typically the last entry
       ApmV4Web.Endpoint
     ]

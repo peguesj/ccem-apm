@@ -1,17 +1,59 @@
 defmodule ApmV4Web.ApiController do
   @moduledoc """
-  JSON API endpoints ported from the Python APM HTTPServer.
+  JSON API endpoints for CCEM APM v4.
 
-  Provides: GET /api/status, POST /api/register, POST /api/heartbeat,
-  GET /api/agents, POST /api/notify.
+  Provides full v3-compatible REST API plus v4 extensions.
+  All 19 v3 endpoints + v4-only /api/projects endpoint.
   """
 
   use ApmV4Web, :controller
 
   alias ApmV4.AgentRegistry
+  alias ApmV4.ConfigLoader
+  alias ApmV4.ProjectStore
+  alias ApmV4.Ralph
+  alias ApmV4.AgentDiscovery
+  alias ApmV4.EnvironmentScanner
+  alias ApmV4.CommandRunner
 
   @server_version "4.0.0"
 
+  # ============================
+  # GET Endpoints
+  # ============================
+
+  @doc "GET /health -- v3-compatible health check"
+  def health(conn, _params) do
+    start_time = Application.get_env(:apm_v4, :server_start_time, System.monotonic_time(:second))
+    uptime = System.monotonic_time(:second) - start_time
+    config = safe_get_config()
+    projects = Map.get(config, "projects", [])
+
+    project_summaries =
+      Enum.map(projects, fn p ->
+        name = p["name"]
+        agent_count = length(AgentRegistry.list_agents(name))
+        session_count = length(Map.get(p, "sessions", []))
+
+        %{
+          name: name,
+          status: p["status"] || "active",
+          agent_count: agent_count,
+          session_count: session_count
+        }
+      end)
+
+    json(conn, %{
+      status: "ok",
+      uptime: uptime,
+      server_version: @server_version,
+      total_projects: length(projects),
+      active_project: Map.get(config, "active_project"),
+      projects: project_summaries
+    })
+  end
+
+  @doc "GET /api/status -- existing v4 status endpoint"
   def status(conn, _params) do
     start_time = Application.get_env(:apm_v4, :server_start_time, System.monotonic_time(:second))
     uptime = System.monotonic_time(:second) - start_time
@@ -33,6 +75,139 @@ defmodule ApmV4Web.ApiController do
     })
   end
 
+  @doc "GET /api/data -- master data aggregation (v3-compatible)"
+  def data(conn, params) do
+    project_name = params["project"] || active_project_name()
+    agents = AgentRegistry.list_agents(project_name)
+    notifications = AgentRegistry.get_notifications()
+    tasks = ProjectStore.get_tasks(project_name || "_global")
+    commands = ProjectStore.get_commands(project_name || "_global")
+    input_requests = ProjectStore.get_pending_inputs()
+
+    ralph_data =
+      case get_ralph_for_project(project_name) do
+        {:ok, data} -> data
+        {:error, _} -> %{}
+      end
+
+    # Build edges from agent deps
+    agent_ids = MapSet.new(Enum.map(agents, & &1.id))
+
+    edges =
+      agents
+      |> Enum.flat_map(fn agent ->
+        (agent.deps || [])
+        |> Enum.filter(&MapSet.member?(agent_ids, &1))
+        |> Enum.map(fn dep_id -> %{source: dep_id, target: agent.id} end)
+      end)
+
+    summary = %{
+      total: length(agents),
+      active: Enum.count(agents, &(&1.status == "active")),
+      idle: Enum.count(agents, &(&1.status == "idle")),
+      error: Enum.count(agents, &(&1.status == "error")),
+      completed: Enum.count(agents, &(&1.status == "completed")),
+      discovered: Enum.count(agents, &(&1.status == "discovered"))
+    }
+
+    json(conn, %{
+      agents: agents,
+      summary: summary,
+      edges: edges,
+      tasks: tasks,
+      notifications: Enum.take(notifications, 50),
+      ralph: ralph_data,
+      commands: commands,
+      input_requests: input_requests
+    })
+  end
+
+  @doc "GET /api/notifications -- list notifications"
+  def notifications(conn, _params) do
+    notifs = AgentRegistry.get_notifications()
+    json(conn, notifs)
+  end
+
+  @doc "GET /api/ralph -- Ralph methodology data for active project"
+  def ralph(conn, params) do
+    project_name = params["project"] || active_project_name()
+
+    case get_ralph_for_project(project_name) do
+      {:ok, data} -> json(conn, data)
+      {:error, _} -> json(conn, %{})
+    end
+  end
+
+  @doc "GET /api/ralph/flowchart -- D3.js-compatible flowchart data"
+  def ralph_flowchart(conn, params) do
+    project_name = params["project"] || active_project_name()
+
+    case get_ralph_for_project(project_name) do
+      {:ok, %{stories: stories}} ->
+        json(conn, Ralph.flowchart(stories))
+
+      _ ->
+        json(conn, %{nodes: [], edges: []})
+    end
+  end
+
+  @doc "GET /api/commands -- slash commands for active project"
+  def commands(conn, params) do
+    project_name = params["project"] || active_project_name() || "_global"
+    cmds = ProjectStore.get_commands(project_name)
+    json(conn, cmds)
+  end
+
+  @doc "GET /api/agents/discover -- trigger discovery scan"
+  def discover_agents(conn, _params) do
+    discovered = AgentDiscovery.discover_now()
+    json(conn, %{discovered: discovered, count: length(discovered)})
+  end
+
+  @doc "GET /api/agents -- list all agents"
+  def agents(conn, params) do
+    project_name = params["project"]
+    agent_list = AgentRegistry.list_agents(project_name)
+    json(conn, %{agents: agent_list})
+  end
+
+  @doc "GET /api/input/pending -- pending input requests"
+  def pending_input(conn, _params) do
+    pending = ProjectStore.get_pending_inputs()
+    json(conn, pending)
+  end
+
+  @doc "GET /api/projects -- list all projects with agent counts (v4-only)"
+  def projects(conn, _params) do
+    config = safe_get_config()
+    project_list = Map.get(config, "projects", [])
+
+    projects =
+      Enum.map(project_list, fn p ->
+        name = p["name"]
+
+        %{
+          name: name,
+          root: p["root"],
+          status: p["status"] || "active",
+          tasks_dir: p["tasks_dir"],
+          prd_json: p["prd_json"],
+          agent_count: length(AgentRegistry.list_agents(name)),
+          session_count: length(Map.get(p, "sessions", []))
+        }
+      end)
+
+    json(conn, %{
+      active_project: Map.get(config, "active_project"),
+      projects: projects
+    })
+  end
+
+  # ============================
+  # POST Endpoints
+  # ============================
+
+  @doc "POST /api/register -- register agent (existing v4 endpoint)"
   def register(conn, params) do
     agent_id = params["agent_id"] || params["id"]
 
@@ -41,6 +216,8 @@ defmodule ApmV4Web.ApiController do
       |> put_status(400)
       |> json(%{error: "Missing required field: agent_id"})
     else
+      project_name = params["project_name"] || params["project"]
+
       metadata = %{
         name: params["name"] || agent_id,
         tier: params["tier"] || 1,
@@ -49,7 +226,7 @@ defmodule ApmV4Web.ApiController do
         metadata: params["metadata"] || %{}
       }
 
-      :ok = AgentRegistry.register_agent(agent_id, metadata)
+      :ok = AgentRegistry.register_agent(agent_id, metadata, project_name)
 
       conn
       |> put_status(201)
@@ -57,6 +234,7 @@ defmodule ApmV4Web.ApiController do
     end
   end
 
+  @doc "POST /api/heartbeat -- update agent status (existing v4 endpoint)"
   def heartbeat(conn, params) do
     agent_id = params["agent_id"] || params["id"]
 
@@ -79,19 +257,259 @@ defmodule ApmV4Web.ApiController do
     end
   end
 
-  def agents(conn, _params) do
-    agents = AgentRegistry.list_agents()
-    json(conn, %{agents: agents})
-  end
-
+  @doc "POST /api/notify -- add notification (existing v4 endpoint)"
   def notify(conn, params) do
     notification = %{
       title: params["title"] || "Notification",
-      message: params["message"] || "",
-      level: params["level"] || "info"
+      message: params["message"] || params["body"] || "",
+      level: params["level"] || params["category"] || "info"
     }
 
     id = AgentRegistry.add_notification(notification)
     json(conn, %{ok: true, id: id})
+  end
+
+  @doc "POST /api/notifications/add -- v3-compatible notification add"
+  def add_notification(conn, params) do
+    notification = %{
+      title: params["title"] || "Notification",
+      message: params["body"] || params["message"] || "",
+      level: params["category"] || params["level"] || "info"
+    }
+
+    id = AgentRegistry.add_notification(notification)
+    json(conn, %{ok: true, id: id})
+  end
+
+  @doc "POST /api/notifications/read-all -- mark all as read"
+  def read_all_notifications(conn, _params) do
+    :ok = AgentRegistry.mark_all_read()
+    json(conn, %{ok: true})
+  end
+
+  @doc "POST /api/agents/update -- full agent update (v3-compatible)"
+  def update_agent(conn, params) do
+    agent_id = params["agent_id"] || params["id"]
+
+    if is_nil(agent_id) or agent_id == "" do
+      conn
+      |> put_status(400)
+      |> json(%{error: "Missing required field: agent_id"})
+    else
+      case AgentRegistry.update_agent(agent_id, params) do
+        :ok ->
+          json(conn, %{ok: true, agent_id: agent_id})
+
+        {:error, :not_found} ->
+          conn
+          |> put_status(404)
+          |> json(%{error: "Agent not found", agent_id: agent_id})
+      end
+    end
+  end
+
+  @doc "POST /api/input/request -- create input request"
+  def request_input(conn, params) do
+    id = ProjectStore.add_input_request(params)
+    json(conn, %{ok: true, id: id})
+  end
+
+  @doc "POST /api/input/respond -- respond to input request"
+  def respond_input(conn, params) do
+    id = params["id"]
+    choice = params["choice"] || params["response"]
+
+    if is_nil(id) do
+      conn
+      |> put_status(400)
+      |> json(%{error: "Missing required field: id"})
+    else
+      case ProjectStore.respond_to_input(id, choice) do
+        :ok ->
+          json(conn, %{ok: true, id: id})
+
+        {:error, :not_found} ->
+          conn
+          |> put_status(404)
+          |> json(%{error: "Input request not found", id: id})
+      end
+    end
+  end
+
+  @doc "POST /api/tasks/sync -- replace active project's task list"
+  def sync_tasks(conn, params) do
+    project_name = params["project"] || active_project_name() || "_global"
+    tasks = params["tasks"] || []
+    :ok = ProjectStore.sync_tasks(project_name, tasks)
+    json(conn, %{ok: true, count: length(tasks)})
+  end
+
+  @doc "POST /api/config/reload -- trigger config reload"
+  def reload_config(conn, _params) do
+    :ok = ConfigLoader.reload()
+    json(conn, %{ok: true})
+  end
+
+  @doc "POST /api/plane/update -- update Plane PM context"
+  def update_plane(conn, params) do
+    project_name = params["project"] || active_project_name() || "_global"
+    plane_data = Map.drop(params, ["project"])
+    :ok = ProjectStore.update_plane(project_name, plane_data)
+    json(conn, %{ok: true})
+  end
+
+  @doc "POST /api/commands -- register slash commands"
+  def register_commands(conn, params) do
+    project_name = params["project"] || active_project_name() || "_global"
+
+    commands =
+      cond do
+        is_list(params["commands"]) -> params["commands"]
+        is_map(params["name"]) -> [params]
+        is_binary(params["name"]) -> [params]
+        true -> []
+      end
+
+    :ok = ProjectStore.register_commands(project_name, commands)
+    json(conn, %{ok: true, count: length(commands)})
+  end
+
+  # ============================
+  # CCEM Environment Endpoints
+  # ============================
+
+  @doc "GET /api/environments -- list all CC environments"
+  def environments(conn, _params) do
+    envs = EnvironmentScanner.list_environments()
+
+    json(conn, %{
+      environments:
+        Enum.map(envs, fn e ->
+          %{
+            name: e.name,
+            path: e.path,
+            stack: e.stack,
+            has_claude_md: e.has_claude_md,
+            has_git: e.has_git,
+            session_count: e.session_count,
+            last_session_date: e.last_session_date,
+            last_modified: e.last_modified
+          }
+        end),
+      count: length(envs)
+    })
+  end
+
+  @doc "GET /api/environments/:name -- full environment detail"
+  def environment_detail(conn, %{"name" => name}) do
+    case EnvironmentScanner.get_environment(name) do
+      {:ok, env} ->
+        json(conn, env)
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "Environment not found", name: name})
+    end
+  end
+
+  @doc "POST /api/environments/:name/exec -- execute command in environment"
+  def exec_command(conn, %{"name" => name} = params) do
+    command = params["command"]
+    timeout = params["timeout"]
+
+    if is_nil(command) or command == "" do
+      conn |> put_status(400) |> json(%{error: "Missing required field: command"})
+    else
+      opts = if timeout, do: [timeout: min(timeout * 1000, 120_000)], else: []
+
+      case CommandRunner.exec(name, command, opts) do
+        {:ok, result} ->
+          json(conn, result)
+
+        {:error, :environment_not_found} ->
+          conn |> put_status(404) |> json(%{error: "Environment not found", name: name})
+
+        {:error, :dangerous_command} ->
+          conn |> put_status(403) |> json(%{error: "Command rejected as dangerous"})
+      end
+    end
+  end
+
+  @doc "POST /api/environments/:name/session/start -- launch CC session"
+  def start_session(conn, %{"name" => name} = params) do
+    with_ccem = params["with_ccem"] != false
+
+    case EnvironmentScanner.get_environment(name) do
+      {:ok, env} ->
+        cmd =
+          if with_ccem do
+            "cd #{env.path} && claude --dangerously-skip-permissions"
+          else
+            "cd #{env.path} && claude --dangerously-skip-permissions --no-hooks"
+          end
+
+        # Launch detached so it doesn't block
+        spawn(fn ->
+          System.cmd("sh", ["-c", "nohup #{cmd} </dev/null >/dev/null 2>&1 &"], cd: env.path)
+        end)
+
+        json(conn, %{ok: true, environment: name, with_ccem: with_ccem})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "Environment not found", name: name})
+    end
+  end
+
+  @doc "POST /api/environments/:name/session/stop -- kill CC session"
+  def stop_session(conn, %{"name" => name}) do
+    case EnvironmentScanner.get_environment(name) do
+      {:ok, env} ->
+        # Find claude processes in this directory
+        {output, _} = System.cmd("sh", ["-c", "pgrep -f 'claude.*#{env.path}' || true"])
+
+        pids =
+          output
+          |> String.split("\n", trim: true)
+          |> Enum.filter(&(String.trim(&1) != ""))
+
+        Enum.each(pids, fn pid ->
+          System.cmd("kill", [String.trim(pid)], stderr_to_stdout: true)
+        end)
+
+        json(conn, %{ok: true, environment: name, killed: length(pids)})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "Environment not found", name: name})
+    end
+  end
+
+  # ============================
+  # Private Helpers
+  # ============================
+
+  defp active_project_name do
+    config = safe_get_config()
+    Map.get(config, "active_project")
+  end
+
+  defp get_ralph_for_project(project_name) do
+    project = if project_name, do: safe_get_project(project_name)
+    prd_path = if project, do: project["prd_json"]
+    Ralph.load(prd_path)
+  end
+
+  defp safe_get_config do
+    try do
+      ConfigLoader.get_config()
+    catch
+      :exit, _ -> %{"projects" => [], "active_project" => nil}
+    end
+  end
+
+  defp safe_get_project(name) do
+    try do
+      ConfigLoader.get_project(name)
+    catch
+      :exit, _ -> nil
+    end
   end
 end

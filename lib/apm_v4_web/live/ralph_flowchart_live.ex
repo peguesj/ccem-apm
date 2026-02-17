@@ -10,7 +10,10 @@ defmodule ApmV4Web.RalphFlowchartLive do
 
   use ApmV4Web, :live_view
 
-  @steps [
+  alias ApmV4.ConfigLoader
+  alias ApmV4.Ralph
+
+  @default_steps [
     %{id: "1", label: "You write a PRD", description: "Define what you want to build", phase: "setup"},
     %{id: "2", label: "Convert to prd.json", description: "Break into small user stories", phase: "setup"},
     %{id: "3", label: "Run ralph.sh", description: "Starts the autonomous loop", phase: "setup"},
@@ -23,7 +26,7 @@ defmodule ApmV4Web.RalphFlowchartLive do
     %{id: "10", label: "Done!", description: "All stories complete", phase: "done"}
   ]
 
-  @edges [
+  @default_edges [
     %{source: "1", target: "2"},
     %{source: "2", target: "3"},
     %{source: "3", target: "4"},
@@ -38,15 +41,22 @@ defmodule ApmV4Web.RalphFlowchartLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:config")
+    end
+
+    {steps, edges, ralph_data} = load_ralph_data()
+
     socket =
       socket
       |> assign(:page_title, "Ralph Flowchart")
-      |> assign(:steps, @steps)
-      |> assign(:edges, @edges)
-      |> assign(:visible_count, length(@steps))
+      |> assign(:steps, steps)
+      |> assign(:edges, edges)
+      |> assign(:ralph_data, ralph_data)
+      |> assign(:visible_count, length(steps))
       |> assign(:active_step, nil)
       |> assign(:selected_step, nil)
-      |> push_flowchart_data(@steps, @edges, length(@steps))
+      |> push_flowchart_data(steps, edges, length(steps))
 
     {:ok, socket}
   end
@@ -182,63 +192,91 @@ defmodule ApmV4Web.RalphFlowchartLive do
 
   @impl true
   def handle_event("next_step", _params, socket) do
-    new_count = min(socket.assigns.visible_count + 1, length(@steps))
+    steps = socket.assigns.steps
+    edges = socket.assigns.edges
+    new_count = min(socket.assigns.visible_count + 1, length(steps))
 
     socket =
       socket
       |> assign(:visible_count, new_count)
-      |> push_flowchart_data(@steps, @edges, new_count)
+      |> push_flowchart_data(steps, edges, new_count)
 
     {:noreply, socket}
   end
 
   def handle_event("prev_step", _params, socket) do
+    steps = socket.assigns.steps
+    edges = socket.assigns.edges
     new_count = max(socket.assigns.visible_count - 1, 1)
 
     socket =
       socket
       |> assign(:visible_count, new_count)
-      |> push_flowchart_data(@steps, @edges, new_count)
+      |> push_flowchart_data(steps, edges, new_count)
 
     {:noreply, socket}
   end
 
   def handle_event("reset_steps", _params, socket) do
+    steps = socket.assigns.steps
+    edges = socket.assigns.edges
+
     socket =
       socket
       |> assign(:visible_count, 1)
-      |> push_flowchart_data(@steps, @edges, 1)
+      |> push_flowchart_data(steps, edges, 1)
 
     {:noreply, socket}
   end
 
   def handle_event("advance_step", _params, socket) do
-    new_count = min(socket.assigns.visible_count + 1, length(@steps))
+    steps = socket.assigns.steps
+    edges = socket.assigns.edges
+    new_count = min(socket.assigns.visible_count + 1, length(steps))
 
     socket =
       socket
       |> assign(:visible_count, new_count)
-      |> push_flowchart_data(@steps, @edges, new_count)
+      |> push_flowchart_data(steps, edges, new_count)
 
     {:noreply, socket}
   end
 
   def handle_event("jump_to_step", %{"step" => step_str}, socket) do
+    steps = socket.assigns.steps
+    edges = socket.assigns.edges
     step_num = String.to_integer(step_str)
-    new_count = max(1, min(step_num, length(@steps)))
+    new_count = max(1, min(step_num, length(steps)))
 
     socket =
       socket
       |> assign(:visible_count, new_count)
-      |> push_flowchart_data(@steps, @edges, new_count)
+      |> push_flowchart_data(steps, edges, new_count)
 
     {:noreply, socket}
   end
 
   def handle_event("select_step", %{"step-id" => step_id}, socket) do
-    selected = Enum.find(@steps, fn s -> s.id == step_id end)
+    selected = Enum.find(socket.assigns.steps, fn s -> s.id == step_id end)
     {:noreply, assign(socket, :selected_step, selected)}
   end
+
+  @impl true
+  def handle_info({:config_reloaded, _config}, socket) do
+    {steps, edges, ralph_data} = load_ralph_data()
+
+    socket =
+      socket
+      |> assign(:steps, steps)
+      |> assign(:edges, edges)
+      |> assign(:ralph_data, ralph_data)
+      |> assign(:visible_count, length(steps))
+      |> push_flowchart_data(steps, edges, length(steps))
+
+    {:noreply, socket}
+  end
+
+  def handle_info(_msg, socket), do: {:noreply, socket}
 
   # --- Helper Components ---
 
@@ -306,4 +344,48 @@ defmodule ApmV4Web.RalphFlowchartLive do
   defp phase_dot_class("decision"), do: "bg-amber-500"
   defp phase_dot_class("done"), do: "bg-green-500"
   defp phase_dot_class(_), do: "bg-gray-500"
+
+  defp load_ralph_data do
+    project =
+      try do
+        ConfigLoader.get_active_project()
+      catch
+        :exit, _ -> nil
+      end
+
+    prd_path = if project, do: project["prd_json"]
+
+    case Ralph.load(prd_path) do
+      {:ok, %{stories: stories} = ralph_data} when stories != [] ->
+        # Convert stories to step format for the flowchart
+        steps =
+          stories
+          |> Enum.with_index(1)
+          |> Enum.map(fn {story, idx} ->
+            phase =
+              cond do
+                idx <= 2 -> "setup"
+                story["passes"] == true -> "done"
+                true -> "loop"
+              end
+
+            %{
+              id: to_string(idx),
+              label: story["title"] || "Story #{idx}",
+              description: story["description"] || "",
+              phase: phase
+            }
+          end)
+
+        edges =
+          steps
+          |> Enum.chunk_every(2, 1, :discard)
+          |> Enum.map(fn [s, t] -> %{source: s.id, target: t.id} end)
+
+        {steps, edges, ralph_data}
+
+      _ ->
+        {@default_steps, @default_edges, nil}
+    end
+  end
 end

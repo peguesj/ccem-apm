@@ -27,6 +27,7 @@ import topbar from "../vendor/topbar"
 
 import DependencyGraph from "./hooks/dependency_graph"
 import RalphFlowchart from "./hooks/ralph_flowchart"
+import WidgetResize from "./hooks/widget_resize"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -42,7 +43,8 @@ const Hooks = {
     }
   },
   DependencyGraph,
-  RalphFlowchart
+  RalphFlowchart,
+  WidgetResize
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

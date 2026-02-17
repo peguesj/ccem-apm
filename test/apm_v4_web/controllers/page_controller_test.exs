@@ -21,8 +21,7 @@ defmodule ApmV4Web.DashboardLiveTest do
     assert html =~ "Dashboard"
     assert html =~ "Agents"
     assert html =~ "Ralph"
-    assert html =~ "Sessions"
-    assert html =~ "Settings"
+    assert html =~ "All Projects"
     assert has_element?(view, "aside nav")
   end
 
@@ -113,7 +112,7 @@ defmodule ApmV4Web.DashboardLiveTest do
 
   test "graph container has correct CSS classes for sizing", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/")
-    assert html =~ "w-full h-48"
+    assert html =~ "h-48"
     assert html =~ "bg-base-300"
   end
 
@@ -121,7 +120,7 @@ defmodule ApmV4Web.DashboardLiveTest do
     {:ok, view, _html} = live(conn, ~p"/")
 
     html = view |> element(~s{button[phx-value-tab="ralph"]}) |> render_click()
-    assert html =~ "Ralph Methodology"
+    assert html =~ "flowchart"
 
     html = view |> element(~s{button[phx-value-tab="commands"]}) |> render_click()
     assert html =~ "Slash Commands"

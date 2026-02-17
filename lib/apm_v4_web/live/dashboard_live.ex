@@ -4,27 +4,43 @@ defmodule ApmV4Web.DashboardLive do
 
   Ported from the Python APM v3 embedded HTML dashboard to Phoenix LiveView
   with daisyUI components. Displays agent fleet status, stats cards, notification
-  toasts, and sidebar navigation.
+  toasts, sidebar navigation, and multi-project support.
   """
 
   use ApmV4Web, :live_view
 
   alias ApmV4.AgentRegistry
+  alias ApmV4.ConfigLoader
+  alias ApmV4.ProjectStore
+  alias ApmV4.Ralph
 
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:agents")
       Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:notifications")
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:config")
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:tasks")
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:commands")
     end
 
-    agents = AgentRegistry.list_agents()
+    config = safe_get_config()
+    projects = Map.get(config, "projects", [])
+    active_project = Map.get(config, "active_project")
+
+    agents = AgentRegistry.list_agents(active_project)
     notifications = AgentRegistry.get_notifications()
     uptime = calculate_uptime()
+    tasks = ProjectStore.get_tasks(active_project || "_global")
+    commands = ProjectStore.get_commands(active_project || "_global")
+    ralph_data = load_ralph_for_project(active_project, config)
+    session_count = count_config_sessions(config)
 
     socket =
       socket
       |> assign(:page_title, "Dashboard")
+      |> assign(:projects, projects)
+      |> assign(:active_project, active_project)
       |> assign(:agents, agents)
       |> assign(:notifications, notifications)
       |> assign(:uptime, uptime)
@@ -32,9 +48,14 @@ defmodule ApmV4Web.DashboardLive do
       |> assign(:active_count, Enum.count(agents, &(&1.status == "active")))
       |> assign(:idle_count, Enum.count(agents, &(&1.status == "idle")))
       |> assign(:error_count, Enum.count(agents, &(&1.status == "error")))
+      |> assign(:session_count, session_count)
       |> assign(:active_nav, :dashboard)
       |> assign(:active_tab, :inspector)
       |> assign(:selected_agent, nil)
+      |> assign(:tasks, tasks)
+      |> assign(:commands, commands)
+      |> assign(:ralph_data, ralph_data)
+      |> assign(:graph_expanded, false)
       |> push_graph_data(agents)
 
     {:ok, socket}
@@ -55,10 +76,8 @@ defmodule ApmV4Web.DashboardLive do
         </div>
         <nav class="flex-1 p-2 space-y-1">
           <.nav_item icon="hero-squares-2x2" label="Dashboard" active={@active_nav == :dashboard} href="/" />
-          <.nav_item icon="hero-cpu-chip" label="Agents" active={@active_nav == :agents} href="/" />
+          <.nav_item icon="hero-globe-alt" label="All Projects" active={@active_nav == :all} href="/apm-all" />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={@active_nav == :ralph} href="/ralph" />
-          <.nav_item icon="hero-clock" label="Sessions" active={@active_nav == :sessions} href="/" />
-          <.nav_item icon="hero-cog-6-tooth" label="Settings" active={@active_nav == :settings} href="/" />
         </nav>
         <div class="p-3 border-t border-base-300">
           <div class="text-xs text-base-content/40">
@@ -76,6 +95,30 @@ defmodule ApmV4Web.DashboardLive do
             <h2 class="text-sm font-semibold text-base-content">Dashboard</h2>
             <div class="badge badge-sm badge-ghost">
               {@agent_count} agents
+            </div>
+            <%!-- Project selector --%>
+            <div :if={length(@projects) > 0} class="dropdown dropdown-bottom">
+              <div tabindex="0" role="button" class="btn btn-ghost btn-xs gap-1">
+                <.icon name="hero-folder" class="size-3" />
+                {@active_project || "All Projects"}
+                <.icon name="hero-chevron-down" class="size-3" />
+              </div>
+              <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-48">
+                <li>
+                  <button phx-click="switch_project" phx-value-project="">
+                    All Projects
+                  </button>
+                </li>
+                <li :for={project <- @projects}>
+                  <button
+                    phx-click="switch_project"
+                    phx-value-project={project["name"]}
+                    class={@active_project == project["name"] && "active"}
+                  >
+                    {project["name"]}
+                  </button>
+                </li>
+              </ul>
             </div>
           </div>
           <div class="flex items-center gap-3">
@@ -143,19 +186,36 @@ defmodule ApmV4Web.DashboardLive do
               <.stat_card label="Active" value={@active_count} color="text-success" />
               <.stat_card label="Idle" value={@idle_count} color="text-base-content/60" />
               <.stat_card label="Errors" value={@error_count} color="text-error" />
-              <.stat_card label="Sessions" value={length(AgentRegistry.list_sessions())} color="text-info" />
+              <.stat_card label="Sessions" value={@session_count} color="text-info" />
               <.stat_card label="Notifications" value={length(@notifications)} color="text-warning" />
             </div>
 
             <%!-- D3 Dependency Graph --%>
-            <div class="card bg-base-200 border border-base-300">
+            <div class={[
+              "card bg-base-200 border border-base-300 transition-all duration-200",
+              @graph_expanded && "fixed inset-4 z-40 shadow-2xl"
+            ]}>
               <div class="card-body p-3">
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">
-                  Dependency Graph
-                </h3>
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
+                    Dependency Graph
+                  </h3>
+                  <div class="flex gap-1">
+                    <button
+                      class="btn btn-ghost btn-xs"
+                      phx-click="toggle_graph"
+                      title={if @graph_expanded, do: "Collapse", else: "Expand"}
+                    >
+                      <.icon name={if @graph_expanded, do: "hero-arrows-pointing-in", else: "hero-arrows-pointing-out"} class="size-3" />
+                    </button>
+                  </div>
+                </div>
                 <div
                   id="dep-graph"
-                  class="w-full h-48 rounded bg-base-300 relative"
+                  class={[
+                    "w-full rounded bg-base-300 relative",
+                    @graph_expanded && "h-[calc(100%-2rem)]" || "h-48"
+                  ]}
                   phx-hook="DependencyGraph"
                   phx-update="ignore"
                 >
@@ -247,6 +307,10 @@ defmodule ApmV4Web.DashboardLive do
                       <span class="text-base-content/50">Last Seen</span>
                       <span>{format_last_seen(@selected_agent.last_seen)}</span>
                     </div>
+                    <div :if={@selected_agent[:project_name]} class="flex justify-between">
+                      <span class="text-base-content/50">Project</span>
+                      <span>{@selected_agent.project_name}</span>
+                    </div>
                     <div :if={@selected_agent.deps != []} class="pt-1">
                       <span class="text-base-content/50">Dependencies:</span>
                       <div class="flex flex-wrap gap-1 mt-1">
@@ -261,12 +325,53 @@ defmodule ApmV4Web.DashboardLive do
 
               <%!-- Ralph tab --%>
               <div :if={@active_tab == :ralph} class="space-y-2">
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                  Ralph Methodology
-                </h3>
-                <p class="text-xs text-base-content/40">
-                  Ralph flowchart will be rendered in a dedicated /ralph route.
-                </p>
+                <div class="flex items-center justify-between">
+                  <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
+                    Ralph
+                  </h3>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-base-content/30">
+                      {@ralph_data.passed}/{@ralph_data.total} passed
+                    </span>
+                    <a href="/ralph" class="text-[10px] text-primary hover:underline">flowchart →</a>
+                  </div>
+                </div>
+
+                <%!-- Progress bar --%>
+                <div :if={@ralph_data.total > 0} class="w-full bg-base-300 rounded-full h-1">
+                  <div
+                    class="bg-success h-1 rounded-full transition-all"
+                    style={"width: #{trunc(@ralph_data.passed / @ralph_data.total * 100)}%"}
+                  ></div>
+                </div>
+
+                <%!-- Story list --%>
+                <div :if={@ralph_data.total > 0} class="space-y-0.5 max-h-80 overflow-y-auto">
+                  <div
+                    :for={story <- @ralph_data.stories}
+                    class="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-base-300 text-xs cursor-default group"
+                  >
+                    <span class={[
+                      "w-2 h-2 rounded-full flex-shrink-0",
+                      story["passes"] == true && "bg-success" || "bg-error/60"
+                    ]}>
+                    </span>
+                    <span class="truncate flex-1 group-hover:text-base-content text-base-content/70">
+                      {story["title"] || story["id"]}
+                    </span>
+                    <span class="text-base-content/30 flex-shrink-0 text-[10px]">
+                      #{story["priority"] || ""}
+                    </span>
+                  </div>
+                </div>
+
+                <%!-- No prd.json --%>
+                <div :if={@ralph_data.total == 0} class="text-xs text-base-content/40 py-4 text-center">
+                  No prd.json for this project.
+                  <a href="/ralph" class="text-primary hover:underline block mt-1">
+                    Open flowchart →
+                  </a>
+                </div>
               </div>
 
               <%!-- Commands tab --%>
@@ -274,9 +379,13 @@ defmodule ApmV4Web.DashboardLive do
                 <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
                   Slash Commands
                 </h3>
-                <p class="text-xs text-base-content/40">
-                  Command registry will be populated via API.
-                </p>
+                <div :if={@commands == []} class="text-xs text-base-content/40">
+                  No commands registered. POST to /api/commands to add.
+                </div>
+                <div :for={cmd <- @commands} class="p-2 rounded bg-base-300 text-xs">
+                  <div class="font-semibold">/{cmd["name"] || cmd[:name]}</div>
+                  <div class="text-base-content/50">{cmd["description"] || cmd[:description]}</div>
+                </div>
               </div>
 
               <%!-- TODOs tab --%>
@@ -284,9 +393,17 @@ defmodule ApmV4Web.DashboardLive do
                 <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
                   Active Tasks
                 </h3>
-                <p class="text-xs text-base-content/40">
-                  TODO tracking will be populated via API.
-                </p>
+                <div :if={@tasks == []} class="text-xs text-base-content/40">
+                  No tasks synced. POST to /api/tasks/sync to add.
+                </div>
+                <div :for={task <- @tasks} class="p-2 rounded bg-base-300 text-xs">
+                  <div class="flex items-center gap-2">
+                    <span class={["badge badge-xs", task_status_class(task["status"] || task[:status])]}>
+                      {task["status"] || task[:status] || "pending"}
+                    </span>
+                    <span class="font-medium">{task["subject"] || task[:subject] || task["title"] || "Task"}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -301,6 +418,50 @@ defmodule ApmV4Web.DashboardLive do
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, String.to_existing_atom(tab))}
+  end
+
+  def handle_event("toggle_graph", _params, socket) do
+    {:noreply, assign(socket, :graph_expanded, !socket.assigns.graph_expanded)}
+  end
+
+  def handle_event("switch_project", %{"project" => ""}, socket) do
+    config = safe_get_config()
+    agents = AgentRegistry.list_agents()
+    tasks = ProjectStore.get_tasks("_global")
+    commands = ProjectStore.get_commands("_global")
+    ralph_data = load_ralph_for_project(nil, config)
+
+    socket =
+      socket
+      |> assign(:active_project, nil)
+      |> assign(:agents, agents)
+      |> assign(:tasks, tasks)
+      |> assign(:commands, commands)
+      |> assign(:ralph_data, ralph_data)
+      |> update_agent_counts(agents)
+      |> push_graph_data(agents)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("switch_project", %{"project" => project_name}, socket) do
+    config = safe_get_config()
+    agents = AgentRegistry.list_agents(project_name)
+    tasks = ProjectStore.get_tasks(project_name)
+    commands = ProjectStore.get_commands(project_name)
+    ralph_data = load_ralph_for_project(project_name, config)
+
+    socket =
+      socket
+      |> assign(:active_project, project_name)
+      |> assign(:agents, agents)
+      |> assign(:tasks, tasks)
+      |> assign(:commands, commands)
+      |> assign(:ralph_data, ralph_data)
+      |> update_agent_counts(agents)
+      |> push_graph_data(agents)
+
+    {:noreply, socket}
   end
 
   def handle_event("clear_notifications", _params, socket) do
@@ -334,24 +495,71 @@ defmodule ApmV4Web.DashboardLive do
     refresh_agents(socket)
   end
 
+  def handle_info({:agent_discovered, _agent_id, _project}, socket) do
+    refresh_agents(socket)
+  end
+
   def handle_info({:notification_added, _notif}, socket) do
     notifications = AgentRegistry.get_notifications()
     {:noreply, assign(socket, :notifications, notifications)}
   end
 
+  def handle_info(:notifications_read, socket) do
+    notifications = AgentRegistry.get_notifications()
+    {:noreply, assign(socket, :notifications, notifications)}
+  end
+
+  def handle_info({:config_reloaded, config}, socket) do
+    projects = Map.get(config, "projects", [])
+    active = Map.get(config, "active_project")
+    ralph_data = load_ralph_for_project(active, config)
+    session_count = count_config_sessions(config)
+
+    socket =
+      socket
+      |> assign(:projects, projects)
+      |> assign(:active_project, active)
+      |> assign(:ralph_data, ralph_data)
+      |> assign(:session_count, session_count)
+
+    refresh_agents(socket)
+  end
+
+  def handle_info({:tasks_synced, _project, _tasks}, socket) do
+    project = socket.assigns.active_project || "_global"
+    tasks = ProjectStore.get_tasks(project)
+    {:noreply, assign(socket, :tasks, tasks)}
+  end
+
+  def handle_info({:commands_updated, _project}, socket) do
+    project = socket.assigns.active_project || "_global"
+    commands = ProjectStore.get_commands(project)
+    {:noreply, assign(socket, :commands, commands)}
+  end
+
+  def handle_info(_msg, socket) do
+    {:noreply, socket}
+  end
+
   defp refresh_agents(socket) do
-    agents = AgentRegistry.list_agents()
+    project = socket.assigns.active_project
+    agents = AgentRegistry.list_agents(project)
 
     socket =
       socket
       |> assign(:agents, agents)
-      |> assign(:agent_count, length(agents))
-      |> assign(:active_count, Enum.count(agents, &(&1.status == "active")))
-      |> assign(:idle_count, Enum.count(agents, &(&1.status == "idle")))
-      |> assign(:error_count, Enum.count(agents, &(&1.status == "error")))
+      |> update_agent_counts(agents)
       |> push_graph_data(agents)
 
     {:noreply, socket}
+  end
+
+  defp update_agent_counts(socket, agents) do
+    socket
+    |> assign(:agent_count, length(agents))
+    |> assign(:active_count, Enum.count(agents, &(&1.status == "active")))
+    |> assign(:idle_count, Enum.count(agents, &(&1.status == "idle")))
+    |> assign(:error_count, Enum.count(agents, &(&1.status == "error")))
   end
 
   # --- Helper Components ---
@@ -407,7 +615,6 @@ defmodule ApmV4Web.DashboardLive do
         }
       end)
 
-    # Build edges from agent deps
     agent_ids = MapSet.new(Enum.map(agents, & &1.id))
 
     edges =
@@ -452,6 +659,7 @@ defmodule ApmV4Web.DashboardLive do
   defp status_badge_class("idle"), do: "badge-ghost"
   defp status_badge_class("error"), do: "badge-error"
   defp status_badge_class("discovered"), do: "badge-info"
+  defp status_badge_class("completed"), do: "badge-accent"
   defp status_badge_class(_), do: "badge-ghost"
 
   defp tier_badge_class(1), do: "badge-primary"
@@ -465,8 +673,46 @@ defmodule ApmV4Web.DashboardLive do
   defp notif_badge_class("info"), do: "badge-info"
   defp notif_badge_class(_), do: "badge-ghost"
 
+  defp task_status_class("completed"), do: "badge-success"
+  defp task_status_class("in_progress"), do: "badge-info"
+  defp task_status_class("pending"), do: "badge-ghost"
+  defp task_status_class(_), do: "badge-ghost"
+
   defp tab_label(:inspector), do: "Inspector"
   defp tab_label(:ralph), do: "Ralph"
   defp tab_label(:commands), do: "Commands"
   defp tab_label(:todos), do: "TODOs"
+
+  defp load_ralph_for_project(project_name, config) do
+    prd_path =
+      if project_name do
+        config
+        |> Map.get("projects", [])
+        |> Enum.find(fn p -> p["name"] == project_name end)
+        |> then(fn
+          nil -> nil
+          project -> project["prd_json"]
+        end)
+      end
+
+    case Ralph.load(prd_path) do
+      {:ok, data} -> data
+      _ -> %{project: "", branch: "", description: "", stories: [], total: 0, passed: 0}
+    end
+  end
+
+  defp count_config_sessions(config) do
+    config
+    |> Map.get("projects", [])
+    |> Enum.flat_map(fn p -> Map.get(p, "sessions", []) end)
+    |> length()
+  end
+
+  defp safe_get_config do
+    try do
+      ConfigLoader.get_config()
+    catch
+      :exit, _ -> %{"projects" => [], "active_project" => nil}
+    end
+  end
 end

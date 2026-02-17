@@ -12,30 +12,74 @@ defmodule ApmV4Web.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug ApmV4Web.Plugs.CORS
   end
 
   pipeline :api_flexible do
     plug :accepts, ["json", "jsonl"]
+    plug ApmV4Web.Plugs.CORS
   end
 
+  # Browser routes
   scope "/", ApmV4Web do
     pipe_through :browser
 
     live "/", DashboardLive, :index
+    live "/apm-all", AllProjectsLive, :index
     live "/ralph", RalphFlowchartLive, :index
   end
 
+  # v3-compatible health check (outside /api scope)
+  scope "/", ApmV4Web do
+    pipe_through :api
+    get "/health", ApiController, :health
+  end
+
+  # REST API
   scope "/api", ApmV4Web do
     pipe_through :api
 
+    # Existing v4 endpoints (keep)
     get "/status", ApiController, :status
+    get "/agents", ApiController, :agents
     post "/register", ApiController, :register
     post "/heartbeat", ApiController, :heartbeat
-    get "/agents", ApiController, :agents
     post "/notify", ApiController, :notify
+
+    # AG-UI SSE endpoint
     get "/ag-ui/events", AgUiController, :events
+
+    # v3-compatible endpoints (new)
+    get "/data", ApiController, :data
+    get "/notifications", ApiController, :notifications
+    post "/notifications/add", ApiController, :add_notification
+    post "/notifications/read-all", ApiController, :read_all_notifications
+    get "/ralph", ApiController, :ralph
+    get "/ralph/flowchart", ApiController, :ralph_flowchart
+    get "/commands", ApiController, :commands
+    post "/commands", ApiController, :register_commands
+    get "/agents/discover", ApiController, :discover_agents
+    post "/agents/register", ApiController, :register
+    post "/agents/update", ApiController, :update_agent
+    get "/input/pending", ApiController, :pending_input
+    post "/input/request", ApiController, :request_input
+    post "/input/respond", ApiController, :respond_input
+    post "/tasks/sync", ApiController, :sync_tasks
+    post "/config/reload", ApiController, :reload_config
+    post "/plane/update", ApiController, :update_plane
+
+    # v4-only endpoints
+    get "/projects", ApiController, :projects
+
+    # CCEM environment manager endpoints
+    get "/environments", ApiController, :environments
+    get "/environments/:name", ApiController, :environment_detail
+    post "/environments/:name/exec", ApiController, :exec_command
+    post "/environments/:name/session/start", ApiController, :start_session
+    post "/environments/:name/session/stop", ApiController, :stop_session
   end
 
+  # A2UI flexible format endpoint
   scope "/api", ApmV4Web do
     pipe_through :api_flexible
 
@@ -44,11 +88,6 @@ defmodule ApmV4Web.Router do
 
   # Enable LiveDashboard in development
   if Application.compile_env(:apm_v4, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
