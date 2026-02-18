@@ -20,6 +20,7 @@ defmodule ApmV4.SessionParser do
   @zero_metrics %{
     tokens: %{input: 0, output: 0},
     tools: %{},
+    skills: %{},
     duration_seconds: 0,
     turns: 0
   }
@@ -63,6 +64,7 @@ defmodule ApmV4.SessionParser do
       input_tokens: 0,
       output_tokens: 0,
       tools: %{},
+      skills: %{},
       turns: 0,
       first_timestamp: nil,
       last_timestamp: nil
@@ -90,6 +92,7 @@ defmodule ApmV4.SessionParser do
     %{
       tokens: %{input: result.input_tokens, output: result.output_tokens},
       tools: result.tools,
+      skills: result.skills,
       duration_seconds: duration,
       turns: result.turns
     }
@@ -183,6 +186,14 @@ defmodule ApmV4.SessionParser do
 
     if is_list(content) do
       Enum.reduce(content, acc, fn
+        %{"type" => "tool_use", "name" => "Skill", "input" => %{"skill" => skill_name}}, acc
+        when is_binary(skill_name) ->
+          tools = acc.tools
+                  |> Map.update("Skill", 1, &(&1 + 1))
+                  |> Map.update("skill:#{skill_name}", 1, &(&1 + 1))
+          skills = Map.update(acc.skills, skill_name, 1, &(&1 + 1))
+          %{acc | tools: tools, skills: skills}
+
         %{"type" => "tool_use", "name" => name}, acc when is_binary(name) ->
           tools = Map.update(acc.tools, name, 1, &(&1 + 1))
           %{acc | tools: tools}

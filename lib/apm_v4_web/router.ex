@@ -30,6 +30,7 @@ defmodule ApmV4Web.Router do
     live "/", DashboardLive, :index
     live "/apm-all", AllProjectsLive, :index
     live "/ralph", RalphFlowchartLive, :index
+    live "/skills", SkillsLive, :index
     live "/timeline", SessionTimelineLive, :index
   end
 
@@ -71,6 +72,10 @@ defmodule ApmV4Web.Router do
     post "/tasks/sync", ApiController, :sync_tasks
     post "/config/reload", ApiController, :reload_config
     post "/plane/update", ApiController, :update_plane
+
+    # Skills tracking
+    get "/skills", ApiController, :skills
+    post "/skills/track", ApiController, :track_skill
 
     # v4-only endpoints
     get "/projects", ApiController, :projects

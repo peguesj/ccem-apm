@@ -77,9 +77,19 @@ defmodule ApmV4Web.AllProjectsLive do
             <.icon name="hero-globe-alt" class="size-4" />
           </button>
         </a>
+        <a href="/skills" class="tooltip tooltip-right" data-tip="Skills">
+          <button class="btn btn-ghost btn-sm btn-square">
+            <.icon name="hero-sparkles" class="size-4" />
+          </button>
+        </a>
         <a href="/ralph" class="tooltip tooltip-right" data-tip="Ralph">
           <button class="btn btn-ghost btn-sm btn-square">
             <.icon name="hero-arrow-path" class="size-4" />
+          </button>
+        </a>
+        <a href="/timeline" class="tooltip tooltip-right" data-tip="Timeline">
+          <button class="btn btn-ghost btn-sm btn-square">
+            <.icon name="hero-clock" class="size-4" />
           </button>
         </a>
         <div class="flex-1" />

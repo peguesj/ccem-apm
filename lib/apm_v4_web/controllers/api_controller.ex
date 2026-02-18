@@ -12,6 +12,7 @@ defmodule ApmV4Web.ApiController do
   alias ApmV4.ConfigLoader
   alias ApmV4.ProjectStore
   alias ApmV4.Ralph
+  alias ApmV4.SkillTracker
   alias ApmV4.AgentDiscovery
   alias ApmV4.EnvironmentScanner
   alias ApmV4.CommandRunner
@@ -175,6 +176,42 @@ defmodule ApmV4Web.ApiController do
   def pending_input(conn, _params) do
     pending = ProjectStore.get_pending_inputs()
     json(conn, pending)
+  end
+
+  @doc "GET /api/skills -- list tracked skills with optional filters"
+  def skills(conn, params) do
+    case {params["session_id"], params["project"]} do
+      {sid, _} when is_binary(sid) and sid != "" ->
+        json(conn, %{skills: SkillTracker.get_session_skills(sid)})
+
+      {_, proj} when is_binary(proj) and proj != "" ->
+        json(conn, %{skills: SkillTracker.get_project_skills(proj)})
+
+      _ ->
+        json(conn, %{
+          catalog: SkillTracker.get_skill_catalog(),
+          co_occurrence: SkillTracker.get_co_occurrence() |> Enum.map(fn {{a, b}, count} ->
+            %{skill_a: a, skill_b: b, count: count}
+          end)
+        })
+    end
+  end
+
+  @doc "POST /api/skills/track -- track a skill invocation"
+  def track_skill(conn, params) do
+    session_id = params["session_id"]
+    skill = params["skill"]
+
+    if is_nil(session_id) or session_id == "" or is_nil(skill) or skill == "" do
+      conn
+      |> put_status(400)
+      |> json(%{error: "Missing required fields: session_id, skill"})
+    else
+      project = params["project"]
+      args = params["args"]
+      SkillTracker.track_skill(session_id, skill, project, args)
+      json(conn, %{ok: true, session_id: session_id, skill: skill})
+    end
   end
 
   @doc "GET /api/projects -- list all projects with agent counts (v4-only)"

@@ -54,6 +54,7 @@ defmodule ApmV4Web.RalphFlowchartLive do
       |> assign(:edges, edges)
       |> assign(:ralph_data, ralph_data)
       |> assign(:visible_count, length(steps))
+      |> assign(:active_skill_count, skill_count())
       |> assign(:active_step, nil)
       |> assign(:selected_step, nil)
       |> push_flowchart_data(steps, edges, length(steps))
@@ -76,10 +77,10 @@ defmodule ApmV4Web.RalphFlowchartLive do
         </div>
         <nav class="flex-1 p-2 space-y-1">
           <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
-          <.nav_item icon="hero-cpu-chip" label="Agents" active={false} href="/" />
+          <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
+          <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" badge={@active_skill_count} />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={true} href="/ralph" />
-          <.nav_item icon="hero-clock" label="Sessions" active={false} href="/" />
-          <.nav_item icon="hero-cog-6-tooth" label="Settings" active={false} href="/" />
+          <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
         </nav>
       </aside>
 
@@ -284,6 +285,7 @@ defmodule ApmV4Web.RalphFlowchartLive do
   attr :label, :string, required: true
   attr :active, :boolean, default: false
   attr :href, :string, required: true
+  attr :badge, :any, default: nil
 
   defp nav_item(assigns) do
     ~H"""
@@ -297,8 +299,17 @@ defmodule ApmV4Web.RalphFlowchartLive do
     >
       <.icon name={@icon} class="size-4" />
       {@label}
+      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
     </a>
     """
+  end
+
+  defp skill_count do
+    try do
+      map_size(ApmV4.SkillTracker.get_skill_catalog())
+    catch
+      :exit, _ -> 0
+    end
   end
 
   # --- Private Helpers ---

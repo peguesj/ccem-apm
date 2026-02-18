@@ -6,6 +6,7 @@ defmodule ApmV4.SessionParserTest do
   @zero_metrics %{
     tokens: %{input: 0, output: 0},
     tools: %{},
+    skills: %{},
     duration_seconds: 0,
     turns: 0
   }
@@ -283,6 +284,53 @@ defmodule ApmV4.SessionParserTest do
       assert result.tools == %{}
       assert result.turns == 0
       assert result.duration_seconds == 60
+    end
+
+    test "extracts skill names from Skill tool_use blocks", %{tmp_dir: tmp_dir} do
+      path = Path.join(tmp_dir, "skills.jsonl")
+
+      lines = [
+        jsonl_entry_with_ts("assistant", %{
+          "usage" => %{"input_tokens" => 10, "output_tokens" => 5},
+          "content" => [
+            %{"type" => "tool_use", "id" => "t1", "name" => "Skill",
+              "input" => %{"skill" => "ralph", "args" => "--verbose"}}
+          ]
+        }, "2026-02-17T10:00:00.000Z"),
+        jsonl_entry_with_ts("assistant", %{
+          "usage" => %{"input_tokens" => 10, "output_tokens" => 5},
+          "content" => [
+            %{"type" => "tool_use", "id" => "t2", "name" => "Skill",
+              "input" => %{"skill" => "tdd:spawn"}}
+          ]
+        }, "2026-02-17T10:01:00.000Z"),
+        jsonl_entry_with_ts("assistant", %{
+          "usage" => %{"input_tokens" => 10, "output_tokens" => 5},
+          "content" => [
+            %{"type" => "tool_use", "id" => "t3", "name" => "Skill",
+              "input" => %{"skill" => "ralph"}}
+          ]
+        }, "2026-02-17T10:02:00.000Z"),
+        jsonl_entry_with_ts("assistant", %{
+          "usage" => %{"input_tokens" => 10, "output_tokens" => 5},
+          "content" => [
+            %{"type" => "tool_use", "id" => "t4", "name" => "Read",
+              "input" => %{"file_path" => "/tmp/test.txt"}}
+          ]
+        }, "2026-02-17T10:03:00.000Z")
+      ]
+
+      File.write!(path, Enum.join(lines, "\n"))
+      result = SessionParser.parse_jsonl(path)
+
+      # Skills map tracks individual skill names
+      assert result.skills == %{"ralph" => 2, "tdd:spawn" => 1}
+
+      # Tools map has both generic Skill and specific skill:name entries
+      assert result.tools["Skill"] == 3
+      assert result.tools["skill:ralph"] == 2
+      assert result.tools["skill:tdd:spawn"] == 1
+      assert result.tools["Read"] == 1
     end
   end
 

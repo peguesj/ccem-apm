@@ -58,6 +58,7 @@ defmodule ApmV4Web.DashboardLive do
       |> assign(:tasks, tasks)
       |> assign(:commands, commands)
       |> assign(:ralph_data, ralph_data)
+      |> assign(:active_skill_count, skill_count())
       |> assign(:graph_expanded, false)
       |> assign(:show_anon, false)
       |> assign(:saved_layouts, DashboardStore.list_layouts())
@@ -111,6 +112,7 @@ defmodule ApmV4Web.DashboardLive do
         <nav class="flex-1 p-2 space-y-1">
           <.nav_item icon="hero-squares-2x2" label="Dashboard" active={@active_nav == :dashboard} href="/" />
           <.nav_item icon="hero-globe-alt" label="All Projects" active={@active_nav == :all} href="/apm-all" />
+          <.nav_item icon="hero-sparkles" label="Skills" active={@active_nav == :skills} href="/skills" badge={@active_skill_count} />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={@active_nav == :ralph} href="/ralph" />
           <.nav_item icon="hero-clock" label="Timeline" active={@active_nav == :timeline} href="/timeline" />
         </nav>
@@ -834,6 +836,7 @@ defmodule ApmV4Web.DashboardLive do
   attr :label, :string, required: true
   attr :active, :boolean, default: false
   attr :href, :string, required: true
+  attr :badge, :any, default: nil
 
   defp nav_item(assigns) do
     ~H"""
@@ -847,6 +850,7 @@ defmodule ApmV4Web.DashboardLive do
     >
       <.icon name={@icon} class="size-4" />
       {@label}
+      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
     </a>
     """
   end
@@ -980,22 +984,59 @@ defmodule ApmV4Web.DashboardLive do
   defp tab_label(:commands), do: "Commands"
   defp tab_label(:todos), do: "TODOs"
 
+  defp skill_count do
+    try do
+      map_size(ApmV4.SkillTracker.get_skill_catalog())
+    catch
+      :exit, _ -> 0
+    end
+  end
+
   defp load_ralph_for_project(project_name, config) do
-    prd_path =
+    project_config =
       if project_name do
         config
         |> Map.get("projects", [])
         |> Enum.find(fn p -> p["name"] == project_name end)
-        |> then(fn
-          nil -> nil
-          project -> project["prd_json"]
-        end)
       end
 
+    prd_path = if project_config, do: project_config["prd_json"]
+
+    # Multi-signal Ralph detection:
+    # 1. prd_json path in config (existing)
+    # 2. SkillTracker methodology detection
+    # 3. .claude/ralph/ directory presence
+    ralph_detected =
+      prd_path != nil or
+      ralph_detected_via_skills?() or
+      ralph_dir_present?(project_config)
+
     case Ralph.load(prd_path) do
-      {:ok, data} -> data
-      _ -> %{project: "", branch: "", description: "", stories: [], total: 0, passed: 0}
+      {:ok, data} ->
+        data
+
+      _ when ralph_detected ->
+        %{project: project_name || "", branch: "", description: "Ralph detected via skills/directory",
+          stories: [], total: 0, passed: 0}
+
+      _ ->
+        %{project: "", branch: "", description: "", stories: [], total: 0, passed: 0}
     end
+  end
+
+  defp ralph_detected_via_skills? do
+    try do
+      catalog = ApmV4.SkillTracker.get_skill_catalog()
+      Map.has_key?(catalog, "ralph")
+    catch
+      :exit, _ -> false
+    end
+  end
+
+  defp ralph_dir_present?(nil), do: false
+  defp ralph_dir_present?(project_config) do
+    root = project_config["root"]
+    root != nil and File.dir?(Path.join(root, ".claude/ralph"))
   end
 
   defp count_config_sessions(config) do

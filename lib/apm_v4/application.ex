@@ -19,6 +19,7 @@ defmodule ApmV4.Application do
       ApmV4.AuditLog,
       ApmV4.ProjectStore,
       ApmV4.AgentRegistry,
+      ApmV4.SkillTracker,
       ApmV4.AlertRulesEngine,
       ApmV4.MetricsCollector,
       ApmV4.SloEngine,

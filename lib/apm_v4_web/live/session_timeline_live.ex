@@ -30,6 +30,7 @@ defmodule ApmV4Web.SessionTimelineLive do
       |> assign(:selected_session, nil)
       |> assign(:time_range, time_range)
       |> assign(:active_nav, :timeline)
+      |> assign(:active_skill_count, skill_count())
       |> push_timeline_data(agents, time_range)
 
     {:ok, socket}
@@ -51,6 +52,7 @@ defmodule ApmV4Web.SessionTimelineLive do
         <nav class="flex-1 p-2 space-y-1">
           <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
           <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
+          <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" badge={@active_skill_count} />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
           <.nav_item icon="hero-clock" label="Timeline" active={true} href="/timeline" />
         </nav>
@@ -292,10 +294,19 @@ defmodule ApmV4Web.SessionTimelineLive do
 
   # --- Components ---
 
+  defp skill_count do
+    try do
+      map_size(ApmV4.SkillTracker.get_skill_catalog())
+    catch
+      :exit, _ -> 0
+    end
+  end
+
   attr :icon, :string, required: true
   attr :label, :string, required: true
   attr :active, :boolean, default: false
   attr :href, :string, required: true
+  attr :badge, :any, default: nil
 
   defp nav_item(assigns) do
     ~H"""
@@ -309,6 +320,7 @@ defmodule ApmV4Web.SessionTimelineLive do
     >
       <.icon name={@icon} class="size-4" />
       {@label}
+      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
     </a>
     """
   end
