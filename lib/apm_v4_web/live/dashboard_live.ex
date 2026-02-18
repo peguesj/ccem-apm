@@ -354,7 +354,7 @@ defmodule ApmV4Web.DashboardLive do
                   id="dep-graph"
                   class={[
                     "w-full rounded-xl relative overflow-hidden",
-                    @graph_expanded && "h-[calc(100%-2rem)]" || "h-80"
+                    @graph_expanded && "h-[calc(100%-2rem)]" || "h-[420px]"
                   ]}
                   style="background: #151b28;"
                   phx-hook="DependencyGraph"

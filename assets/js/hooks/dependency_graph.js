@@ -20,7 +20,7 @@ const PALETTE = {
   text:         "#e2e8f0",
   textDim:      "#8899aa",
   textMuted:    "#556677",
-  dotGrid:      "#253040",
+  dotGrid:      "#364258",
   pipeline:     "#2a3548",
   pipelineDot:  "#7eef6d",
   accent:       "#7eef6d",
@@ -80,10 +80,47 @@ function isAnon(agent) {
 }
 
 // Card dimensions
-const CARD_W = 130
-const CARD_H = 56
+const CARD_W = 110
+const CARD_H = 50
 const CARD_R = 8  // border radius
 const DOT_R  = 4  // connection dot radius
+
+// Rectangular collision force -- prevents card overlap properly
+function forceRectCollide(padX = 8, padY = 8) {
+  let nodes
+  const hw = CARD_W / 2 + padX
+  const hh = CARD_H / 2 + padY
+
+  function force(alpha) {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j]
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const overlapX = hw * 2 - Math.abs(dx)
+        const overlapY = hh * 2 - Math.abs(dy)
+
+        if (overlapX > 0 && overlapY > 0) {
+          // Push apart along axis of least overlap
+          if (overlapX < overlapY) {
+            const shift = overlapX / 2 * alpha * 0.8
+            const sx = dx > 0 ? shift : -shift
+            a.x -= sx
+            b.x += sx
+          } else {
+            const shift = overlapY / 2 * alpha * 0.8
+            const sy = dy > 0 ? shift : -shift
+            a.y -= sy
+            b.y += sy
+          }
+        }
+      }
+    }
+  }
+
+  force.initialize = function(_nodes) { nodes = _nodes }
+  return force
+}
 
 const DependencyGraph = {
   mounted() {
@@ -163,7 +200,7 @@ const DependencyGraph = {
       .attr("width", 24).attr("height", 24)
       .attr("patternUnits", "userSpaceOnUse")
     dotPattern.append("circle")
-      .attr("cx", 12).attr("cy", 12).attr("r", 1.2)
+      .attr("cx", 12).attr("cy", 12).attr("r", 1.8)
       .attr("fill", PALETTE.dotGrid)
 
     this.svg.append("rect")
@@ -263,15 +300,15 @@ const DependencyGraph = {
     const tierSet = [...new Set(nodes.map(n => n.tier))].sort()
     const tierCount = tierSet.length
     const tierYMap = {}
-    const margin = 0.14
+    const margin = 0.08
     tierSet.forEach((t, i) => {
       tierYMap[t] = tierCount === 1 ? 0.5 : margin + (1 - 2 * margin) * (i / (tierCount - 1))
     })
     const getTierY = (tier) => (tierYMap[tier] ?? 0.5) * height
 
-    const chargeStrength = Math.min(-200, -80 * Math.sqrt(n))
-    const linkDistance = Math.max(80, Math.min(180, width / (n * 0.25)))
-    const tierStrength = n > 30 ? 0.10 : n > 15 ? 0.15 : 0.20
+    const chargeStrength = Math.min(-400, -140 * Math.sqrt(n))
+    const linkDistance = Math.max(160, Math.min(280, width / (n * 0.18)))
+    const tierStrength = n > 30 ? 0.15 : n > 15 ? 0.22 : 0.30
 
     // -- Zoom container --
     const zoomG = this.svg.append("g")
@@ -301,10 +338,11 @@ const DependencyGraph = {
 
     // -- Simulation --
     this.simulation = d3.forceSimulation(nodes)
-      .force("link", d3.forceLink(allLinks).id(d => d.id).distance(linkDistance).strength(0.25))
+      .alphaDecay(0.015)
+      .force("link", d3.forceLink(allLinks).id(d => d.id).distance(linkDistance).strength(0.15))
       .force("charge", d3.forceManyBody().strength(chargeStrength))
-      .force("collision", d3.forceCollide().radius(d => CARD_W * 0.45))
-      .force("x", d3.forceX(width / 2).strength(0.03))
+      .force("collision", forceRectCollide(12, 10))
+      .force("x", d3.forceX(width / 2).strength(0.01))
       .force("tierY", d3.forceY(d => getTierY(d.tier)).strength(tierStrength))
 
     // -- Links (pipeline connections) --
@@ -413,8 +451,8 @@ const DependencyGraph = {
 
     // Agent name (main label)
     node.append("text")
-      .attr("x", -CARD_W / 2 + 32).attr("y", -CARD_H / 2 + 22)
-      .attr("font-size", 11).attr("font-weight", "600")
+      .attr("x", -CARD_W / 2 + 30).attr("y", -CARD_H / 2 + 20)
+      .attr("font-size", 10).attr("font-weight", "600")
       .attr("fill", PALETTE.text)
       .text(d => {
         const parts = (d.name || d.id).split(":")
@@ -424,17 +462,17 @@ const DependencyGraph = {
 
     // Tier/line label (bottom, accent colored)
     node.append("rect")
-      .attr("x", -CARD_W / 2 + 6).attr("y", CARD_H / 2 - 22)
-      .attr("width", 64).attr("height", 16)
+      .attr("x", -CARD_W / 2 + 6).attr("y", CARD_H / 2 - 20)
+      .attr("width", 58).attr("height", 15)
       .attr("rx", 4)
       .attr("fill", PALETTE.bg)
       .attr("stroke", PALETTE.border)
       .attr("stroke-width", 0.5)
 
     node.append("text")
-      .attr("x", -CARD_W / 2 + 38).attr("y", CARD_H / 2 - 10)
+      .attr("x", -CARD_W / 2 + 35).attr("y", CARD_H / 2 - 9)
       .attr("text-anchor", "middle")
-      .attr("font-size", 9).attr("font-family", "monospace")
+      .attr("font-size", 8).attr("font-family", "monospace")
       .attr("fill", d => STATUS_COLORS[d.status] || PALETTE.accent)
       .text(d => {
         const cl = classify(d)
