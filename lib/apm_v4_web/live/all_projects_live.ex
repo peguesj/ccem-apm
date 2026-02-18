@@ -221,8 +221,8 @@ defmodule ApmV4Web.AllProjectsLive do
             >
               <div
                 id="dep-graph-all"
-                class="w-full rounded bg-base-300 relative"
-                style={widget_height(@widgets["dep-graph"])}
+                class="w-full rounded-xl relative overflow-hidden"
+                style={"background: #151b28; #{widget_height(@widgets["dep-graph"])}"}
                 phx-hook="DependencyGraph"
                 phx-update="ignore"
               >
