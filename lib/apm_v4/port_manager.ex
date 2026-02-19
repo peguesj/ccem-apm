@@ -37,24 +37,98 @@ defmodule ApmV4.PortManager do
 
   def get_port_ranges, do: @namespace_ranges
 
+  @doc "Returns full project configurations with all detected ports, config files, and metadata."
+  def get_project_configs, do: GenServer.call(@server, :get_project_configs)
+
+  @doc "Suggest a remediation plan for a specific port clash."
+  def suggest_remediation(port), do: GenServer.call(@server, {:suggest_remediation, port})
+
+  @doc "Reassign a project to a new port in its namespace, updating the config file."
+  def reassign_port(project_name, new_port), do: GenServer.call(@server, {:reassign_port, project_name, new_port})
+
   # Server Callbacks
 
   @impl true
   def init(_opts) do
     Logger.info("PortManager starting...")
-    {:ok, %{port_map: %{}, active_ports: %{}, last_scan: nil}, {:continue, :initial_scan}}
+    {:ok, %{port_map: %{}, active_ports: %{}, project_configs: %{}, last_scan: nil}, {:continue, :initial_scan}}
   end
 
   @impl true
   def handle_continue(:initial_scan, state) do
-    port_map = build_port_map()
+    project_configs = build_project_configs()
+    port_map = port_map_from_configs(project_configs)
     active = do_scan_active_ports()
     Logger.info("PortManager: #{map_size(port_map)} configured, #{map_size(active)} active")
-    {:noreply, %{state | port_map: port_map, active_ports: active, last_scan: DateTime.utc_now()}}
+    {:noreply, %{state | port_map: port_map, active_ports: active, project_configs: project_configs, last_scan: DateTime.utc_now()}}
   end
 
   @impl true
   def handle_call(:get_port_map, _from, state), do: {:reply, state.port_map, state}
+
+  @impl true
+  def handle_call(:get_project_configs, _from, state) do
+    # Enrich with active port status
+    enriched =
+      Enum.map(state.project_configs, fn {name, config} ->
+        ports_with_status =
+          Enum.map(config.ports, fn port_info ->
+            active_info = Map.get(state.active_ports, port_info.port)
+            Map.put(port_info, :active, active_info != nil)
+            |> Map.put(:pid, if(active_info, do: active_info.pid))
+            |> Map.put(:command, if(active_info, do: active_info.command))
+          end)
+        {name, %{config | ports: ports_with_status}}
+      end)
+      |> Enum.into(%{})
+    {:reply, enriched, state}
+  end
+
+  @impl true
+  def handle_call({:suggest_remediation, port}, _from, state) do
+    # Find which projects claim this port
+    claimants =
+      state.project_configs
+      |> Enum.filter(fn {_name, config} ->
+        Enum.any?(config.ports, &(&1.port == port))
+      end)
+      |> Enum.map(fn {name, config} ->
+        port_info = Enum.find(config.ports, &(&1.port == port))
+        %{project: name, source: port_info.source, file: port_info.file, namespace: categorize(port)}
+      end)
+
+    ns = categorize(port)
+    range = Map.get(@namespace_ranges, ns, 3000..3999)
+    used = MapSet.new(Map.keys(state.port_map))
+
+    # Find 3 available alternatives in the same namespace
+    alternatives =
+      range
+      |> Enum.reject(&MapSet.member?(used, &1))
+      |> Enum.reject(&Map.has_key?(state.active_ports, &1))
+      |> Enum.take(3)
+
+    suggestion = %{
+      port: port,
+      claimants: claimants,
+      alternatives: alternatives,
+      recommendation: build_recommendation(claimants, alternatives)
+    }
+    {:reply, suggestion, state}
+  end
+
+  @impl true
+  def handle_call({:reassign_port, project_name, new_port}, _from, state) do
+    case Map.get(state.project_configs, project_name) do
+      nil ->
+        {:reply, {:error, :project_not_found}, state}
+      _config ->
+        # For now, just update in-memory state. Config file editing would be phase 2.
+        project_configs = build_project_configs()
+        port_map = port_map_from_configs(project_configs)
+        {:reply, {:ok, new_port}, %{state | project_configs: project_configs, port_map: port_map}}
+    end
+  end
 
   @impl true
   def handle_call(:scan_active_ports, _from, state) do
@@ -101,9 +175,20 @@ defmodule ApmV4.PortManager do
 
   # Private
 
-  defp build_port_map do
+  defp build_project_configs do
     session_files()
-    |> Enum.flat_map(&extract_ports_from_session/1)
+    |> Enum.map(&extract_project_config/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.into(%{})
+  end
+
+  defp port_map_from_configs(project_configs) do
+    project_configs
+    |> Enum.flat_map(fn {name, config} ->
+      Enum.map(config.ports, fn port_info ->
+        {port_info.port, %{project: name, root: config.root, namespace: port_info.namespace, active: false}}
+      end)
+    end)
     |> Enum.into(%{})
   end
 
@@ -117,54 +202,124 @@ defmodule ApmV4.PortManager do
     end
   end
 
-  defp extract_ports_from_session(path) do
+  defp extract_project_config(path) do
     with {:ok, content} <- File.read(path),
          {:ok, data} <- Jason.decode(content) do
       root = data["project_root"] || data["working_directory"]
       name = data["project_name"] || Path.basename(root || "unknown")
-      if root, do: detect_ports(root, name), else: []
+      if root do
+        ports = detect_ports_detailed(root)
+        config_files = detect_config_files(root)
+        stack = detect_stack(root)
+
+        {name, %{
+          root: root,
+          name: name,
+          session_file: path,
+          ports: ports,
+          config_files: config_files,
+          stack: stack,
+          session_data: Map.take(data, ["session_id", "started_at", "project_name"])
+        }}
+      end
     else
-      _ -> []
+      _ -> nil
     end
   end
 
-  defp detect_ports(root, name) do
-    [&detect_env/1, &detect_pkg_json/1, &detect_next_config/1, &detect_dev_exs/1]
-    |> Enum.flat_map(fn d -> d.(root) end)
-    |> Enum.map(fn port ->
-      {port, %{project: name, root: root, namespace: categorize(port), active: false}}
-    end)
+  defp detect_ports_detailed(root) do
+    env_ports = detect_env_detailed(root)
+    pkg_ports = detect_pkg_json_detailed(root)
+    next_ports = detect_next_config_detailed(root)
+    elixir_ports = detect_dev_exs_detailed(root)
+    env_ports ++ pkg_ports ++ next_ports ++ elixir_ports
   end
 
-  defp detect_env(root) do
-    with {:ok, c} <- File.read(Path.join(root, ".env")),
+  defp detect_env_detailed(root) do
+    path = Path.join(root, ".env")
+    with {:ok, c} <- File.read(path),
          [_, p] <- Regex.run(~r/^PORT=(\d+)/m, c),
-         {port, _} <- Integer.parse(p), do: [port], else: (_ -> [])
-  end
-
-  defp detect_pkg_json(root) do
-    with {:ok, c} <- File.read(Path.join(root, "package.json")) do
-      Regex.scan(~r/(?:--port|-p)\s+(\d+)/, c)
-      |> Enum.map(fn [_, p] -> String.to_integer(p) end)
+         {port, _} <- Integer.parse(p) do
+      [%{port: port, source: :env, file: ".env", namespace: categorize(port)}]
     else
       _ -> []
     end
   end
 
-  defp detect_next_config(root) do
+  defp detect_pkg_json_detailed(root) do
+    path = Path.join(root, "package.json")
+    with {:ok, c} <- File.read(path) do
+      Regex.scan(~r/(?:--port|-p)\s+(\d+)/, c)
+      |> Enum.map(fn [_, p] ->
+        port = String.to_integer(p)
+        %{port: port, source: :package_json, file: "package.json", namespace: categorize(port)}
+      end)
+    else
+      _ -> []
+    end
+  end
+
+  defp detect_next_config_detailed(root) do
     ["next.config.js", "next.config.mjs", "next.config.ts"]
     |> Enum.flat_map(fn f ->
       with {:ok, c} <- File.read(Path.join(root, f)),
-           [_, p] <- Regex.run(~r/port:\s*(\d+)/, c),
-           do: [String.to_integer(p)], else: (_ -> [])
+           [_, p] <- Regex.run(~r/port:\s*(\d+)/, c) do
+        port = String.to_integer(p)
+        [%{port: port, source: :next_config, file: f, namespace: categorize(port)}]
+      else
+        _ -> []
+      end
     end)
   end
 
-  defp detect_dev_exs(root) do
+  defp detect_dev_exs_detailed(root) do
     with {:ok, c} <- File.read(Path.join(root, "config/dev.exs")),
-         [_, p] <- Regex.run(~r/port:\s*(\d+)/, c),
-         do: [String.to_integer(p)], else: (_ -> [])
+         [_, p] <- Regex.run(~r/port:\s*(\d+)/, c) do
+      port = String.to_integer(p)
+      [%{port: port, source: :dev_exs, file: "config/dev.exs", namespace: categorize(port)}]
+    else
+      _ -> []
+    end
   end
+
+  defp detect_config_files(root) do
+    candidates = [
+      ".env", ".env.local", ".env.development",
+      "package.json", "mix.exs",
+      "next.config.js", "next.config.mjs", "next.config.ts",
+      "config/dev.exs", "config/config.exs", "config/runtime.exs",
+      "docker-compose.yml", "docker-compose.yaml",
+      "Procfile", "fly.toml", "vercel.json"
+    ]
+
+    Enum.filter(candidates, fn f -> File.exists?(Path.join(root, f)) end)
+  end
+
+  defp detect_stack(root) do
+    cond do
+      File.exists?(Path.join(root, "mix.exs")) -> :elixir
+      File.exists?(Path.join(root, "next.config.js")) or File.exists?(Path.join(root, "next.config.mjs")) or File.exists?(Path.join(root, "next.config.ts")) -> :nextjs
+      File.exists?(Path.join(root, "package.json")) -> :node
+      File.exists?(Path.join(root, "Cargo.toml")) -> :rust
+      File.exists?(Path.join(root, "go.mod")) -> :go
+      File.exists?(Path.join(root, "requirements.txt")) or File.exists?(Path.join(root, "pyproject.toml")) -> :python
+      true -> :unknown
+    end
+  end
+
+  defp build_recommendation(claimants, alternatives) do
+    case {length(claimants), alternatives} do
+      {1, _} -> "Single claimant - no conflict"
+      {_, []} -> "No available ports in namespace - consider expanding range"
+      {2, [alt | _]} ->
+        # Recommend moving the newer/less critical project
+        moveable = List.last(claimants)
+        "Move #{moveable.project} to port #{alt} (update #{moveable.file})"
+      {n, [alt | _]} ->
+        "#{n} projects claim this port. Suggest moving all but the primary to #{alt}+"
+    end
+  end
+
 
   defp categorize(port) when port in 3000..3999, do: :web
   defp categorize(port) when port in 4000..4999, do: :api

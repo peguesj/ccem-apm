@@ -17,6 +17,7 @@ defmodule ApmV4Web.DashboardLive do
   alias ApmV4.ProjectStore
   alias ApmV4.Ralph
   alias ApmV4.UpmStore
+  alias ApmV4.PortManager
 
   @impl true
   def mount(_params, _session, socket) do
@@ -27,6 +28,7 @@ defmodule ApmV4Web.DashboardLive do
       Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:tasks")
       Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:commands")
       Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:upm")
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:ports")
     end
 
     config = safe_get_config()
@@ -41,6 +43,9 @@ defmodule ApmV4Web.DashboardLive do
     ralph_data = load_ralph_for_project(active_project, config)
     session_count = count_config_sessions(config)
     upm_status = UpmStore.get_status()
+    project_configs = PortManager.get_project_configs()
+    port_clashes = PortManager.detect_clashes()
+    port_ranges = PortManager.get_port_ranges()
 
     socket =
       socket
@@ -63,6 +68,10 @@ defmodule ApmV4Web.DashboardLive do
       |> assign(:ralph_data, ralph_data)
       |> assign(:active_skill_count, skill_count())
       |> assign(:upm_status, upm_status)
+      |> assign(:project_configs, project_configs)
+      |> assign(:port_clashes, port_clashes)
+      |> assign(:port_ranges, port_ranges)
+      |> assign(:port_remediation, nil)
       |> assign(:graph_expanded, false)
       |> assign(:show_anon, false)
       |> assign(:saved_layouts, DashboardStore.list_layouts())
@@ -119,7 +128,19 @@ defmodule ApmV4Web.DashboardLive do
           <.nav_item icon="hero-sparkles" label="Skills" active={@active_nav == :skills} href="/skills" badge={@active_skill_count} />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={@active_nav == :ralph} href="/ralph" />
           <.nav_item icon="hero-clock" label="Timeline" active={@active_nav == :timeline} href="/timeline" />
-          <.nav_item icon="hero-signal" label="Ports" active={@active_nav == :ports} href="/ports" />
+          <button
+            phx-click="switch_tab"
+            phx-value-tab="ports"
+            class={[
+              "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors w-full text-left",
+              @active_tab == :ports && "bg-primary/10 text-primary font-medium",
+              @active_tab != :ports && "text-base-content/60 hover:text-base-content hover:bg-base-300"
+            ]}
+          >
+            <.icon name="hero-signal" class="size-4" />
+            Ports
+            <span :if={length(@port_clashes) > 0} class="badge badge-xs badge-error ml-auto">{length(@port_clashes)}</span>
+          </button>
           <.nav_item icon="hero-book-open" label="Docs" active={@active_nav == :docs} href="/docs" />
         </nav>
         <div class="p-3 border-t border-base-300">
@@ -381,6 +402,51 @@ defmodule ApmV4Web.DashboardLive do
               </div>
             </div>
 
+            <%!-- Port Overview --%>
+            <div :if={@project_configs != %{}} class="card bg-base-200 border border-base-300">
+              <div class="card-body p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
+                    Port Allocations
+                  </h3>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-base-content/40">{map_size(@project_configs)} projects</span>
+                    <span :if={@port_clashes != []} class="badge badge-xs badge-error">{length(@port_clashes)} clashes</span>
+                    <button phx-click="scan_ports" class="btn btn-ghost btn-xs" title="Rescan">
+                      <.icon name="hero-arrow-path" class="size-3" />
+                    </button>
+                    <button phx-click="switch_tab" phx-value-tab="ports" class="btn btn-ghost btn-xs text-primary" title="Details">
+                      <.icon name="hero-arrow-top-right-on-square" class="size-3" />
+                    </button>
+                  </div>
+                </div>
+                <%!-- Compact port grid --%>
+                <div class="flex flex-wrap gap-1.5">
+                  <div
+                    :for={{name, config} <- Enum.sort_by(@project_configs, fn {n, _} -> n end)}
+                    :if={config.ports != []}
+                    class="flex items-center gap-1 px-2 py-1 rounded bg-base-300 text-[10px]"
+                  >
+                    <span class="font-medium text-base-content/70">{name}</span>
+                    <span :for={port_info <- config.ports} class="flex items-center gap-0.5">
+                      <span class={["w-1.5 h-1.5 rounded-full", if(port_info[:active], do: "bg-success", else: "bg-base-content/20")]}></span>
+                      <span class="font-mono text-base-content/50">:{port_info.port}</span>
+                    </span>
+                  </div>
+                </div>
+                <%!-- Clash alerts inline --%>
+                <div :if={@port_clashes != []} class="mt-2 space-y-1">
+                  <div :for={clash <- @port_clashes} class="flex items-center gap-2 px-2 py-1 rounded bg-error/10 text-[10px]">
+                    <.icon name="hero-exclamation-triangle" class="size-3 text-error" />
+                    <span class="font-mono text-error">:{clash.port}</span>
+                    <span class="text-base-content/50">{Enum.join(clash.projects, " + ")}</span>
+                    <button phx-click="get_remediation" phx-value-port={clash.port}
+                      class="ml-auto text-primary hover:underline">fix</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <%!-- D3 Dependency Graph --%>
             <div class={[
               "card bg-base-200 border border-base-300 transition-all duration-200",
@@ -488,7 +554,7 @@ defmodule ApmV4Web.DashboardLive do
           <div class="w-80 border-l border-base-300 bg-base-200 flex flex-col flex-shrink-0">
             <div role="tablist" class="tabs tabs-border bg-base-300">
               <button
-                :for={tab <- [:inspector, :ralph, :upm, :commands, :todos]}
+                :for={tab <- [:inspector, :ralph, :upm, :ports, :commands, :todos]}
                 role="tab"
                 class={["tab tab-sm", @active_tab == tab && "tab-active"]}
                 phx-click="switch_tab"
@@ -653,6 +719,77 @@ defmodule ApmV4Web.DashboardLive do
                 </div>
               </div>
 
+              <%!-- Ports tab --%>
+              <div :if={@active_tab == :ports} class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
+                    Port Manager
+                  </h3>
+                  <button phx-click="scan_ports" class="btn btn-xs btn-ghost text-primary">
+                    <.icon name="hero-arrow-path" class="size-3" /> Scan
+                  </button>
+                </div>
+
+                <%!-- Clash alerts --%>
+                <div :if={@port_clashes != []} class="space-y-1">
+                  <div class="text-[10px] uppercase tracking-wider text-error/70 font-semibold">Clashes</div>
+                  <div :for={clash <- @port_clashes} class="p-2 rounded bg-error/10 border border-error/20 text-xs">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="font-mono font-bold text-error">:{clash.port}</span>
+                      <span class="text-base-content/50">{Enum.join(clash.projects, " + ")}</span>
+                    </div>
+                    <button phx-click="get_remediation" phx-value-port={clash.port}
+                      class="text-[10px] text-primary hover:underline">
+                      Suggest fix
+                    </button>
+                  </div>
+                </div>
+
+                <%!-- Remediation suggestion --%>
+                <div :if={@port_remediation} class="p-2 rounded bg-info/10 border border-info/20 text-xs space-y-1">
+                  <div class="font-semibold text-info">Remediation for :{@port_remediation.port}</div>
+                  <div class="text-base-content/60">{@port_remediation.recommendation}</div>
+                  <div :if={@port_remediation.alternatives != []} class="flex gap-1 mt-1">
+                    <span class="text-[10px] text-base-content/40">Available:</span>
+                    <span :for={alt <- @port_remediation.alternatives} class="badge badge-xs badge-ghost font-mono">{alt}</span>
+                  </div>
+                </div>
+
+                <%!-- Project configs --%>
+                <div :for={{name, config} <- Enum.sort_by(@project_configs, fn {n, _} -> n end)} class="space-y-1">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-base-content/80">{name}</span>
+                    <span class={["badge badge-xs", stack_badge(config.stack)]}>{config.stack}</span>
+                  </div>
+                  <div class="p-2 rounded bg-base-300 text-[10px] space-y-1">
+                    <div class="text-base-content/40 font-mono truncate" title={config.root}>
+                      {Path.basename(config.root)}
+                    </div>
+                    <%!-- Ports --%>
+                    <div :for={port_info <- config.ports} class="flex items-center gap-2">
+                      <span class={["w-1.5 h-1.5 rounded-full", if(port_info[:active], do: "bg-success", else: "bg-base-content/20")]}></span>
+                      <span class="font-mono font-bold">:{port_info.port}</span>
+                      <span class={["badge badge-xs", ns_badge(port_info.namespace)]}>{port_info.namespace}</span>
+                      <span class="text-base-content/30 ml-auto">{port_info.file}</span>
+                    </div>
+                    <div :if={config.ports == []} class="text-base-content/30">No ports detected</div>
+                    <%!-- Config files --%>
+                    <details class="mt-1">
+                      <summary class="text-base-content/30 cursor-pointer hover:text-base-content/50">
+                        {length(config.config_files)} config files
+                      </summary>
+                      <div class="mt-1 space-y-0.5 pl-2">
+                        <div :for={f <- config.config_files} class="text-base-content/40 font-mono">{f}</div>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+
+                <div :if={@project_configs == %{}} class="text-xs text-base-content/40 py-4 text-center">
+                  No projects detected. Check ~/Developer/ccem/apm/sessions/
+                </div>
+              </div>
+
               <%!-- Commands tab --%>
               <div :if={@active_tab == :commands} class="space-y-2">
                 <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
@@ -810,6 +947,22 @@ defmodule ApmV4Web.DashboardLive do
     {:noreply, assign(socket, :show_anon, show)}
   end
 
+  def handle_event("scan_ports", _params, socket) do
+    PortManager.scan_active_ports()
+    project_configs = PortManager.get_project_configs()
+    port_clashes = PortManager.detect_clashes()
+    {:noreply,
+     socket
+     |> assign(:project_configs, project_configs)
+     |> assign(:port_clashes, port_clashes)}
+  end
+
+  def handle_event("get_remediation", %{"port" => port_str}, socket) do
+    {port, _} = Integer.parse(port_str)
+    remediation = PortManager.suggest_remediation(port)
+    {:noreply, assign(socket, :port_remediation, remediation)}
+  end
+
   def handle_event("save_layout", %{"name" => name}, socket) do
     panels = []
     {:ok, _layout} = DashboardStore.save_layout(name, panels)
@@ -918,6 +1071,12 @@ defmodule ApmV4Web.DashboardLive do
 
   def handle_info({:upm_event, _event}, socket) do
     {:noreply, assign(socket, :upm_status, UpmStore.get_status())}
+  end
+
+  def handle_info({:port_assigned, _, _}, socket) do
+    project_configs = PortManager.get_project_configs()
+    port_clashes = PortManager.detect_clashes()
+    {:noreply, socket |> assign(:project_configs, project_configs) |> assign(:port_clashes, port_clashes)}
   end
 
   def handle_info(_msg, socket) do
@@ -1094,9 +1253,22 @@ defmodule ApmV4Web.DashboardLive do
   defp task_status_class("pending"), do: "badge-ghost"
   defp task_status_class(_), do: "badge-ghost"
 
+  defp stack_badge(:elixir), do: "badge-accent"
+  defp stack_badge(:nextjs), do: "badge-info"
+  defp stack_badge(:node), do: "badge-success"
+  defp stack_badge(:python), do: "badge-warning"
+  defp stack_badge(_), do: "badge-ghost"
+
+  defp ns_badge(:web), do: "badge-info"
+  defp ns_badge(:api), do: "badge-accent"
+  defp ns_badge(:service), do: "badge-warning"
+  defp ns_badge(:tool), do: "badge-success"
+  defp ns_badge(_), do: "badge-ghost"
+
   defp tab_label(:inspector), do: "Inspector"
   defp tab_label(:ralph), do: "Ralph"
   defp tab_label(:upm), do: "UPM"
+  defp tab_label(:ports), do: "Ports"
   defp tab_label(:commands), do: "Commands"
   defp tab_label(:todos), do: "TODOs"
 
