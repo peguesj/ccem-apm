@@ -767,11 +767,28 @@ defmodule ApmV4Web.DashboardLive do
                       {Path.basename(config.root)}
                     </div>
                     <%!-- Ports --%>
-                    <div :for={port_info <- config.ports} class="flex items-center gap-2">
-                      <span class={["w-1.5 h-1.5 rounded-full", if(port_info[:active], do: "bg-success", else: "bg-base-content/20")]}></span>
-                      <span class="font-mono font-bold">:{port_info.port}</span>
-                      <span class={["badge badge-xs", ns_badge(port_info.namespace)]}>{port_info.namespace}</span>
-                      <span class="text-base-content/30 ml-auto">{port_info.file}</span>
+                    <div :for={port_info <- config.ports} class="space-y-0.5">
+                      <div class="flex items-center gap-2">
+                        <span class={["w-1.5 h-1.5 rounded-full", if(port_info[:active], do: "bg-success", else: "bg-base-content/20")]}></span>
+                        <span class="font-mono font-bold">:{port_info.port}</span>
+                        <span class={["badge badge-xs", ns_badge(port_info.namespace)]}>{port_info.namespace}</span>
+                        <span :if={port_info[:server_type] && port_info[:server_type] != :unknown}
+                          class={["badge badge-xs", server_type_badge(port_info[:server_type])]}>
+                          {port_info[:server_type]}
+                        </span>
+                        <span class="text-base-content/30 ml-auto">{port_info.file}</span>
+                      </div>
+                      <div :if={port_info[:active]} class="pl-4 text-[9px] text-base-content/30 space-y-0.5">
+                        <div :if={port_info[:cwd]} class="font-mono truncate" title={port_info[:cwd]}>
+                          cwd: {port_info[:cwd]}
+                        </div>
+                        <div :if={port_info[:full_command]} class="font-mono truncate" title={port_info[:full_command]}>
+                          cmd: {port_info[:full_command]}
+                        </div>
+                        <div :if={port_info[:pid]} class="font-mono">
+                          pid: {port_info[:pid]}
+                        </div>
+                      </div>
                     </div>
                     <div :if={config.ports == []} class="text-base-content/30">No ports detected</div>
                     <%!-- Config files --%>
@@ -1270,6 +1287,16 @@ defmodule ApmV4Web.DashboardLive do
   defp ns_badge(:service), do: "badge-warning"
   defp ns_badge(:tool), do: "badge-success"
   defp ns_badge(_), do: "badge-ghost"
+
+  defp server_type_badge(:phoenix), do: "badge-accent"
+  defp server_type_badge(:elixir), do: "badge-accent"
+  defp server_type_badge(:nextjs), do: "badge-info"
+  defp server_type_badge(:vite), do: "badge-primary"
+  defp server_type_badge(:node), do: "badge-success"
+  defp server_type_badge(:python_web), do: "badge-warning"
+  defp server_type_badge(:postgres), do: "badge-secondary"
+  defp server_type_badge(:redis), do: "badge-error"
+  defp server_type_badge(_), do: "badge-ghost"
 
   defp tab_label(:inspector), do: "Inspector"
   defp tab_label(:ralph), do: "Ralph"

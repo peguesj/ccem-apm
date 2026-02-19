@@ -77,6 +77,9 @@ defmodule ApmV4.PortManager do
             Map.put(port_info, :active, active_info != nil)
             |> Map.put(:pid, if(active_info, do: active_info.pid))
             |> Map.put(:command, if(active_info, do: active_info.command))
+            |> Map.put(:cwd, if(active_info, do: active_info[:cwd]))
+            |> Map.put(:full_command, if(active_info, do: active_info[:full_command]))
+            |> Map.put(:server_type, if(active_info, do: active_info[:server_type]))
           end)
         {name, %{config | ports: ports_with_status}}
       end)
@@ -330,21 +333,86 @@ defmodule ApmV4.PortManager do
   defp do_scan_active_ports do
     case System.cmd("lsof", ["-iTCP", "-sTCP:LISTEN", "-P", "-n"], stderr_to_stdout: true) do
       {output, 0} ->
+        raw_ports =
+          output
+          |> String.split("\n", trim: true)
+          |> Enum.drop(1)
+          |> Enum.reduce(%{}, fn line, acc ->
+            parts = String.split(line, ~r/\s+/)
+            with [cmd, pid_s | _] <- parts,
+                 {pid, _} <- Integer.parse(pid_s),
+                 [_, port_s] <- Regex.run(~r/:(\d+)$/, line),
+                 {port, _} <- Integer.parse(port_s) do
+              Map.put(acc, port, %{pid: pid, command: cmd, namespace: categorize(port)})
+            else
+              _ -> acc
+            end
+          end)
+
+        # Enrich each active port with process details: cwd, full command, project match
+        Enum.map(raw_ports, fn {port, info} ->
+          enriched = enrich_process_info(info.pid, info.command)
+          {port, Map.merge(info, enriched)}
+        end)
+        |> Enum.into(%{})
+      _ -> %{}
+    end
+  end
+
+  defp enrich_process_info(pid, command) do
+    cwd = get_process_cwd(pid)
+    full_cmd = get_full_command(pid)
+    server_type = identify_server_type(command, full_cmd)
+
+    %{
+      cwd: cwd,
+      full_command: full_cmd,
+      server_type: server_type
+    }
+  end
+
+  defp get_process_cwd(pid) do
+    # Use lsof -p PID -Fn -d cwd to get the current working directory
+    case System.cmd("lsof", ["-p", to_string(pid), "-Fn", "-d", "cwd"], stderr_to_stdout: true) do
+      {output, 0} ->
         output
         |> String.split("\n", trim: true)
-        |> Enum.drop(1)
-        |> Enum.reduce(%{}, fn line, acc ->
-          parts = String.split(line, ~r/\s+/)
-          with [cmd, pid_s | _] <- parts,
-               {pid, _} <- Integer.parse(pid_s),
-               [_, port_s] <- Regex.run(~r/:(\d+)$/, line),
-               {port, _} <- Integer.parse(port_s) do
-            Map.put(acc, port, %{pid: pid, command: cmd, namespace: categorize(port)})
-          else
-            _ -> acc
+        |> Enum.find_value(fn line ->
+          if String.starts_with?(line, "n") and not String.starts_with?(line, "n ") do
+            String.slice(line, 1..-1//1)
           end
         end)
-      _ -> %{}
+      _ -> nil
+    end
+  end
+
+  defp get_full_command(pid) do
+    case System.cmd("ps", ["-p", to_string(pid), "-o", "command="], stderr_to_stdout: true) do
+      {output, 0} -> String.trim(output)
+      _ -> nil
+    end
+  end
+
+  defp identify_server_type(command, full_cmd) do
+    cmd_lower = String.downcase(command || "")
+    full_lower = String.downcase(full_cmd || "")
+
+    cond do
+      cmd_lower == "beam.smp" or String.contains?(full_lower, "phx.server") -> :phoenix
+      cmd_lower == "beam.smp" or String.contains?(full_lower, "mix") -> :elixir
+      String.contains?(full_lower, "next-server") or String.contains?(full_lower, "next dev") -> :nextjs
+      String.contains?(full_lower, "vite") -> :vite
+      String.contains?(full_lower, "webpack") -> :webpack
+      String.contains?(full_lower, "npm") or String.contains?(full_lower, "npx") -> :node_script
+      String.contains?(full_lower, "uvicorn") or String.contains?(full_lower, "gunicorn") -> :python_web
+      String.contains?(full_lower, "flask") or String.contains?(full_lower, "django") -> :python_web
+      String.contains?(full_lower, "ruby") or String.contains?(full_lower, "rails") -> :rails
+      cmd_lower == "node" -> :node
+      cmd_lower == "python3" or cmd_lower == "python" -> :python
+      cmd_lower == "docker" or String.contains?(full_lower, "docker") -> :docker
+      cmd_lower == "postgres" or cmd_lower == "postmaster" -> :postgres
+      cmd_lower == "redis-server" -> :redis
+      true -> :unknown
     end
   end
 
