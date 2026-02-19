@@ -55,6 +55,7 @@ defmodule ApmV4Web.SessionTimelineLive do
           <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" badge={@active_skill_count} />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
           <.nav_item icon="hero-clock" label="Timeline" active={true} href="/timeline" />
+          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
           <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
           <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
         </nav>

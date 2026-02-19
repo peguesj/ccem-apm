@@ -128,6 +128,7 @@ defmodule ApmV4Web.DashboardLive do
           <.nav_item icon="hero-sparkles" label="Skills" active={@active_nav == :skills} href="/skills" badge={@active_skill_count} />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={@active_nav == :ralph} href="/ralph" />
           <.nav_item icon="hero-clock" label="Timeline" active={@active_nav == :timeline} href="/timeline" />
+          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
           <button
             phx-click="switch_tab"
             phx-value-tab="ports"
@@ -837,7 +838,12 @@ defmodule ApmV4Web.DashboardLive do
   end
 
   def handle_event("toggle_graph", _params, socket) do
-    {:noreply, assign(socket, :graph_expanded, !socket.assigns.graph_expanded)}
+    expanded = !socket.assigns.graph_expanded
+    socket =
+      socket
+      |> assign(:graph_expanded, expanded)
+      |> push_event("graph_resize", %{expanded: expanded})
+    {:noreply, socket}
   end
 
   def handle_event("switch_project", %{"project" => ""}, socket) do

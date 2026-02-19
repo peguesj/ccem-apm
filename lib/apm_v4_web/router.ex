@@ -34,6 +34,7 @@ defmodule ApmV4Web.Router do
     live "/timeline", SessionTimelineLive, :index
     live "/docs", DocsLive, :index
     live "/docs/*path", DocsLive, :show
+    live "/formation", FormationLive, :index
     live "/ports", PortsLive, :index
   end
 

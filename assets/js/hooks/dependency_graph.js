@@ -151,9 +151,18 @@ const DependencyGraph = {
       this.draw()
     })
 
+    this.handleEvent("graph_resize", () => {
+      // Delay to let CSS transition complete
+      setTimeout(() => this.draw(), 350)
+    })
+
     this.draw()
 
-    this.resizeObserver = new ResizeObserver(() => this.draw())
+    this.resizeObserver = new ResizeObserver(() => {
+      // Debounce resize to avoid excessive redraws
+      clearTimeout(this._resizeTimer)
+      this._resizeTimer = setTimeout(() => this.draw(), 200)
+    })
     this.resizeObserver.observe(this.el)
   },
 

@@ -29,6 +29,7 @@ import DependencyGraph from "./hooks/dependency_graph"
 import RalphFlowchart from "./hooks/ralph_flowchart"
 import WidgetResize from "./hooks/widget_resize"
 import SessionTimeline from "./hooks/session_timeline"
+import FormationGraph from "./hooks/formation_graph"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -46,7 +47,8 @@ const Hooks = {
   DependencyGraph,
   RalphFlowchart,
   WidgetResize,
-  SessionTimeline
+  SessionTimeline,
+  FormationGraph
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

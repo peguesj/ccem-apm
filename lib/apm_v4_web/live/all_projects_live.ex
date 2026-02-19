@@ -92,6 +92,11 @@ defmodule ApmV4Web.AllProjectsLive do
             <.icon name="hero-clock" class="size-4" />
           </button>
         </a>
+        <a href="/formation" class="tooltip tooltip-right" data-tip="Formations">
+          <button class="btn btn-ghost btn-sm btn-square">
+            <.icon name="hero-rectangle-group" class="size-4" />
+          </button>
+        </a>
         <a href="/docs" class="tooltip tooltip-right" data-tip="Docs">
           <button class="btn btn-ghost btn-sm btn-square">
             <.icon name="hero-book-open" class="size-4" />
