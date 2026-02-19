@@ -240,6 +240,20 @@ defmodule ApmV4Web.ApiController do
     })
   end
 
+  @doc "PATCH /api/projects -- update project fields in config"
+  def update_project(conn, params) do
+    case ConfigLoader.update_project(params) do
+      {:ok, config} ->
+        Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:config", {:config_reloaded, config})
+        json(conn, %{status: "ok"})
+
+      {:error, reason} ->
+        conn
+        |> put_status(422)
+        |> json(%{status: "error", reason: reason})
+    end
+  end
+
   # ============================
   # POST Endpoints
   # ============================
@@ -264,7 +278,12 @@ defmodule ApmV4Web.ApiController do
         namespace: params["namespace"],
         agent_type: params["agent_type"] || "individual",
         path: params["path"],
-        member_count: params["member_count"]
+        member_count: params["member_count"],
+        story_id: params["story_id"],
+        plane_issue_id: params["plane_issue_id"],
+        wave: params["wave"],
+        work_item_title: params["work_item_title"],
+        upm_session_id: params["upm_session_id"]
       }
 
       :ok = AgentRegistry.register_agent(agent_id, metadata, project_name)
@@ -568,6 +587,46 @@ defmodule ApmV4Web.ApiController do
   end
 
   # ============================
+  # UPM Endpoints
+  # ============================
+
+  alias ApmV4.UpmStore
+
+  @doc "POST /api/upm/register -- register a UPM execution session"
+  def upm_register(conn, params) do
+    {:ok, session_id} = UpmStore.register_session(params)
+
+    conn
+    |> put_status(201)
+    |> json(%{ok: true, upm_session_id: session_id})
+  end
+
+  @doc "POST /api/upm/agent -- register an agent with work-item binding"
+  def upm_agent(conn, params) do
+    case UpmStore.register_agent(params) do
+      :ok ->
+        json(conn, %{ok: true})
+
+      {:error, :session_not_found} ->
+        conn
+        |> put_status(404)
+        |> json(%{error: "UPM session not found", upm_session_id: params["upm_session_id"]})
+    end
+  end
+
+  @doc "POST /api/upm/event -- report a UPM lifecycle event"
+  def upm_event(conn, params) do
+    :ok = UpmStore.record_event(params)
+    json(conn, %{ok: true})
+  end
+
+  @doc "GET /api/upm/status -- current UPM execution state"
+  def upm_status(conn, _params) do
+    status = UpmStore.get_status()
+    json(conn, status)
+  end
+
+  # ============================
   # Export / Import Endpoints
   # ============================
 
@@ -632,5 +691,47 @@ defmodule ApmV4Web.ApiController do
       ids when is_list(ids) -> Keyword.put(opts, :agent_ids, ids)
       _ -> opts
     end
+  end
+
+  # --- Port Management ---
+
+  def ports(conn, _params) do
+    port_map = ApmV4.PortManager.get_port_map()
+    ranges = ApmV4.PortManager.get_port_ranges()
+    clashes = ApmV4.PortManager.detect_clashes()
+
+    json(conn, %{
+      ok: true,
+      ports: port_map,
+      ranges: Enum.into(ranges, %{}, fn {k, r} -> {k, %{first: r.first, last: r.last}} end),
+      clashes: clashes
+    })
+  end
+
+  def scan_ports(conn, _params) do
+    active = ApmV4.PortManager.scan_active_ports()
+    json(conn, %{ok: true, active_ports: active})
+  end
+
+  def assign_port(conn, %{"namespace" => ns}) do
+    atom_ns = String.to_existing_atom(ns)
+    case ApmV4.PortManager.assign_port(atom_ns) do
+      {:ok, port} -> json(conn, %{ok: true, port: port})
+      {:error, reason} -> conn |> put_status(422) |> json(%{ok: false, error: to_string(reason)})
+    end
+  rescue
+    ArgumentError -> conn |> put_status(400) |> json(%{ok: false, error: "invalid namespace"})
+  end
+
+  def assign_port(conn, %{"project" => project}) do
+    case ApmV4.PortManager.assign_port(project) do
+      {:ok, port} -> json(conn, %{ok: true, port: port})
+      {:error, reason} -> conn |> put_status(422) |> json(%{ok: false, error: to_string(reason)})
+    end
+  end
+
+  def port_clashes(conn, _params) do
+    clashes = ApmV4.PortManager.detect_clashes()
+    json(conn, %{ok: true, clashes: clashes})
   end
 end

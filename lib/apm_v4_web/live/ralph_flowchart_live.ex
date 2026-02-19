@@ -81,6 +81,8 @@ defmodule ApmV4Web.RalphFlowchartLive do
           <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" badge={@active_skill_count} />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={true} href="/ralph" />
           <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
+          <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
+          <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
         </nav>
       </aside>
 

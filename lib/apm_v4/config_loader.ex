@@ -38,6 +38,12 @@ defmodule ApmV4.ConfigLoader do
     GenServer.call(__MODULE__, :reload)
   end
 
+  @doc "Update a project's fields in the config and persist to disk."
+  @spec update_project(map()) :: {:ok, map()} | {:error, String.t()}
+  def update_project(params) do
+    GenServer.call(__MODULE__, {:update_project, params})
+  end
+
   @doc "Returns the config file path."
   def config_path do
     Application.get_env(:apm_v4, :config_path, @default_config_path)
@@ -85,6 +91,32 @@ defmodule ApmV4.ConfigLoader do
       end
 
     {:reply, project, state}
+  end
+
+  def handle_call({:update_project, params}, _from, state) do
+    project_name = params["name"] || params["project_name"]
+    projects = Map.get(state.config, "projects", [])
+
+    updated_projects =
+      Enum.map(projects, fn p ->
+        if p["name"] == project_name do
+          Map.merge(p, Map.drop(params, ["name", "project_name"]))
+        else
+          p
+        end
+      end)
+
+    new_config = Map.put(state.config, "projects", updated_projects)
+
+    case Jason.encode(new_config, pretty: true) do
+      {:ok, json} ->
+        File.write(state.config_path, json)
+        Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:config", {:config_reloaded, new_config})
+        {:reply, {:ok, new_config}, %{state | config: new_config}}
+
+      {:error, reason} ->
+        {:reply, {:error, "JSON encode failed: #{inspect(reason)}"}, state}
+    end
   end
 
   def handle_call(:reload, _from, state) do

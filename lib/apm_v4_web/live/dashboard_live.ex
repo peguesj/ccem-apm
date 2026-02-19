@@ -16,6 +16,7 @@ defmodule ApmV4Web.DashboardLive do
   alias ApmV4.DashboardStore
   alias ApmV4.ProjectStore
   alias ApmV4.Ralph
+  alias ApmV4.UpmStore
 
   @impl true
   def mount(_params, _session, socket) do
@@ -25,6 +26,7 @@ defmodule ApmV4Web.DashboardLive do
       Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:config")
       Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:tasks")
       Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:commands")
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:upm")
     end
 
     config = safe_get_config()
@@ -38,6 +40,7 @@ defmodule ApmV4Web.DashboardLive do
     commands = ProjectStore.get_commands(active_project || "_global")
     ralph_data = load_ralph_for_project(active_project, config)
     session_count = count_config_sessions(config)
+    upm_status = UpmStore.get_status()
 
     socket =
       socket
@@ -59,6 +62,7 @@ defmodule ApmV4Web.DashboardLive do
       |> assign(:commands, commands)
       |> assign(:ralph_data, ralph_data)
       |> assign(:active_skill_count, skill_count())
+      |> assign(:upm_status, upm_status)
       |> assign(:graph_expanded, false)
       |> assign(:show_anon, false)
       |> assign(:saved_layouts, DashboardStore.list_layouts())
@@ -115,6 +119,8 @@ defmodule ApmV4Web.DashboardLive do
           <.nav_item icon="hero-sparkles" label="Skills" active={@active_nav == :skills} href="/skills" badge={@active_skill_count} />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={@active_nav == :ralph} href="/ralph" />
           <.nav_item icon="hero-clock" label="Timeline" active={@active_nav == :timeline} href="/timeline" />
+          <.nav_item icon="hero-signal" label="Ports" active={@active_nav == :ports} href="/ports" />
+          <.nav_item icon="hero-book-open" label="Docs" active={@active_nav == :docs} href="/docs" />
         </nav>
         <div class="p-3 border-t border-base-300">
           <div class="text-xs text-base-content/40">
@@ -323,6 +329,58 @@ defmodule ApmV4Web.DashboardLive do
               </div>
             </.live_region>
 
+            <%!-- UPM Execution Panel --%>
+            <div :if={@upm_status.active} class="card bg-base-200 border border-base-300">
+              <div class="card-body p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
+                    UPM Execution
+                  </h3>
+                  <span class={["badge badge-sm", upm_status_badge(@upm_status.session.status)]}>
+                    {@upm_status.session.status}
+                  </span>
+                </div>
+                <%!-- Wave progress --%>
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-xs text-base-content/60">
+                    Wave {@upm_status.session.current_wave}/{@upm_status.session.total_waves}
+                  </span>
+                  <div class="flex-1 bg-base-300 rounded-full h-1.5">
+                    <div
+                      class="bg-primary h-1.5 rounded-full transition-all"
+                      style={"width: #{if @upm_status.session.total_waves > 0, do: trunc(@upm_status.session.current_wave / @upm_status.session.total_waves * 100), else: 0}%"}
+                    ></div>
+                  </div>
+                  <span class="text-[10px] text-base-content/40">
+                    {upm_story_summary(@upm_status.session.stories)}
+                  </span>
+                </div>
+                <%!-- Story list --%>
+                <div class="space-y-0.5 max-h-32 overflow-y-auto">
+                  <div
+                    :for={story <- @upm_status.session.stories}
+                    class="flex items-center gap-2 px-1.5 py-0.5 rounded text-xs hover:bg-base-300"
+                  >
+                    <span class={["w-2 h-2 rounded-full flex-shrink-0", upm_story_dot(story.status)]}></span>
+                    <span class="font-mono text-[10px] text-base-content/50">{story.id}</span>
+                    <span class="truncate flex-1 text-base-content/70">{story[:title] || ""}</span>
+                    <span :if={story.agent_id} class="badge badge-xs badge-ghost font-mono">{story.agent_id}</span>
+                  </div>
+                </div>
+                <%!-- Recent events --%>
+                <div :if={@upm_status.events != []} class="mt-2 border-t border-base-300 pt-2">
+                  <div class="text-[10px] text-base-content/40 uppercase tracking-wider mb-1">Events</div>
+                  <div class="space-y-0.5 max-h-20 overflow-y-auto">
+                    <div :for={event <- Enum.take(Enum.reverse(@upm_status.events), 5)} class="text-[10px] text-base-content/50 flex gap-2">
+                      <span class="text-base-content/30">{format_event_time(event.timestamp)}</span>
+                      <span class={["font-medium", upm_event_color(event.event_type)]}>{event.event_type}</span>
+                      <span :if={event.data["story_id"]} class="font-mono">{event.data["story_id"]}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <%!-- D3 Dependency Graph --%>
             <div class={[
               "card bg-base-200 border border-base-300 transition-all duration-200",
@@ -395,6 +453,9 @@ defmodule ApmV4Web.DashboardLive do
                         <span :if={agent[:member_count] && agent[:member_count] > 1} class="badge badge-xs badge-info">
                           {agent[:member_count]}
                         </span>
+                        <span :if={agent[:story_id]} class="badge badge-xs badge-primary badge-outline font-mono">
+                          {agent[:story_id]}
+                        </span>
                       </div>
                       <div class="text-[10px] text-base-content/30 flex items-center gap-1">
                         <span class="font-mono">{agent.id}</span>
@@ -427,7 +488,7 @@ defmodule ApmV4Web.DashboardLive do
           <div class="w-80 border-l border-base-300 bg-base-200 flex flex-col flex-shrink-0">
             <div role="tablist" class="tabs tabs-border bg-base-300">
               <button
-                :for={tab <- [:inspector, :ralph, :commands, :todos]}
+                :for={tab <- [:inspector, :ralph, :upm, :commands, :todos]}
                 role="tab"
                 class={["tab tab-sm", @active_tab == tab && "tab-active"]}
                 phx-click="switch_tab"
@@ -548,6 +609,47 @@ defmodule ApmV4Web.DashboardLive do
                   <a href="/ralph" class="text-primary hover:underline block mt-1">
                     Open flowchart →
                   </a>
+                </div>
+              </div>
+
+              <%!-- UPM tab --%>
+              <div :if={@active_tab == :upm} class="space-y-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
+                  UPM Sessions
+                </h3>
+                <div :if={!@upm_status.active} class="text-xs text-base-content/40 py-4 text-center">
+                  No active UPM session. Start with <code>/upm build</code>.
+                </div>
+                <div :if={@upm_status.active} class="space-y-2">
+                  <div class="p-2 rounded bg-base-300 text-xs space-y-1">
+                    <div class="flex justify-between">
+                      <span class="text-base-content/50">Session</span>
+                      <span class="font-mono text-[10px]">{@upm_status.session.id}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-base-content/50">Status</span>
+                      <span class={["badge badge-xs", upm_status_badge(@upm_status.session.status)]}>
+                        {@upm_status.session.status}
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-base-content/50">Wave</span>
+                      <span>{@upm_status.session.current_wave}/{@upm_status.session.total_waves}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-base-content/50">Stories</span>
+                      <span>{upm_story_summary(@upm_status.session.stories)}</span>
+                    </div>
+                  </div>
+                  <%!-- Full event timeline --%>
+                  <div :if={@upm_status.events != []} class="space-y-0.5">
+                    <div class="text-[10px] text-base-content/40 uppercase tracking-wider">Timeline</div>
+                    <div :for={event <- Enum.reverse(@upm_status.events)} class="text-[10px] text-base-content/50 flex gap-2 py-0.5">
+                      <span class="text-base-content/30 flex-shrink-0">{format_event_time(event.timestamp)}</span>
+                      <span class={["font-medium", upm_event_color(event.event_type)]}>{event.event_type}</span>
+                      <span :if={event.data["story_id"]} class="font-mono">{event.data["story_id"]}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -806,6 +908,18 @@ defmodule ApmV4Web.DashboardLive do
     {:noreply, assign(socket, :commands, commands)}
   end
 
+  def handle_info({:upm_session_registered, _session}, socket) do
+    {:noreply, assign(socket, :upm_status, UpmStore.get_status())}
+  end
+
+  def handle_info({:upm_agent_registered, _params}, socket) do
+    {:noreply, assign(socket, :upm_status, UpmStore.get_status())}
+  end
+
+  def handle_info({:upm_event, _event}, socket) do
+    {:noreply, assign(socket, :upm_status, UpmStore.get_status())}
+  end
+
   def handle_info(_msg, socket) do
     {:noreply, socket}
   end
@@ -982,6 +1096,7 @@ defmodule ApmV4Web.DashboardLive do
 
   defp tab_label(:inspector), do: "Inspector"
   defp tab_label(:ralph), do: "Ralph"
+  defp tab_label(:upm), do: "UPM"
   defp tab_label(:commands), do: "Commands"
   defp tab_label(:todos), do: "TODOs"
 
@@ -1046,6 +1161,42 @@ defmodule ApmV4Web.DashboardLive do
     |> Enum.flat_map(fn p -> Map.get(p, "sessions", []) end)
     |> length()
   end
+
+  # --- UPM Helpers ---
+
+  defp upm_status_badge("registered"), do: "badge-ghost"
+  defp upm_status_badge("running"), do: "badge-info"
+  defp upm_status_badge("verifying"), do: "badge-warning"
+  defp upm_status_badge("verified"), do: "badge-success"
+  defp upm_status_badge("shipped"), do: "badge-accent"
+  defp upm_status_badge(_), do: "badge-ghost"
+
+  defp upm_story_dot("pending"), do: "bg-base-content/30"
+  defp upm_story_dot("in_progress"), do: "bg-info"
+  defp upm_story_dot("passed"), do: "bg-success"
+  defp upm_story_dot("failed"), do: "bg-error"
+  defp upm_story_dot(_), do: "bg-base-content/30"
+
+  defp upm_story_summary(stories) when is_list(stories) do
+    passed = Enum.count(stories, &(&1.status == "passed"))
+    total = length(stories)
+    "#{passed}/#{total} passed"
+  end
+  defp upm_story_summary(_), do: ""
+
+  defp upm_event_color("wave_start"), do: "text-info"
+  defp upm_event_color("wave_complete"), do: "text-info"
+  defp upm_event_color("story_pass"), do: "text-success"
+  defp upm_event_color("story_fail"), do: "text-error"
+  defp upm_event_color("verify_start"), do: "text-warning"
+  defp upm_event_color("verify_complete"), do: "text-success"
+  defp upm_event_color("ship"), do: "text-accent"
+  defp upm_event_color(_), do: "text-base-content/50"
+
+  defp format_event_time(%DateTime{} = dt) do
+    Calendar.strftime(dt, "%H:%M:%S")
+  end
+  defp format_event_time(_), do: ""
 
   defp safe_get_config do
     try do

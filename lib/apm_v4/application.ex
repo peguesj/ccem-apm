@@ -19,6 +19,7 @@ defmodule ApmV4.Application do
       ApmV4.AuditLog,
       ApmV4.ProjectStore,
       ApmV4.AgentRegistry,
+      ApmV4.UpmStore,
       ApmV4.SkillTracker,
       ApmV4.AlertRulesEngine,
       ApmV4.MetricsCollector,
@@ -27,6 +28,8 @@ defmodule ApmV4.Application do
       ApmV4.AgentDiscovery,
       ApmV4.EnvironmentScanner,
       ApmV4.CommandRunner,
+      ApmV4.DocsStore,
+      ApmV4.PortManager,
       # Start to serve requests, typically the last entry
       ApmV4Web.Endpoint
     ]

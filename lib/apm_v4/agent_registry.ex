@@ -167,6 +167,19 @@ defmodule ApmV4.AgentRegistry do
         agent_type: Map.get(metadata, :agent_type, "individual"),
         path: Map.get(metadata, :path, nil),
         member_count: Map.get(metadata, :member_count, nil),
+        # Formation hierarchy fields
+        parent_id: Map.get(metadata, :parent_id, nil),
+        formation_id: Map.get(metadata, :formation_id, nil),
+        squadron: Map.get(metadata, :squadron, nil),
+        swarm: Map.get(metadata, :swarm, nil),
+        cluster: Map.get(metadata, :cluster, nil),
+        role: Map.get(metadata, :role, nil),
+        # UPM work-item fields
+        story_id: Map.get(metadata, :story_id, nil),
+        plane_issue_id: Map.get(metadata, :plane_issue_id, nil),
+        wave: Map.get(metadata, :wave, nil),
+        work_item_title: Map.get(metadata, :work_item_title, nil),
+        upm_session_id: Map.get(metadata, :upm_session_id, nil),
         registered_at: now,
         last_seen: now
       }
@@ -296,6 +309,17 @@ defmodule ApmV4.AgentRegistry do
           |> maybe_put(fields, "agent_type", :agent_type)
           |> maybe_put(fields, "path", :path)
           |> maybe_put(fields, "member_count", :member_count)
+          |> maybe_put(fields, "story_id", :story_id)
+          |> maybe_put(fields, "plane_issue_id", :plane_issue_id)
+          |> maybe_put(fields, "wave", :wave)
+          |> maybe_put(fields, "work_item_title", :work_item_title)
+          |> maybe_put(fields, "upm_session_id", :upm_session_id)
+          |> maybe_put(fields, "parent_id", :parent_id)
+          |> maybe_put(fields, "formation_id", :formation_id)
+          |> maybe_put(fields, "squadron", :squadron)
+          |> maybe_put(fields, "swarm", :swarm)
+          |> maybe_put(fields, "cluster", :cluster)
+          |> maybe_put(fields, "role", :role)
           |> Map.put(:last_seen, now)
 
         :ets.insert(@agents_table, {agent_id, updated})
@@ -312,6 +336,38 @@ defmodule ApmV4.AgentRegistry do
     :ets.delete_all_objects(@sessions_table)
     :ets.delete_all_objects(@notifications_table)
     {:reply, :ok, %{notification_counter: 0}}
+  end
+
+  @doc "List agents belonging to a formation."
+  @spec list_formation(String.t()) :: [map()]
+  def list_formation(formation_id) do
+    :ets.tab2list(@agents_table)
+    |> Enum.map(fn {_id, agent} -> agent end)
+    |> Enum.filter(&(&1.formation_id == formation_id))
+  end
+
+  @doc "List agents in a specific squadron within a formation."
+  @spec list_squadron(String.t(), String.t()) :: [map()]
+  def list_squadron(formation_id, squadron) do
+    list_formation(formation_id)
+    |> Enum.filter(&(&1.squadron == squadron))
+  end
+
+  @doc "Get the hierarchy tree for an agent (walk up parent_id chain)."
+  @spec get_hierarchy(String.t()) :: [map()]
+  def get_hierarchy(agent_id) do
+    case get_agent(agent_id) do
+      nil -> []
+      agent -> walk_hierarchy(agent, [agent])
+    end
+  end
+
+  defp walk_hierarchy(%{parent_id: nil}, acc), do: Enum.reverse(acc)
+  defp walk_hierarchy(%{parent_id: pid}, acc) do
+    case get_agent(pid) do
+      nil -> Enum.reverse(acc)
+      parent -> walk_hierarchy(parent, [parent | acc])
+    end
   end
 
   defp maybe_put(map, fields, string_key, atom_key) do

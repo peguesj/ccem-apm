@@ -32,6 +32,9 @@ defmodule ApmV4Web.Router do
     live "/ralph", RalphFlowchartLive, :index
     live "/skills", SkillsLive, :index
     live "/timeline", SessionTimelineLive, :index
+    live "/docs", DocsLive, :index
+    live "/docs/*path", DocsLive, :show
+    live "/ports", PortsLive, :index
   end
 
   # v3-compatible health check (outside /api scope)
@@ -71,6 +74,7 @@ defmodule ApmV4Web.Router do
     post "/input/respond", ApiController, :respond_input
     post "/tasks/sync", ApiController, :sync_tasks
     post "/config/reload", ApiController, :reload_config
+    post "/reload", ApiController, :reload_config
     post "/plane/update", ApiController, :update_plane
 
     # Skills tracking
@@ -79,10 +83,23 @@ defmodule ApmV4Web.Router do
 
     # v4-only endpoints
     get "/projects", ApiController, :projects
+    patch "/projects", ApiController, :update_project
 
     # v2 export/import
     get "/v2/export", ApiController, :export
     post "/v2/import", ApiController, :import_data
+
+    # UPM execution tracking
+    post "/upm/register", ApiController, :upm_register
+    post "/upm/agent", ApiController, :upm_agent
+    post "/upm/event", ApiController, :upm_event
+    get "/upm/status", ApiController, :upm_status
+
+    # Port management
+    get "/ports", ApiController, :ports
+    post "/ports/scan", ApiController, :scan_ports
+    post "/ports/assign", ApiController, :assign_port
+    get "/ports/clashes", ApiController, :port_clashes
 
     # CCEM environment manager endpoints
     get "/environments", ApiController, :environments
