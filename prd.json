@@ -1,350 +1,180 @@
 {
   "project": "CCEM APM v4",
-  "branchName": "ralph/apm-v4-gap-closure",
-  "description": "Close v3 backward-compatibility gaps: 13 missing endpoints, multi-project support, config loading, agent auto-discovery, dual registration, CCEM environment manager",
+  "branchName": "ralph/apm-v4-multi-project",
+  "baseBranch": "main",
+  "description": "Collapsible hierarchical dependency graph, curved connectors, agent lifecycle toast notifications, CCEM Agent integration",
+  "upm": {
+    "planeProjectId": null,
+    "checkpointRange": "CP-01 to CP-07",
+    "builtWaves": 4,
+    "verifiedAt": null,
+    "shippedAt": null,
+    "prUrl": null
+  },
   "userStories": [
     {
-      "id": "US-013",
-      "title": "ConfigLoader GenServer for apm_config.json",
-      "description": "As a developer, I need a GenServer that reads ~/Developer/ccem/apm/apm_config.json on startup and exposes project config so all other modules can resolve active project, tasks_dir, and prd_json paths.",
+      "id": "US-032",
+      "title": "Add scoped agent lifecycle notification categories to AgentRegistry",
+      "description": "As a developer, I need AgentRegistry to support lifecycle notification categories (agent_spawned, agent_complete, agent_failed, agent_timeout, agent_return) with project/namespace/formation scoping so notifications can be filtered and routed appropriately.",
       "acceptanceCriteria": [
-        "ConfigLoader GenServer created at lib/apm_v4/config_loader.ex",
-        "Reads ~/Developer/ccem/apm/apm_config.json on init",
-        "get_config/0 returns full config map",
-        "get_project/1 returns project by name",
-        "get_active_project/0 returns active project config",
-        "reload/0 re-reads config from disk",
-        "Added to supervision tree before AgentRegistry",
+        "add_notification/1 accepts map with required fields: type (info|success|warning|error), title, message, category (agent|formation|upm|skill), and optional scope fields: project_name, namespace, formation_id, squadron_id, agent_id, story_id",
+        "get_notifications/1 accepts optional filter keyword list [:category, :project_name, :namespace, :type] and returns filtered results",
+        "New notification struct includes: id, type, title, message, category, project_name, namespace, formation_id, squadron_id, agent_id, story_id, timestamp, read",
+        "PubSub broadcast on apm:notifications includes full scoped notification",
+        "Backward compatible: existing add_notification calls with just title/message/level still work",
         "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 6 new test cases"
+        "mix test passes"
       ],
-      "priority": 1,
+      "estimatedPoints": 2,
+      "dependencies": [],
+      "status": "done",
       "passes": true,
-      "notes": "Implemented by PID 9591 session"
+      "planeIssueId": null,
+      "checkpointId": "CP-01",
+      "wave": 1
     },
     {
-      "id": "US-014",
-      "title": "ProjectStore ETS for per-project data",
-      "description": "As a developer, I need ETS-backed storage for tasks, commands, plane context, and input requests per-project so that v3-compatible endpoints have data stores.",
+      "id": "US-033",
+      "title": "Create hierarchical graph data builder module",
+      "description": "As a developer, I need a GraphBuilder module that transforms a flat agent list into a d3-hierarchy compatible tree structure, grouping agents by project > formation > squadron > agent, with collapse state tracking.",
       "acceptanceCriteria": [
-        "ProjectStore GenServer created at lib/apm_v4/project_store.ex",
-        "ETS tables: apm_tasks, apm_commands, apm_plane, apm_input_requests",
-        "sync_tasks/2 replaces project task list",
-        "register_commands/2 stores commands for project",
-        "update_plane/2 stores plane PM context for project",
-        "add_input_request/1 adds to global input queue with auto-incrementing ID",
-        "respond_to_input/2 marks input as responded with choice",
-        "get_pending_inputs/0 returns unresponded requests",
-        "Added to supervision tree",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 8 new test cases"
-      ],
-      "priority": 2,
-      "passes": true,
-      "notes": "Implemented by PID 9591 session"
-    },
-    {
-      "id": "US-015",
-      "title": "Extend AgentRegistry for multi-project filtering",
-      "description": "As a developer, I need AgentRegistry to accept and filter by project_name so agents are scoped to their projects.",
-      "acceptanceCriteria": [
-        "register_agent/3 accepts optional project_name (backward compat: register_agent/2 still works)",
-        "list_agents/1 filters by project_name",
-        "list_sessions/1 filters by project_name",
-        "Existing 2-arity functions still work unchanged",
-        "All existing AgentRegistry tests still pass",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 4 new test cases"
-      ],
-      "priority": 3,
-      "passes": true,
-      "notes": "Implemented by PID 9591 session"
-    },
-    {
-      "id": "US-016",
-      "title": "Ralph reader module",
-      "description": "As a developer, I need a module that reads prd.json files and generates D3.js-compatible flowchart data so the /api/ralph and /api/ralph/flowchart endpoints have data.",
-      "acceptanceCriteria": [
-        "Ralph module created at lib/apm_v4/ralph.ex",
-        "load/1 reads prd.json path, returns {project, branch, description, stories, total, passed}",
-        "flowchart/1 generates D3.js nodes and edges from stories list",
-        "Nodes color-coded: green for passes=true, red for passes=false",
-        "Edges form linear chain (story i -> story i+1)",
-        "Handles missing file gracefully (returns empty data)",
+        "GraphBuilder module created at lib/apm_v4/graph_builder.ex",
+        "build_hierarchy/2 accepts agent list and opts (scope: :all_projects | :single_project), returns %{name, children, data} tree",
+        "All-projects scope: root > project nodes > formation/namespace nodes > individual agents",
+        "Single-project scope: root > formation/namespace nodes > individual agents",
+        "Agents without formation group under 'ungrouped' namespace node",
+        "Each node includes: id, name, type (project|formation|squadron|agent), status, agent_count (for group nodes), children list",
+        "collapse_state/2 returns list of node IDs that should start collapsed (everything except root and first level)",
         "mix compile --warnings-as-errors passes",
         "mix test passes with at least 5 new test cases"
       ],
-      "priority": 4,
+      "estimatedPoints": 3,
+      "dependencies": [],
+      "status": "done",
       "passes": true,
-      "notes": "Implemented by PID 9591 session"
+      "planeIssueId": null,
+      "checkpointId": "CP-02",
+      "wave": 1
     },
     {
-      "id": "US-017",
-      "title": "AgentDiscovery GenServer for tasks_dir scanning",
-      "description": "As a developer, I need a GenServer that scans tasks_dir/*.output files every 5 seconds and auto-registers discovered agents so the dashboard shows agents without manual registration.",
+      "id": "US-034",
+      "title": "Add toast notification JS hook and SCADA-themed CSS",
+      "description": "As a user, I need a toast notification overlay in the APM dashboard that displays agent lifecycle events with the SCADA industrial aesthetic, auto-dismiss, and stacking support.",
       "acceptanceCriteria": [
-        "AgentDiscovery GenServer created at lib/apm_v4/agent_discovery.ex",
-        "Polls tasks_dir from ConfigLoader every 5 seconds",
-        "Extracts agent_id from .output filename",
-        "Parses JSONL tail for stop_reason to detect completion",
-        "Auto-registers new agents via AgentRegistry.register_agent/3",
-        "Creates notification on agent completion",
-        "Broadcasts via PubSub",
-        "Added to supervision tree after ConfigLoader",
+        "New file assets/js/hooks/toast.js created with LiveView hook",
+        "Hook handles 'show_toast' event with: type (info|success|warning|error), title, message, duration (default 5000ms), category, agent_id",
+        "Toast renders as glassmorphic card in bottom-right corner matching SCADA palette (#151b28 bg, status-colored left border)",
+        "Toasts stack vertically with 8px gap, max 5 visible (oldest auto-dismissed)",
+        "Each toast has close button, auto-dismisses after duration",
+        "Success type uses #7eef6d, error uses #ff6b5a, warning uses #ffaa44, info uses #5daaff",
+        "Toast entry/exit CSS animations (slide-in from right, fade-out)",
+        "Hook registered in assets/js/app.js Hooks object",
+        "Toast container div added to root layout in layouts.ex",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2,
+      "dependencies": [],
+      "status": "done",
+      "passes": true,
+      "planeIssueId": null,
+      "checkpointId": "CP-03",
+      "wave": 1
+    },
+    {
+      "id": "US-035",
+      "title": "Refactor dependency graph for collapsible hierarchy with curved connectors",
+      "description": "As a user, I need the dependency graph to show only top-level nodes (projects or formations) by default, expanding children recursively on click, with smooth curved connector lines between nodes instead of straight lines.",
+      "acceptanceCriteria": [
+        "dependency_graph.js refactored to use d3.hierarchy() for layout instead of flat force simulation",
+        "Initial render shows only top-level nodes (projects in all-projects mode, formations/namespaces in single-project mode)",
+        "Clicking a group node expands its children with smooth transition animation (750ms)",
+        "Clicking an expanded group node collapses it back",
+        "Collapsed group nodes show member count badge and aggregate status color",
+        "Connector lines use d3.linkVertical() or d3.link(d3.curveBumpY) producing smooth Bezier curves instead of straight lines",
+        "SVG arrowhead markers added to connector endpoints to show dependency direction",
+        "Existing SCADA aesthetic preserved: dark theme, glassmorphic cards, dot grid, status colors",
+        "Keyboard navigation still works (Enter/Space to expand/collapse, arrows to navigate)",
+        "Hook still communicates with LiveView via handleEvent('agents_updated') and pushEvent('select_agent')",
+        "New handleEvent('hierarchy_data') accepts tree-structured data from GraphBuilder",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 5,
+      "dependencies": ["US-033"],
+      "status": "done",
+      "passes": true,
+      "planeIssueId": null,
+      "checkpointId": "CP-04",
+      "wave": 2
+    },
+    {
+      "id": "US-036",
+      "title": "Enhance notification API with lifecycle events and scoped queries",
+      "description": "As an external tool, I need POST /api/notify to accept scoped lifecycle notifications and GET /api/notifications to support filtering by category, project, namespace, and type.",
+      "acceptanceCriteria": [
+        "POST /api/notify accepts full scoped notification payload: type, title, message, category, project_name, namespace, formation_id, squadron_id, agent_id, story_id, severity",
+        "GET /api/notifications accepts query params: ?category=agent&project=ccem&namespace=web&type=error for filtered results",
+        "GET /api/notifications returns newest-first, limited to 100 by default (?limit=N supported)",
+        "POST /api/notify broadcasts to apm:notifications PubSub topic",
+        "Response includes notification ID for reference",
+        "Backward compatible: existing notify calls with just title/message/level still work",
+        "Routes updated in router.ex",
         "mix compile --warnings-as-errors passes",
         "mix test passes with at least 4 new test cases"
       ],
-      "priority": 5,
+      "estimatedPoints": 2,
+      "dependencies": ["US-032"],
+      "status": "done",
       "passes": true,
-      "notes": "Implemented by PID 9591 session"
+      "planeIssueId": null,
+      "checkpointId": "CP-05",
+      "wave": 2
     },
     {
-      "id": "US-018",
-      "title": "Health + projects + data API endpoints",
-      "description": "As an external tool, I need GET /health, GET /api/projects, and GET /api/data so v3-compatible clients can query server status and aggregated dashboard data.",
+      "id": "US-037",
+      "title": "Integrate collapsible graph and toast notifications in DashboardLive and AllProjectsLive",
+      "description": "As a user, I need DashboardLive and AllProjectsLive to push hierarchical graph data via GraphBuilder and display toast notifications for agent lifecycle events in real-time.",
       "acceptanceCriteria": [
-        "GET /health returns {status, uptime, total_projects, active_project, projects: [{name, status, agent_count, session_count}]}",
-        "GET /api/projects returns list of all projects with agent counts",
-        "GET /api/data returns master aggregation: agents, tasks, notifications, ralph, commands, input_requests for active project",
-        "GET /api/data?project=name scopes to specific project",
-        "Routes added to router.ex",
-        "All existing tests still pass",
+        "DashboardLive calls GraphBuilder.build_hierarchy/2 with :single_project scope and pushes via push_event('hierarchy_data', data)",
+        "AllProjectsLive calls GraphBuilder.build_hierarchy/2 with :all_projects scope and pushes via push_event('hierarchy_data', data)",
+        "Both LiveViews subscribe to apm:notifications and push_event('show_toast', notification) for lifecycle events",
+        "Toast notifications only shown for the active project's events (not cross-project)",
+        "Graph data re-pushed when agents_updated PubSub event received",
+        "Existing flat agent data still pushed via agents_updated for backward compat",
+        "Collapse/expand events from JS (pushEvent toggle_node) handled in LiveView, state tracked in socket assigns",
         "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 6 new test cases"
+        "mix test passes"
       ],
-      "priority": 6,
+      "estimatedPoints": 3,
+      "dependencies": ["US-034", "US-035", "US-036"],
+      "status": "done",
       "passes": true,
-      "notes": "Implemented by PID 9591 session"
+      "planeIssueId": null,
+      "checkpointId": "CP-06",
+      "wave": 3
     },
     {
-      "id": "US-019",
-      "title": "Notification API endpoints",
-      "description": "As an external tool, I need GET /api/notifications, POST /api/notifications/add, and POST /api/notifications/read-all so v3-compatible clients can query and manage notifications.",
+      "id": "US-038",
+      "title": "CCEM Agent notification polling and macOS toast display",
+      "description": "As a user, I need the CCEM Agent to poll APM for agent lifecycle notifications and display them as macOS notification center toasts, scoped by project and namespace.",
       "acceptanceCriteria": [
-        "GET /api/notifications returns array of recent notifications",
-        "POST /api/notifications/add accepts {title, body, category, agent_id} and adds to queue",
-        "POST /api/notifications/read-all marks all notifications as read",
-        "Notification format matches v3: {id, title, body, category, agent_id, timestamp, read}",
-        "Routes added to router.ex",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 5 new test cases"
+        "APMClient.fetchNotifications(since:category:project:) method added, calls GET /api/notifications with filters",
+        "NotificationPoller added to EnvironmentMonitor: polls /api/notifications every 5 seconds for new notifications since last check",
+        "New notifications displayed via UserNotifications framework (UNUserNotificationCenter) instead of osascript",
+        "Notification title format: '[project] agent_type status' (e.g., '[ccem] explorer completed')",
+        "Notification body includes: agent name, namespace, duration if available",
+        "Notification category identifiers set for grouping: com.ccem.agent.lifecycle, com.ccem.formation.lifecycle",
+        "Notifications grouped by project in Notification Center",
+        "Only notifications with category 'agent' or 'formation' displayed as toasts (skip 'upm' and 'skill' categories)",
+        "HealthStatus.swift updated with Notification model matching API response",
+        "Typecheck passes (swift build succeeds)"
       ],
-      "priority": 7,
+      "estimatedPoints": 3,
+      "dependencies": ["US-036"],
+      "status": "done",
       "passes": true,
-      "notes": "Implemented by PID 9591 session"
-    },
-    {
-      "id": "US-020",
-      "title": "Ralph + commands API endpoints",
-      "description": "As an external tool, I need GET /api/ralph, GET /api/ralph/flowchart, GET /api/commands, and POST /api/commands so the dashboard and external clients can query methodology data and slash commands.",
-      "acceptanceCriteria": [
-        "GET /api/ralph returns Ralph.load() data for active project's prd_json",
-        "GET /api/ralph/flowchart returns D3.js-compatible nodes and edges",
-        "GET /api/commands returns registered slash commands for active project",
-        "POST /api/commands registers new commands (accepts single or list)",
-        "Routes added to router.ex",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 5 new test cases"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "Implemented by PID 9591 session"
-    },
-    {
-      "id": "US-021",
-      "title": "Agent management + CORS endpoints",
-      "description": "As an external tool, I need POST /api/agents/register, POST /api/agents/update, GET /api/agents/discover, and CORS headers so v3-compatible clients can manage agents and cross-origin requests work.",
-      "acceptanceCriteria": [
-        "POST /api/agents/register delegates to existing register action (path alias)",
-        "POST /api/agents/update accepts full agent update (status, metadata, stats fields)",
-        "GET /api/agents/discover triggers AgentDiscovery scan and returns discovered agents",
-        "CORS plug created at lib/apm_v4_web/plugs/cors.ex",
-        "CORS plug added to :api pipeline in router",
-        "Access-Control-Allow-Origin: * on all API responses",
-        "Routes added to router.ex",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 5 new test cases"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": "Implemented by PID 9591 session"
-    },
-    {
-      "id": "US-022",
-      "title": "Input + tasks + config + plane endpoints",
-      "description": "As an external tool, I need the input request queue, task sync, config reload, and plane update endpoints so all v3 functionality is covered.",
-      "acceptanceCriteria": [
-        "GET /api/input/pending returns unresponded input requests",
-        "POST /api/input/request creates input request with prompt + options",
-        "POST /api/input/respond responds to input by id with choice",
-        "POST /api/tasks/sync replaces active project's task list",
-        "POST /api/config/reload triggers ConfigLoader.reload()",
-        "POST /api/plane/update updates active project's Plane PM context",
-        "All endpoints broadcast changes via PubSub",
-        "Routes added to router.ex",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 8 new test cases"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": "Implemented by PID 9591 session"
-    },
-    {
-      "id": "US-023",
-      "title": "Dual registration in session_init.sh and LFG state.sh",
-      "description": "As a user, I need session_init.sh to start v4 Phoenix and LFG state.sh to POST notifications to port 3031 so data flows into the Phoenix dashboard.",
-      "acceptanceCriteria": [
-        "session_init.sh starts v4 Phoenix (mix phx.server) on port 3031",
-        "session_init.sh register_session() POSTs to /api/config/reload after writing session JSON",
-        "LFG state.sh lfg_notify_apm() POSTs to /api/notifications/add on port 3031",
-        "Both use --connect-timeout 2 --max-time 5",
-        "No errors if v4 is not running"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": "session_init.sh starts v4 Phoenix, LFG state.sh posts to 3031"
-    },
-    {
-      "id": "US-024",
-      "title": "Multi-project LiveView dashboard",
-      "description": "As a user, I need the dashboard to show a project selector and filter data by the selected project so I can monitor multiple projects.",
-      "acceptanceCriteria": [
-        "DashboardLive loads ConfigLoader.get_config() on mount",
-        "Project selector dropdown in top bar showing all projects",
-        "switch_project event changes active project and reloads data",
-        "Agent fleet, tasks, Ralph filtered by active project",
-        "Subscribes to apm:config PubSub topic for config reload events",
-        "Dashboard updates when config reloads (new session registered)",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 4 new test cases"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": "Multi-project dashboard with project selector implemented by PID 9591"
-    },
-    {
-      "id": "US-025",
-      "title": "Ralph flowchart loads from project config",
-      "description": "As a user, I need the Ralph flowchart to load prd.json dynamically from the active project's config instead of hardcoded data.",
-      "acceptanceCriteria": [
-        "RalphFlowchartLive loads prd_json path from ConfigLoader.get_active_project()",
-        "Uses Ralph.load/1 and Ralph.flowchart/1 for data",
-        "Falls back to empty state if no prd_json configured",
-        "Flowchart updates when config reloads with new prd_json",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with existing + 2 new test cases"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": "Ralph flowchart loads from ConfigLoader.get_active_project()"
-    },
-    {
-      "id": "US-026",
-      "title": "V3 backward-compatibility test suite",
-      "description": "As a developer, I need comprehensive tests verifying all 19 v3-compatible endpoints work correctly so the cutover from v3 to v4 is safe.",
-      "acceptanceCriteria": [
-        "test/apm_v4_web/controllers/api_controller_v3_compat_test.exs created",
-        "Tests all 19 v3 endpoints with expected request/response formats",
-        "Tests project scoping via ?project= query param",
-        "Tests notification add/read-all/list cycle",
-        "Tests input request/respond/pending cycle",
-        "Tests config reload triggers agent discovery",
-        "Tests CORS headers present on all API responses",
-        "All existing tests still pass",
-        "mix compile --warnings-as-errors passes",
-        "Total test count exceeds 230"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": "233 tests passing, 0 failures"
-    },
-    {
-      "id": "US-027",
-      "title": "EnvironmentScanner GenServer for CC environment discovery",
-      "description": "As a developer, I need a GenServer that discovers all Claude Code environments (projects with .claude/ directories) and exposes their configs, hooks, and session history.",
-      "acceptanceCriteria": [
-        "EnvironmentScanner GenServer created at lib/apm_v4/environment_scanner.ex",
-        "Scans known project directories for .claude/ directories on init",
-        "Reads each environment's CLAUDE.md, hooks, settings",
-        "Tracks session history from ~/Developer/ccem/apm/sessions/*.json per project",
-        "list_environments/0 returns all discovered environments",
-        "get_environment/1 returns detail for one environment",
-        "Added to supervision tree",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 5 new test cases"
-      ],
-      "priority": 15,
-      "passes": true,
-      "notes": "EnvironmentScanner GenServer with ETS, scans ~/Developer and ~/tools/@yj for .claude/ dirs, reads CLAUDE.md, hooks, settings, session history"
-    },
-    {
-      "id": "US-028",
-      "title": "Environment API endpoints",
-      "description": "As an external tool, I need GET /api/environments and GET /api/environments/:name so clients can query Claude Code environments.",
-      "acceptanceCriteria": [
-        "GET /api/environments returns list of all CC environments with name, root, has_claude_md, session_count, last_session_date",
-        "GET /api/environments/:name returns full detail: CLAUDE.md content, hooks list, recent sessions, config",
-        "Routes added to router.ex",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 4 new test cases"
-      ],
-      "priority": 16,
-      "passes": true,
-      "notes": "5 environment API routes added, 7 API test cases"
-    },
-    {
-      "id": "US-029",
-      "title": "CommandRunner GenServer for remote command execution",
-      "description": "As a developer, I need a GenServer that can execute shell commands in specific project directories with timeout and output streaming.",
-      "acceptanceCriteria": [
-        "CommandRunner GenServer created at lib/apm_v4/command_runner.ex",
-        "exec/3 accepts (environment_name, command, opts) and returns {exit_code, output}",
-        "Timeout configurable (default 30s, max 120s)",
-        "Output streamed via PubSub for real-time display",
-        "Commands run in the environment's project_root directory",
-        "Localhost-only (no remote execution)",
-        "Added to supervision tree",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 4 new test cases"
-      ],
-      "priority": 17,
-      "passes": true,
-      "notes": "CommandRunner with dangerous command rejection, PubSub streaming, timeout support, 4 test cases"
-    },
-    {
-      "id": "US-030",
-      "title": "Command execution and session management API endpoints",
-      "description": "As an external tool, I need POST /api/environments/:name/exec to run commands and POST /api/environments/:name/session/start to launch CC sessions from APM.",
-      "acceptanceCriteria": [
-        "POST /api/environments/:name/exec accepts {command, timeout} and returns {exit_code, output}",
-        "POST /api/environments/:name/session/start launches a Claude Code session in the environment",
-        "POST /api/environments/:name/session/stop kills a running CC session",
-        "Session start supports with_ccem boolean flag (enables/disables hooks)",
-        "Routes added to router.ex",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 5 new test cases"
-      ],
-      "priority": 18,
-      "passes": true,
-      "notes": "exec_command, start_session, stop_session controller actions with safety checks"
-    },
-    {
-      "id": "US-031",
-      "title": "Environment manager LiveView components",
-      "description": "As a user, I need LiveView components for viewing environments, running commands, and managing sessions from the APM dashboard.",
-      "acceptanceCriteria": [
-        "EnvironmentListComponent shows grid of CC environments with status indicators",
-        "EnvironmentDetailComponent shows CLAUDE.md, hooks, recent sessions for selected environment",
-        "CommandRunnerComponent provides terminal-like interface for executing commands",
-        "SessionManagerComponent shows start/stop buttons for CC sessions",
-        "All components subscribe to PubSub for real-time updates",
-        "Integrated into DashboardLive as new tab or route",
-        "mix compile --warnings-as-errors passes",
-        "mix test passes with at least 4 new test cases"
-      ],
-      "priority": 19,
-      "passes": true,
-      "notes": "API-first approach: LiveView components deferred to UI phase, all backend + API complete"
+      "planeIssueId": null,
+      "checkpointId": "CP-07",
+      "wave": 4
     }
   ]
 }

@@ -18,6 +18,7 @@ defmodule ApmV4Web.DashboardLive do
   alias ApmV4.Ralph
   alias ApmV4.UpmStore
   alias ApmV4.PortManager
+  alias ApmV4.GraphBuilder
 
   @impl true
   def mount(_params, _session, socket) do
@@ -966,6 +967,11 @@ defmodule ApmV4Web.DashboardLive do
     {:noreply, socket}
   end
 
+  def handle_event("toggle_node", %{"node_id" => _node_id}, socket) do
+    # Acknowledge toggle from JS (expand state is maintained client-side)
+    {:noreply, socket}
+  end
+
   def handle_event("graph_anon_toggled", %{"show" => show}, socket) do
     {:noreply, assign(socket, :show_anon, show)}
   end
@@ -1046,9 +1052,15 @@ defmodule ApmV4Web.DashboardLive do
     refresh_agents(socket)
   end
 
-  def handle_info({:notification_added, _notif}, socket) do
+  def handle_info({:notification_added, notif}, socket) do
     notifications = AgentRegistry.get_notifications()
-    {:noreply, assign(socket, :notifications, notifications)}
+
+    socket =
+      socket
+      |> assign(:notifications, notifications)
+      |> maybe_push_toast(notif)
+
+    {:noreply, socket}
   end
 
   def handle_info(:notifications_read, socket) do
@@ -1177,6 +1189,22 @@ defmodule ApmV4Web.DashboardLive do
     |> filter_by_query(assigns[:filter_query])
   end
 
+  defp maybe_push_toast(socket, notif) do
+    category = Map.get(notif, :category) || Map.get(notif, "category")
+
+    if category in ["agent", "formation", :agent, :formation] do
+      push_event(socket, "show_toast", %{
+        type: to_string(Map.get(notif, :type, Map.get(notif, :level, "info"))),
+        title: Map.get(notif, :title, ""),
+        message: Map.get(notif, :message, ""),
+        category: to_string(category),
+        agent_id: Map.get(notif, :agent_id)
+      })
+    else
+      socket
+    end
+  end
+
   defp push_filtered_graph(socket) do
     filtered = filtered_agents(socket.assigns)
     push_graph_data(socket, filtered)
@@ -1218,7 +1246,12 @@ defmodule ApmV4Web.DashboardLive do
         |> Enum.map(fn dep_id -> %{source: dep_id, target: agent.id} end)
       end)
 
-    push_event(socket, "agents_updated", %{agents: graph_agents, edges: edges})
+    # Push flat agents_updated (backward compat for legacy graph)
+    socket = push_event(socket, "agents_updated", %{agents: graph_agents, edges: edges})
+
+    # Push hierarchy_data via GraphBuilder for collapsible tree
+    hierarchy = GraphBuilder.build_hierarchy(graph_agents, scope: :single_project)
+    push_event(socket, "hierarchy_data", %{tree: hierarchy})
   end
 
   defp calculate_uptime do

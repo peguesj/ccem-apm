@@ -123,10 +123,23 @@ defmodule ApmV4Web.ApiController do
     })
   end
 
-  @doc "GET /api/notifications -- list notifications"
-  def notifications(conn, _params) do
-    notifs = AgentRegistry.get_notifications()
-    json(conn, notifs)
+  @doc "GET /api/notifications -- list notifications with optional filters"
+  def notifications(conn, params) do
+    filters =
+      []
+      |> maybe_add_filter(:category, params["category"])
+      |> maybe_add_filter(:project_name, params["project"])
+      |> maybe_add_filter(:namespace, params["namespace"])
+      |> maybe_add_filter(:type, params["type"])
+
+    limit = parse_limit(params["limit"], 100)
+
+    notifs =
+      AgentRegistry.get_notifications(filters)
+      |> Enum.sort_by(& &1.timestamp, :desc)
+      |> Enum.take(limit)
+
+    json(conn, %{notifications: notifs, count: length(notifs), limit: limit})
   end
 
   @doc "GET /api/ralph -- Ralph methodology data for active project"
@@ -317,15 +330,30 @@ defmodule ApmV4Web.ApiController do
     end
   end
 
-  @doc "POST /api/notify -- add notification (existing v4 endpoint)"
+  @doc "POST /api/notify -- add notification with optional scoped fields"
   def notify(conn, params) do
     notification = %{
       title: params["title"] || "Notification",
       message: params["message"] || params["body"] || "",
-      level: params["level"] || params["category"] || "info"
+      type: params["type"] || params["level"] || "info",
+      category: params["category"],
+      project_name: params["project_name"] || params["project"],
+      namespace: params["namespace"],
+      formation_id: params["formation_id"],
+      squadron_id: params["squadron_id"],
+      agent_id: params["agent_id"],
+      story_id: params["story_id"]
     }
 
     id = AgentRegistry.add_notification(notification)
+
+    # Broadcast to PubSub for real-time toast delivery
+    Phoenix.PubSub.broadcast(
+      ApmV4.PubSub,
+      "apm:notifications",
+      {:notification_added, Map.put(notification, :id, id)}
+    )
+
     json(conn, %{ok: true, id: id})
   end
 
@@ -586,6 +614,20 @@ defmodule ApmV4Web.ApiController do
     end
   end
 
+  defp maybe_add_filter(filters, _key, nil), do: filters
+  defp maybe_add_filter(filters, _key, ""), do: filters
+  defp maybe_add_filter(filters, key, value), do: [{key, value} | filters]
+
+  defp parse_limit(nil, default), do: default
+  defp parse_limit(val, default) when is_binary(val) do
+    case Integer.parse(val) do
+      {n, _} -> min(max(n, 1), 1000)
+      :error -> default
+    end
+  end
+  defp parse_limit(val, _default) when is_integer(val), do: min(max(val, 1), 1000)
+  defp parse_limit(_, default), do: default
+
   # ============================
   # UPM Endpoints
   # ============================
@@ -733,5 +775,25 @@ defmodule ApmV4Web.ApiController do
   def port_clashes(conn, _params) do
     clashes = ApmV4.PortManager.detect_clashes()
     json(conn, %{ok: true, clashes: clashes})
+  end
+
+  def set_primary_port(conn, %{"project" => project, "port" => port} = params) do
+    ownership = Map.get(params, "ownership", "shared")
+
+    if ownership not in ["exclusive", "shared", "reserved"] do
+      conn |> put_status(400) |> json(%{ok: false, error: "invalid ownership: must be exclusive, shared, or reserved"})
+    else
+      case ApmV4.PortManager.set_primary_port(project, port, ownership) do
+        :ok ->
+          json(conn, %{ok: true, project: project, primary_port: port, port_ownership: ownership})
+
+        {:error, reason} ->
+          conn |> put_status(422) |> json(%{ok: false, error: to_string(reason)})
+      end
+    end
+  end
+
+  def set_primary_port(conn, _params) do
+    conn |> put_status(400) |> json(%{ok: false, error: "required: project, port"})
   end
 end

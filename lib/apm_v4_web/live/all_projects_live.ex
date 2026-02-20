@@ -14,6 +14,7 @@ defmodule ApmV4Web.AllProjectsLive do
 
   alias ApmV4.AgentRegistry
   alias ApmV4.ConfigLoader
+  alias ApmV4.GraphBuilder
   alias ApmV4.Ralph
 
   # Widget definitions: id, title, default grid span, default height (px)
@@ -487,12 +488,17 @@ defmodule ApmV4Web.AllProjectsLive do
   def handle_info({:agent_updated, _},    socket), do: refresh(socket)
   def handle_info({:agent_discovered, _, _}, socket), do: refresh(socket)
 
-  def handle_info({:notification_added, _}, socket) do
-    if socket.assigns.widgets["notifications"].locked do
-      {:noreply, socket}
-    else
-      {:noreply, assign(socket, :notifications, AgentRegistry.get_notifications())}
-    end
+  def handle_info({:notification_added, notif}, socket) do
+    socket =
+      if socket.assigns.widgets["notifications"].locked do
+        socket
+      else
+        assign(socket, :notifications, AgentRegistry.get_notifications())
+      end
+
+    # Push toast for agent/formation lifecycle events
+    socket = maybe_push_toast(socket, notif)
+    {:noreply, socket}
   end
 
   def handle_info({:config_reloaded, config}, socket) do
@@ -542,13 +548,33 @@ defmodule ApmV4Web.AllProjectsLive do
         |> Enum.map(fn dep -> %{source: dep, target: a.id} end)
       end)
 
-    push_event(socket, "agents_updated", %{agents: graph_agents, edges: edges})
+    socket = push_event(socket, "agents_updated", %{agents: graph_agents, edges: edges})
+
+    # Push hierarchy_data for collapsible tree (all-projects scope)
+    hierarchy = GraphBuilder.build_hierarchy(graph_agents, scope: :all_projects)
+    push_event(socket, "hierarchy_data", %{tree: hierarchy})
   end
 
   defp update_widget(widgets, id, fun) do
     case Map.get(widgets, id) do
       nil -> widgets
       widget -> Map.put(widgets, id, fun.(widget))
+    end
+  end
+
+  defp maybe_push_toast(socket, notif) do
+    category = Map.get(notif, :category) || Map.get(notif, "category")
+
+    if category in ["agent", "formation", :agent, :formation] do
+      push_event(socket, "show_toast", %{
+        type: to_string(Map.get(notif, :type, Map.get(notif, :level, "info"))),
+        title: Map.get(notif, :title, ""),
+        message: Map.get(notif, :message, ""),
+        category: to_string(category),
+        agent_id: Map.get(notif, :agent_id)
+      })
+    else
+      socket
     end
   end
 

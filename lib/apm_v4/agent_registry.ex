@@ -115,6 +115,13 @@ defmodule ApmV4.AgentRegistry do
     |> Enum.sort_by(& &1.id, :desc)
   end
 
+  @doc "Get notifications with optional keyword filters (category, project_name, namespace, type)."
+  @spec get_notifications(keyword()) :: [map()]
+  def get_notifications(filters) when is_list(filters) do
+    get_notifications()
+    |> filter_notifications(filters)
+  end
+
   @doc "Mark all notifications as read."
   @spec mark_all_read() :: :ok
   def mark_all_read do
@@ -248,12 +255,24 @@ defmodule ApmV4.AgentRegistry do
     counter = state.notification_counter + 1
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
+    # Backward compat: normalize :level to :type, accept both atom and string keys
+    type =
+      get_any(notification, [:type, "type", :level, "level"]) || "info"
+
     notif =
       %{
         id: counter,
-        title: Map.get(notification, :title, Map.get(notification, "title", "Notification")),
-        message: Map.get(notification, :message, Map.get(notification, "message", "")),
-        level: Map.get(notification, :level, Map.get(notification, "level", "info")),
+        title: get_any(notification, [:title, "title"]) || "Notification",
+        message: get_any(notification, [:message, "message"]) || "",
+        type: to_string(type),
+        level: to_string(type),
+        category: get_any(notification, [:category, "category"]),
+        project_name: get_any(notification, [:project_name, "project_name", :project, "project"]),
+        namespace: get_any(notification, [:namespace, "namespace"]),
+        formation_id: get_any(notification, [:formation_id, "formation_id"]),
+        squadron_id: get_any(notification, [:squadron_id, "squadron_id"]),
+        agent_id: get_any(notification, [:agent_id, "agent_id"]),
+        story_id: get_any(notification, [:story_id, "story_id"]),
         timestamp: now,
         read: false
       }
@@ -375,5 +394,23 @@ defmodule ApmV4.AgentRegistry do
       nil -> map
       value -> Map.put(map, atom_key, value)
     end
+  end
+
+  defp get_any(map, keys) do
+    Enum.find_value(keys, fn key -> Map.get(map, key) end)
+  end
+
+  defp filter_notifications(notifications, []), do: notifications
+
+  defp filter_notifications(notifications, filters) do
+    Enum.filter(notifications, fn n ->
+      Enum.all?(filters, fn
+        {:category, val} -> to_string(Map.get(n, :category)) == to_string(val)
+        {:project_name, val} -> to_string(Map.get(n, :project_name)) == to_string(val)
+        {:namespace, val} -> to_string(Map.get(n, :namespace)) == to_string(val)
+        {:type, val} -> to_string(Map.get(n, :type, Map.get(n, :level))) == to_string(val)
+        _other -> true
+      end)
+    end)
   end
 end

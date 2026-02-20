@@ -147,3 +147,14 @@
 .status-glow-info {
   box-shadow: 0 0 8px rgba(93, 170, 255, 0.3), inset 0 0 4px rgba(93, 170, 255, 0.1);
 }
+
+/* Toast notification animations */
+@keyframes toast-slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toast-fade-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(100%); }
+}
