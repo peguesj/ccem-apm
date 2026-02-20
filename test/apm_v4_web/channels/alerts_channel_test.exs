@@ -4,6 +4,7 @@ defmodule ApmV4Web.AlertsChannelTest do
   alias ApmV4.AlertRulesEngine
 
   setup do
+    ApmV4.GenServerHelpers.ensure_processes_alive()
     # Reinitialize alert rules engine to clear history
     if Process.whereis(AlertRulesEngine) do
       GenServer.call(AlertRulesEngine, :reinit)

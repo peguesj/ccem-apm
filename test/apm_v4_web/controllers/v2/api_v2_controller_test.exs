@@ -8,6 +8,7 @@ defmodule ApmV4Web.V2.ApiV2ControllerTest do
   alias ApmV4.AuditLog
 
   setup do
+    ApmV4.GenServerHelpers.ensure_processes_alive()
     AgentRegistry.clear_all()
     MetricsCollector.clear_all()
     SloEngine.clear_all()

@@ -4,6 +4,7 @@ defmodule ApmV4Web.A2uiControllerTest do
   alias ApmV4.AgentRegistry
 
   setup do
+    ApmV4.GenServerHelpers.ensure_processes_alive()
     AgentRegistry.clear_all()
     :ok
   end

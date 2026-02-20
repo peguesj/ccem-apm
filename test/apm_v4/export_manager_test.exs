@@ -12,6 +12,7 @@ defmodule ApmV4.ExportManagerTest do
            |> Path.join("apm_export_test_#{System.unique_integer([:positive])}")
 
   setup do
+    ApmV4.GenServerHelpers.ensure_processes_alive()
     # Ensure PubSub is running
     unless GenServer.whereis(ApmV4.PubSub) do
       start_supervised!({Phoenix.PubSub, name: ApmV4.PubSub})

@@ -15,6 +15,7 @@ defmodule ApmV4.Integration.FullStackTest do
   alias ApmV4.A2ui.ComponentBuilder
 
   setup do
+    ApmV4.GenServerHelpers.ensure_processes_alive()
     AgentRegistry.clear_all()
     EventStream.clear()
     :ok

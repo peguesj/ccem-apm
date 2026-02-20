@@ -4,6 +4,7 @@ defmodule ApmV4Web.AgentChannelTest do
   alias ApmV4.AgentRegistry
 
   setup do
+    ApmV4.GenServerHelpers.ensure_processes_alive()
     # Ensure AgentRegistry is clean
     if Process.whereis(AgentRegistry), do: AgentRegistry.clear_all()
 

@@ -4,6 +4,7 @@ defmodule ApmV4.AlertRulesEngineTest do
   alias ApmV4.AlertRulesEngine
 
   setup do
+    ApmV4.GenServerHelpers.ensure_processes_alive()
     # Re-bootstrap default rules (clears and re-populates ETS tables via GenServer)
     GenServer.call(AlertRulesEngine, :reinit)
     :ok

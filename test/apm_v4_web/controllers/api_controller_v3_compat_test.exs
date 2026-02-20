@@ -10,6 +10,7 @@ defmodule ApmV4Web.ApiControllerV3CompatTest do
   alias ApmV4.ProjectStore
 
   setup do
+    ApmV4.GenServerHelpers.ensure_processes_alive()
     AgentRegistry.clear_all()
     ProjectStore.clear_all()
     :ok

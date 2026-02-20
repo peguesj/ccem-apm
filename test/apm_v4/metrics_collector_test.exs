@@ -4,6 +4,7 @@ defmodule ApmV4.MetricsCollectorTest do
   alias ApmV4.MetricsCollector
 
   setup do
+    ApmV4.GenServerHelpers.ensure_processes_alive()
     MetricsCollector.clear_all()
     ApmV4.AgentRegistry.clear_all()
     :ok

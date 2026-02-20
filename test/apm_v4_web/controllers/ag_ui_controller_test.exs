@@ -5,6 +5,7 @@ defmodule ApmV4Web.AgUiControllerTest do
   alias ApmV4.EventStream
 
   setup do
+    ApmV4.GenServerHelpers.ensure_processes_alive()
     AgentRegistry.clear_all()
     EventStream.clear()
     :ok
