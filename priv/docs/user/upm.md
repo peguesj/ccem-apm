@@ -1,5 +1,7 @@
 # UPM - Unified Project Management
 
+> **Prerequisite:** Understand [Ralph Methodology](/docs/user/ralph) and [Agent Fleet](/docs/user/agents) before using UPM, as it integrates with both systems.
+
 UPM (Unified Project Management) is CCEM APM's integration layer for tracking multi-agent project execution across Claude Code sessions. It captures waves of work, individual stories, and detailed execution events.
 
 ## Overview
@@ -15,6 +17,7 @@ UPM provides:
 ## Core Concepts
 
 ### Waves
+
 Waves are logical groupings of stories, typically representing phases:
 
 - Wave 1: Foundation / Setup
@@ -23,6 +26,7 @@ Waves are logical groupings of stories, typically representing phases:
 - Wave 4: Deployment
 
 ### Stories
+
 Individual work items within a wave:
 
 - Title and description
@@ -31,6 +35,7 @@ Individual work items within a wave:
 - Status and progress
 
 ### Events
+
 Execution timeline entries tracking:
 
 - Status changes (started, completed, error)
@@ -38,11 +43,11 @@ Execution timeline entries tracking:
 - Token consumption
 - Milestone achievements
 
-## UPM Registration
+## UPM Session Registration
 
 ### POST /api/upm/register
 
-Register a new UPM session:
+Register a new UPM session to begin tracking work:
 
 ```bash
 curl -X POST http://localhost:3031/api/upm/register \
@@ -80,6 +85,8 @@ Response:
 
 ## Wave Structure
 
+Each wave contains an ID, title, status, and its stories:
+
 ```json
 {
   "id": "wave-1",
@@ -104,6 +111,8 @@ Response:
 
 ## Story Structure
 
+Each story tracks title, criteria, tokens, and assignment:
+
 ```json
 {
   "id": "story-1-1",
@@ -124,11 +133,13 @@ Response:
 }
 ```
 
-## Agent Registration for UPM
+> **Tip:** Keep 3-5 stories per wave. Larger waves become difficult to track and increase the risk of blocked dependencies.
+
+## Assigning Agents to UPM Stories
 
 ### POST /api/upm/agent
 
-Register an agent to work on UPM stories:
+Register an agent to work on a specific UPM story:
 
 ```bash
 curl -X POST http://localhost:3031/api/upm/agent \
@@ -148,7 +159,7 @@ The agent begins work on the assigned story. Progress updates are tracked automa
 
 ### POST /api/upm/event
 
-Log execution events:
+Log execution events to build the timeline:
 
 ```bash
 curl -X POST http://localhost:3031/api/upm/event \
@@ -166,10 +177,10 @@ curl -X POST http://localhost:3031/api/upm/event \
   }'
 ```
 
-### Event Types
+### Event Types Reference
 
 | Type | Description |
-|------|-------------|
+| :--- | :--- |
 | **story_started** | Agent begins work on story |
 | **progress_update** | Periodic status update with tokens/progress |
 | **subtask_completed** | Sub-task milestone completed |
@@ -180,7 +191,7 @@ curl -X POST http://localhost:3031/api/upm/event \
 | **milestone_reached** | Wave milestone achieved |
 | **wave_completed** | All stories in wave finished |
 
-## Status Endpoint
+## Querying UPM Status
 
 ### GET /api/upm/status
 
@@ -226,11 +237,13 @@ Response:
 In the right sidebar of the main dashboard:
 
 ### Wave Summary
+
 - Wave name and status
 - Progress bar
 - Story count (completed/total)
 
-### Current Story
+### Current Story View
+
 - Story title and description
 - Assigned agent
 - Progress percentage
@@ -238,10 +251,14 @@ In the right sidebar of the main dashboard:
 - Acceptance criteria checklist
 
 ### Event Timeline
+
 Recent events in reverse chronological order:
-- `2 mins ago` - story-1 completed (3200 tokens)
-- `5 mins ago` - Agent generator assigned to story-1
-- `8 mins ago` - Wave 1 started
+
+```text
+2 mins ago  - story-1 completed (3200 tokens)
+5 mins ago  - Agent generator assigned to story-1
+8 mins ago  - Wave 1 started
+```
 
 ## Integration with Ralph
 
@@ -252,10 +269,7 @@ UPM data flows into Ralph:
 3. **Agent Assignment**: Links UPM agents to Ralph agents
 4. **Progress Tracking**: Synchronizes progress metrics
 
-For seamless integration, ensure:
-- UPM session project matches Ralph prd.json project
-- Wave IDs align with Ralph objective structure
-- Agent tiers match story assigned_tier
+> **Important:** For seamless integration, ensure the UPM session project matches the Ralph `prd.json` project, wave IDs align with the Ralph objective structure, and agent tiers match the story `assigned_tier`.
 
 ## Best Practices
 
@@ -269,27 +283,31 @@ For seamless integration, ensure:
 
 ## Troubleshooting
 
-**UPM session not starting?**
+### UPM Session Not Starting
+
 - Verify project is in apm_config.json
 - Check POST /api/upm/register request format
 - Review server logs
 
-**Stories not appearing in dashboard?**
+### Stories Not Appearing in Dashboard
+
 - Refresh page (Cmd+R)
 - Verify session_id in UPM panel matches current session
 - Check WebSocket connection
 
-**Agent not assigned to story?**
+### Agent Not Assigned to Story
+
 - POST /api/upm/agent with correct session_id and story_id
 - Verify agent exists and is active
 - Check response for error messages
 
-**Progress not updating?**
+### Progress Not Updating
+
 - Send progress_update events regularly
 - Include story_id and agent_id
 - Verify tokens_consumed is increasing
 
-See [API Reference](../developer/api-reference.md) for complete UPM endpoints.
+See [API Reference](/docs/developer/api-reference) for complete UPM endpoints.
 
 ---
 

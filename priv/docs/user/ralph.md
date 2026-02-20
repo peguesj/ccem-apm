@@ -2,6 +2,8 @@
 
 Ralph is CCEM APM's autonomous fix loop orchestration system. It manages complex workflows, story tracking, and adaptive resource allocation for multi-agent collaborative debugging and refactoring.
 
+> **Tip:** Ralph works best when stories are granular (5,000-10,000 tokens each) with clear acceptance criteria. See [Best Practices](#best-practices) for more guidance.
+
 ## Overview
 
 Ralph enables:
@@ -58,12 +60,12 @@ Ralph workflows are defined in `prd.json` (Product Requirements Document):
 }
 ```
 
-## Story Structure
+## Story Structure Reference
 
 Each story represents a unit of work:
 
 | Field | Type | Description |
-|-------|------|-------------|
+| :--- | :--- | :--- |
 | **id** | string | Unique identifier (story-N) |
 | **objective** | string | Parent objective ID |
 | **title** | string | Short name |
@@ -74,46 +76,51 @@ Each story represents a unit of work:
 | **dependencies** | array | Story IDs that must complete first |
 | **status** | string | not_started, in_progress, blocked, completed |
 
-## Autonomous Fix Loop
+## Autonomous Fix Loop Phases
 
 Ralph orchestrates the fix loop with minimal human intervention:
 
 ### Phase 1: Problem Analysis
+
 1. Agent analyzes issue logs
 2. Categorizes problem by type
 3. Estimates scope and complexity
 4. Determines minimum tier required
 
 ### Phase 2: Agent Assembly
+
 1. Ralph queries available agents
 2. Selects agents matching tier requirements
 3. Organizes into squadron if needed
 4. Briefs agents on objectives
 
 ### Phase 3: Execution
+
 1. Agents work on assigned stories
 2. Send heartbeats with progress
 3. Ralph monitors for errors
 4. Escalates to higher tiers if needed
 
 ### Phase 4: Verification
+
 1. Test suite runs automatically
 2. Acceptance criteria checked
 3. Peer review by secondary agent
 4. Story marked complete or blocked
 
 ### Phase 5: Iteration
+
 1. Blocked stories moved to backlog
 2. Dependencies resolved
 3. Next wave of stories scheduled
 4. Cycle repeats until all stories done
 
-## Status Tracking
+## Story Status Tracking
 
 Stories progress through states:
 
 ```text
-not_started → in_progress → (blocked) → completed
+not_started -> in_progress -> (blocked) -> completed
 ```
 
 - **not_started**: Waiting for dependencies or resources
@@ -127,11 +134,14 @@ View story status in dashboard Ralph tab or `/ralph` page.
 
 In the right panel of the main dashboard:
 
-### Current Objective
+### Current Objective Display
+
 Shows active objective with progress bar.
 
-### Story Breakdown
+### Story Breakdown View
+
 Lists all stories with:
+
 - Story title
 - Status badge (color-coded)
 - Assigned agent tier
@@ -142,14 +152,16 @@ Example:
 
 ```text
 Objective 1: Multi-project support (40% complete)
-  ✓ story-1: Add project selector (complete, 5200 tokens)
-  ⧖ story-2: Filter agent list (in progress, 3500/4000 tokens)
-  ○ story-3: Update API routes (not started, estimated 6000)
-  ⚠ story-4: Database migration (blocked, waiting for story-3)
+  completed  story-1: Add project selector (5200 tokens)
+  progress   story-2: Filter agent list (3500/4000 tokens)
+  pending    story-3: Update API routes (estimated 6000)
+  blocked    story-4: Database migration (waiting for story-3)
 ```
 
-### Active Agents
+### Active Agents Panel
+
 Lists agents assigned to current story with:
+
 - Agent name and type
 - Current subtask
 - Time spent
@@ -162,11 +174,15 @@ Navigate to `/ralph` for a complete flowchart view:
 - **Vertical swim lanes**: One per story
 - **Horizontal timeline**: Execution progress
 - **Color coding**:
-  - Green = Complete
-  - Blue = In progress
-  - Gray = Not started
-  - Orange = Blocked
-  - Red = Error
+
+| Color | Meaning |
+| :--- | :--- |
+| Green | Complete |
+| Blue | In progress |
+| Gray | Not started |
+| Orange | Blocked |
+| Red | Error |
+
 - **Dependencies**: Arrows showing story dependencies
 - **Agent assignments**: Icons showing assigned agents
 
@@ -174,7 +190,7 @@ Hover for details, click to navigate to story details.
 
 ## Escalation Rules
 
-Ralph automatically escalates problems to higher tiers:
+Ralph automatically escalates problems to higher tiers. Define rules in `prd.json`:
 
 ```json
 "escalation_rules": [
@@ -193,15 +209,12 @@ Ralph automatically escalates problems to higher tiers:
 ]
 ```
 
-When a rule is triggered:
-1. Current agent pauses
-2. Ralph selects higher-tier agent
-3. Context and progress transferred
-4. Escalated agent resumes work
+> **Note:** When an escalation rule triggers: the current agent pauses, Ralph selects a higher-tier agent, context and progress are transferred, and the escalated agent resumes work.
 
 ## API Endpoints
 
 ### GET /api/ralph
+
 Get current Ralph session data:
 
 ```bash
@@ -227,13 +240,12 @@ Response:
 ```
 
 ### GET /api/ralph/flowchart
-Get flowchart visualization data:
+
+Get flowchart visualization data (D3-compatible JSON):
 
 ```bash
 curl http://localhost:3031/api/ralph/flowchart
 ```
-
-Returns D3-compatible JSON for drawing the flowchart.
 
 ## Best Practices
 
@@ -247,27 +259,33 @@ Returns D3-compatible JSON for drawing the flowchart.
 
 ## Troubleshooting
 
-**Ralph not starting autonomous fix?**
+### Ralph Not Starting Autonomous Fix
+
 - Verify `"autonomous_mode": true` in prd.json
 - Check available agents exist and are active
 - Review server logs for errors
 
-**Story stuck in blocked?**
+### Story Stuck in Blocked State
+
 - Check dependency status
 - Verify all acceptance criteria are clear
 - Consider breaking into smaller substories
 
-**Wrong tier assigned?**
+### Wrong Tier Assigned to Story
+
 - Review story complexity
 - Update `assigned_tier` in prd.json
 - Restart fix loop
 
-**Flowchart not rendering?**
+### Flowchart Not Rendering
+
 - Refresh page (Cmd+R)
 - Check browser console for errors
 - Verify D3.js loaded successfully
 
-See [API Reference](../developer/api-reference.md) for all Ralph endpoints.
+> **Tip:** Use the `/ralph` page's zoom controls to navigate large flowcharts. Double-click a story node to center and expand it.
+
+See [API Reference](/docs/developer/api-reference) for all Ralph endpoints.
 
 ---
 

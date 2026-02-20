@@ -1,5 +1,7 @@
 # Multi-Project Support
 
+> **Prerequisite:** Complete [Getting Started](/docs/user/getting-started) first.
+
 CCEM APM supports managing multiple projects within a single server instance. Projects are isolated by namespace, allowing Claude Code sessions across different codebases to report independently.
 
 ## Configuration Structure
@@ -37,10 +39,10 @@ Multi-project configuration is stored in `/Users/jeremiah/Developer/ccem/apm/apm
 }
 ```
 
-## Configuration Fields
+## Configuration Fields Reference
 
 | Field | Type | Description |
-|-------|------|-------------|
+| :--- | :--- | :--- |
 | **project_name** | string | Currently active project (human-readable) |
 | **project_root** | string | Filesystem path to active project |
 | **active_project** | string | Project ID/name for routing |
@@ -48,9 +50,9 @@ Multi-project configuration is stored in `/Users/jeremiah/Developer/ccem/apm/apm
 | **projects** | array | List of configured projects |
 | **sessions** | object | Active session metadata |
 
-## Projects Array
+## Projects Array Format
 
-Each project object contains:
+Each project object contains a name and root path:
 
 ```json
 {
@@ -62,11 +64,13 @@ Each project object contains:
 - **name**: Unique identifier, used in agent registration and routing
 - **root**: Absolute filesystem path to project root
 
+> **Important:** Always use absolute paths for `root`. Relative paths cause resolution failures when the server starts from different directories.
+
 ## Adding a New Project
 
 ### Step 1: Update Configuration
 
-Edit `/Users/jeremiah/Developer/ccem/apm/apm_config.json` and add to `projects` array:
+Edit `/Users/jeremiah/Developer/ccem/apm/apm_config.json` and add to the `projects` array:
 
 ```json
 {
@@ -77,13 +81,13 @@ Edit `/Users/jeremiah/Developer/ccem/apm/apm_config.json` and add to `projects` 
 
 ### Step 2: Reload Configuration
 
-Send a reload request to the server:
+Send a reload request to the running server:
 
 ```bash
 curl -X POST http://localhost:3031/api/config/reload
 ```
 
-Or restart the server:
+Or restart the server entirely:
 
 ```bash
 mix phx.server
@@ -93,15 +97,17 @@ mix phx.server
 
 Open `http://localhost:3031` and check the **Project Selector** dropdown. The new project should appear.
 
-## Switching Projects
+## Switching Active Projects
 
-### Via Dashboard
+### Via Dashboard Dropdown
 
 1. Click the **Project Selector** dropdown at the top of the page
 2. Select the target project
 3. The dashboard filters to show agents and data for that project only
 
 ### Via API
+
+Switch the active project programmatically:
 
 ```bash
 curl -X POST http://localhost:3031/api/config/reload \
@@ -111,13 +117,13 @@ curl -X POST http://localhost:3031/api/config/reload \
 
 ### Via Session Hooks
 
-The session initialization hook updates the active project:
+The session initialization hook detects your working directory and updates the active project automatically:
 
 ```bash
 source ~/Developer/ccem/apm/hooks/session_init.sh
 ```
 
-This script detects your current working directory and sets the active project automatically.
+> **Tip:** When opening a new terminal in a different project directory, re-source the session hook to ensure the dashboard reflects the correct project.
 
 ## Project Namespacing
 
@@ -128,7 +134,7 @@ Agents, sessions, and data are isolated by project namespace:
 - **Data Filtering**: Dashboard automatically filters all data by active project
 - **Metrics**: Project-specific metrics in stats cards
 
-Example agent registration:
+Register an agent to a specific project:
 
 ```bash
 curl -X POST http://localhost:3031/api/register \
@@ -185,17 +191,19 @@ When working in different project directories, the session hook automatically up
 # Working on CCEM
 cd /Users/jeremiah/Developer/ccem
 source ~/Developer/ccem/apm/hooks/session_init.sh
-# Config updates: active_project = "ccem", project_root = "/Users/jeremiah/Developer/ccem"
+# Config updates: active_project = "ccem"
 
 # Switch to LCC
 cd /Users/jeremiah/Developer/lcc
 source ~/Developer/ccem/apm/hooks/session_init.sh
-# Config updates: active_project = "lcc", project_root = "/Users/jeremiah/Developer/lcc"
+# Config updates: active_project = "lcc"
 ```
 
-## API Endpoints
+## API Endpoints for Projects
 
 ### Get All Projects
+
+List all configured projects and the currently active one:
 
 ```bash
 curl http://localhost:3031/api/projects
@@ -215,11 +223,11 @@ Response:
 
 ### Get Project Agents
 
+Retrieve agents filtered by project:
+
 ```bash
 curl http://localhost:3031/api/agents?project=ccem
 ```
-
-Returns agents filtered by project.
 
 ## Best Practices
 
@@ -229,24 +237,29 @@ Returns agents filtered by project.
 4. **Documentation**: Add project names to team documentation and wikis
 5. **Cleanup**: Remove unused projects from apm_config.json periodically
 
+> **Warning:** Removing a project from `apm_config.json` does not delete its session or agent data. Agents registered to a removed project become orphaned and no longer appear in any dashboard view.
+
 ## Troubleshooting
 
-**Project not appearing in dropdown?**
-- Verify it's in `apm_config.json` projects array
+### Project Not Appearing in Dropdown
+
+- Verify it is in `apm_config.json` projects array
 - Run `/api/config/reload` to reload config
 - Restart server: `mix phx.server`
 
-**Switching projects shows wrong agents?**
+### Switching Projects Shows Wrong Agents
+
 - Refresh page (Cmd+R)
 - Check WebSocket connection in DevTools
 - Verify agents have correct project name in registration
 
-**New session in wrong project?**
+### New Session in Wrong Project
+
 - Check your current working directory
 - Run session hook again: `source ~/Developer/ccem/apm/hooks/session_init.sh`
 - Verify apm_config.json updated correctly: `cat ~/Developer/ccem/apm/apm_config.json | jq .active_project`
 
-See [Configuration](../admin/configuration.md) for advanced multi-project setup.
+See [Configuration](/docs/admin/configuration) for advanced multi-project setup.
 
 ---
 

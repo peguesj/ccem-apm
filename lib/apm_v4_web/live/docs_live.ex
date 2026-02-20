@@ -277,20 +277,20 @@ defmodule ApmV4Web.DocsLive do
               </div>
 
               <%!-- Rendered markdown content --%>
-              <div class="docs-prose prose prose-sm prose-invert max-w-none
+              <div id={"doc-content-#{@current_path}"} phx-hook="DocContent" class="docs-prose prose prose-sm prose-invert max-w-none
                 prose-headings:scroll-mt-20 prose-headings:font-bold prose-headings:tracking-tight
-                prose-h2:text-xl prose-h2:mt-10 prose-h2:mb-4 prose-h2:pb-2 prose-h2:border-b prose-h2:border-base-300
-                prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-3
+                prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:pb-2 prose-h2:border-b prose-h2:border-base-300
+                prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3
                 prose-h4:text-base prose-h4:mt-6 prose-h4:mb-2
                 prose-p:leading-relaxed prose-p:text-base-content/80
                 prose-a:text-primary prose-a:no-underline hover:prose-a:underline
                 prose-strong:text-base-content prose-strong:font-semibold
-                prose-code:text-primary prose-code:bg-neutral/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
+                prose-code:text-primary prose-code:bg-base-300 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
                 prose-pre:bg-neutral prose-pre:rounded-lg prose-pre:border prose-pre:border-base-300 prose-pre:shadow-sm
-                prose-blockquote:border-l-primary prose-blockquote:bg-base-200/50 prose-blockquote:rounded-r-lg prose-blockquote:py-1 prose-blockquote:not-italic prose-blockquote:text-base-content/60
+                prose-blockquote:border-l-primary prose-blockquote:bg-base-200 prose-blockquote:rounded-r-lg prose-blockquote:py-1 prose-blockquote:not-italic prose-blockquote:text-base-content/60
                 prose-table:border-collapse
-                prose-th:bg-base-200 prose-th:px-4 prose-th:py-2 prose-th:text-left prose-th:text-xs prose-th:uppercase prose-th:tracking-wider prose-th:text-base-content/50 prose-th:border-b-2 prose-th:border-base-300
-                prose-td:px-4 prose-td:py-2 prose-td:border-b prose-td:border-base-300
+                prose-th:bg-base-300 prose-th:border prose-th:border-base-300 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:text-xs prose-th:uppercase prose-th:tracking-wider prose-th:text-base-content/50
+                prose-td:border prose-td:border-base-300 prose-td:px-3 prose-td:py-2
                 prose-tr:even:bg-base-200/30
                 prose-li:text-base-content/80 prose-li:marker:text-primary/50
                 prose-img:rounded-lg prose-img:shadow-md prose-img:mx-auto
@@ -435,19 +435,19 @@ defmodule ApmV4Web.DocsLive do
           <%!-- Category header --%>
           <button
             phx-click="toggle_category"
-            phx-value-category={group.category}
+            phx-value-category={group[:category] || group[:id]}
             class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider text-base-content/40 hover:text-base-content/60 hover:bg-base-300/50 transition-all group"
           >
-            <.icon name={category_icon(group.category)} class="size-3.5 text-base-content/30 group-hover:text-primary/60 transition-colors" />
-            <span class="flex-1 text-left">{format_category(group.category)}</span>
+            <.icon name={category_icon(group[:category] || group[:id])} class="size-3.5 text-base-content/30 group-hover:text-primary/60 transition-colors" />
+            <span class="flex-1 text-left">{format_category(group[:category] || group[:id])}</span>
             <.icon
-              name={if MapSet.member?(@collapsed_categories, group.category), do: "hero-chevron-right", else: "hero-chevron-down"}
+              name={if MapSet.member?(@collapsed_categories, group[:category] || group[:id]), do: "hero-chevron-right", else: "hero-chevron-down"}
               class="size-3 text-base-content/20 transition-transform"
             />
           </button>
 
           <%!-- Category items --%>
-          <div :if={!MapSet.member?(@collapsed_categories, group.category)} class="mt-0.5 space-y-0.5 ml-2">
+          <div :if={!MapSet.member?(@collapsed_categories, group[:category] || group[:id])} class="mt-0.5 space-y-0.5 ml-2">
             <a
               :for={item <- group.items}
               href={"/docs/#{item.slug}"}

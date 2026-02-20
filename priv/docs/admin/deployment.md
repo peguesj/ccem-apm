@@ -2,6 +2,8 @@
 
 Guide for deploying CCEM APM v4 to production environments.
 
+> **Warning:** Never run multiple APM instances on the same port. Check for existing processes before starting a new server.
+
 ## System Requirements
 
 - **Elixir**: 1.14+
@@ -12,14 +14,19 @@ Guide for deploying CCEM APM v4 to production environments.
 
 ## Pre-Deployment Checklist
 
-- [ ] Configuration prepared (`apm_config.json`)
-- [ ] Dependencies installed (`mix deps.get`)
-- [ ] Database prepared (if using Ecto)
-- [ ] Environment variables set
+Complete all items before deploying:
+
+- [ ] Elixir 1.14+ and Erlang/OTP 25+ installed (`elixir --version`)
+- [ ] Dependencies fetched (`mix deps.get`)
+- [ ] Project compiles cleanly (`mix compile --warnings-as-errors`)
+- [ ] Configuration file prepared (`apm_config.json` with `"version": "4.0.0"`)
+- [ ] Environment variables set (`MIX_ENV`, `SECRET_KEY_BASE`, `PORT`)
+- [ ] Port 3031 is free (`lsof -ti:3031` returns nothing)
 - [ ] SSL certificates ready (if using HTTPS)
-- [ ] Firewall rules configured
-- [ ] Monitoring and alerting setup
-- [ ] Backup strategy in place
+- [ ] Firewall rules allow traffic on the configured port
+- [ ] Monitoring and alerting configured
+- [ ] Backup strategy in place for `apm_config.json`
+- [ ] Previous APM instance stopped (if upgrading)
 
 ## Build Process
 
@@ -44,7 +51,7 @@ export PORT=3031
 export SECRET_KEY_BASE=$(openssl rand -base64 32)
 ```
 
-`SECRET_KEY_BASE` is required for session encryption.
+> **Important:** `SECRET_KEY_BASE` is required for session encryption. Generate a unique value per deployment.
 
 ## Starting the Server
 
@@ -181,17 +188,10 @@ export SECRET_KEY_BASE=$(openssl rand -base64 32)
 ### Optional
 
 ```bash
-export PORT=3031
-export APM_CONFIG_PATH=/etc/ccem/apm_config.json
-```
-
-### HTTP Binding
-
-Bind to specific host and port:
-
-```bash
-export BIND_HOST=0.0.0.0    # Or specific IP
-export PORT=3031            # Must match config
+export PORT=3031                              # HTTP listen port (default: 3031)
+export APM_CONFIG_PATH=/etc/ccem/apm_config.json  # Custom config location
+export BIND_HOST=0.0.0.0                      # Bind to all interfaces
+export APM_LOG_LEVEL=debug                    # Enable verbose logging
 ```
 
 ## Port Binding
@@ -236,9 +236,13 @@ server {
     proxy_set_header Connection "upgrade";
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
   }
 }
 ```
+
+> **Important:** The `upgrade` headers are required for LiveView WebSocket connections. Without them, the dashboard will not receive real-time updates.
 
 ## SSL/TLS Configuration
 
@@ -251,7 +255,7 @@ openssl req -x509 -nodes -days 365 \
 
 ### Production Certificate
 
-Use proper certificate from CA (Let's Encrypt, etc.)
+Use a proper certificate from a CA (Let's Encrypt, etc.).
 
 ### Configure HTTPS
 
@@ -277,6 +281,7 @@ curl http://localhost:3031/health
 ```
 
 Response:
+
 ```json
 {
   "status": "ok",
@@ -285,34 +290,21 @@ Response:
 }
 ```
 
-### Monitoring Setup
-
-#### Prometheus Metrics
-
-Enable metrics export:
+### Logging
 
 ```bash
-curl http://localhost:3031/metrics
-```
+# Foreground: logs print to stdout
 
-#### Logging
-
-Check logs:
-
-```bash
-# If running in foreground
-# Logs print to stdout
-
-# If running as service
+# systemd service
 sudo journalctl -u ccem-apm -f
 
-# If using launchd
+# launchd service
 tail -f /var/log/ccem-apm/stdout.log
 ```
 
-#### Process Monitor
+### Process Monitor Script
 
-Script to monitor and restart:
+Script to monitor and auto-restart:
 
 ```bash
 #!/bin/bash
@@ -370,6 +362,8 @@ Then cluster nodes in Elixir code.
 
 ## Backup and Recovery
 
+> **Important:** Always back up `apm_config.json` before upgrades or manual edits.
+
 ### Configuration Backup
 
 ```bash
@@ -399,9 +393,9 @@ curl -X POST http://localhost:3031/api/v2/import \
 export ELIXIR_ERL_OPTIONS="+K true +A 256 +S 4:4"
 ```
 
-- `+K true` - Enable kernel polling
-- `+A 256` - Async threads
-- `+S 4:4` - Scheduler threads
+- `+K true` -- Enable kernel polling
+- `+A 256` -- Async threads
+- `+S 4:4` -- Scheduler threads
 
 ### Phoenix Tuning
 
@@ -447,14 +441,11 @@ If memory grows unbounded, check for:
 
 ### Connection Issues
 
-Check firewall:
-
 ```bash
 # Linux
 sudo ufw allow 3031/tcp
 
-# macOS
-sudo pfctl -t blocklist -T add 3031
+# macOS: System Preferences > Security & Privacy > Firewall Options
 ```
 
 ## Logs and Debugging
@@ -490,17 +481,15 @@ erl -name debug@localhost -setcookie secret -remsh apm1@localhost
 
 ## Disaster Recovery
 
-### Complete Failure
-
 1. Stop server: `kill $(cat .apm.pid)`
 2. Check config validity: `jq empty apm_config.json`
 3. Restore from backup if needed
 4. Restart: `/path/to/apm_v4 start`
-5. Verify with health check
+5. Verify with health check: `curl http://localhost:3031/health`
 
 ### Session Recovery
 
-Sessions stored in `apm_config.json`. Restore from backup:
+Sessions are stored in `apm_config.json`. Restore from backup:
 
 ```bash
 cp apm_config.json.backup apm_config.json

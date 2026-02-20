@@ -1,14 +1,12 @@
 # Extending CCEM APM
 
-This guide explains how to add new features to CCEM APM v4.
+This guide explains how to add new features to CCEM APM v4. Each section walks through a specific extension type with numbered steps.
 
-## Adding a New GenServer/Store
+## Step 1: Create the GenServer
 
-GenServers manage state and broadcast events. Follow this pattern to add a new store:
+GenServers manage state and broadcast events. Create your module at `lib/apm_v4/my_feature_store.ex`.
 
-### Step 1: Create the Module
-
-Create `lib/apm_v4/my_feature_store.ex`:
+GenServer template with client API, init, call, and cast handlers:
 
 ```elixir
 defmodule ApmV4.MyFeatureStore do
@@ -59,9 +57,13 @@ defmodule ApmV4.MyFeatureStore do
 end
 ```
 
-### Step 2: Add to Supervision Tree
+> **Pattern:** Always use `@impl true` annotations on GenServer callbacks to catch typos at compile time.
 
-Edit `lib/apm_v4/application.ex` and add your module to the `children` list:
+## Step 2: Add to Supervision Tree
+
+Edit `lib/apm_v4/application.ex` and add your module to the `children` list.
+
+Place your module before the Endpoint entry:
 
 ```elixir
 children = [
@@ -72,9 +74,13 @@ children = [
 ]
 ```
 
-### Step 3: Subscribe to Events (if needed)
+> **Warning:** The Endpoint must be the last child in the supervision tree. Add your GenServer before it.
 
-If your store needs to listen to other events:
+## Step 3: Subscribe to Events (Optional)
+
+If your store needs to react to events from other GenServers, subscribe in `init/1`.
+
+Example of subscribing and handling cross-module events:
 
 ```elixir
 @impl true
@@ -99,11 +105,11 @@ def handle_info({:config_reloaded, _config}, state) do
 end
 ```
 
-## Adding a New API Endpoint
+## Step 4: Create the API Controller
 
-### Step 1: Create Controller
+Create `lib/apm_v4_web/controllers/my_feature_controller.ex` with JSON endpoints.
 
-Create `lib/apm_v4_web/controllers/my_feature_controller.ex`:
+Controller with GET and POST actions:
 
 ```elixir
 defmodule ApmV4Web.MyFeatureController do
@@ -126,9 +132,11 @@ defmodule ApmV4Web.MyFeatureController do
 end
 ```
 
-### Step 2: Add Routes
+## Step 5: Add API Routes
 
-Edit `lib/apm_v4_web/router.ex`:
+Edit `lib/apm_v4_web/router.ex` to wire up the controller actions.
+
+Add routes inside the `/api` scope:
 
 ```elixir
 scope "/api", ApmV4Web do
@@ -141,7 +149,7 @@ scope "/api", ApmV4Web do
 end
 ```
 
-### Step 3: Test the Endpoint
+Test the endpoint with curl:
 
 ```bash
 curl http://localhost:3031/api/my_feature/test_key
@@ -150,11 +158,11 @@ curl -X POST http://localhost:3031/api/my_feature \
   -d '{"key": "test", "value": "data"}'
 ```
 
-## Adding a New LiveView Page
+## Step 6: Create the LiveView Page
 
-### Step 1: Create LiveView Module
+Create `lib/apm_v4_web/live/my_feature_live.ex` with PubSub subscription.
 
-Create `lib/apm_v4_web/live/my_feature_live.ex`:
+LiveView module with mount, render, and event handling:
 
 ```elixir
 defmodule ApmV4Web.MyFeatureLive do
@@ -193,9 +201,11 @@ defmodule ApmV4Web.MyFeatureLive do
 end
 ```
 
-### Step 2: Add Route
+## Step 7: Add LiveView Route and Navigation
 
-Edit `lib/apm_v4_web/router.ex`:
+Edit `lib/apm_v4_web/router.ex` to add the browser route.
+
+Add route inside the browser scope:
 
 ```elixir
 scope "/", ApmV4Web do
@@ -207,17 +217,17 @@ scope "/", ApmV4Web do
 end
 ```
 
-### Step 3: Add Navigation Link
-
 Add a `nav_item` entry in your LiveView's render function sidebar:
 
 ```heex
 <.nav_item icon="hero-star" label="My Feature" active={true} href="/my-feature" />
 ```
 
-## Adding PubSub Topics
+## Step 8: Add PubSub Topics
 
-Create new PubSub topic for custom events:
+Create new PubSub topics for custom events when needed.
+
+Broadcasting, subscribing, and handling custom events:
 
 ```elixir
 # Broadcast event
@@ -232,9 +242,11 @@ def handle_info({:custom_event, data}, socket) do
 end
 ```
 
-## Adding UI Components
+## Step 9: Add UI Components
 
-Use daisyUI components from Tailwind CSS:
+Use daisyUI components from Tailwind CSS for consistent styling.
+
+Card component example:
 
 ```heex
 <div class="card bg-base-100 shadow-xl">
@@ -250,9 +262,9 @@ Use daisyUI components from Tailwind CSS:
 
 Reference daisyUI documentation: https://daisyui.com/
 
-## Adding JavaScript Hooks
+## Step 10: Add JavaScript Hooks
 
-Create JS hooks for client-side interactivity:
+Create JS hooks for client-side interactivity that goes beyond LiveView's server-side rendering.
 
 ### Hook Definition
 
@@ -273,9 +285,9 @@ export const MyHook = {
 }
 ```
 
-### Register Hook
+### Hook Registration
 
-In `assets/js/app.js`:
+Register in `assets/js/app.js`:
 
 ```javascript
 import { MyHook } from './hooks/my_hook'
@@ -287,7 +299,9 @@ let liveSocket = new LiveSocket('/live', Socket, {
 })
 ```
 
-### Use in Template
+### Hook Usage in Templates
+
+Attach the hook via `phx-hook`:
 
 ```heex
 <div phx-hook="MyHook" id="my-element">
@@ -295,9 +309,13 @@ let liveSocket = new LiveSocket('/live', Socket, {
 </div>
 ```
 
-## Adding Configuration Options
+> **Warning:** Every element with `phx-hook` must have a unique `id` attribute. LiveView uses the ID to track the element across re-renders.
 
-Add new config fields to `apm_config.json`:
+## Step 11: Add Configuration Options
+
+Add new config fields to `apm_config.json` and access them via ConfigLoader.
+
+Example config addition:
 
 ```json
 {
@@ -309,14 +327,14 @@ Add new config fields to `apm_config.json`:
 }
 ```
 
-Access in code:
+Access in code via the ConfigLoader GenServer:
 
 ```elixir
 config = ApmV4.ConfigLoader.get_config()
 my_feature_config = config["my_feature"]
 ```
 
-## Testing New Features
+## Step 12: Write Tests
 
 ### Unit Test
 
@@ -364,9 +382,9 @@ defmodule ApmV4Web.MyFeatureLiveTest do
 end
 ```
 
-## Documentation
+## Step 13: Add Documentation
 
-Add documentation file in `priv/docs/`:
+Add documentation files for your new feature.
 
 1. **User docs** in `priv/docs/user/feature_name.md`
 2. **Developer docs** in `priv/docs/developer/feature_name.md`
@@ -375,6 +393,8 @@ Add documentation file in `priv/docs/`:
 ## Common Patterns
 
 ### Broadcasting on State Change
+
+Pattern for broadcasting after updating GenServer state:
 
 ```elixir
 def set_value(value) do
@@ -390,6 +410,8 @@ end
 
 ### Handling Config Reload
 
+Pattern for re-initializing state when the config file changes:
+
 ```elixir
 def handle_info({:config_reloaded, config}, state) do
   # Re-initialize with new config
@@ -398,7 +420,9 @@ def handle_info({:config_reloaded, config}, state) do
 end
 ```
 
-### Error Handling
+### Error Handling with Notifications
+
+Pattern for validating input and broadcasting errors as notifications:
 
 ```elixir
 def set_value(value) do
@@ -428,7 +452,7 @@ end
 
 For questions about extending CCEM APM:
 
-1. Check existing similar features
-2. Review test examples
+1. Check existing similar features in `lib/apm_v4/`
+2. Review test examples in `test/`
 3. Consult [Architecture](architecture.md)
 4. Ask in project discussions

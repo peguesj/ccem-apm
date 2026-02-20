@@ -13,33 +13,35 @@ CCEMAgent runs as a persistent menubar app (system tray on macOS) with:
 - **Drift Detection**: Per-project drift status monitoring
 - **Login Item**: Auto-launch on system startup via ServiceManagement
 
-## Architecture
+## CCEMAgent Architecture
 
-```
-+----------------------------------+
-|  MenuBarView (SwiftUI)           |
-|  - Header with connection state  |
-|  - Filter picker (All/Active)    |
-|  - Environment list              |
-|  - UPM status bar                |
-|  - Action buttons                |
-+----------------+-----------------+
-                 |
-+----------------v-----------------+
-|  EnvironmentMonitor (@Observable)|
-|  - Polls APM server (10s)        |
-|  - Tracks environments           |
-|  - Manages connection state      |
-|  - Fetches UPM status            |
-+----------------+-----------------+
-                 |
-+----------------v-----------------+
-|  APMClient (actor)               |
-|  - async/await HTTP requests     |
-|  - JSON decoding                 |
-|  - Error handling                |
-+----------------+-----------------+
-                 |
+The following diagram shows the three-layer architecture from UI down to the APM server.
+
+```text
+┌──────────────────────────────────┐
+│  MenuBarView (SwiftUI)           │
+│  - Header with connection state  │
+│  - Filter picker (All/Active)    │
+│  - Environment list              │
+│  - UPM status bar                │
+│  - Action buttons                │
+└────────────────┬─────────────────┘
+                 │
+┌────────────────▼─────────────────┐
+│  EnvironmentMonitor (@Observable)│
+│  - Polls APM server (10s)        │
+│  - Tracks environments           │
+│  - Manages connection state      │
+│  - Fetches UPM status            │
+└────────────────┬─────────────────┘
+                 │
+┌────────────────▼─────────────────┐
+│  APMClient (actor)               │
+│  - async/await HTTP requests     │
+│  - JSON decoding                 │
+│  - Error handling                │
+└────────────────┬─────────────────┘
+                 │
            http://localhost:3031
 ```
 
@@ -48,6 +50,8 @@ CCEMAgent runs as a persistent menubar app (system tray on macOS) with:
 ### APMClient
 
 An `actor` providing thread-safe async HTTP communication with the APM server.
+
+Full APMClient implementation with health check, projects, environments, UPM, and data endpoints:
 
 ```swift
 actor APMClient {
@@ -122,7 +126,11 @@ actor APMClient {
 }
 ```
 
+> **Pattern:** The `APMClient` uses Swift's `actor` isolation to guarantee thread-safe access. All methods are `async` and use structured concurrency.
+
 ### APMClientError
+
+Error type for APM client failures:
 
 ```swift
 enum APMClientError: Error, LocalizedError {
@@ -141,6 +149,8 @@ enum APMClientError: Error, LocalizedError {
 ### EnvironmentMonitor
 
 Uses Swift Observation framework (`@Observable`) with `@MainActor` isolation. Polls the APM server every 10 seconds using structured concurrency.
+
+Full EnvironmentMonitor implementation:
 
 ```swift
 @MainActor
@@ -236,7 +246,11 @@ final class EnvironmentMonitor {
 }
 ```
 
+> **Warning:** The `refresh()` method must run on `@MainActor` because it updates `@Observable` properties that drive SwiftUI views. Never call it from a background thread.
+
 ### ConnectionState
+
+Enum representing the APM server connection state:
 
 ```swift
 enum ConnectionState: Equatable {
@@ -256,6 +270,8 @@ enum ConnectionState: Equatable {
 
 ### EnvironmentFilter
 
+Enum for filtering the environment list display:
+
 ```swift
 enum EnvironmentFilter: String, CaseIterable {
     case all = "All"
@@ -266,6 +282,8 @@ enum EnvironmentFilter: String, CaseIterable {
 ### MenuBarView
 
 The main UI component using `@Bindable` for two-way binding with the `@Observable` monitor.
+
+MenuBarView structure with header, content, and actions sections:
 
 ```swift
 struct MenuBarView: View {
@@ -303,9 +321,11 @@ struct MenuBarView: View {
 - Launch at Login toggle (via LaunchManager)
 - Quit button
 
-### Model Types
+## Model Types
 
-#### HealthStatus
+### HealthStatus
+
+Decoded from the `GET /health` endpoint:
 
 ```swift
 struct HealthStatus: Codable {
@@ -322,7 +342,9 @@ struct HealthStatus: Codable {
 }
 ```
 
-#### HealthProject
+### HealthProject
+
+Individual project entry from the health response:
 
 ```swift
 struct HealthProject: Codable, Identifiable {
@@ -336,7 +358,9 @@ struct HealthProject: Codable, Identifiable {
 }
 ```
 
-#### UPMStatus
+### UPMStatus
+
+Decoded from the `GET /api/upm/status` endpoint:
 
 ```swift
 struct UPMStatus: Codable {
@@ -346,7 +370,9 @@ struct UPMStatus: Codable {
 }
 ```
 
-#### UPMSession
+### UPMSession
+
+UPM session with wave progress tracking:
 
 ```swift
 struct UPMSession: Codable {
@@ -358,7 +384,9 @@ struct UPMSession: Codable {
 }
 ```
 
-#### UPMStory
+### UPMStory
+
+Individual story within a UPM session:
 
 ```swift
 struct UPMStory: Codable, Identifiable {
@@ -369,7 +397,9 @@ struct UPMStory: Codable, Identifiable {
 }
 ```
 
-#### UPMEvent
+### UPMEvent
+
+Timeline event from UPM execution:
 
 ```swift
 struct UPMEvent: Codable, Identifiable {
@@ -379,7 +409,9 @@ struct UPMEvent: Codable, Identifiable {
 }
 ```
 
-#### APMProject
+### APMProject
+
+Project model used across the app:
 
 ```swift
 struct APMProject: Codable, Identifiable, Hashable {
@@ -392,7 +424,9 @@ struct APMProject: Codable, Identifiable, Hashable {
 }
 ```
 
-#### APMEnvironment
+### APMEnvironment
+
+Environment model combining project data with drift detection:
 
 ```swift
 struct APMEnvironment: Identifiable, Hashable {
@@ -408,7 +442,9 @@ struct APMEnvironment: Identifiable, Hashable {
 }
 ```
 
-#### DriftStatus
+### DriftStatus
+
+Enum representing per-project configuration drift:
 
 ```swift
 enum DriftStatus: Hashable {
@@ -471,12 +507,16 @@ When UPM is active, shows:
 
 ### Build with Swift Package Manager
 
+Build a release binary:
+
 ```bash
 cd /Users/jeremiah/Developer/ccem/CCEMAgent
 swift build -c release
 ```
 
 ### Build from Xcode
+
+Open the project and build:
 
 ```bash
 open CCEMAgent.xcodeproj
@@ -485,23 +525,28 @@ open CCEMAgent.xcodeproj
 
 ### Install as App
 
+Copy the built app to Applications:
+
 ```bash
 cp -r .build/Release/CCEMAgent.app /Applications/
 ```
 
 ## Troubleshooting
 
-### Menubar app not connecting
+### Menubar App Not Connecting
+
 1. Verify APM server running on port 3031
 2. Check network connectivity: `curl http://localhost:3031/health`
 3. Review CCEMAgent logs in Console.app
 
-### Environment list not updating
+### Environment List Not Updating
+
 1. Check polling interval (default 10 seconds)
 2. Verify projects are configured in `apm_config.json`
 3. Try manual refresh button
 
-### App crashes on launch
+### App Crashes on Launch
+
 1. Check system console logs
 2. Verify Swift runtime is installed
 3. Try running from Xcode debugger
@@ -527,10 +572,10 @@ private let pollInterval: TimeInterval = 30  // Slower polling for battery life
 
 ## Integration with Claude Code
 
-When Claude Code session starts, CCEMAgent automatically:
+When a Claude Code session starts, CCEMAgent automatically:
 
-1. Detects session via health check polling (projects show updated session counts)
-2. Displays active environments for current session
+1. Detects the session via health check polling (projects show updated session counts)
+2. Displays active environments for the current session
 3. Shows UPM progress when a UPM session is active
 
 The CCEM APM `SessionStart` hook at `~/Developer/ccem/apm/hooks/session_init.sh` updates the APM config, which the server picks up and reflects in the health endpoint that CCEMAgent polls.

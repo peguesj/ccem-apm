@@ -2,6 +2,8 @@
 
 CCEM APM's notification system alerts users to important events: agent status changes, task completions, errors, and system messages.
 
+> **Tip:** Error-level notifications persist until dismissed, so check the bell icon regularly to avoid missing critical alerts.
+
 ## Overview
 
 The notification system provides:
@@ -14,8 +16,9 @@ The notification system provides:
 
 ## Notification Levels
 
-### Info
-Informational messages about normal operation.
+### Info Level
+
+Informational messages about normal operation:
 
 ```json
 {
@@ -28,8 +31,9 @@ Informational messages about normal operation.
 
 Auto-dismisses after 5 seconds.
 
-### Warning
-Non-critical issues requiring attention.
+### Warning Level
+
+Non-critical issues requiring attention:
 
 ```json
 {
@@ -43,8 +47,9 @@ Non-critical issues requiring attention.
 
 Auto-dismisses after 10 seconds, or click to act.
 
-### Error
-Critical issues preventing operation.
+### Error Level
+
+Critical issues preventing operation:
 
 ```json
 {
@@ -58,8 +63,9 @@ Critical issues preventing operation.
 
 Persists until user dismisses or takes action.
 
-### Success
-Operation completed successfully.
+### Success Level
+
+Operation completed successfully:
 
 ```json
 {
@@ -72,25 +78,24 @@ Operation completed successfully.
 
 Auto-dismisses after 5 seconds.
 
-## Bell Icon
+## Bell Icon Behavior
 
 Located in top navigation, the bell icon shows:
 
 - **Unread count badge**: Number of unread notifications
 - **Click to open**: Reveals notification drawer with history
 - **Color code**: Matches notification levels
-  - Gray: Info
-  - Yellow: Warning
-  - Red: Error
-  - Green: Success
 
-The notification drawer shows:
-- Up to 20 most recent notifications
-- Timestamp for each
-- Original message and action
-- "Clear All" button to dismiss all
+| Color | Level |
+| :--- | :--- |
+| Gray | Info |
+| Yellow | Warning |
+| Red | Error |
+| Green | Success |
 
-## Adding Notifications
+The notification drawer shows up to 20 most recent notifications with timestamps, original messages, actions, and a "Clear All" button.
+
+## Creating Notifications via API
 
 ### POST /api/notifications/add
 
@@ -109,10 +114,10 @@ curl -X POST http://localhost:3031/api/notifications/add \
   }'
 ```
 
-### Parameters
+### Notification Parameters
 
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
+| :--- | :---: | :---: | :--- |
 | **level** | string | Yes | info, warning, error, or success |
 | **title** | string | Yes | Short notification title |
 | **message** | string | Yes | Detailed message |
@@ -121,63 +126,68 @@ curl -X POST http://localhost:3031/api/notifications/add \
 | **action_url** | string | No | URL to navigate when clicked |
 | **action_label** | string | No | Button label (default: "View") |
 
-### Default Durations
+### Default Auto-Dismiss Durations
 
-- **info**: 5 seconds
-- **warning**: 10 seconds
-- **error**: 30 seconds (or until dismissed)
-- **success**: 5 seconds
+| Level | Duration |
+| :--- | ---: |
+| info | 5 seconds |
+| warning | 10 seconds |
+| error | 30 seconds (or until dismissed) |
+| success | 5 seconds |
 
 ## Clearing Notifications
 
 ### POST /api/notifications/read-all
 
-Mark all notifications as read:
+Mark all notifications as read, clearing the unread badge:
 
 ```bash
 curl -X POST http://localhost:3031/api/notifications/read-all
 ```
 
-This clears the unread badge on the bell icon.
+## Built-in Notification Events
 
-## Built-in Notifications
-
-CCEM APM automatically generates notifications for:
+CCEM APM automatically generates notifications for the following events:
 
 ### Agent Events
+
 - Agent registered
-- Agent status changed (active → idle, etc.)
+- Agent status changed (active to idle, etc.)
 - Agent encountered error
 - Agent completed task
 - Agent started new task
 
 ### Task Events
+
 - Task started
 - Task completed successfully
 - Task blocked or failed
 - Subtask milestone reached
 
 ### Story Events
+
 - Story started
 - Story completed
 - Story blocked
 - Acceptance criteria milestone
 
 ### System Events
+
 - Server health issues
 - Configuration reloaded
 - Port changes
 - New project added
 - Project switched
 
-### Ralph/UPM Events
+### Ralph and UPM Events
+
 - Wave started
 - Story assigned to agent
 - Escalation triggered
 - Methodology detected
 - Objective completed
 
-## Example Notifications
+## Example Notification Scenarios
 
 ### Agent Registration
 
@@ -220,26 +230,26 @@ ACTION: Review usage
 
 ## Notification Drawer
 
-Click the bell icon to open the drawer:
+Click the bell icon to open the drawer.
 
-### Recent Notifications
+### Recent Notifications List
 
 Shows up to 20 notifications in reverse chronological order:
 
 ```text
-2026-02-19 12:34:56  ✓ Story completed
-2026-02-19 12:32:10  ⚠ Low token budget
-2026-02-19 12:30:45  → Agent updated
-2026-02-19 12:28:33  ✓ Agent registered
+2026-02-19 12:34:56  [success]  Story completed
+2026-02-19 12:32:10  [warning]  Low token budget
+2026-02-19 12:30:45  [info]     Agent updated
+2026-02-19 12:28:33  [info]     Agent registered
 ```
 
-### Actions
+### Drawer Actions
 
 - **Click notification**: Navigate to relevant resource
 - **Click X**: Dismiss single notification
 - **Clear All**: Dismiss all notifications
 
-## Sound & Visual Cues
+## Sound and Visual Cues
 
 Optional (configurable per user):
 
@@ -247,7 +257,7 @@ Optional (configurable per user):
 - **Warning level**: Subtle sound + yellow flash
 - **Success level**: Chime sound + green flash
 
-Can be disabled in browser preferences.
+> **Note:** Sound and visual cues can be disabled in browser preferences. Settings are stored in browser local storage per user.
 
 ## Notification Preferences
 
@@ -268,29 +278,35 @@ Preferences stored in browser local storage per user.
 4. **Clear Titles**: Keep titles under 50 characters
 5. **Contextual Links**: Include action URLs to relevant pages
 
+> **Warning:** High-frequency heartbeat updates can generate excessive notifications. Configure agent heartbeat intervals to 10-30 seconds and avoid logging info-level notifications for routine heartbeats.
+
 ## Troubleshooting
 
-**Notifications not appearing?**
+### Notifications Not Appearing
+
 - Check browser notifications permission
 - Verify WebSocket connection (DevTools Network)
 - Refresh page (Cmd+R)
 
-**Sound not playing?**
+### Sound Not Playing
+
 - Check system volume
 - Verify browser notification sounds enabled
 - Check browser privacy settings
 
-**Notification drawer empty?**
+### Notification Drawer Empty
+
 - Notifications may have auto-dismissed
 - Check if clear-all was clicked
 - Refresh to reload notification history
 
-**Spam notifications?**
-- Check if multiple agents registering
+### Excessive Notification Spam
+
+- Check if multiple agents registering simultaneously
 - Review agent heartbeat frequency
 - Consider batching events
 
-See [API Reference](../developer/api-reference.md) for complete notification endpoints.
+See [API Reference](/docs/developer/api-reference) for complete notification endpoints.
 
 ---
 

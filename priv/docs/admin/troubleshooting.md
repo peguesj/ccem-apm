@@ -2,44 +2,40 @@
 
 Common issues and solutions for CCEM APM v4.
 
-## Server Won't Start
+> **Important:** Always back up `apm_config.json` before attempting fixes that modify configuration.
 
-### Error: Port 3031 Already in Use
+---
 
-**Symptom**:
-```
-[error] listen error: eaddrinuse
-```
+## Server Issues
 
-**Solution 1: Kill existing process**
+### Issue: Port 3031 Already in Use
+
+**Symptoms:** Error message `[error] listen error: eaddrinuse` when running `mix phx.server`
+
+**Cause:** Another process is already bound to port 3031.
+
+**Fix:**
 
 ```bash
+# Option 1: Kill the existing process
 lsof -ti:3031 | xargs kill -9
 mix phx.server
-```
 
-**Solution 2: Use different port**
-
-```bash
+# Option 2: Use a different port
 PORT=3032 mix phx.server
-```
 
-**Solution 3: Find what's using the port**
-
-```bash
+# Option 3: Identify what is using the port
 lsof -i :3031
-sudo lsof -i :3031  # If above doesn't show anything
+sudo lsof -i :3031  # If above shows nothing
 ```
 
-### Error: Dependencies Not Found
+### Issue: Dependencies Not Found
 
-**Symptom**:
-```
-Compiling...
-error: could not find dependency
-```
+**Symptoms:** Error `could not find dependency` during compilation.
 
-**Solution**:
+**Cause:** Stale build artifacts or missing dependencies after a branch switch or update.
+
+**Fix:**
 
 ```bash
 rm -rf _build deps mix.lock
@@ -47,94 +43,76 @@ mix deps.get
 mix phx.server
 ```
 
-### Error: Mix Not Found
+### Issue: Mix Not Found
 
-**Symptom**:
-```
-mix: command not found
-```
+**Symptoms:** Error `mix: command not found` in terminal.
 
-**Solution**:
+**Cause:** Elixir is not installed or not on `PATH`.
 
-Verify Elixir is installed:
+**Fix:**
 
 ```bash
+# Verify Elixir installation
 elixir --version
-```
 
-If not installed:
-
-```bash
-# macOS
+# Install if missing (macOS)
 brew install elixir
 
-# Linux - follow https://elixir-lang.org/install.html
+# Install if missing (Linux)
+# Follow https://elixir-lang.org/install.html
 ```
 
-## Dashboard Not Loading
+---
 
-### Browser Shows Connection Refused
+## Dashboard Issues
 
-**Symptom**:
-```
-localhost:3031 refused to connect
-```
+### Issue: Browser Shows Connection Refused
 
-**Verify server is running**:
+**Symptoms:** Navigating to `localhost:3031` shows "connection refused" in browser.
+
+**Cause:** The APM server is not running.
+
+**Fix:**
 
 ```bash
+# Verify server status
 curl http://localhost:3031/health
-```
 
-If no response, start server:
-
-```bash
+# If no response, start the server
 cd /Users/jeremiah/Developer/ccem/apm-v4
 mix phx.server
 ```
 
-### Dashboard Loads but Shows Blank Page
+### Issue: Dashboard Loads but Shows Blank Page
 
-**Check browser console** (press F12):
+**Symptoms:** Page loads (HTTP 200) but no content renders.
 
-Look for JavaScript errors in Console tab.
+**Cause:** JavaScript error or broken WebSocket connection preventing LiveView mount.
 
-**Clear cache and reload**:
+**Fix:**
 
-```
-Cmd+Shift+R (macOS)
-Ctrl+Shift+R (Linux/Windows)
-```
+1. Open browser DevTools (F12) and check the Console tab for JavaScript errors
+2. Hard-reload the page: `Cmd+Shift+R` (macOS) or `Ctrl+Shift+R` (Linux)
+3. Check the Network tab, filter by "WS", and verify a `/live` WebSocket shows status `101 Switching Protocols`
+4. If WebSocket fails, verify `curl http://localhost:3031/` returns HTML and that no firewall is blocking the port
 
-**Check WebSocket connection**:
+---
 
-1. Open DevTools (F12)
-2. Go to Network tab
-3. Filter by "WS" (WebSockets)
-4. Look for `/live` connection
-5. Should show status "101 Switching Protocols"
+## Agent Issues
 
-If WebSocket fails:
-- Verify server is accepting connections: `curl http://localhost:3031/`
-- Check firewall isn't blocking port 3031
-- Try accessing from different browser/incognito
+### Issue: Registered Agent Not in Fleet
 
-## Agents Not Appearing
+**Symptoms:** Agent registered via API but does not appear in the dashboard fleet view.
 
-### Registered Agent Doesn't Show in Fleet
+**Cause:** Registration failed, project name mismatch, or dashboard not refreshed.
 
-**Check agent registration succeeded**:
+**Fix:**
 
 ```bash
+# Check if agent exists in registry
 curl http://localhost:3031/api/agents
-```
 
-Look for your agent in the response.
-
-**If not in list**:
-
-```bash
-# Re-register the agent
+# Re-register if missing
 curl -X POST http://localhost:3031/api/register \
   -H "Content-Type: application/json" \
   -d '{
@@ -144,25 +122,21 @@ curl -X POST http://localhost:3031/api/register \
     "tier": 2,
     "capabilities": ["test"]
   }'
-```
 
-**Check project name matches**:
-
-```bash
-# Get configured projects
+# Verify project name matches a configured project
 curl http://localhost:3031/api/projects
-
-# Verify "project": "ccem" in your registration
 ```
 
-### Agent Disappears After Registration
+### Issue: Agent Disappears After Registration
 
-**Check heartbeat is being sent**:
+**Symptoms:** Agent appears briefly then vanishes or shows as `idle`.
 
-Agents must send heartbeat every 30 seconds or become `idle`:
+**Cause:** No heartbeat received within the 30-second timeout window.
+
+**Fix:**
 
 ```bash
-# Send heartbeat
+# Send a heartbeat to reactivate
 curl -X POST http://localhost:3031/api/heartbeat \
   -H "Content-Type: application/json" \
   -d '{
@@ -171,117 +145,111 @@ curl -X POST http://localhost:3031/api/heartbeat \
   }'
 ```
 
-**If agent became idle**:
+> **Important:** Agents must send heartbeats at least every 30 seconds to remain `active`.
 
-Send another heartbeat to activate it again.
+---
 
-## Session Not Registering
+## Session Issues
 
-### Session Not Appearing in Config
+### Issue: Session Not Appearing in Config
 
-**Check per-session file was created**:
+**Symptoms:** A new Claude Code session does not show in the dashboard or `apm_config.json`.
+
+**Cause:** Session init hook did not run, or config reload was not triggered.
+
+**Fix:**
 
 ```bash
+# Check per-session file was created
 ls ~/Developer/ccem/apm/sessions/
-# Should contain {session_id}.json files
-```
 
-**Check config file for sessions within the project**:
-
-```bash
+# Check config for the session
 jq '.projects[] | select(.name == "my-project") | .sessions' ~/Developer/ccem/apm/apm_config.json
-```
 
-Should show your session in the project's `sessions` array.
-
-**Reload config if needed**:
-
-```bash
+# Force a config reload
 curl -X POST http://localhost:3031/api/config/reload
 ```
 
-### APM Server Not Starting from Hook
+### Issue: APM Server Not Starting from Hook
 
-**Check script permissions**:
+**Symptoms:** Session starts but APM dashboard is unreachable.
+
+**Cause:** Hook script missing execute permission or APM v4 directory not found.
+
+**Fix:**
 
 ```bash
+# Check script permissions
 ls -la ~/Developer/ccem/apm/hooks/session_init.sh
-# Should have execute permission (-x)
-
 chmod +x ~/Developer/ccem/apm/hooks/session_init.sh
-```
 
-**Check APM v4 path**:
-
-```bash
+# Check APM v4 path exists
 ls -la ~/Developer/ccem/apm-v4/mix.exs
-# Should exist
-```
 
-**Try starting manually**:
-
-```bash
+# Try starting manually
 cd ~/Developer/ccem/apm-v4
 mix deps.get
 mix phx.server
 ```
 
+---
+
 ## Configuration Issues
 
-### Configuration File Not Updating
+### Issue: Configuration File Not Updating
 
-**Check file permissions**:
+**Symptoms:** Edits to `apm_config.json` via jq or text editor are not persisted.
+
+**Cause:** File permissions prevent writing, or JSON syntax is invalid.
+
+**Fix:**
 
 ```bash
+# Check file permissions
 ls -la ~/Developer/ccem/apm/apm_config.json
-# Should be writable by your user
-
 chmod 644 ~/Developer/ccem/apm/apm_config.json
-```
 
-**Verify JSON is valid**:
-
-```bash
+# Verify JSON is valid
 jq empty ~/Developer/ccem/apm/apm_config.json
-# If error, file is invalid JSON
-```
 
-**Check for syntax errors**:
-
-```bash
-# Pretty print to see issues
+# Pretty print to see syntax issues
 jq . ~/Developer/ccem/apm/apm_config.json
 ```
 
-### Project Not Appearing in Dropdown
+### Issue: Project Not Appearing in Dropdown
 
-**Check project in config**:
+**Symptoms:** Project exists in `apm_config.json` but the dashboard dropdown does not list it.
 
-```bash
-jq .projects ~/Developer/ccem/apm/apm_config.json
-```
+**Cause:** Config not reloaded after manual edit, or project entry is malformed.
 
-If project missing, add it:
+**Fix:**
 
 ```bash
+# Verify project is in config
+jq '.projects[].name' ~/Developer/ccem/apm/apm_config.json
+
+# Add project if missing
 jq '.projects += [{
   "name": "new-project",
-  "root": "/Users/jeremiah/Developer/new-project"
+  "root": "/Users/jeremiah/Developer/new-project",
+  "tasks_dir": "", "prd_json": "", "todo_md": "",
+  "status": "active",
+  "registered_at": (now | todate),
+  "sessions": []
 }]' ~/Developer/ccem/apm/apm_config.json > /tmp/config.tmp && \
 mv /tmp/config.tmp ~/Developer/ccem/apm/apm_config.json
-```
 
-Then reload:
-
-```bash
+# Reload
 curl -X POST http://localhost:3031/api/config/reload
 ```
 
-### Port Configuration Not Taking Effect
+### Issue: Port Configuration Not Taking Effect
 
-**Restart server**:
+**Symptoms:** Server still listens on old port after changing `port` in config.
 
-Config changes require server restart:
+**Cause:** Port is set via environment variable at server start time, not read from config at runtime.
+
+**Fix:**
 
 ```bash
 # Kill existing server
@@ -291,56 +259,50 @@ lsof -ti:3031 | xargs kill -9
 PORT=3032 mix phx.server
 ```
 
-**Verify with environment variable**:
-
-```bash
-echo $PORT
-```
+---
 
 ## Performance Issues
 
-### Dashboard Very Slow with Many Agents
+### Issue: Dashboard Very Slow with Many Agents
 
-**Check agent count**:
+**Symptoms:** UI becomes unresponsive or laggy when displaying a large agent fleet.
 
-```bash
-curl http://localhost:3031/api/agents | jq '.agents | length'
-```
+**Cause:** High volume of WebSocket updates overwhelming the browser.
 
-**For 100+ agents**:
+**Fix:**
 
-1. Use browser DevTools to check WebSocket latency
-2. Consider filtering agents in dashboard
-3. Check server logs for errors: `tail -f server.log`
+1. Check agent count: `curl http://localhost:3031/api/agents | jq '.agents | length'`
+2. Use dashboard filters to reduce visible agents
+3. Check browser DevTools for WebSocket latency
+4. Consider increasing the update throttle if configurable
 
-**Reduce update frequency**:
+### Issue: High Memory Usage
 
-In config, if option available:
-```json
-{
-  "update_throttle_ms": 1000
-}
-```
+**Symptoms:** APM process consuming excessive RAM over time.
 
-### High Memory Usage
+**Cause:** Unbounded growth in ETS tables, event queues, or agent heartbeat data.
 
-**Check if leak**:
-
-Monitor memory over 5 minutes:
+**Fix:**
 
 ```bash
+# Monitor memory over time
 watch -n 5 'ps aux | grep apm_v4'
+
+# Check agent count
+curl http://localhost:3031/api/agents | jq '.total'
+
+# Restart if needed
+lsof -ti:3031 | xargs kill -9
+mix phx.server
 ```
 
-**If memory keeps growing**:
+### Issue: High CPU Usage
 
-1. Check agent count: `curl http://localhost:3031/api/agents | jq '.total'`
-2. Look for unbounded collections in logs
-3. Restart server: `lsof -ti:3031 | xargs kill -9`
+**Symptoms:** APM process consuming excessive CPU.
 
-### High CPU Usage
+**Cause:** Large number of active agents, frequent heartbeats, or expensive discovery operations.
 
-**Identify cause**:
+**Fix:**
 
 ```bash
 # Check active agents
@@ -350,200 +312,147 @@ curl http://localhost:3031/api/status
 curl http://localhost:3031/api/notifications
 ```
 
-**Reduce polling frequency**:
-
-In CCEMAgent or config:
-```json
-{
-  "polling_interval_seconds": 10
-}
-```
+---
 
 ## API Errors
 
-### 400 Bad Request
+### Issue: 400 Bad Request
 
-**Check JSON format**:
+**Symptoms:** API returns HTTP 400 on POST requests.
+
+**Cause:** Request body is not valid JSON or missing required fields.
+
+**Fix:**
 
 ```bash
-# Invalid JSON
-curl -X POST http://localhost:3031/api/register \
-  -H "Content-Type: application/json" \
-  -d '{invalid json}'
-
-# Valid JSON
+# Ensure valid JSON with correct Content-Type header
 curl -X POST http://localhost:3031/api/register \
   -H "Content-Type: application/json" \
   -d '{"name":"agent","type":"individual","project":"ccem","tier":1,"capabilities":[]}'
 ```
 
-### 404 Not Found
+### Issue: 404 Not Found
 
-**Check endpoint exists**:
+**Symptoms:** API returns HTTP 404.
+
+**Cause:** Endpoint path is misspelled or does not exist.
+
+**Fix:**
 
 ```bash
-# Does endpoint exist?
+# Verify the endpoint exists
 curl http://localhost:3031/api/agents
-
-# Typo in URL?
-curl http://localhost:3031/api/agens  # Wrong!
 ```
 
-### 429 Rate Limited
+### Issue: 429 Rate Limited
 
-**Check rate limits**:
+**Symptoms:** API returns HTTP 429 with `Retry-After` header.
 
-Default limits:
-- 10 agent registrations per minute
-- 100 API calls per minute
+**Cause:** Too many requests in a short window. Default limits are 10 registrations/min and 100 API calls/min.
 
-**Wait or use different client IP**:
+**Fix:**
 
 ```bash
-# Wait and retry
+# Wait for the rate limit window to reset
 sleep 60
 curl http://localhost:3031/api/agents
 ```
 
-### 500 Internal Server Error
+### Issue: 500 Internal Server Error
 
-**Check server logs**:
+**Symptoms:** API returns HTTP 500.
 
-```bash
-# If running in foreground, see console output
-# If as service:
-sudo journalctl -u ccem-apm -n 50
+**Cause:** Unhandled exception in server code.
 
-# If launchd:
-tail -100 /var/log/ccem-apm/stderr.log
-```
-
-**Try restarting**:
+**Fix:**
 
 ```bash
+# Check server logs for the stack trace
+sudo journalctl -u ccem-apm -n 50     # systemd
+tail -100 /var/log/ccem-apm/stderr.log  # launchd
+
+# Restart the server
 lsof -ti:3031 | xargs kill -9
 sleep 2
 mix phx.server
 ```
 
+---
+
 ## Network Issues
 
-### Cannot Access from Another Machine
+### Issue: Cannot Access from Another Machine
 
-**Check firewall**:
+**Symptoms:** Dashboard loads on localhost but not from other machines on the network.
 
-```bash
-# Linux
-sudo ufw allow 3031/tcp
+**Cause:** Server is bound to `127.0.0.1` only, or firewall is blocking the port.
 
-# macOS
-# System Preferences → Security & Privacy → Firewall Options
-# Or: sudo pfctl -t blocklist -T add 3031
-```
-
-**Check binding address**:
+**Fix:**
 
 ```bash
-# APM should be listening on all interfaces
-netstat -an | grep 3031
-```
-
-If only listening on localhost, set:
-
-```bash
+# Bind to all interfaces
 export BIND_HOST=0.0.0.0
 mix phx.server
+
+# Open firewall (Linux)
+sudo ufw allow 3031/tcp
+
+# macOS: System Preferences > Security & Privacy > Firewall Options
 ```
 
-### WebSocket Connection Drops
+### Issue: WebSocket Connection Drops
 
-**Check server health**:
+**Symptoms:** Dashboard goes stale or shows "disconnected" periodically.
+
+**Cause:** Network instability, proxy timeout, or server overload.
+
+**Fix:**
 
 ```bash
+# Check server health
 curl http://localhost:3031/health
+
+# If behind reverse proxy, increase timeouts
+# nginx example:
+#   proxy_read_timeout 300s;
+#   proxy_send_timeout 300s;
 ```
 
-**Increase timeout**:
+---
 
-If behind reverse proxy, increase timeout:
+## CCEMAgent (Menubar App) Issues
 
-```nginx
-proxy_read_timeout 300s;
-proxy_send_timeout 300s;
-```
+### Issue: Menubar App Won't Connect
 
-**Check network stability**:
+**Symptoms:** CCEMAgent icon shows disconnected status.
 
-Monitor connection:
+**Cause:** APM server is not running or not reachable on the configured port.
+
+**Fix:**
 
 ```bash
-ping <server-ip>
-traceroute <server-ip>
-```
-
-## CCEMAgent Issues
-
-### Menubar App Won't Connect
-
-**Check APM server**:
-
-```bash
+# Verify server is running
 curl http://localhost:3031/health
-```
 
-**Check app logs** (macOS):
-
-```bash
+# Check app logs (macOS)
 log show --predicate 'process == "CCEMAgent"' --last 1h
 ```
 
-**Restart the app**:
+If server is running but app still disconnected, quit and relaunch CCEMAgent.
 
-1. Quit CCEMAgent (Cmd+Q)
-2. Relaunch from Applications
-3. Check menu bar for icon
+### Issue: Agent List Not Updating in Menubar
 
-### Agent List Not Updating in Menubar
+**Symptoms:** Menubar shows stale agent data.
 
-**Check polling working**:
+**Cause:** Polling requests failing or returning cached data.
 
-In Terminal, watch requests:
+**Fix:**
 
-```bash
-tail -f /var/log/ccem-apm/stdout.log | grep "GET /api/agents"
-```
+1. Click the refresh icon in the menubar
+2. Verify polling is working: `tail -f /var/log/ccem-apm/stdout.log | grep "GET /api/agents"`
+3. Quit and relaunch CCEMAgent
 
-**Force refresh**: Click the refresh icon in menubar
-
-**Check token budget**:
-
-In config:
-```json
-{
-  "token_budget": 100000
-}
-```
-
-## Notification Issues
-
-### Not Receiving Notifications
-
-**Check bell icon**:
-
-Top right of dashboard. Should show unread count.
-
-**Refresh dashboard**:
-
-```
-Cmd+R (macOS)
-Ctrl+R (Windows/Linux)
-```
-
-**Check notification permissions** (browser):
-
-1. Open Settings
-2. Look for notification settings
-3. Allow notifications for localhost:3031
+---
 
 ## Debug Mode
 
@@ -553,89 +462,50 @@ Ctrl+R (Windows/Linux)
 APM_LOG_LEVEL=debug mix phx.server
 ```
 
-This prints detailed logs to help diagnose issues.
-
 ### Get Full Status Report
 
 ```bash
-# Health check
-curl http://localhost:3031/health
-
-# Server status
-curl http://localhost:3031/api/status
-
-# All agents
-curl http://localhost:3031/api/agents
-
-# Config
-curl http://localhost:3031/api/projects
-
-# Notifications
-curl http://localhost:3031/api/notifications
+curl http://localhost:3031/health            # Health check
+curl http://localhost:3031/api/status         # Server status
+curl http://localhost:3031/api/agents         # All agents
+curl http://localhost:3031/api/projects       # Config
+curl http://localhost:3031/api/notifications  # Notifications
 ```
 
-## Getting Help
-
-If issue persists:
-
-1. **Collect debug info**:
-
-```bash
-# Server version
-curl http://localhost:3031/health
-
-# Current config (redacted)
-cat ~/Developer/ccem/apm/apm_config.json | jq 'del(.projects[].root)'
-
-# Recent logs
-tail -100 server.log  # if saved to file
-
-# System info
-uname -a
-elixir --version
-```
-
-2. **Check documentation**:
-   - [Getting Started](../user/getting-started.md)
-   - [Configuration](configuration.md)
-   - [Deployment](deployment.md)
-
-3. **Review logs closely** for error messages and timestamps
-
-4. **Try minimal reproduction**: Simple curl test case
+---
 
 ## Common Error Messages
 
 ### "Failed to connect to APM server"
 
-- Server not running on configured port
-- Firewall blocking connection
-- Wrong hostname/IP address
+- Server not running on the configured port
+- Firewall blocking the connection
+- Wrong hostname or IP address
 
 ### "Invalid project"
 
-- Project name doesn't match apm_config.json
-- Project path doesn't exist
-- Typo in project name
+- Project name does not match any entry in `apm_config.json`
+- Project path does not exist on disk
 
 ### "Agent not found"
 
-- Agent ID is wrong
-- Agent timed out (no heartbeat for 10 minutes)
-- Wrong project namespace
+- Agent ID is incorrect
+- Agent timed out (no heartbeat for 10+ minutes)
+- Agent registered under a different project namespace
 
 ### "Configuration error: invalid JSON"
 
-- apm_config.json has syntax error
-- Use `jq empty apm_config.json` to verify
-- Check for missing quotes, trailing commas
+- `apm_config.json` has a syntax error (missing quotes, trailing commas, etc.)
+- Validate with: `jq empty ~/Developer/ccem/apm/apm_config.json`
+
+---
 
 ## Prevention
 
 - **Regular backups**: `cp apm_config.json apm_config.json.backup`
-- **Health checks**: Monitor `/health` endpoint regularly
+- **Health checks**: Monitor the `/health` endpoint regularly
 - **Log review**: Check logs weekly for warnings
-- **Update dependencies**: `mix deps.update` periodically
+- **Update dependencies**: Run `mix deps.update --all` periodically
 - **Test recovery**: Practice restoring from backups
 
 See [Deployment](deployment.md) for production troubleshooting and [Configuration](configuration.md) for setup issues.

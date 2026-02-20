@@ -1,54 +1,98 @@
 # CCEM APM v4 Documentation
 
-Welcome to the CCEM APM (Agentic Performance Monitor) v4 documentation. This is a Phoenix/Elixir-based real-time monitoring system for Claude Code AI agent sessions.
+**Version 4.0.0** | Phoenix/Elixir Agentic Performance Monitor
 
-## What is CCEM APM?
+A real-time monitoring and orchestration platform for Claude Code AI agent sessions, providing fleet visualization, multi-project tracking, and autonomous workflow management.
 
-CCEM APM is a comprehensive monitoring and orchestration platform for AI agent workflows. It tracks:
+---
 
-- **AI Agents**: Individual agents, squadrons, swarms, and orchestrators
-- **Sessions**: Claude Code session lifecycle and state
-- **Projects**: Multi-project support with isolated namespacing
-- **Skills**: Skill usage tracking with co-occurrence analysis
-- **Workflows**: Ralph methodology autonomous execution
-- **Tasks**: UPM (Unified Project Management) integration
+## What's New
 
-## Key Features
+- **UPM Tracking** -- Unified Project Management integration for cross-tool task sync
+- **Formation System** -- Agent squadrons and swarm orchestration with tier-based classification
+- **Documentation Wiki** -- Embedded interactive docs with slash command reference
+- **Port Management** -- Automatic port 3031 lifecycle with conflict detection
 
-- **Real-time Dashboard** with dependency graphs, agent fleet visualization, and live updates
-- **Multi-project Support** with project switching and isolated namespaces
-- **Ralph Methodology** integration for autonomous fix loops and PRD generation
-- **Agent Fleet Management** with tier-based classification and discovery
-- **Skills Tracking** with UEBA analytics and methodology detection
-- **REST API** for agent registration, heartbeats, and data sync
-- **SwiftUI Menubar Agent** (CCEMAgent) for macOS integration
-- **Session Timeline** visualization and audit logging
-- **Interactive Docs** with embedded slash command reference
+See the full [Changelog](changelog.md) for version history and release notes.
 
-## Quick Links
+---
 
-### For Users
-- [Getting Started](user/getting-started.md) - Installation and first launch
-- [Dashboard Guide](user/dashboard.md) - Using the web interface
-- [Multi-Project Setup](user/projects.md) - Managing multiple projects
-- [Agent Fleet](user/agents.md) - Understanding agent types and statuses
-- [Ralph Methodology](user/ralph.md) - Autonomous workflow execution
-- [UPM Integration](user/upm.md) - Project management tracking
-- [Skills Analytics](user/skills.md) - Skill usage and co-occurrence
-- [Notifications](user/notifications.md) - Alert system overview
+## Quick Start
 
-### For Developers
-- [Architecture](developer/architecture.md) - System design and GenServers
-- [API Reference](developer/api-reference.md) - Complete endpoint documentation
-- [LiveView Pages](developer/liveview-pages.md) - Frontend components
-- [PubSub Events](developer/pubsub-events.md) - Real-time event system
-- [Extending CCEM](developer/extending.md) - Adding new features
+> **Get running in under 2 minutes:**
+>
+> 1. Clone the repository: `git clone <repo-url> && cd apm-v4`
+> 2. Install dependencies: `mix deps.get`
+> 3. Start the server: `mix phx.server`
+> 4. Open the dashboard: `http://localhost:3031`
+>
+> For detailed setup instructions, see [Getting Started](user/getting-started.md).
 
-### For Administrators
-- [Configuration](admin/configuration.md) - apm_config.json setup
-- [Deployment](admin/deployment.md) - Production setup
-- [Session Hooks](admin/hooks.md) - Initialization and registration
-- [Troubleshooting](admin/troubleshooting.md) - Common issues and fixes
+---
+
+## Documentation
+
+### User Guide (8 pages)
+
+Learn to use the dashboard, manage projects, and monitor agents.
+
+- [Getting Started](user/getting-started.md) -- Installation and first launch
+- [Dashboard Guide](user/dashboard.md) -- Using the web interface
+- [Multi-Project Setup](user/projects.md) -- Managing multiple projects
+- [Agent Fleet](user/agents.md) -- Understanding agent types and statuses
+- [Ralph Methodology](user/ralph.md) -- Autonomous workflow execution
+- [UPM Integration](user/upm.md) -- Project management tracking
+- [Skills Analytics](user/skills.md) -- Skill usage and co-occurrence
+- [Notifications](user/notifications.md) -- Alert system overview
+
+### Developer (6 pages)
+
+Architecture, API reference, and extending the platform.
+
+- [Architecture](developer/architecture.md) -- System design and GenServers
+- [API Reference](developer/api-reference.md) -- Complete endpoint documentation
+- [LiveView Pages](developer/liveview-pages.md) -- Frontend components
+- [PubSub Events](developer/pubsub-events.md) -- Real-time event system
+- [Extending CCEM](developer/extending.md) -- Adding new features
+- [Testing Guide](developer/testing.md) -- Test patterns and coverage
+
+### Administration (4 pages)
+
+Configuration, deployment, hooks, and troubleshooting.
+
+- [Configuration](admin/configuration.md) -- apm_config.json setup
+- [Deployment](admin/deployment.md) -- Production setup
+- [Session Hooks](admin/hooks.md) -- Initialization and registration
+- [Troubleshooting](admin/troubleshooting.md) -- Common issues and fixes
+
+### Changelog
+
+- [Version History](changelog.md) -- Release notes and migration guides
+
+---
+
+## Feature Highlights
+
+### Monitoring
+
+- **Real-time Dashboard** -- Agent fleet visualization with D3.js dependency graphs and live WebSocket updates
+- **Session Timeline** -- Visual audit logging of agent lifecycle events and state transitions
+- **Skills Analytics** -- UEBA-powered skill usage tracking with co-occurrence analysis and methodology detection
+
+### Integration
+
+- **Multi-project Support** -- Project switching with isolated namespaces and subdirectory-scoped sessions
+- **UPM Integration** -- Unified Project Management bridging Plane, Linear, and local task tracking
+- **SwiftUI Menubar Agent** -- Native macOS CCEMAgent for at-a-glance status via AppKit and URLSession
+
+### Development
+
+- **Ralph Methodology** -- Autonomous fix loops, PRD generation, and progress-driven iteration
+- **Agent Fleet Management** -- Tier-based classification with squadron and swarm discovery
+- **REST API** -- Full agent registration, heartbeats, commands, and data sync endpoints
+- **Interactive Docs** -- Embedded slash command reference with search and filtering
+
+---
 
 ## System Architecture Overview
 
@@ -76,9 +120,26 @@ CCEM APM is a comprehensive monitoring and orchestration platform for AI agent w
 ┌──────────────────▼──────────────────────────┐
 │   Data Layer (ETS + Files)                  │
 │   - apm_config.json, session JSONs          │
-│   - ETS tables for fast queries              │
+│   - ETS tables for fast queries             │
 └─────────────────────────────────────────────┘
 ```
+
+---
+
+## Technology Stack
+
+| Component | Technology | Version |
+|-----------|-----------|---------|
+| Backend | Phoenix Framework (Elixir) | Phoenix 1.7 / Elixir 1.16 |
+| Frontend | Phoenix LiveView | LiveView 0.20 |
+| Styling | daisyUI + Tailwind CSS | daisyUI 4.x / Tailwind 3.x |
+| Visualization | D3.js | v7 |
+| Menubar Agent | Swift (AppKit, URLSession) | Swift 5.9 |
+| Realtime | Phoenix PubSub (WebSocket) | -- |
+| Data | JSON config, ETS tables, file-based persistence | -- |
+| HTTP Server | Bandit | 1.x |
+
+---
 
 ## Default Port
 
@@ -88,30 +149,7 @@ CCEM APM runs on **port 3031** by default. Access the dashboard at:
 http://localhost:3031
 ```
 
-## Technology Stack
-
-- **Backend**: Phoenix Framework (Elixir)
-- **Frontend**: LiveView with HTML/JS, daisyUI, Tailwind CSS
-- **Styling**: daisyUI components on Tailwind CSS
-- **Visualization**: D3.js dependency graphs, Timeline.js
-- **Menubar Agent**: Swift (AppKit, URLSession)
-- **Realtime**: WebSocket via Phoenix PubSub
-- **Data**: JSON configuration, ETS tables, file-based persistence
-
-## Getting Started
-
-For a quick start:
-
-1. Clone the repository
-2. Run `mix deps.get` to install dependencies
-3. Run `mix phx.server` to start the server
-4. Open `http://localhost:3031` in your browser
-
-See [Getting Started](user/getting-started.md) for detailed instructions.
-
-## Version
-
-**CCEM APM v4.0.0** - Phoenix/Elixir rewrite with multi-project support, enhanced UI, and comprehensive monitoring.
+---
 
 ## Support
 

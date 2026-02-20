@@ -4,14 +4,24 @@ CCEM APM uses a shell hook invoked by Claude Code's `SessionStart` event to auto
 
 ## Overview
 
-The hook script is called by Claude Code on every session start. It receives a JSON payload on stdin containing the `session_id` and `cwd`, then:
+The hook script is called by Claude Code on every session start. It receives a JSON payload on stdin containing the `session_id` and `cwd`, then performs a series of operations to ensure the APM server is running and the session is registered.
 
-1. Derives the project name from `basename` of the working directory
-2. Starts the APM Phoenix server if not already running
-3. Creates a per-session JSON file in `~/Developer/ccem/apm/sessions/`
-4. UPSERTs the project and session into `apm_config.json` using jq
-5. Sends a config reload request to the running APM server
-6. Outputs a JSON success payload to stdout
+### Session Start Flow
+
+When a new Claude Code session begins, the following steps execute in order:
+
+1. **Parse input** -- Read JSON from stdin to extract `session_id` and `cwd`
+2. **Detect project** -- Derive project name from `basename` of the working directory
+3. **Check APM server** -- Test if the Phoenix server is running via PID file or port check
+4. **Start server (if needed)** -- Launch `mix phx.server` in the background with `nohup`
+5. **Wait for readiness** -- Pause 3 seconds, then confirm the port is listening via `lsof`
+6. **Create session file** -- Write per-session JSON to `~/Developer/ccem/apm/sessions/{session_id}.json`
+7. **Discover project files** -- Locate `tasks_dir`, `prd_json`, and `todo_md` for the project
+8. **UPSERT config** -- Add or update the project and session in `apm_config.json` using jq
+9. **Reload server config** -- POST to `/api/config/reload` so the dashboard picks up changes
+10. **Output result** -- Print JSON success payload to stdout for the Claude Code hook system
+
+> **Important:** The hook is invoked as a subprocess by Claude Code, not sourced into the shell. It must complete quickly and write valid JSON to stdout.
 
 ## Hook Location
 
@@ -24,13 +34,13 @@ This is invoked as a Claude Code `SessionStart` hook, not sourced into the shell
 ## Key Variables
 
 ```bash
-APM_DIR="$HOME/Developer/ccem/apm"
-APM_V4_DIR="$HOME/Developer/ccem/apm-v4"
-APM_PORT=3031
-SESSIONS_DIR="$APM_DIR/sessions"
-LOG_FILE="$APM_DIR/hooks/apm_hook.log"
-PID_FILE="$APM_V4_DIR/.apm.pid"
-CONFIG_FILE="$APM_DIR/apm_config.json"
+APM_DIR="$HOME/Developer/ccem/apm"           # APM shared directory (config, sessions, hooks)
+APM_V4_DIR="$HOME/Developer/ccem/apm-v4"     # Phoenix project root
+APM_PORT=3031                                 # HTTP listen port
+SESSIONS_DIR="$APM_DIR/sessions"             # Per-session JSON files
+LOG_FILE="$APM_DIR/hooks/apm_hook.log"       # Hook activity log
+PID_FILE="$APM_V4_DIR/.apm.pid"             # Server PID file
+CONFIG_FILE="$APM_DIR/apm_config.json"       # Multi-project config
 ```
 
 ## How It Works
@@ -86,15 +96,11 @@ echo "$pid" > "$PID_FILE"
 
 It waits 3 seconds then confirms the port is listening via `lsof`.
 
+> **Warning:** Never run multiple APM instances on the same port. The hook checks for an existing process before starting a new one to prevent conflicts.
+
 ### 4. Per-Session File Creation
 
 A JSON file is created at `~/Developer/ccem/apm/sessions/{session_id}.json` with session metadata:
-
-```bash
-local session_file="$SESSIONS_DIR/${SESSION_ID}.json"
-```
-
-The file contains:
 
 ```json
 {
@@ -233,11 +239,21 @@ Log entries are prefixed with timestamps and `[APM-HOOK-v4]`:
 
 ## Troubleshooting
 
-### Hook not running?
+### Issue: Hook Not Running
 
-The hook is invoked by Claude Code's `SessionStart` event, not sourced into the shell. Verify the hook configuration points to the correct script path.
+**Symptoms:** No log entries in `apm_hook.log` when starting a new Claude Code session.
 
-### APM server not starting?
+**Cause:** Claude Code hook configuration does not point to the correct script path.
+
+**Fix:** Verify the `SessionStart` hook in `~/.claude/hooks/` or `.claude/hooks/` references the correct path to `session_init.sh`.
+
+### Issue: APM Server Not Starting
+
+**Symptoms:** Hook runs but dashboard is unreachable.
+
+**Cause:** Missing dependencies, compilation errors, or the APM v4 directory does not exist.
+
+**Fix:**
 
 ```bash
 # Check if APM v4 directory exists
@@ -250,7 +266,13 @@ tail -20 ~/Developer/ccem/apm/hooks/apm_server.log
 cd ~/Developer/ccem/apm-v4 && mix phx.server
 ```
 
-### Config not updating?
+### Issue: Config Not Updating
+
+**Symptoms:** New sessions or projects do not appear in `apm_config.json` after hook runs.
+
+**Cause:** `jq` not installed, config file not writable, or invalid JSON in existing config.
+
+**Fix:**
 
 ```bash
 # Verify jq is installed
@@ -263,7 +285,13 @@ jq empty ~/Developer/ccem/apm/apm_config.json
 jq '.version' ~/Developer/ccem/apm/apm_config.json
 ```
 
-### Session not appearing in dashboard?
+### Issue: Session Not Appearing in Dashboard
+
+**Symptoms:** Session file created but dashboard does not show the session.
+
+**Cause:** Config reload request failed (server not ready or network error).
+
+**Fix:**
 
 ```bash
 # Check per-session file was created
@@ -278,6 +306,6 @@ tail -20 ~/Developer/ccem/apm/hooks/apm_hook.log
 
 ## See Also
 
-- [Configuration](configuration.md) - Full config schema reference
-- [Deployment](deployment.md) - Server setup and management
-- [Troubleshooting](troubleshooting.md) - Common issues
+- [Configuration](configuration.md) -- Full config schema reference
+- [Deployment](deployment.md) -- Server setup and management
+- [Troubleshooting](troubleshooting.md) -- Common issues

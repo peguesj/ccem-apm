@@ -292,6 +292,14 @@ defmodule ApmV4Web.ApiController do
         agent_type: params["agent_type"] || "individual",
         path: params["path"],
         member_count: params["member_count"],
+        # Formation hierarchy fields
+        parent_id: params["parent_id"],
+        formation_id: params["formation_id"],
+        squadron: params["squadron"],
+        swarm: params["swarm"],
+        cluster: params["cluster"],
+        role: params["role"],
+        # UPM work-item fields
         story_id: params["story_id"],
         plane_issue_id: params["plane_issue_id"],
         wave: params["wave"],

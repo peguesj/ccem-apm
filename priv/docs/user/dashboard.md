@@ -1,28 +1,32 @@
 # Dashboard Guide
 
+> **Prerequisite:** Complete [Getting Started](/docs/user/getting-started) first.
+
 The CCEM APM dashboard is your central hub for monitoring agent workflows, tracking projects, and managing Claude Code sessions.
 
 ## Dashboard Layout
 
-### Top Navigation
+### Top Navigation Bar
 
 - **CCEM APM Logo** (left) - Links to home dashboard
 - **Project Selector** (dropdown) - Switch between configured projects
 - **Search Bar** (center) - Filter agents and tasks by name
 - **Settings Icon** (right) - Access configuration and help
 
-### Stats Cards (Top Section)
+### Stats Cards
 
-Four key metrics displayed at the top:
+Four key metrics displayed at the top of the page:
 
 | Card | Metric | Details |
-|------|--------|---------|
+| :--- | :--- | :--- |
 | **Agents** | Total active agents | Count of all registered agents across all statuses |
 | **Sessions** | Active Claude Code sessions | Number of currently tracked sessions |
 | **Projects** | Configured projects | Number of projects in apm_config.json |
 | **Skills** | Total skills tracked | Cumulative skill events recorded |
 
-Stats update in real-time as agents register/update.
+Stats update in real-time as agents register and send heartbeats.
+
+> **Tip:** Use the filter picker below the stats cards to switch between All and Active views.
 
 ## Agent Fleet List
 
@@ -31,7 +35,7 @@ Stats update in real-time as agents register/update.
 The main panel displays a live-updating table of agents:
 
 | Column | Description |
-|--------|-------------|
+| :--- | :--- |
 | **Name** | Agent identifier, clickable for details |
 | **Type** | individual, squadron, swarm, or orchestrator |
 | **Status** | active, idle, error, discovered, or completed |
@@ -41,7 +45,7 @@ The main panel displays a live-updating table of agents:
 
 Click an agent row to populate the **Right Panel** with details.
 
-### Filtering
+### Filtering Agents
 
 Use the **Filter Bar** below the stats cards:
 
@@ -52,7 +56,7 @@ Use the **Filter Bar** below the stats cards:
 
 ## D3 Dependency Graph
 
-### Central Visualization
+### Graph Elements
 
 A D3.js-rendered dependency graph shows:
 
@@ -61,7 +65,7 @@ A D3.js-rendered dependency graph shows:
 - **Node Color** = Agent status (green=active, yellow=idle, red=error, gray=discovered)
 - **Node Size** = Agent tier and workload
 
-### Interactions
+### Graph Interactions
 
 - **Drag Nodes**: Reposition for clarity
 - **Hover**: Shows agent name and type in tooltip
@@ -70,20 +74,24 @@ A D3.js-rendered dependency graph shows:
 - **Zoom**: Mouse wheel to zoom in/out
 - **Pan**: Click and drag background to pan
 
-### Legend
+### Graph Legend
 
 Located below the graph:
-- Green circle = Active
-- Yellow circle = Idle
-- Red circle = Error
-- Gray circle = Discovered
-- Line thickness = Dependency strength
+
+| Color | Status |
+| :--- | :--- |
+| Green circle | Active |
+| Yellow circle | Idle |
+| Red circle | Error |
+| Gray circle | Discovered |
+
+Line thickness indicates dependency strength.
 
 ## Right Panel Tabs
 
 When you select an agent, the right panel shows five tabs:
 
-### 1. Inspector Tab
+### Inspector Tab
 
 Detailed agent information:
 
@@ -101,9 +109,9 @@ Current Task: Analyzing authentication module
 Progress: 65%
 ```
 
-Copy buttons for agent ID and JSON payload.
+Copy buttons are available for agent ID and JSON payload.
 
-### 2. Ralph Tab
+### Ralph Tab
 
 Ralph methodology execution details:
 
@@ -113,7 +121,7 @@ Ralph methodology execution details:
 - **Flowchart Link**: `/ralph` page for visualization
 - **Metrics**: Tokens used, tasks completed, estimated remaining time
 
-### 3. UPM Tab
+### UPM Tab
 
 Unified Project Management execution tracking:
 
@@ -122,7 +130,7 @@ Unified Project Management execution tracking:
 - **Events**: Execution timeline
 - **Status**: Wave/story completion percentage
 
-Example:
+Example output:
 
 ```text
 Wave 1: Foundation (80% complete)
@@ -133,7 +141,7 @@ Wave 2: Expansion (20% complete)
   - Story 4: Testing (pending)
 ```
 
-### 4. Commands Tab
+### Commands Tab
 
 Available slash commands and recent command history:
 
@@ -144,7 +152,7 @@ Available slash commands and recent command history:
 
 Shows command syntax, parameters, and recent invocations with timestamps.
 
-### 5. TODOs Tab
+### TODOs Tab
 
 Task list for the selected agent:
 
@@ -152,11 +160,7 @@ Task list for the selected agent:
 - **In Progress**: Currently being worked on
 - **Completed**: Finished tasks
 
-Each task shows:
-- Description
-- Priority
-- Estimated tokens
-- Assigned to
+Each task shows description, priority, estimated tokens, and assignee.
 
 ## Sidebar Navigation
 
@@ -169,7 +173,7 @@ Left sidebar provides quick access:
 - **Timeline** - Session timeline
 - **Docs** - This documentation
 
-Active page is highlighted.
+The active page is highlighted.
 
 ## Real-time Updates
 
@@ -178,25 +182,29 @@ The dashboard uses WebSocket to receive live updates:
 - New agents appear within 1 second of registration
 - Agent status changes update instantly
 - Notifications broadcast to all connected clients
-- Dependency graph redraw on significant changes
+- Dependency graph redraws on significant changes
 
-If WebSocket disconnects, a reconnection banner appears.
+> **Note:** If WebSocket disconnects, a reconnection banner appears at the top of the page. The dashboard automatically attempts to reconnect.
 
 ## Keyboard Shortcuts
 
-- **?** - Open help/command reference
-- **/** - Focus search bar
-- **e** - Toggle agent details (when focused)
-- **g** - Jump to dependency graph
-- **t** - Jump to task list
+| Shortcut | Action |
+| :---: | :--- |
+| `?` | Open help/command reference |
+| `/` | Focus search bar |
+| `e` | Toggle agent details (when focused) |
+| `g` | Jump to dependency graph |
+| `t` | Jump to task list |
 
 ## Responsive Design
 
 The dashboard adapts to screen size:
 
-- **Desktop** (1440px+): Full three-column layout (stats, agents/graph, details)
-- **Tablet** (768px-1439px): Two columns, details below
-- **Mobile** (< 768px): Stack view, access panels via tabs
+| Breakpoint | Layout |
+| :--- | :--- |
+| Desktop (1440px+) | Full three-column layout (stats, agents/graph, details) |
+| Tablet (768px-1439px) | Two columns, details below |
+| Mobile (< 768px) | Stack view, access panels via tabs |
 
 ## Performance Notes
 
@@ -207,22 +215,27 @@ The dashboard adapts to screen size:
 
 ## Troubleshooting
 
-**Dependency graph not rendering?**
+### Dependency Graph Not Rendering
+
 - Check browser console (F12) for JS errors
 - Refresh page (Cmd+R on Mac, Ctrl+R on Windows)
 - Clear browser cache
 
-**Real-time updates not working?**
+### Real-time Updates Not Working
+
 - Check WebSocket connection in DevTools Network tab
 - Verify server is running: `curl http://localhost:3031/health`
 - Restart server: `mix phx.server`
 
-**Agents not appearing?**
+### Agents Not Appearing
+
 - Ensure agent POST `/api/register` succeeded
 - Check notification bell for errors
 - Verify project name matches apm_config.json
 
-See [Troubleshooting](../admin/troubleshooting.md) for more help.
+> **Tip:** Open browser DevTools (F12) and filter the Network tab by "websocket" to diagnose real-time update issues.
+
+See [Troubleshooting](/docs/admin/troubleshooting) for more help.
 
 ---
 

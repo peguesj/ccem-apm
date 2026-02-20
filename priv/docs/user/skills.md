@@ -2,6 +2,8 @@
 
 The CCEM APM skills system tracks which capabilities agents use, detects patterns, identifies emerging trends, and provides analytics via UEBA (User and Entity Behavior Analytics).
 
+> **Tip:** Skills are automatically logged when agents register with capabilities. You can also manually track granular skill events via the API for richer analytics.
+
 ## Overview
 
 Skills tracking provides:
@@ -14,21 +16,21 @@ Skills tracking provides:
 
 ## Skills Dashboard
 
-Navigate to `/skills` in the sidebar for the skills analytics page:
+Navigate to `/skills` in the sidebar for the skills analytics page.
 
-### Skill Catalog
+### Skill Catalog View
 
-Top section displays all skills:
+Top section displays all skills with usage statistics:
 
 ```text
 Skill                 Count    Popularity    Last Used
-code-review           124      ████████░░    5 mins ago
-test-writing          98       ███████░░░    2 mins ago
-refactoring           87       ██████░░░░    10 mins ago
-analysis              76       █████░░░░░    3 mins ago
-documentation         54       ███░░░░░░░    1 hour ago
-bug-fixing            42       ██░░░░░░░░    2 hours ago
-optimization          38       ██░░░░░░░░    5 hours ago
+code-review           124      ########..    5 mins ago
+test-writing          98       #######...    2 mins ago
+refactoring           87       ######....    10 mins ago
+analysis              76       #####.....    3 mins ago
+documentation         54       ###.......    1 hour ago
+bug-fixing            42       ##........    2 hours ago
+optimization          38       ##........    5 hours ago
 ```
 
 Click a skill to filter agents and see who has it.
@@ -45,10 +47,7 @@ refactoring          0.72        0.68         1.0
 analysis             0.65        0.71         0.79
 ```
 
-Strong co-occurrence (> 0.7) indicates:
-- Agents frequently work together
-- Complementary skill sets
-- Common workflow patterns
+Strong co-occurrence (> 0.7) indicates agents frequently work together, complementary skill sets, or common workflow patterns.
 
 ## Skill Tracking API
 
@@ -75,7 +74,7 @@ curl -X POST http://localhost:3031/api/skills/track \
 ### Required Fields
 
 | Field | Type | Description |
-|-------|------|-------------|
+| :--- | :--- | :--- |
 | **agent_id** | string | Agent performing the skill |
 | **skill** | string | Skill identifier |
 | **project** | string | Project namespace |
@@ -83,16 +82,15 @@ curl -X POST http://localhost:3031/api/skills/track \
 ### Optional Fields
 
 | Field | Type | Description |
-|-------|------|-------------|
+| :--- | :--- | :--- |
 | **context** | object | Custom metadata about usage |
 | **tokens_consumed** | integer | Tokens used for this skill |
 | **success** | boolean | Skill usage successful (default: true) |
 
-## Common Skills
-
-Standard skill identifiers:
+## Common Skill Identifiers
 
 ### Code Skills
+
 - `code-review` - Peer code review
 - `code-writing` - Writing new code
 - `code-generation` - Generating code from specs
@@ -101,6 +99,7 @@ Standard skill identifiers:
 - `optimization` - Performance improvement
 
 ### Testing Skills
+
 - `test-writing` - Creating test cases
 - `test-execution` - Running tests
 - `mock-generation` - Mock/stub creation
@@ -108,41 +107,41 @@ Standard skill identifiers:
 - `performance-testing` - Load and stress testing
 
 ### Documentation Skills
+
 - `documentation` - Writing docs
 - `api-documentation` - OpenAPI/Swagger
 - `readme-writing` - README creation
 - `comment-generation` - Code comments
 
 ### Architectural Skills
+
 - `architecture-design` - System design
 - `database-design` - Schema design
 - `api-design` - REST/GraphQL design
 
 ### Analysis Skills
+
 - `analysis` - General code analysis
 - `security-audit` - Security review
 - `complexity-analysis` - Big-O analysis
 - `dependency-analysis` - Library analysis
 
 ### DevOps Skills
+
 - `deployment` - Release management
 - `ci-cd-setup` - Pipeline configuration
 - `docker-setup` - Containerization
 - `monitoring-setup` - Observability config
 
-Custom skills can be added by using descriptive identifiers like `custom-skill-name`.
+> **Note:** Custom skills can be added by using descriptive identifiers like `custom-skill-name`. Use lowercase with hyphens for consistency.
 
 ## Methodology Detection
 
-The system automatically detects active methodologies based on skill patterns:
+The system automatically detects active methodologies based on skill patterns.
 
-### TDD (Test-Driven Development)
-Detected when skills appear in sequence:
-1. `test-writing`
-2. `code-writing`
-3. `refactoring`
+### TDD Detection
 
-Example detection:
+Detected when skills appear in sequence: `test-writing` then `code-writing` then `refactoring`:
 
 ```json
 {
@@ -154,7 +153,8 @@ Example detection:
 }
 ```
 
-### Refactor-Max
+### Refactor-Max Detection
+
 Detected by high frequency of `refactoring` + `optimization`:
 
 ```json
@@ -167,8 +167,9 @@ Detected by high frequency of `refactoring` + `optimization`:
 }
 ```
 
-### Fix Loop
-Detected by `bug-fixing` → `test-writing` → `code-writing` pattern:
+### Fix Loop Detection
+
+Detected by `bug-fixing` then `test-writing` then `code-writing` pattern:
 
 ```json
 {
@@ -184,11 +185,11 @@ Detected methodologies appear in the Methodology section of the skills page.
 
 ## UEBA Analytics
 
-User and Entity Behavior Analytics detect anomalies and patterns:
+User and Entity Behavior Analytics detect anomalies and patterns.
 
-### Anomalies
+### Anomaly Detection
 
-Unusual behaviors flagged:
+Unusual behaviors are flagged automatically:
 
 ```text
 High Token Spike
@@ -200,9 +201,9 @@ Observed: 45000 tokens
 Status: Investigate
 ```
 
-### Patterns
+### Pattern Recognition
 
-Recurring patterns identified:
+Recurring patterns identified across agents:
 
 ```text
 Agent Collaboration Pattern
@@ -215,15 +216,15 @@ Confidence: 89%
 
 ### Trending Skills
 
-Skills increasing in usage:
+Skills increasing or decreasing in usage:
 
 ```text
-test-writing     ↑ 34% week-over-week
-refactoring      ↑ 22% week-over-week
-documentation    ↓ -8% week-over-week
+test-writing     +34% week-over-week
+refactoring      +22% week-over-week
+documentation    -8%  week-over-week
 ```
 
-## Skill Statistics
+## Skill Statistics API
 
 ### GET /api/skills
 
@@ -247,9 +248,9 @@ Response:
       "success_rate": 0.98
     }
   ],
-  "co_occurrence_matrix": { ... },
-  "detected_methodologies": [ ... ],
-  "anomalies": [ ... ]
+  "co_occurrence_matrix": { "..." : "..." },
+  "detected_methodologies": [],
+  "anomalies": []
 }
 ```
 
@@ -258,33 +259,37 @@ Response:
 1. **Granular Skills**: Use specific skill names (not just "coding")
 2. **Consistent Naming**: Use lowercase with hyphens (e.g., `test-writing`)
 3. **Context Rich**: Include metadata to understand usage patterns
-4. **Regular Tracking**: Log skills as they're used, not retrospectively
+4. **Regular Tracking**: Log skills as they are used, not retrospectively
 5. **Success Tracking**: Mark successful/failed skill usage
 6. **Tokens Logged**: Include token consumption for cost analysis
 
 ## Troubleshooting
 
-**Skills not appearing on dashboard?**
+### Skills Not Appearing on Dashboard
+
 - Verify POST /api/skills/track succeeded
 - Check agent_id exists and is active
 - Refresh page (Cmd+R)
 
-**Co-occurrence matrix not showing?**
+### Co-Occurrence Matrix Not Showing
+
 - Ensure multiple skill events logged
 - Wait 1-2 minutes for calculation
 - Check browser console for JS errors
 
-**Methodology not detected?**
+### Methodology Not Being Detected
+
 - Verify correct skill sequence is logged
 - Check skill names match standard identifiers
 - Ensure sufficient event count (minimum 10 events)
 
-**Anomalies not flagging?**
+### Anomalies Not Flagging
+
 - Review threshold settings in config
 - Check token usage is being logged
 - Verify enough historical data exists
 
-See [API Reference](../developer/api-reference.md) for complete skills endpoints.
+See [API Reference](/docs/developer/api-reference) for complete skills endpoints.
 
 ---
 

@@ -31,6 +31,7 @@ import WidgetResize from "./hooks/widget_resize"
 import SessionTimeline from "./hooks/session_timeline"
 import FormationGraph from "./hooks/formation_graph"
 import Toast from "./hooks/toast"
+import DocContent from "./hooks/doc_content"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -50,7 +51,8 @@ const Hooks = {
   WidgetResize,
   SessionTimeline,
   FormationGraph,
-  Toast
+  Toast,
+  DocContent
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

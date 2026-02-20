@@ -4,75 +4,84 @@ CCEM APM v4 is built on Phoenix/Elixir with a supervisor-based OTP architecture.
 
 ## High-Level Architecture
 
-```
-+---------------------------------------------------+
-|  Phoenix Endpoint & Router                        |
-|  - HTTP routes                                    |
-|  - WebSocket upgrade                              |
-|  - Static assets (HTML, CSS, JS)                  |
-+------------------------+--------------------------+
-                         |
-+------------------------v--------------------------+
-|  LiveView Pages & Controllers                     |
-|  - DashboardLive, AllProjectsLive, SkillsLive     |
-|  - FormationLive, PortsLive, DocsLive             |
-|  - REST controllers for API routes                |
-+------------------------+--------------------------+
-                         |
-+------------------------v--------------------------+
-|  PubSub Broker (Event Bus)                        |
-|  - Topics: apm:agents, apm:notifications, etc.    |
-|  - Broadcasts real-time updates to clients        |
-+------------------------+--------------------------+
-                         |
-+------------------------v--------------------------+
-|  GenServer Stores (OTP Supervision)               |
-|  - ConfigLoader, AgentRegistry, ProjectStore      |
-|  - UpmStore, SkillTracker, PortManager, DocsStore |
-|  - MetricsCollector, AlertRulesEngine             |
-+------------------------+--------------------------+
-                         |
-+------------------------v--------------------------+
-|  Data Layer                                       |
-|  - ETS tables for fast lookups                    |
-|  - JSON files (apm_config.json, sessions)         |
-|  - File-based persistence                         |
-+---------------------------------------------------+
+The following diagram shows the layered architecture from HTTP entry point down to the data layer.
+
+```text
+┌───────────────────────────────────────────────────┐
+│  Phoenix Endpoint & Router                        │
+│  - HTTP routes                                    │
+│  - WebSocket upgrade                              │
+│  - Static assets (HTML, CSS, JS)                  │
+└─────────────────────┬─────────────────────────────┘
+                      │
+┌─────────────────────▼─────────────────────────────┐
+│  LiveView Pages & Controllers                     │
+│  - DashboardLive, AllProjectsLive, SkillsLive     │
+│  - FormationLive, PortsLive, DocsLive             │
+│  - REST controllers for API routes                │
+└─────────────────────┬─────────────────────────────┘
+                      │
+┌─────────────────────▼─────────────────────────────┐
+│  PubSub Broker (Event Bus)                        │
+│  - Topics: apm:agents, apm:notifications, etc.    │
+│  - Broadcasts real-time updates to clients        │
+└─────────────────────┬─────────────────────────────┘
+                      │
+┌─────────────────────▼─────────────────────────────┐
+│  GenServer Stores (OTP Supervision)               │
+│  - ConfigLoader, AgentRegistry, ProjectStore      │
+│  - UpmStore, SkillTracker, PortManager, DocsStore │
+│  - MetricsCollector, AlertRulesEngine             │
+└─────────────────────┬─────────────────────────────┘
+                      │
+┌─────────────────────▼─────────────────────────────┐
+│  Data Layer                                       │
+│  - ETS tables for fast lookups                    │
+│  - JSON files (apm_config.json, sessions)         │
+│  - File-based persistence                         │
+└───────────────────────────────────────────────────┘
 ```
 
 ## Application Supervision Tree
 
 The application uses a flat `one_for_one` supervision strategy defined in `lib/apm_v4/application.ex`. All children are direct descendants of the root supervisor -- there is no intermediate `GeneralSupervisor`.
 
-```
+The following diagram shows every supervised child process in start order.
+
+```text
 ApmV4.Supervisor (root, strategy: :one_for_one)
-+-- ApmV4Web.Telemetry
-+-- DNSCluster
-+-- Phoenix.PubSub (name: ApmV4.PubSub)
-+-- ApmV4.ConfigLoader
-+-- ApmV4.DashboardStore
-+-- ApmV4.ApiKeyStore
-+-- ApmV4.AuditLog
-+-- ApmV4.ProjectStore
-+-- ApmV4.AgentRegistry
-+-- ApmV4.UpmStore
-+-- ApmV4.SkillTracker
-+-- ApmV4.AlertRulesEngine
-+-- ApmV4.MetricsCollector
-+-- ApmV4.SloEngine
-+-- ApmV4.EventStream
-+-- ApmV4.AgentDiscovery
-+-- ApmV4.EnvironmentScanner
-+-- ApmV4.CommandRunner
-+-- ApmV4.DocsStore
-+-- ApmV4.PortManager
-+-- ApmV4Web.Endpoint
+├── ApmV4Web.Telemetry
+├── DNSCluster
+├── Phoenix.PubSub (name: ApmV4.PubSub)
+├── ApmV4.ConfigLoader
+├── ApmV4.DashboardStore
+├── ApmV4.ApiKeyStore
+├── ApmV4.AuditLog
+├── ApmV4.ProjectStore
+├── ApmV4.AgentRegistry
+├── ApmV4.UpmStore
+├── ApmV4.SkillTracker
+├── ApmV4.AlertRulesEngine
+├── ApmV4.MetricsCollector
+├── ApmV4.SloEngine
+├── ApmV4.EventStream
+├── ApmV4.AgentDiscovery
+├── ApmV4.EnvironmentScanner
+├── ApmV4.CommandRunner
+├── ApmV4.DocsStore
+├── ApmV4.PortManager
+└── ApmV4Web.Endpoint
 ```
+
+> **Warning:** The supervision tree uses `one_for_one` strategy. If a child crashes, only that child is restarted. Ensure each GenServer can recover its own state on restart.
 
 ## GenServer Modules
 
 ### ConfigLoader
+
 Loads and manages `apm_config.json`.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.ConfigLoader
@@ -91,7 +100,10 @@ Broadcasts:
 ```
 
 ### DashboardStore
+
 Maintains aggregated dashboard metrics and state.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.DashboardStore
@@ -112,7 +124,10 @@ Subscribes to:
 ```
 
 ### AgentRegistry
+
 Central registry for all agents and fleet management.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.AgentRegistry
@@ -143,7 +158,10 @@ Broadcasts:
 ```
 
 ### ProjectStore
+
 Manages multi-project tasks, commands, input requests, and Plane PM data.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.ProjectStore
@@ -172,7 +190,10 @@ Broadcasts:
 ```
 
 ### UpmStore
+
 Tracks UPM sessions, formations, agents, and events.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.UpmStore
@@ -197,7 +218,10 @@ Broadcasts:
 ```
 
 ### SkillTracker
+
 Tracks skill usage, co-occurrence, and patterns.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.SkillTracker
@@ -219,7 +243,10 @@ Broadcasts:
 ```
 
 ### MetricsCollector
+
 Collects and aggregates metrics from all sources.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.MetricsCollector
@@ -242,7 +269,10 @@ Subscribes to:
 ```
 
 ### AlertRulesEngine
+
 Manages alert rules and evaluates conditions.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.AlertRulesEngine
@@ -261,7 +291,10 @@ Broadcasts:
 ```
 
 ### AuditLog
+
 Maintains immutable audit trail.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.AuditLog
@@ -280,7 +313,10 @@ Broadcasts:
 ```
 
 ### EventStream
+
 Manages event queue and AG-UI SSE streaming.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.EventStream
@@ -299,7 +335,10 @@ Broadcasts:
 ```
 
 ### SloEngine
+
 Evaluates SLO (Service Level Objective) rules and targets.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.SloEngine
@@ -312,7 +351,10 @@ Broadcasts:
 ```
 
 ### PortManager
+
 Manages port assignments across CCEM projects.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.PortManager
@@ -330,7 +372,10 @@ API:
 ```
 
 ### DocsStore
+
 Caches and serves documentation from `priv/docs/`.
+
+GenServer state and API summary:
 
 ```elixir
 GenServer: ApmV4.DocsStore
@@ -346,17 +391,17 @@ API:
 
 ### Additional GenServers
 
-**ApiKeyStore** - API authentication and key management
-**AgentDiscovery** - Auto-discovery of agents from environment
-**EnvironmentScanner** - Scans and tracks Claude Code environments
-**CommandRunner** - Executes commands in environments
+- **ApiKeyStore** -- API authentication and key management
+- **AgentDiscovery** -- Auto-discovery of agents from environment
+- **EnvironmentScanner** -- Scans and tracks Claude Code environments
+- **CommandRunner** -- Executes commands in environments
 
 ## ETS Tables
 
-Fast in-memory storage for frequently accessed data:
+Fast in-memory storage for frequently accessed data.
 
 | Table | Keys | Purpose |
-|-------|------|---------|
+|:------|:-----|:--------|
 | `:agents` | agent_id | Agent registry |
 | `:projects` | project_name | Project catalog |
 | `:skills` | skill_name | Skill catalog |
@@ -366,13 +411,14 @@ Fast in-memory storage for frequently accessed data:
 | `:agent_index_by_project` | project_name | Project -> agent mapping |
 | `:agent_index_by_status` | status | Status -> agent mapping |
 
-Created in ConfigLoader init, cleared on reload.
+> **Pattern:** ETS tables are created in `ConfigLoader.init/1` and cleared on reload. Use `:ets.lookup/2` for O(1) reads and `:ets.insert/2` for writes.
 
 ## PubSub Topics
 
-Real-time event broadcasting:
+Real-time event broadcasting. See [PubSub Events](pubsub-events.md) for full payload documentation.
 
 ### apm:agents
+
 Agent lifecycle events.
 
 ```elixir
@@ -382,6 +428,7 @@ Agent lifecycle events.
 ```
 
 ### apm:notifications
+
 Alert and notification events.
 
 ```elixir
@@ -390,6 +437,7 @@ Alert and notification events.
 ```
 
 ### apm:config
+
 Configuration changes.
 
 ```elixir
@@ -397,6 +445,7 @@ Configuration changes.
 ```
 
 ### apm:tasks
+
 Task execution events.
 
 ```elixir
@@ -404,6 +453,7 @@ Task execution events.
 ```
 
 ### apm:commands
+
 Slash command registration.
 
 ```elixir
@@ -411,6 +461,7 @@ Slash command registration.
 ```
 
 ### apm:upm
+
 UPM execution tracking.
 
 ```elixir
@@ -422,6 +473,7 @@ UPM execution tracking.
 ```
 
 ### apm:skills
+
 Skill tracking.
 
 ```elixir
@@ -429,6 +481,7 @@ Skill tracking.
 ```
 
 ### apm:audit
+
 Audit logging.
 
 ```elixir
@@ -436,6 +489,7 @@ Audit logging.
 ```
 
 ### apm:alerts
+
 Alert rule engine.
 
 ```elixir
@@ -443,6 +497,7 @@ Alert rule engine.
 ```
 
 ### apm:environments
+
 Environment scanning.
 
 ```elixir
@@ -450,6 +505,7 @@ Environment scanning.
 ```
 
 ### apm:input
+
 User input requests and responses.
 
 ```elixir
@@ -458,6 +514,7 @@ User input requests and responses.
 ```
 
 ### apm:plane
+
 Plane PM integration.
 
 ```elixir
@@ -465,6 +522,7 @@ Plane PM integration.
 ```
 
 ### apm:metrics
+
 Fleet metrics.
 
 ```elixir
@@ -472,6 +530,7 @@ Fleet metrics.
 ```
 
 ### apm:slos
+
 SLO status transitions.
 
 ```elixir
@@ -479,6 +538,7 @@ SLO status transitions.
 ```
 
 ### apm:ag_ui
+
 AG-UI Server-Sent Events.
 
 ```elixir
@@ -489,12 +549,12 @@ AG-UI Server-Sent Events.
 
 GenServers use standard Elixir error handling:
 
-- **Init errors**: Logged, supervisor restarts
-- **Cast/call errors**: Logged, GenServer continues
+- **Init errors**: Logged, supervisor restarts the child
+- **Cast/call errors**: Logged, GenServer continues operating
 - **Subscription errors**: Logged, reconnection attempted
 - **File I/O errors**: Logged, operation retried
 
-Errors broadcast to `"apm:notifications"` for UI alert.
+> **Pattern:** Errors are broadcast to `"apm:notifications"` so the UI can display alerts to the user.
 
 ## Scalability
 
@@ -505,6 +565,7 @@ Errors broadcast to `"apm:notifications"` for UI alert.
 - **Memory**: ~500MB baseline, grows with agent count
 
 For larger deployments, consider:
+
 - Splitting GenServers across multiple nodes (Erlang clustering)
 - Using external store (PostgreSQL) with ETS cache layer
 - Implementing request queuing for high-volume periods
@@ -513,9 +574,9 @@ For larger deployments, consider:
 
 To understand the codebase:
 
-1. Start with `lib/apm_v4/application.ex` - see supervision tree
-2. Explore `lib/apm_v4/` - understand GenServer modules
-3. Check `lib/apm_v4_web/` - Phoenix routes and controllers
-4. Review `lib/apm_v4_web/live/` - LiveView pages
+1. Start with `lib/apm_v4/application.ex` -- see the supervision tree
+2. Explore `lib/apm_v4/` -- understand GenServer modules
+3. Check `lib/apm_v4_web/` -- Phoenix routes and controllers
+4. Review `lib/apm_v4_web/live/` -- LiveView pages
 
 See [Extending CCEM](extending.md) for adding new features.

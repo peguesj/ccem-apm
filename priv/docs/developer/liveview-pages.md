@@ -2,9 +2,9 @@
 
 CCEM APM v4 uses Phoenix LiveView for real-time, interactive web pages. Each page maintains a WebSocket connection with the server for live updates without page refresh.
 
-## Architecture
+## LiveView Architecture
 
-Each LiveView page follows this pattern:
+Every LiveView page follows the same mount-subscribe-handle pattern.
 
 ```elixir
 defmodule ApmV4Web.DashboardLive do
@@ -30,6 +30,10 @@ defmodule ApmV4Web.DashboardLive do
 end
 ```
 
+> **Pattern:** Use `Phoenix.PubSub.subscribe/2` in `mount/3` only when `connected?(socket)` is true. This prevents double-subscriptions during the static render pass.
+
+> **Warning:** Never call GenServer directly from LiveView render -- use assigns. The render function must be pure and only reference `assigns`.
+
 ## DashboardLive
 
 **Route**: `/`
@@ -37,7 +41,7 @@ end
 
 The main dashboard showing all agents, metrics, and real-time data.
 
-### Components
+### DashboardLive Components
 
 - **Stats Cards**: Agent count, session count, project count, skill count
 - **Agent Fleet List**: Filterable table of all agents
@@ -45,7 +49,9 @@ The main dashboard showing all agents, metrics, and real-time data.
 - **Filter Bar**: Status, type, search filters
 - **Right Panel Tabs**: Inspector, Ralph, UPM, Commands, TODOs
 
-### PubSub Subscriptions
+### DashboardLive PubSub Subscriptions
+
+Topics subscribed to on mount:
 
 ```elixir
 subscribe("apm:agents")         # Agent registration, updates
@@ -54,7 +60,9 @@ subscribe("apm:config")         # Config changes
 subscribe("apm:skills")         # Skill events
 ```
 
-### Event Handlers
+### DashboardLive Event Handlers
+
+Handlers for incoming PubSub messages:
 
 ```elixir
 handle_info({:agent_registered, agent}, socket)
@@ -64,7 +72,9 @@ handle_info({:notification_added, notif}, socket)
 handle_info({:config_reloaded, config}, socket)
 ```
 
-### JS Hooks
+### DashboardLive JS Hooks
+
+Client-side hooks for interactive elements:
 
 ```javascript
 // Clock hook - updates relative timestamps
@@ -81,7 +91,7 @@ Hooks.DependencyGraph
 
 Multi-project overview and management page.
 
-### Features
+### AllProjectsLive Features
 
 - **Project List**: All configured projects with stats
 - **Project Selector**: Switch active project
@@ -89,14 +99,18 @@ Multi-project overview and management page.
 - **Project Configuration**: Add/remove projects
 - **Session Summary**: Sessions per project
 
-### PubSub Subscriptions
+### AllProjectsLive PubSub Subscriptions
+
+Topics subscribed to on mount:
 
 ```elixir
 subscribe("apm:config")    # Config reload, project changes
 subscribe("apm:agents")    # Agent registration
 ```
 
-### Event Handlers
+### AllProjectsLive Event Handlers
+
+Handlers for incoming PubSub messages:
 
 ```elixir
 handle_info({:config_reloaded, config}, socket)
@@ -110,7 +124,7 @@ handle_info({:agent_registered, agent}, socket)
 
 Skill tracking, analytics, and methodology detection.
 
-### Components
+### SkillsLive Components
 
 - **Skill Catalog**: All skills with usage counts
 - **Co-Occurrence Matrix**: Heatmap of skill relationships
@@ -118,21 +132,27 @@ Skill tracking, analytics, and methodology detection.
 - **Trending Skills**: Week-over-week changes
 - **UEBA Anomalies**: Flagged unusual behavior
 
-### PubSub Subscriptions
+### SkillsLive PubSub Subscriptions
+
+Topics subscribed to on mount:
 
 ```elixir
 subscribe("apm:skills")    # Skill tracking events
 subscribe("apm:agents")    # Agent updates for context
 ```
 
-### Event Handlers
+### SkillsLive Event Handlers
+
+Handlers for incoming PubSub messages:
 
 ```elixir
 handle_info({:skill_tracked, skill}, socket)
 handle_info({:methodology_detected, methodology}, socket)
 ```
 
-### JS Hooks
+### SkillsLive JS Hooks
+
+Client-side hooks for data visualization:
 
 ```javascript
 // CoOccurrenceHeatmap hook - renders heatmap matrix
@@ -149,7 +169,7 @@ Hooks.TrendingChart
 
 Ralph methodology flowchart and story tracking visualization.
 
-### Components
+### RalphFlowchartLive Components
 
 - **Flowchart**: Vertical swim lanes per story with timeline
 - **Color Coding**: Status indicators (complete, in-progress, blocked)
@@ -157,7 +177,9 @@ Ralph methodology flowchart and story tracking visualization.
 - **Agent Assignments**: Icons showing assigned agents per story
 - **Legend**: Status color reference
 
-### PubSub Subscriptions
+### RalphFlowchartLive PubSub Subscriptions
+
+Topics subscribed to on mount:
 
 ```elixir
 subscribe("apm:agents")    # Agent status changes
@@ -165,7 +187,9 @@ subscribe("apm:upm")       # Story and wave progress
 subscribe("apm:tasks")     # Task completions
 ```
 
-### Event Handlers
+### RalphFlowchartLive Event Handlers
+
+Handlers for incoming PubSub messages:
 
 ```elixir
 handle_info({:upm_event, event}, socket)
@@ -173,7 +197,9 @@ handle_info({:agent_updated, agent}, socket)
 handle_info({:tasks_synced, project, tasks}, socket)
 ```
 
-### JS Hooks
+### RalphFlowchartLive JS Hooks
+
+Client-side hooks for SVG rendering:
 
 ```javascript
 // RalphFlowchart hook - renders SVG flowchart
@@ -190,7 +216,7 @@ Hooks.DependencyArrows
 
 Session execution timeline with event log.
 
-### Components
+### SessionTimelineLive Components
 
 - **Timeline Visualization**: Horizontal or vertical timeline
 - **Event Entries**: Each event with timestamp, agent, action
@@ -198,7 +224,9 @@ Session execution timeline with event log.
 - **Zoom/Pan**: Navigate time periods
 - **Export**: Download session log
 
-### PubSub Subscriptions
+### SessionTimelineLive PubSub Subscriptions
+
+Topics subscribed to on mount:
 
 ```elixir
 subscribe("apm:agents")    # All agent events
@@ -207,7 +235,9 @@ subscribe("apm:audit")     # Audit log entries
 subscribe("apm:tasks")     # Task events
 ```
 
-### Event Handlers
+### SessionTimelineLive Event Handlers
+
+Handlers for incoming PubSub messages:
 
 ```elixir
 handle_info({:audit_entry, entry}, socket)
@@ -215,7 +245,9 @@ handle_info({:upm_event, event}, socket)
 handle_info({:agent_updated, agent}, socket)
 ```
 
-### JS Hooks
+### SessionTimelineLive JS Hooks
+
+Client-side hooks for timeline rendering:
 
 ```javascript
 // Timeline hook - renders timeline visualization
@@ -232,14 +264,14 @@ Hooks.EventFilter
 
 Formation hierarchy visualization using a D3.js tree layout. Displays the formation > squadron > agent hierarchy with real-time PubSub updates.
 
-### Components
+### FormationLive Components
 
 - **D3 Tree Graph**: Interactive force-directed graph of formation hierarchy rendered via the `FormationGraph` JS hook
 - **Inspector Panel**: Click any node (formation, squadron, or agent) to inspect details including ID, status, member count, story assignment, wave, and role
 - **Formation Tree Sidebar**: Collapsible tree listing all formations, squadrons, and agents with status indicators
 - **Empty State**: Guidance on creating formations when none are registered
 
-### Features
+### FormationLive Features
 
 - Agents are grouped into formations by `formation_id` metadata
 - Within formations, agents are grouped into squadrons by `squadron` metadata
@@ -247,14 +279,18 @@ Formation hierarchy visualization using a D3.js tree layout. Displays the format
 - Status badges indicate active/error/idle state at every level
 - Real-time updates when agents register or change status
 
-### PubSub Subscriptions
+### FormationLive PubSub Subscriptions
+
+Topics subscribed to on mount:
 
 ```elixir
 subscribe("apm:agents")    # Agent registration and updates
 subscribe("apm:upm")       # Formation and UPM session events
 ```
 
-### Event Handlers
+### FormationLive Event Handlers
+
+Handlers for incoming PubSub messages:
 
 ```elixir
 handle_info({:agent_registered, _agent}, socket)
@@ -264,7 +300,9 @@ handle_info({:upm_session_registered, _}, socket)
 handle_info({:upm_agent_registered, _}, socket)
 ```
 
-### JS Hooks
+### FormationLive JS Hooks
+
+Client-side hook for D3 tree rendering:
 
 ```javascript
 // FormationGraph hook - renders D3 tree layout
@@ -278,7 +316,7 @@ Hooks.FormationGraph
 
 Port management dashboard for viewing and managing port assignments across all CCEM projects.
 
-### Components
+### PortsLive Components
 
 - **Summary Bar**: Total projects, active count, clash count with scan button
 - **Filter Bar**: Filter by status (all/active/clashes) and namespace (all/web/api/service/tool)
@@ -286,7 +324,7 @@ Port management dashboard for viewing and managing port assignments across all C
 - **Port Ranges Sidebar**: Visual display of configured port ranges per namespace with usage bars
 - **Clash Resolution Panel**: Lists all port clashes with affected projects
 
-### Features
+### PortsLive Features
 
 - Real-time updates via `apm:ports` PubSub topic
 - Scan active ports on the system to detect which are in use
@@ -294,13 +332,17 @@ Port management dashboard for viewing and managing port assignments across all C
 - Detect and resolve port clashes between projects
 - Filter by status (active, clashes) and namespace (web, api, service, tool)
 
-### PubSub Subscriptions
+### PortsLive PubSub Subscriptions
+
+Topics subscribed to on mount:
 
 ```elixir
 subscribe("apm:ports")    # Port assignment events
 ```
 
-### Event Handlers
+### PortsLive Event Handlers
+
+Handlers for incoming PubSub messages:
 
 ```elixir
 handle_info({:port_assigned, _, _}, socket)
@@ -313,7 +355,7 @@ handle_info({:port_assigned, _, _}, socket)
 
 Industry-standard documentation viewer with search, navigation, and responsive layout.
 
-### Components
+### DocsLive Components
 
 - **Left TOC Panel**: Collapsible category tree (Overview, User Guide, Developer, Administration) with category icons
 - **Search Box**: Full-text search with Cmd+K shortcut, debounced input, grouped results by category with snippets
@@ -323,7 +365,7 @@ Industry-standard documentation viewer with search, navigation, and responsive l
 - **Prev/Next Navigation**: Links to previous and next pages based on TOC order
 - **Mobile Support**: Responsive with mobile TOC overlay and hamburger menu
 
-### Features
+### DocsLive Features
 
 - **Markdown Rendering**: Converts `.md` files from `priv/docs/` to HTML via `DocsStore`
 - **Read Time Estimation**: Estimated reading time based on word count
@@ -332,15 +374,17 @@ Industry-standard documentation viewer with search, navigation, and responsive l
 - **Collapsible Categories**: Toggle category visibility in the TOC
 - **Static Content**: No PubSub subscriptions -- docs are loaded from `DocsStore` GenServer
 
-### PubSub Subscriptions
+### DocsLive PubSub Subscriptions
 
 None -- docs are static content served from the `DocsStore` cache.
 
 ## Sidebar Navigation
 
-All pages include a consistent sidebar with navigation links to all LiveView pages:
+All pages include a consistent sidebar with navigation links to all LiveView pages.
 
-```
+Navigation entries and their routes:
+
+```text
 Dashboard        /
 All Projects     /apm-all
 Skills           /skills      (with badge count)
@@ -355,7 +399,9 @@ Active page is highlighted with `bg-primary/10 text-primary font-medium`. Each p
 
 ## Live Update Pattern
 
-When data changes, update socket assigns which triggers re-render:
+When data changes, update socket assigns which triggers a re-render. Only changed HTML is sent to the client (efficient).
+
+Example of handling a real-time agent update:
 
 ```elixir
 def handle_info({:agent_updated, agent}, socket) do
@@ -372,7 +418,7 @@ def handle_info({:agent_updated, agent}, socket) do
 end
 ```
 
-Only changed HTML is sent to client (efficient).
+> **Pattern:** Only update the specific assign that changed. Phoenix LiveView diffs the rendered HTML and sends only the changed parts over the WebSocket.
 
 ## Performance Tips
 
@@ -382,9 +428,11 @@ Only changed HTML is sent to client (efficient).
 4. **Selective Updates**: Update only changed assigns
 5. **Client-side Filtering**: Use JS hooks for fast filtering
 
-## Testing
+## Testing LiveView Pages
 
-LiveView pages tested with `Phoenix.LiveViewTest`:
+LiveView pages are tested with `Phoenix.LiveViewTest`.
+
+Example unit test for rendering:
 
 ```elixir
 test "dashboard renders stats" do
@@ -393,7 +441,11 @@ test "dashboard renders stats" do
   assert html =~ "Agents"
   assert html =~ "Sessions"
 end
+```
 
+Example test for real-time updates:
+
+```elixir
 test "agent list updates on registration" do
   {:ok, view, _html} = live(conn, "/")
 
@@ -403,9 +455,9 @@ test "agent list updates on registration" do
 end
 ```
 
-See `test/apm_v4_web/live/` for examples.
+See `test/apm_v4_web/live/` for more examples.
 
-## Extending
+## Extending with New LiveView Pages
 
 To add a new LiveView page:
 

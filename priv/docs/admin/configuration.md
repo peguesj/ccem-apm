@@ -2,6 +2,8 @@
 
 CCEM APM is configured via `apm_config.json`, located at `~/Developer/ccem/apm/apm_config.json`.
 
+> **Important:** Always back up `apm_config.json` before manual edits.
+
 ## File Location
 
 ```text
@@ -10,31 +12,46 @@ CCEM APM is configured via `apm_config.json`, located at `~/Developer/ccem/apm/a
 
 If the file doesn't exist, the `ConfigLoader` GenServer creates a default in memory. The session init hook creates the file on disk when a Claude Code session starts.
 
-## Configuration Structure (v4 Schema)
+## Minimal Configuration
+
+The bare minimum needed to run CCEM APM. The server will start with no projects and wait for sessions to register automatically:
 
 ```json
 {
-  "$schema": "./apm_config_v4.schema.json",
-  "version": "4.0.0",
-  "port": 3031,
-  "active_project": "my-project",
+  "version": "4.0.0",       // Required. Must be "4.0.0" for v4 schema validation
+  "port": 3031,             // HTTP listen port (must match PORT env var)
+  "active_project": null,   // No active project until a session registers one
+  "projects": []            // Empty; projects are added automatically by the session hook
+}
+```
+
+## Full Configuration Example (v4 Schema)
+
+A typical config after one project and session have been registered:
+
+```json
+{
+  "$schema": "./apm_config_v4.schema.json",  // Optional. Points to JSON Schema for editor validation
+  "version": "4.0.0",                        // Schema version; checked by session init hook
+  "port": 3031,                              // HTTP listen port for Phoenix
+  "active_project": "my-project",            // Currently active project (matches a name in projects[])
   "projects": [
     {
-      "name": "my-project",
-      "root": "/Users/jeremiah/Developer/my-project",
-      "tasks_dir": "/private/tmp/claude-503/-Users-jeremiah-Developer-my-project/tasks",
-      "prd_json": "/Users/jeremiah/Developer/my-project/.claude/ralph/prd.json",
-      "todo_md": "",
-      "status": "active",
-      "primary_port": 4000,
-      "port_ownership": "exclusive",
-      "registered_at": "2026-02-19T00:00:00Z",
+      "name": "my-project",                  // Unique ID derived from basename of working directory
+      "root": "/Users/jeremiah/Developer/my-project",  // Absolute path to project root
+      "tasks_dir": "/private/tmp/claude-503/-Users-jeremiah-Developer-my-project/tasks",  // Claude Code tasks directory
+      "prd_json": "/Users/jeremiah/Developer/my-project/.claude/ralph/prd.json",          // Ralph PRD file path (or "")
+      "todo_md": "",                         // Path to TODO file (or "" if none found)
+      "status": "active",                    // Project status
+      "primary_port": 4000,                  // Dev server port for this project (optional)
+      "port_ownership": "exclusive",         // Port mode: "exclusive" or "shared" (optional)
+      "registered_at": "2026-02-19T00:00:00Z",  // ISO 8601 timestamp of first registration
       "sessions": [
         {
-          "session_id": "afb88ff8-7315-4887-b0df-73ff794bd6d3",
-          "session_jsonl": "/Users/jeremiah/.claude/projects/-Users-jeremiah-Developer-my-project/afb88ff8-7315-4887-b0df-73ff794bd6d3.jsonl",
-          "start_time": "2026-02-19T22:55:29Z",
-          "status": "active"
+          "session_id": "afb88ff8-7315-4887-b0df-73ff794bd6d3",  // Claude Code session UUID
+          "session_jsonl": "/Users/jeremiah/.claude/projects/-Users-jeremiah-Developer-my-project/afb88ff8-7315-4887-b0df-73ff794bd6d3.jsonl",  // JSONL transcript path
+          "start_time": "2026-02-19T22:55:29Z",  // When session was registered
+          "status": "active"                      // Session status
         }
       ]
     }
@@ -46,44 +63,27 @@ If the file doesn't exist, the `ConfigLoader` GenServer creates a default in mem
 
 ### version
 
-**Type**: `string`
-**Required**: Yes
-**Value**: `"4.0.0"`
+**Type**: `string` | **Required**: Yes | **Value**: `"4.0.0"`
 
 Identifies the config schema version. The session init hook checks this value and will re-initialize the config if it does not equal `"4.0.0"`.
 
-```json
-"version": "4.0.0"
-```
-
 ### port
 
-**Type**: `integer`
-**Default**: `3031`
+**Type**: `integer` | **Default**: `3031`
 
 HTTP server listen port for the Phoenix application. Configured in `config/dev.exs` via the `PORT` environment variable.
 
-```json
-"port": 3031
-```
-
 ### active_project
 
-**Type**: `string`
-**Default**: `null`
+**Type**: `string` | **Default**: `null`
 
 Name of the currently active project. Must match a `name` field in the `projects` array. Updated automatically by the session init hook each time a new Claude Code session starts.
-
-```json
-"active_project": "my-project"
-```
 
 The `ConfigLoader.get_active_project/0` function looks up this name in the `projects` array and returns the matching project map.
 
 ### projects
 
-**Type**: `array of objects`
-**Default**: `[]`
+**Type**: `array of objects` | **Default**: `[]`
 
 Array of all registered projects. Projects are added automatically by the session init hook via jq UPSERT logic -- they are never overwritten, only appended or updated.
 
@@ -191,6 +191,8 @@ This calls `ConfigLoader.reload/0`, which re-reads the file from disk, syncs ses
 
 ## Port Configuration
 
+> **Warning:** Never run multiple APM instances on the same port.
+
 The APM server listens on port 3031 by default. To use a different port:
 
 ```bash
@@ -209,6 +211,8 @@ kill -9 $(lsof -ti:3031)
 
 ## Backup and Recovery
 
+> **Important:** Back up your config before any manual edits or upgrades.
+
 ```bash
 # Backup
 cp ~/Developer/ccem/apm/apm_config.json ~/Developer/ccem/apm/apm_config.json.backup
@@ -220,17 +224,52 @@ curl -X POST http://localhost:3031/api/config/reload
 
 ## Troubleshooting
 
-**Configuration not loading?**
-- Verify file exists: `ls -la ~/Developer/ccem/apm/apm_config.json`
-- Check valid JSON: `jq empty ~/Developer/ccem/apm/apm_config.json`
-- Check version field equals `"4.0.0"`
+### Issue: Configuration Not Loading
 
-**Project not appearing?**
-- Verify entry in `projects` array: `jq '.projects[].name' ~/Developer/ccem/apm/apm_config.json`
-- Reload config: `curl -X POST http://localhost:3031/api/config/reload`
+**Symptoms:** Dashboard shows no projects or stale data after editing `apm_config.json`.
 
-**Changes not taking effect?**
-- POST to `/api/config/reload` or `/api/reload`
-- Both endpoints call the same `ConfigLoader.reload/0` function
+**Cause:** File may not exist, contain invalid JSON, or have the wrong version field.
+
+**Fix:**
+
+```bash
+# Verify file exists
+ls -la ~/Developer/ccem/apm/apm_config.json
+
+# Check valid JSON
+jq empty ~/Developer/ccem/apm/apm_config.json
+
+# Check version field equals "4.0.0"
+jq '.version' ~/Developer/ccem/apm/apm_config.json
+```
+
+### Issue: Project Not Appearing
+
+**Symptoms:** A registered project does not show in the dashboard dropdown.
+
+**Cause:** Project entry missing from `projects` array, or config not reloaded after edit.
+
+**Fix:**
+
+```bash
+# Verify entry in projects array
+jq '.projects[].name' ~/Developer/ccem/apm/apm_config.json
+
+# Reload config
+curl -X POST http://localhost:3031/api/config/reload
+```
+
+### Issue: Changes Not Taking Effect
+
+**Symptoms:** Manual edits to `apm_config.json` are not reflected in the dashboard.
+
+**Cause:** The running server has not been notified to reload from disk.
+
+**Fix:**
+
+```bash
+# POST to either endpoint (both call ConfigLoader.reload/0)
+curl -X POST http://localhost:3031/api/config/reload
+```
 
 See [Deployment](deployment.md) for production setup.

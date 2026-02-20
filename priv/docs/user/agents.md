@@ -2,50 +2,60 @@
 
 The CCEM APM agent fleet system enables real-time monitoring, classification, and orchestration of Claude Code AI agents.
 
+> **Tip:** New to CCEM APM? Start with [Getting Started](/docs/user/getting-started) to set up the server, then return here to learn the agent model.
+
 ## Agent Types
 
 Agents are classified into four distinct types:
 
-### Individual
+### Individual Agent
+
 Single autonomous agent operating independently.
+
 - Tier 1-3 capable
 - Handles one primary task
 - Example: `code-analyzer`, `test-generator`
 
 ### Squadron
+
 Group of individual agents working toward a common goal.
+
 - Tier 2-3
 - Coordinated by an orchestrator
 - Example: `tdd-squadron` (test + code + review agents)
 
 ### Swarm
+
 Large coordinated group with peer-to-peer communication.
+
 - Tier 3 only
 - Self-organizing
 - Example: `parallel-refactor-swarm`
 
 ### Orchestrator
+
 Manages coordination of other agents (squadrons, swarms).
+
 - Tier 3 only
 - Routes tasks, aggregates results
 - Example: `fix-loop-orchestrator`
 
-## Agent Tiers
+## Agent Tier Classification
 
 Tiers classify agent sophistication and responsibility:
 
 | Tier | Level | Characteristics | Examples |
-|------|-------|-----------------|----------|
+| :---: | :--- | :--- | :--- |
 | **1** | Entry | Single-task, basic analysis | syntax checker, formatter |
 | **2** | Intermediate | Multi-step workflows, decision making | test generator, code analyzer |
 | **3** | Expert | Complex orchestration, swarm management | orchestrator, advanced refactorer |
 
-## Agent Statuses
+## Agent Status Lifecycle
 
 An agent can be in one of five states:
 
 | Status | Meaning | Action |
-|--------|---------|--------|
+| :--- | :--- | :--- |
 | **active** | Running task, sending heartbeats | Normal operation |
 | **idle** | Registered but no current task | Waiting for work |
 | **error** | Encountered problem, stopped | Requires intervention |
@@ -56,7 +66,7 @@ An agent can be in one of five states:
 
 ### POST /api/register
 
-Register a new agent:
+Register a new agent with the fleet:
 
 ```bash
 curl -X POST http://localhost:3031/api/register \
@@ -74,24 +84,24 @@ curl -X POST http://localhost:3031/api/register \
   }'
 ```
 
-### Required Fields
+### Required Registration Fields
 
 | Field | Type | Description |
-|-------|------|-------------|
+| :--- | :--- | :--- |
 | **name** | string | Unique agent identifier |
 | **type** | string | individual, squadron, swarm, or orchestrator |
 | **project** | string | Project namespace |
 | **tier** | integer | 1, 2, or 3 |
 | **capabilities** | array | Skills this agent provides |
 
-### Optional Fields
+### Optional Registration Fields
 
 | Field | Type | Description |
-|-------|------|-------------|
+| :--- | :--- | :--- |
 | **metadata** | object | Custom JSON metadata |
 | **namespace** | string | Session-specific namespace |
 
-### Response
+### Registration Response
 
 ```json
 {
@@ -104,9 +114,7 @@ curl -X POST http://localhost:3031/api/register \
 
 ## Agent Heartbeats
 
-Keep agents alive by sending periodic heartbeats:
-
-### POST /api/heartbeat
+Keep agents alive by sending periodic heartbeats via POST `/api/heartbeat`:
 
 ```bash
 curl -X POST http://localhost:3031/api/heartbeat \
@@ -120,15 +128,15 @@ curl -X POST http://localhost:3031/api/heartbeat \
   }'
 ```
 
-**Recommended interval**: Every 10-30 seconds
-
-If an agent doesn't heartbeat for 2 minutes, its status changes to `idle`. If no heartbeat for 10 minutes, it's marked `offline`.
+> **Note:** Recommended heartbeat interval is every 10-30 seconds. If an agent does not heartbeat for 2 minutes, its status changes to `idle`. After 10 minutes without a heartbeat, it is marked `offline`.
 
 ## Agent Discovery
 
 The system can automatically discover agents from process logs and environment variables.
 
-### POST /api/agents/discover
+### Trigger Discovery
+
+Initiate agent discovery for a project:
 
 ```bash
 curl -X POST http://localhost:3031/api/agents/discover \
@@ -138,7 +146,9 @@ curl -X POST http://localhost:3031/api/agents/discover \
   }'
 ```
 
-Discovered agents appear with status `discovered`. Review and approve them for integration:
+### Approve Discovered Agents
+
+Discovered agents appear with status `discovered`. Approve them for integration:
 
 ```bash
 curl -X POST http://localhost:3031/api/agents/update \
@@ -149,7 +159,7 @@ curl -X POST http://localhost:3031/api/agents/update \
   }'
 ```
 
-## Namespaces
+## Agent Namespaces
 
 Agents within the same session can be further isolated using namespaces:
 
@@ -167,23 +177,24 @@ curl -X POST http://localhost:3031/api/register \
 ```
 
 Namespaces are useful for:
+
 - Organizing agents by session
 - Grouping agents by workflow wave
 - Isolating feature-branch work
 
-## Agent Fleet List
+## Agent Fleet List in Dashboard
 
 The dashboard displays all agents in a filterable table:
 
 ```text
-Name            Type        Status    Tier  Project   Updated
-test-gen        individual  active    2     ccem      5 mins ago
-refactor-squad  squadron    active    3     ccem      2 mins ago
-analyzer        individual  idle      2     lcc       1 hour ago
-fix-orch        orchestrator active   3     ccem      just now
+Name            Type         Status    Tier  Project   Updated
+test-gen        individual   active    2     ccem      5 mins ago
+refactor-squad  squadron     active    3     ccem      2 mins ago
+analyzer        individual   idle      2     lcc       1 hour ago
+fix-orch        orchestrator active    3     ccem      just now
 ```
 
-### Filtering
+### Filtering Options
 
 - **Status Filter**: Show only agents with specific status
 - **Type Filter**: Show only squadrons, individuals, etc.
@@ -213,11 +224,10 @@ Create dependencies via agent metadata:
 }
 ```
 
-## Capabilities
+## Agent Capabilities
 
-Capabilities describe what an agent can do:
+Capabilities describe what an agent can do. Common capability identifiers:
 
-Common capabilities:
 - `analysis` - Code analysis
 - `code-review` - Peer review
 - `refactoring` - Code transformation
@@ -235,7 +245,7 @@ Register with multiple capabilities:
 }
 ```
 
-Filter agents by capability in dashboard:
+Filter agents by capability via the API:
 
 ```bash
 curl http://localhost:3031/api/agents?capability=refactoring
@@ -243,7 +253,7 @@ curl http://localhost:3031/api/agents?capability=refactoring
 
 ## Agent Metrics
 
-Each agent tracks:
+Each agent tracks performance data:
 
 - **Token Usage**: Cumulative tokens consumed
 - **Tasks Completed**: Number of successful tasks
@@ -251,7 +261,7 @@ Each agent tracks:
 - **Average Duration**: Mean time per task
 - **Uptime**: Total active time since registration
 
-View agent metrics:
+Retrieve metrics for a specific agent:
 
 ```bash
 curl http://localhost:3031/api/agents/agent-uuid-1234
@@ -287,24 +297,29 @@ Response includes:
 7. **Status Updates**: Update status when tasks change
 8. **Monitor Health**: Check error rates and uptime regularly
 
+> **Warning:** Agents that stop sending heartbeats are automatically transitioned to `idle` and eventually `offline`. Ensure your agent integration includes a heartbeat loop.
+
 ## Troubleshooting
 
-**Agent not appearing after registration?**
+### Agent Not Appearing After Registration
+
 - Verify project name is in apm_config.json
 - Check heartbeat is being sent
 - Inspect browser console for WebSocket errors
 
-**Agent stuck in error status?**
+### Agent Stuck in Error Status
+
 - Check the Error details in Inspector tab
 - Send `/api/agents/{id}/reset` to clear error
 - Review agent logs for root cause
 
-**Dependency graph not showing relationships?**
+### Dependency Graph Not Showing Relationships
+
 - Verify metadata includes `depends_on` field
 - Refresh dashboard (Cmd+R)
 - Check agent heartbeats are being received
 
-See [API Reference](../developer/api-reference.md) for complete endpoint documentation.
+See [API Reference](/docs/developer/api-reference) for complete endpoint documentation.
 
 ---
 
