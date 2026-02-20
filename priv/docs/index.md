@@ -52,7 +52,7 @@ CCEM APM is a comprehensive monitoring and orchestration platform for AI agent w
 
 ## System Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────┐
 │   Phoenix LiveView (HTML/JS/CSS)            │
 │   - Dashboard, Projects, Skills, Ralph      │
@@ -84,7 +84,7 @@ CCEM APM is a comprehensive monitoring and orchestration platform for AI agent w
 
 CCEM APM runs on **port 3031** by default. Access the dashboard at:
 
-```
+```text
 http://localhost:3031
 ```
 

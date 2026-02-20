@@ -60,7 +60,7 @@ mix phx.server
 
 You should see:
 
-```
+```text
 [info] Running ApmV4Web.Endpoint with cowboy 2.x.x at http://localhost:3031
 [info] Access the web interface at http://localhost:3031
 ```
@@ -85,7 +85,7 @@ This script:
 
 Open your browser and navigate to:
 
-```
+```text
 http://localhost:3031
 ```
 
@@ -222,3 +222,11 @@ CCEM APM is built on Phoenix (Elixir) with:
 - **REST API** for agent integration
 
 See [Architecture](../developer/architecture.md) for details.
+
+---
+
+## See Also
+
+- [Dashboard Guide](/docs/user/dashboard) - Using the web interface
+- [Multi-Project Setup](/docs/user/projects) - Managing multiple projects
+- [Configuration](/docs/admin/configuration) - apm_config.json setup

@@ -8,10 +8,10 @@ GenServers manage state and broadcast events. Follow this pattern to add a new s
 
 ### Step 1: Create the Module
 
-Create `lib/apm_v4/stores/my_feature_store.ex`:
+Create `lib/apm_v4/my_feature_store.ex`:
 
 ```elixir
-defmodule ApmV4.Stores.MyFeatureStore do
+defmodule ApmV4.MyFeatureStore do
   use GenServer
   require Logger
 
@@ -52,7 +52,7 @@ defmodule ApmV4.Stores.MyFeatureStore do
     new_state = %{state | data: Map.put(state.data, key, value)}
 
     # Broadcast event
-    ApmV4.PubSub.broadcast("apm:my_feature", {:data_updated, key, value})
+    Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:my_feature", {:data_updated, key, value})
 
     {:noreply, new_state}
   end
@@ -61,12 +61,14 @@ end
 
 ### Step 2: Add to Supervision Tree
 
-Edit `lib/apm_v4/supervisors/general_supervisor.ex`:
+Edit `lib/apm_v4/application.ex` and add your module to the `children` list:
 
 ```elixir
 children = [
   # ... existing children ...
-  ApmV4.Stores.MyFeatureStore,
+  ApmV4.MyFeatureStore,
+  # Start to serve requests, typically the last entry
+  ApmV4Web.Endpoint
 ]
 ```
 
@@ -80,8 +82,8 @@ def init(_opts) do
   Logger.info("#{__MODULE__} started")
 
   # Subscribe to other topics
-  ApmV4.PubSub.subscribe("apm:agents")
-  ApmV4.PubSub.subscribe("apm:config")
+  Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:agents")
+  Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:config")
 
   {:ok, %{data: %{}}}
 end
@@ -108,7 +110,7 @@ defmodule ApmV4Web.MyFeatureController do
   use ApmV4Web, :controller
 
   def get_data(conn, %{"key" => key}) do
-    data = ApmV4.Stores.MyFeatureStore.get_data(key)
+    data = ApmV4.MyFeatureStore.get_data(key)
 
     json(conn, %{
       data: data,
@@ -117,7 +119,7 @@ defmodule ApmV4Web.MyFeatureController do
   end
 
   def set_data(conn, %{"key" => key, "value" => value}) do
-    ApmV4.Stores.MyFeatureStore.set_data(key, value)
+    ApmV4.MyFeatureStore.set_data(key, value)
 
     json(conn, %{status: "ok"})
   end
@@ -171,7 +173,7 @@ defmodule ApmV4Web.MyFeatureLive do
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      ApmV4.PubSub.subscribe("apm:my_feature")
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:my_feature")
     end
 
     feature_data = fetch_feature_data()
@@ -186,24 +188,12 @@ defmodule ApmV4Web.MyFeatureLive do
   end
 
   defp fetch_feature_data do
-    ApmV4.Stores.MyFeatureStore.get_data("all")
+    ApmV4.MyFeatureStore.get_data("all")
   end
 end
 ```
 
-### Step 2: Create Template
-
-Create `lib/apm_v4_web/live/my_feature_live.html.heex`:
-
-```heex
-<div class="my-feature-page">
-  <div class="content">
-    <%= render_slot(@inner_block) %>
-  </div>
-</div>
-```
-
-### Step 3: Add Route
+### Step 2: Add Route
 
 Edit `lib/apm_v4_web/router.ex`:
 
@@ -217,34 +207,12 @@ scope "/", ApmV4Web do
 end
 ```
 
-### Step 4: Add Navigation Link
+### Step 3: Add Navigation Link
 
-Edit `lib/apm_v4_web/components/sidebar.html.heex`:
-
-```heex
-<nav class="sidebar-nav">
-  <!-- ... existing links ... -->
-  <a href={~p"/my-feature"} class={active?(@current_page, :my_feature)}>
-    My Feature
-  </a>
-</nav>
-```
-
-## Adding to the Sidebar
-
-To add a navigation link to the main sidebar:
-
-1. **Add route** to `lib/apm_v4_web/router.ex`
-2. **Add link** to sidebar component
-3. **Define current_page helper** to highlight active page
+Add a `nav_item` entry in your LiveView's render function sidebar:
 
 ```heex
-<a href={~p"/new-page"} class={[
-  "sidebar-link",
-  @current_page == :new_page && "active"
-]}>
-  New Page
-</a>
+<.nav_item icon="hero-star" label="My Feature" active={true} href="/my-feature" />
 ```
 
 ## Adding PubSub Topics
@@ -253,10 +221,10 @@ Create new PubSub topic for custom events:
 
 ```elixir
 # Broadcast event
-ApmV4.PubSub.broadcast("apm:my_feature", {:custom_event, data})
+Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:my_feature", {:custom_event, data})
 
 # Subscribe in LiveView
-ApmV4.PubSub.subscribe("apm:my_feature")
+Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:my_feature")
 
 # Handle in LiveView or GenServer
 def handle_info({:custom_event, data}, socket) do
@@ -344,7 +312,7 @@ Add new config fields to `apm_config.json`:
 Access in code:
 
 ```elixir
-config = ApmV4.Stores.ConfigLoader.get_config()
+config = ApmV4.ConfigLoader.get_config()
 my_feature_config = config["my_feature"]
 ```
 
@@ -352,15 +320,15 @@ my_feature_config = config["my_feature"]
 
 ### Unit Test
 
-Create `test/apm_v4/stores/my_feature_store_test.exs`:
+Create `test/apm_v4/my_feature_store_test.exs`:
 
 ```elixir
-defmodule ApmV4.Stores.MyFeatureStoreTest do
+defmodule ApmV4.MyFeatureStoreTest do
   use ExUnit.Case
 
   test "get_data returns value" do
-    ApmV4.Stores.MyFeatureStore.set_data("key", "value")
-    assert ApmV4.Stores.MyFeatureStore.get_data("key") == "value"
+    ApmV4.MyFeatureStore.set_data("key", "value")
+    assert ApmV4.MyFeatureStore.get_data("key") == "value"
   end
 end
 ```
@@ -415,7 +383,7 @@ end
 
 def handle_cast({:set_value, value}, state) do
   new_state = %{state | value: value}
-  ApmV4.PubSub.broadcast("apm:my_feature", {:value_changed, value})
+  Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:my_feature", {:value_changed, value})
   {:noreply, new_state}
 end
 ```
@@ -436,11 +404,11 @@ end
 def set_value(value) do
   case validate_value(value) do
     :ok ->
-      ApmV4.Stores.MyFeatureStore.set_value(value)
+      ApmV4.MyFeatureStore.set_value(value)
       {:ok, "Value set"}
 
     {:error, reason} ->
-      ApmV4.PubSub.broadcast("apm:notifications", {
+      Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:notifications", {
         :notification_added,
         %{level: "error", message: reason}
       })
@@ -454,7 +422,7 @@ end
 1. Review [Architecture](architecture.md) for system design
 2. Check [API Reference](api-reference.md) for existing endpoints
 3. Study [PubSub Events](pubsub-events.md) for event patterns
-4. Look at existing code in `lib/apm_v4/stores/` for examples
+4. Look at existing code in `lib/apm_v4/` for examples
 
 ## Support
 

@@ -46,6 +46,11 @@ defmodule ApmV4.PortManager do
   @doc "Reassign a project to a new port in its namespace, updating the config file."
   def reassign_port(project_name, new_port), do: GenServer.call(@server, {:reassign_port, project_name, new_port})
 
+  @doc "Set a project's primary port and ownership in apm_config.json."
+  def set_primary_port(project_name, port, ownership \\ "shared") do
+    GenServer.call(@server, {:set_primary_port, project_name, port, ownership})
+  end
+
   # Server Callbacks
 
   @impl true
@@ -68,7 +73,7 @@ defmodule ApmV4.PortManager do
 
   @impl true
   def handle_call(:get_project_configs, _from, state) do
-    # Enrich with active port status
+    # Enrich with active port status and primary_port/ownership from apm_config
     enriched =
       Enum.map(state.project_configs, fn {name, config} ->
         ports_with_status =
@@ -81,7 +86,19 @@ defmodule ApmV4.PortManager do
             |> Map.put(:full_command, if(active_info, do: active_info[:full_command]))
             |> Map.put(:server_type, if(active_info, do: active_info[:server_type]))
           end)
-        {name, %{config | ports: ports_with_status}}
+
+        # Merge primary_port and port_ownership from apm_config.json
+        apm_project = ApmV4.ConfigLoader.get_project(name)
+        primary_port = if apm_project, do: apm_project["primary_port"]
+        port_ownership = if apm_project, do: apm_project["port_ownership"], else: "shared"
+
+        enriched_config =
+          config
+          |> Map.put(:ports, ports_with_status)
+          |> Map.put(:primary_port, primary_port)
+          |> Map.put(:port_ownership, port_ownership)
+
+        {name, enriched_config}
       end)
       |> Enum.into(%{})
     {:reply, enriched, state}
@@ -143,6 +160,24 @@ defmodule ApmV4.PortManager do
   def handle_call(:detect_clashes, _from, state) do
     clashes = do_detect_clashes(state.port_map)
     {:reply, clashes, state}
+  end
+
+  @impl true
+  def handle_call({:set_primary_port, project_name, port, ownership}, _from, state) do
+    case ApmV4.ConfigLoader.update_project(%{
+      "name" => project_name,
+      "primary_port" => port,
+      "port_ownership" => ownership
+    }) do
+      {:ok, _config} ->
+        # Rebuild state to pick up changes
+        project_configs = build_project_configs()
+        port_map = port_map_from_configs(project_configs)
+        {:reply, :ok, %{state | project_configs: project_configs, port_map: port_map}}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
   end
 
   @impl true
@@ -311,14 +346,25 @@ defmodule ApmV4.PortManager do
   end
 
   defp build_recommendation(claimants, alternatives) do
-    case {length(claimants), alternatives} do
-      {1, _} -> "Single claimant - no conflict"
-      {_, []} -> "No available ports in namespace - consider expanding range"
-      {2, [alt | _]} ->
-        # Recommend moving the newer/less critical project
+    # Check if any claimant has exclusive ownership
+    exclusive_owner =
+      Enum.find(claimants, fn c ->
+        project = ApmV4.ConfigLoader.get_project(c.project)
+        project && project["port_ownership"] == "exclusive"
+      end)
+
+    case {length(claimants), alternatives, exclusive_owner} do
+      {1, _, _} -> "Single claimant - no conflict"
+      {_, [], _} -> "No available ports in namespace - consider expanding range"
+      {_, [alt | _], %{project: owner}} ->
+        # Owner stays, everyone else moves
+        moveables = Enum.reject(claimants, &(&1.project == owner))
+        names = Enum.map_join(moveables, ", ", & &1.project)
+        "#{owner} has exclusive ownership. Move #{names} to port #{alt}+"
+      {2, [alt | _], nil} ->
         moveable = List.last(claimants)
         "Move #{moveable.project} to port #{alt} (update #{moveable.file})"
-      {n, [alt | _]} ->
+      {n, [alt | _], nil} ->
         "#{n} projects claim this port. Suggest moving all but the primary to #{alt}+"
     end
   end
@@ -420,6 +466,29 @@ defmodule ApmV4.PortManager do
     port_map
     |> Enum.group_by(fn {port, _} -> port end, fn {_, info} -> info.project end)
     |> Enum.filter(fn {_, projects} -> length(projects) > 1 end)
-    |> Enum.map(fn {port, projects} -> %{port: port, projects: projects} end)
+    |> Enum.map(fn {port, projects} ->
+      # Check if any project has exclusive ownership of this port
+      owner = find_exclusive_owner(port)
+
+      case owner do
+        nil ->
+          %{port: port, projects: projects, owner: nil, should_move: []}
+
+        owner_name ->
+          should_move = Enum.reject(projects, &(&1 == owner_name))
+          %{port: port, projects: projects, owner: owner_name, should_move: should_move}
+      end
+    end)
+  end
+
+  defp find_exclusive_owner(port) do
+    config = ApmV4.ConfigLoader.get_config()
+    projects = Map.get(config, "projects", [])
+
+    Enum.find_value(projects, fn p ->
+      if p["primary_port"] == port and p["port_ownership"] == "exclusive" do
+        p["name"]
+      end
+    end)
   end
 end

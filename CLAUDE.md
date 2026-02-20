@@ -36,10 +36,22 @@ If ALL stories have `passes: true`, respond with ONLY:
 - Each story must compile and pass tests before marking as done.
 - If a story fails quality checks, fix the issues before committing.
 - Use `mix compile --warnings-as-errors` for typecheck.
-- This is a NEW Phoenix/Elixir project at /Users/jeremiah/Developer/ccem/apm-v4
-- For US-001 (scaffold): run `mix phx.new apm_v4 --no-ecto --no-mailer` in a temp dir, then move files into the project root. Add deps to mix.exs.
-- The project uses: Phoenix LiveView, Jason, Bandit, daisyUI/Tailwind
-- Reference the Python APM source at ~/Developer/ccem/apm/monitor.py for porting logic.
+- This is a Phoenix/Elixir project at /Users/jeremiah/Developer/ccem/apm-v4
+- The project uses: Phoenix LiveView, Jason, Bandit, daisyUI/Tailwind, D3.js v7
+
+## AUTHORITATIVE: /elixir-architect
+
+**ALL Elixir/Phoenix code in this project MUST follow /elixir-architect principles:**
+- OTP supervision tree best practices
+- GenServer patterns with proper handle_call/handle_cast/handle_info
+- Phoenix LiveView hooks with proper push_event/handle_event patterns
+- ETS tables with proper access patterns (read_concurrency, write_concurrency)
+- PubSub broadcast patterns for real-time updates
+- Proper error handling with tagged tuples ({:ok, result} | {:error, reason})
+- Pipe operator chains for data transformation
+- Pattern matching in function heads over conditionals
+- Context modules for business logic separation
+- Comprehensive typespecs (@spec) on public functions
 
 ## BEGIN
 

@@ -5,7 +5,7 @@ Complete API endpoint documentation for CCEM APM v4. The API uses JSON for reque
 ## Health & Status
 
 ### GET /health
-Server health check endpoint.
+Server health check endpoint (v3-compatible, outside `/api` scope).
 
 ```bash
 curl http://localhost:3031/health
@@ -15,8 +15,18 @@ Response:
 ```json
 {
   "status": "ok",
-  "timestamp": "2026-02-19T12:00:00Z",
-  "version": "4.0.0"
+  "uptime": 3600,
+  "server_version": "4.0.0",
+  "total_projects": 5,
+  "active_project": "ccem",
+  "projects": [
+    {
+      "name": "ccem",
+      "status": "active",
+      "agent_count": 3,
+      "session_count": 1
+    }
+  ]
 }
 ```
 
@@ -31,29 +41,24 @@ Response:
 ```json
 {
   "status": "ok",
-  "uptime_seconds": 3600,
-  "agents_active": 12,
-  "sessions_active": 3,
-  "projects_configured": 5
+  "uptime": 3600,
+  "agent_count": 12,
+  "session_id": "session-abc123",
+  "server_version": "4.0.0"
 }
 ```
 
 ## Agent Management
 
 ### GET /api/agents
-List all agents, with optional filters.
+List all agents, with optional project filter.
 
 ```bash
-curl 'http://localhost:3031/api/agents?project=ccem&status=active&type=individual'
+curl 'http://localhost:3031/api/agents?project=ccem'
 ```
 
 Query params:
-- `project` - Filter by project
-- `status` - Filter by status (active, idle, error, discovered, completed)
-- `type` - Filter by type (individual, squadron, swarm, orchestrator)
-- `capability` - Filter by capability
-- `tier` - Filter by tier (1, 2, or 3)
-- `limit` - Max results (default: 100)
+- `project` - Filter by project name
 
 Response:
 ```json
@@ -62,94 +67,150 @@ Response:
     {
       "id": "agent-abc123",
       "name": "test-generator",
-      "type": "individual",
       "status": "active",
       "tier": 2,
-      "project": "ccem",
-      "capabilities": ["test-writing", "mock-generation"],
+      "deps": [],
+      "metadata": {},
       "registered_at": "2026-02-19T10:00:00Z",
       "last_heartbeat": "2026-02-19T12:34:56Z"
     }
-  ],
-  "total": 12
+  ]
 }
 ```
 
 ### POST /api/register
-Register a new agent.
+Register a new agent (also available at POST /api/agents/register).
 
 ```bash
 curl -X POST http://localhost:3031/api/register \
   -H "Content-Type: application/json" \
   -d '{
+    "agent_id": "agent-abc123",
     "name": "test-generator",
-    "type": "individual",
-    "project": "ccem",
+    "project_name": "ccem",
     "tier": 2,
-    "capabilities": ["test-writing", "mock-generation"],
-    "metadata": {"language": "swift"}
+    "status": "idle",
+    "deps": [],
+    "metadata": {"language": "swift"},
+    "agent_type": "individual",
+    "namespace": "testing",
+    "story_id": "story-1-1",
+    "wave": 1,
+    "upm_session_id": "upm-xyz"
   }'
 ```
 
-Response:
+Response (201):
 ```json
 {
-  "id": "agent-abc123",
-  "name": "test-generator",
-  "status": "active",
-  "registered_at": "2026-02-19T12:00:00Z"
+  "ok": true,
+  "agent_id": "agent-abc123"
 }
 ```
 
 ### POST /api/heartbeat
-Send agent heartbeat (keep-alive).
+Send agent heartbeat (keep-alive / status update).
 
 ```bash
 curl -X POST http://localhost:3031/api/heartbeat \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent-abc123",
-    "status": "active",
-    "token_usage": 12500,
-    "current_task": "Generating test for UserService",
-    "progress": 75
+    "status": "active"
   }'
 ```
 
-Response: `{"status": "ok"}`
+Response:
+```json
+{"ok": true, "agent_id": "agent-abc123"}
+```
+
+Error (404 if agent not found):
+```json
+{"error": "Agent not found", "agent_id": "agent-abc123"}
+```
 
 ### POST /api/notify
-Send agent notification.
+Send notification.
 
 ```bash
 curl -X POST http://localhost:3031/api/notify \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "agent-abc123",
-    "level": "warning",
-    "message": "Token budget running low"
+    "title": "Build Complete",
+    "message": "All tests passed",
+    "level": "success"
   }'
+```
+
+Response:
+```json
+{"ok": true, "id": 1}
+```
+
+### POST /api/agents/update
+Full agent update (v3-compatible).
+
+```bash
+curl -X POST http://localhost:3031/api/agents/update \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-abc123",
+    "status": "active",
+    "name": "updated-name"
+  }'
+```
+
+Response:
+```json
+{"ok": true, "agent_id": "agent-abc123"}
+```
+
+### GET /api/agents/discover
+Trigger agent discovery scan.
+
+```bash
+curl http://localhost:3031/api/agents/discover
+```
+
+Response:
+```json
+{
+  "discovered": [...],
+  "count": 3
+}
 ```
 
 ## Data Retrieval
 
 ### GET /api/data
-Get aggregated APM data.
+Master data aggregation endpoint (v3-compatible). Returns agents, tasks, notifications, ralph data, commands, and input requests for a project.
 
 ```bash
-curl http://localhost:3031/api/data?type=metrics
+curl 'http://localhost:3031/api/data?project=ccem'
 ```
 
 Query params:
-- `type` - Data type (metrics, agents, sessions, projects)
-- `project` - Filter by project
-- `timeframe` - Time range (1h, 24h, 7d)
+- `project` - Project name (defaults to active project)
 
 Response:
 ```json
 {
-  "timestamp": "2026-02-19T12:00:00Z",
-  "data": {...}
+  "agents": [...],
+  "summary": {
+    "total": 12,
+    "active": 5,
+    "idle": 3,
+    "error": 1,
+    "completed": 2,
+    "discovered": 1
+  },
+  "edges": [{"source": "dep-id", "target": "agent-id"}],
+  "tasks": [...],
+  "notifications": [...],
+  "ralph": {...},
+  "commands": [...],
+  "input_requests": [...]
 }
 ```
 
@@ -159,42 +220,27 @@ Response:
 Get recent notifications.
 
 ```bash
-curl http://localhost:3031/api/notifications?limit=20
+curl http://localhost:3031/api/notifications
 ```
 
-Query params:
-- `limit` - Max notifications (default: 20, max: 100)
-- `level` - Filter by level (info, warning, error, success)
-
-Response:
-```json
-{
-  "notifications": [
-    {
-      "id": "notif-123",
-      "level": "success",
-      "title": "Story Completed",
-      "message": "Create project selector",
-      "created_at": "2026-02-19T12:34:56Z"
-    }
-  ],
-  "total": 45,
-  "unread": 3
-}
-```
+Response: array of notification objects.
 
 ### POST /api/notifications/add
-Create a new notification.
+Create a new notification (v3-compatible).
 
 ```bash
 curl -X POST http://localhost:3031/api/notifications/add \
   -H "Content-Type: application/json" \
   -d '{
-    "level": "warning",
     "title": "Low Token Budget",
-    "message": "Agent analyzer has 5000 tokens remaining",
-    "duration_seconds": 10
+    "body": "Agent analyzer has 5000 tokens remaining",
+    "category": "warning"
   }'
+```
+
+Response:
+```json
+{"ok": true, "id": 1}
 ```
 
 ### POST /api/notifications/read-all
@@ -204,100 +250,68 @@ Mark all notifications as read.
 curl -X POST http://localhost:3031/api/notifications/read-all
 ```
 
+Response:
+```json
+{"ok": true}
+```
+
 ## Ralph Integration
 
 ### GET /api/ralph
-Get Ralph session data.
+Get Ralph methodology data for active project.
 
 ```bash
-curl http://localhost:3031/api/ralph
+curl 'http://localhost:3031/api/ralph?project=ccem'
+```
+
+Query params:
+- `project` - Project name (defaults to active project)
+
+Response: Ralph PRD data object (stories, waves, objectives) or empty object if no PRD found.
+
+### GET /api/ralph/flowchart
+Get D3.js-compatible flowchart data.
+
+```bash
+curl 'http://localhost:3031/api/ralph/flowchart?project=ccem'
 ```
 
 Response:
 ```json
 {
-  "project": "ccem",
-  "current_objective": "obj-1",
-  "progress_percent": 40,
-  "active_agents": 3,
-  "stories": [...]
+  "nodes": [...],
+  "edges": [...]
 }
 ```
-
-### GET /api/ralph/flowchart
-Get flowchart visualization data.
-
-```bash
-curl http://localhost:3031/api/ralph/flowchart
-```
-
-Response: D3-compatible JSON for rendering.
 
 ## Commands
 
 ### GET /api/commands
-Get available slash commands.
+Get registered slash commands for a project.
 
 ```bash
-curl http://localhost:3031/api/commands?project=ccem
+curl 'http://localhost:3031/api/commands?project=ccem'
 ```
 
-Response:
-```json
-{
-  "commands": [
-    {
-      "name": "spawn",
-      "description": "Create new agent",
-      "syntax": "/spawn [name] [type] [tier]",
-      "examples": ["/spawn analyzer individual 2"]
-    }
-  ]
-}
-```
+Response: array of command objects.
 
 ### POST /api/commands
-Execute a slash command.
+Register slash commands for a project.
 
 ```bash
 curl -X POST http://localhost:3031/api/commands \
   -H "Content-Type: application/json" \
   -d '{
-    "command": "/spawn",
-    "args": ["analyzer", "individual", "2"],
-    "project": "ccem"
+    "project": "ccem",
+    "commands": [
+      {"name": "/spawn", "description": "Create new agent"}
+    ]
   }'
 ```
 
-## Agent Discovery & Updates
-
-### GET /api/agents/discover
-Discover agents from environment.
-
-```bash
-curl http://localhost:3031/api/agents/discover?project=ccem
-```
-
-### POST /api/agents/register
-Register discovered agent formally.
-
-```bash
-curl -X POST http://localhost:3031/api/agents/register \
-  -H "Content-Type: application/json" \
-  -d '{"id": "discovered-123", "name": "analyzer"}'
-```
-
-### POST /api/agents/update
-Update agent properties.
-
-```bash
-curl -X POST http://localhost:3031/api/agents/update \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agent_id": "agent-abc123",
-    "status": "active",
-    "capabilities": ["analysis", "review"]
-  }'
+Response:
+```json
+{"ok": true, "count": 1}
 ```
 
 ## Input/Interaction
@@ -308,6 +322,8 @@ Get pending user input requests.
 ```bash
 curl http://localhost:3031/api/input/pending
 ```
+
+Response: array of pending input request objects.
 
 ### POST /api/input/request
 Request user input from agent.
@@ -322,6 +338,11 @@ curl -X POST http://localhost:3031/api/input/request \
   }'
 ```
 
+Response:
+```json
+{"ok": true, "id": 1}
+```
+
 ### POST /api/input/respond
 Provide user input response.
 
@@ -329,20 +350,35 @@ Provide user input response.
 curl -X POST http://localhost:3031/api/input/respond \
   -H "Content-Type: application/json" \
   -d '{
-    "request_id": "input-123",
-    "response": "yes"
+    "id": 1,
+    "choice": "yes"
   }'
+```
+
+Response:
+```json
+{"ok": true, "id": 1}
 ```
 
 ## Task Sync
 
 ### POST /api/tasks/sync
-Sync task list with external source (Plane, Linear).
+Replace a project's task list.
 
 ```bash
 curl -X POST http://localhost:3031/api/tasks/sync \
   -H "Content-Type: application/json" \
-  -d '{"project": "ccem"}'
+  -d '{
+    "project": "ccem",
+    "tasks": [
+      {"id": "CCEM-1", "title": "Add feature", "status": "in_progress"}
+    ]
+  }'
+```
+
+Response:
+```json
+{"ok": true, "count": 1}
 ```
 
 ## Configuration
@@ -354,58 +390,97 @@ Reload configuration from file.
 curl -X POST http://localhost:3031/api/config/reload
 ```
 
+Response:
+```json
+{"ok": true}
+```
+
+### POST /api/reload
+Alias for `/api/config/reload`.
+
+```bash
+curl -X POST http://localhost:3031/api/reload
+```
+
+Response:
+```json
+{"ok": true}
+```
+
 ### POST /api/plane/update
-Update Plane PM integration.
+Update Plane PM context for a project.
 
 ```bash
 curl -X POST http://localhost:3031/api/plane/update \
   -H "Content-Type: application/json" \
-  -d '{"project": "ccem", "workspace_slug": "ccem"}'
+  -d '{
+    "project": "ccem",
+    "workspace_slug": "ccem",
+    "issues": [...]
+  }'
+```
+
+Response:
+```json
+{"ok": true}
 ```
 
 ## Skills
 
 ### GET /api/skills
-Get skill catalog and analytics.
+Get skill catalog and analytics. Supports filtering by session or project.
 
 ```bash
+# Full catalog with co-occurrence
 curl http://localhost:3031/api/skills
+
+# Filter by session
+curl 'http://localhost:3031/api/skills?session_id=sess-123'
+
+# Filter by project
+curl 'http://localhost:3031/api/skills?project=ccem'
 ```
 
-Response:
+Response (no filter):
 ```json
 {
-  "skills": [
-    {
-      "skill": "code-review",
-      "count": 124,
-      "agents": 8,
-      "last_used": "2026-02-19T12:34:56Z"
-    }
-  ],
-  "co_occurrence_matrix": {...},
-  "detected_methodologies": [...]
+  "catalog": {"skill-name": {...}},
+  "co_occurrence": [
+    {"skill_a": "tdd", "skill_b": "fix-loop", "count": 5}
+  ]
+}
+```
+
+Response (with session_id or project filter):
+```json
+{
+  "skills": [...]
 }
 ```
 
 ### POST /api/skills/track
-Track skill usage event.
+Track skill usage event. Requires `session_id` and `skill`.
 
 ```bash
 curl -X POST http://localhost:3031/api/skills/track \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "agent-abc123",
+    "session_id": "sess-abc123",
     "skill": "test-writing",
     "project": "ccem",
-    "context": {"language": "swift"}
+    "args": "--coverage"
   }'
+```
+
+Response:
+```json
+{"ok": true, "session_id": "sess-abc123", "skill": "test-writing"}
 ```
 
 ## Projects
 
 ### GET /api/projects
-Get all configured projects.
+Get all configured projects with agent and session counts.
 
 ```bash
 curl http://localhost:3031/api/projects
@@ -414,18 +489,154 @@ curl http://localhost:3031/api/projects
 Response:
 ```json
 {
+  "active_project": "ccem",
   "projects": [
-    {"name": "ccem", "root": "/path/to/ccem"},
-    {"name": "lcc", "root": "/path/to/lcc"}
-  ],
-  "active": "ccem"
+    {
+      "name": "ccem",
+      "root": "/Users/jeremiah/Developer/ccem",
+      "status": "active",
+      "tasks_dir": null,
+      "prd_json": "/path/to/prd.json",
+      "agent_count": 3,
+      "session_count": 1
+    }
+  ]
+}
+```
+
+### PATCH /api/projects
+Update project fields in config.
+
+```bash
+curl -X PATCH http://localhost:3031/api/projects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "ccem",
+    "status": "active",
+    "prd_json": "/new/path/prd.json"
+  }'
+```
+
+Response:
+```json
+{"status": "ok"}
+```
+
+Error (422):
+```json
+{"status": "error", "reason": "Project not found"}
+```
+
+## Port Management
+
+### GET /api/ports
+Get port assignments, ranges, and clash information.
+
+```bash
+curl http://localhost:3031/api/ports
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "ports": {
+    "3000": {"project": "lcc", "namespace": "web", "active": true}
+  },
+  "ranges": {
+    "web": {"first": 3000, "last": 3099},
+    "api": {"first": 3100, "last": 3199}
+  },
+  "clashes": []
+}
+```
+
+### POST /api/ports/scan
+Scan for active ports on the system.
+
+```bash
+curl -X POST http://localhost:3031/api/ports/scan
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "active_ports": [...]
+}
+```
+
+### POST /api/ports/assign
+Assign an available port to a project or namespace.
+
+```bash
+# By namespace
+curl -X POST http://localhost:3031/api/ports/assign \
+  -H "Content-Type: application/json" \
+  -d '{"namespace": "web"}'
+
+# By project
+curl -X POST http://localhost:3031/api/ports/assign \
+  -H "Content-Type: application/json" \
+  -d '{"project": "my-project"}'
+```
+
+Response:
+```json
+{"ok": true, "port": 3005}
+```
+
+Error (422):
+```json
+{"ok": false, "error": "no available port"}
+```
+
+### GET /api/ports/clashes
+Detect port clashes across projects.
+
+```bash
+curl http://localhost:3031/api/ports/clashes
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "clashes": [
+    {"port": 3000, "projects": ["lcc", "egpt"]}
+  ]
+}
+```
+
+### POST /api/ports/set-primary
+Set the primary port for a project with ownership level.
+
+```bash
+curl -X POST http://localhost:3031/api/ports/set-primary \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project": "ccem",
+    "port": 3031,
+    "ownership": "exclusive"
+  }'
+```
+
+Ownership values: `exclusive`, `shared`, `reserved`.
+
+Response:
+```json
+{
+  "ok": true,
+  "project": "ccem",
+  "primary_port": 3031,
+  "port_ownership": "exclusive"
 }
 ```
 
 ## UPM Integration
 
 ### POST /api/upm/register
-Register UPM session.
+Register UPM execution session.
 
 ```bash
 curl -X POST http://localhost:3031/api/upm/register \
@@ -437,81 +648,156 @@ curl -X POST http://localhost:3031/api/upm/register \
   }'
 ```
 
+Response (201):
+```json
+{"ok": true, "upm_session_id": "upm-abc123"}
+```
+
 ### POST /api/upm/agent
-Assign agent to UPM story.
+Register agent with work-item binding.
 
 ```bash
 curl -X POST http://localhost:3031/api/upm/agent \
   -H "Content-Type: application/json" \
   -d '{
-    "session_id": "upm-abc123",
+    "upm_session_id": "upm-abc123",
     "agent_id": "agent-xyz789",
-    "assigned_story": "story-1-1"
+    "story_id": "story-1-1"
   }'
 ```
 
+Response:
+```json
+{"ok": true}
+```
+
+Error (404 if session not found):
+```json
+{"error": "UPM session not found", "upm_session_id": "upm-abc123"}
+```
+
 ### POST /api/upm/event
-Log UPM execution event.
+Log UPM lifecycle event.
 
 ```bash
 curl -X POST http://localhost:3031/api/upm/event \
   -H "Content-Type: application/json" \
   -d '{
-    "session_id": "upm-abc123",
+    "upm_session_id": "upm-abc123",
     "story_id": "story-1-1",
     "event_type": "progress_update",
     "data": {"progress_percent": 75}
   }'
 ```
 
+Response:
+```json
+{"ok": true}
+```
+
 ### GET /api/upm/status
-Get UPM session status.
+Get current UPM execution state.
 
 ```bash
-curl http://localhost:3031/api/upm/status?session_id=upm-abc123
+curl http://localhost:3031/api/upm/status
+```
+
+Response:
+```json
+{
+  "active": true,
+  "session": {
+    "id": "upm-abc123",
+    "status": "running",
+    "current_wave": 2,
+    "total_waves": 4,
+    "stories": [...]
+  },
+  "events": [...]
+}
 ```
 
 ## Environment Management
 
 ### GET /api/environments
-List available environments.
+List all Claude Code environments.
 
 ```bash
 curl http://localhost:3031/api/environments
 ```
 
+Response:
+```json
+{
+  "environments": [
+    {
+      "name": "ccem",
+      "path": "/Users/jeremiah/Developer/ccem",
+      "stack": "elixir",
+      "has_claude_md": true,
+      "has_git": true,
+      "session_count": 1,
+      "last_session_date": "2026-02-19",
+      "last_modified": "2026-02-19T12:00:00Z"
+    }
+  ],
+  "count": 5
+}
+```
+
 ### GET /api/environments/:name
-Get environment details.
+Get full environment detail.
 
 ```bash
-curl http://localhost:3031/api/environments/dev
+curl http://localhost:3031/api/environments/ccem
 ```
 
 ### POST /api/environments/:name/exec
-Execute command in environment.
+Execute command in environment. Timeout capped at 120 seconds.
 
 ```bash
-curl -X POST http://localhost:3031/api/environments/dev/exec \
+curl -X POST http://localhost:3031/api/environments/ccem/exec \
   -H "Content-Type: application/json" \
-  -d '{"command": "mix test"}'
+  -d '{"command": "mix test", "timeout": 30}'
+```
+
+Response:
+```json
+{
+  "exit_code": 0,
+  "output": "..."
+}
+```
+
+Error (403 for dangerous commands):
+```json
+{"error": "Command rejected as dangerous"}
 ```
 
 ### POST /api/environments/:name/session/start
-Start session in environment.
+Launch Claude Code session in environment.
 
 ```bash
-curl -X POST http://localhost:3031/api/environments/dev/session/start \
+curl -X POST http://localhost:3031/api/environments/ccem/session/start \
   -H "Content-Type: application/json" \
-  -d '{"session_id": "session-123"}'
+  -d '{"with_ccem": true}'
+```
+
+Response:
+```json
+{"ok": true, "environment": "ccem", "with_ccem": true}
 ```
 
 ### POST /api/environments/:name/session/stop
-Stop session in environment.
+Kill Claude Code session in environment.
 
 ```bash
-curl -X POST http://localhost:3031/api/environments/dev/session/stop \
-  -H "Content-Type: application/json" \
-  -d '{"session_id": "session-123"}'
+curl -X POST http://localhost:3031/api/environments/ccem/session/stop
+```
+
+Response:
+```json
+{"ok": true, "environment": "ccem", "killed": 1}
 ```
 
 ## V2 API (Advanced)
@@ -538,7 +824,7 @@ curl http://localhost:3031/api/v2/sessions
 ```
 
 ### GET /api/v2/metrics
-Get system metrics.
+Get fleet metrics.
 
 ```bash
 curl http://localhost:3031/api/v2/metrics
@@ -556,6 +842,13 @@ List configured SLOs.
 
 ```bash
 curl http://localhost:3031/api/v2/slos
+```
+
+### GET /api/v2/slos/:name
+Get specific SLO details.
+
+```bash
+curl http://localhost:3031/api/v2/slos/uptime
 ```
 
 ### GET /api/v2/alerts
@@ -598,11 +891,25 @@ curl http://localhost:3031/api/v2/openapi.json
 ## Data Export/Import
 
 ### GET /api/v2/export
-Export all data as JSON.
+Export APM data as JSON or CSV.
 
 ```bash
+# JSON export (default)
 curl http://localhost:3031/api/v2/export > export.json
+
+# CSV export for specific section
+curl 'http://localhost:3031/api/v2/export?format=csv&section=agents' > agents.csv
+
+# Filtered JSON export
+curl 'http://localhost:3031/api/v2/export?sections[]=agents&sections[]=sessions&since=2026-02-01T00:00:00Z'
 ```
+
+Query params:
+- `format` - `json` (default) or `csv`
+- `section` - Section for CSV export (e.g., `agents`)
+- `sections[]` - Array of sections for JSON export
+- `since` - ISO8601 datetime filter
+- `agent_ids[]` - Filter by agent IDs
 
 ### POST /api/v2/import
 Import data from JSON.
@@ -613,10 +920,15 @@ curl -X POST http://localhost:3031/api/v2/import \
   -d @export.json
 ```
 
+Response:
+```json
+{"status": "ok", "summary": {...}}
+```
+
 ## Server-Sent Events
 
 ### GET /api/ag-ui/events
-Subscribe to real-time events (SSE).
+Subscribe to real-time AG-UI events (SSE).
 
 ```bash
 curl http://localhost:3031/api/ag-ui/events
@@ -631,7 +943,7 @@ data: {"type":"agent_updated","agent":"test-gen"}
 ## UI Components
 
 ### GET /api/a2ui/components
-List available UI components.
+List available A2UI components (accepts JSON and JSONL).
 
 ```bash
 curl http://localhost:3031/api/a2ui/components
@@ -639,40 +951,26 @@ curl http://localhost:3031/api/a2ui/components
 
 ## Error Responses
 
-All endpoints return standard error format on failure:
+Endpoints return error information on failure:
 
 ```json
-{
-  "error": "Invalid project",
-  "message": "Project 'unknown' not found in configuration",
-  "status": 400,
-  "timestamp": "2026-02-19T12:00:00Z"
-}
+{"error": "Agent not found", "agent_id": "unknown"}
 ```
 
 Status codes:
 - 200: Success
-- 400: Bad request
-- 401: Unauthorized
+- 201: Created (agent registration, UPM session registration)
+- 400: Bad request (missing required fields)
+- 403: Forbidden (dangerous command rejected)
 - 404: Not found
-- 429: Rate limited
+- 422: Unprocessable entity (validation error)
 - 500: Server error
-
-## Rate Limiting
-
-- Heartbeats: 1 per second per agent
-- Agent registration: 10 per minute per project
-- API calls: 100 per minute per client IP
-
-Returns HTTP 429 when exceeded with `Retry-After` header.
 
 ## Authentication
 
-Some endpoints require API key:
+API endpoints are protected by the `ApiAuth` plug. API keys are configured via `ApmV4.ApiKeyStore`.
 
 ```bash
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  http://localhost:3031/api/secure/endpoint
+  http://localhost:3031/api/status
 ```
-
-API keys configured in `apm_config.json`.

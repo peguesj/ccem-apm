@@ -20,7 +20,7 @@ Navigate to `/skills` in the sidebar for the skills analytics page:
 
 Top section displays all skills:
 
-```
+```text
 Skill                 Count    Popularity    Last Used
 code-review           124      ████████░░    5 mins ago
 test-writing          98       ███████░░░    2 mins ago
@@ -37,7 +37,7 @@ Click a skill to filter agents and see who has it.
 
 Visual heatmap showing which skills are used together:
 
-```
+```text
                 code-review  test-writing  refactoring
 code-review          1.0         0.85         0.72
 test-writing         0.85        1.0          0.68
@@ -190,7 +190,7 @@ User and Entity Behavior Analytics detect anomalies and patterns:
 
 Unusual behaviors flagged:
 
-```
+```text
 High Token Spike
 Agent: analyzer
 Skill: analysis
@@ -204,7 +204,7 @@ Status: Investigate
 
 Recurring patterns identified:
 
-```
+```text
 Agent Collaboration Pattern
 Agents: [test-gen, reviewer, merger]
 Frequency: Every 2 hours
@@ -217,7 +217,7 @@ Confidence: 89%
 
 Skills increasing in usage:
 
-```
+```text
 test-writing     ↑ 34% week-over-week
 refactoring      ↑ 22% week-over-week
 documentation    ↓ -8% week-over-week
@@ -285,3 +285,11 @@ Response:
 - Verify enough historical data exists
 
 See [API Reference](../developer/api-reference.md) for complete skills endpoints.
+
+---
+
+## See Also
+
+- [Agent Fleet](/docs/user/agents) - Understanding agent types and statuses
+- [Ralph Methodology](/docs/user/ralph) - Autonomous workflow execution
+- [API Reference](/docs/developer/api-reference) - Complete endpoint documentation

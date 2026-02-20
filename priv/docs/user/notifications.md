@@ -181,7 +181,7 @@ CCEM APM automatically generates notifications for:
 
 ### Agent Registration
 
-```
+```text
 TITLE: Agent Registered
 MESSAGE: test-generator (individual, tier 2) joined the fleet in project ccem
 LEVEL: info
@@ -190,7 +190,7 @@ DURATION: 5 seconds
 
 ### Story Completion
 
-```
+```text
 TITLE: Story Completed
 MESSAGE: Create project selector - 3200 tokens consumed (estimate: 3000)
 LEVEL: success
@@ -200,7 +200,7 @@ ACTION: View in Ralph
 
 ### Error Alert
 
-```
+```text
 TITLE: Compilation Error
 MESSAGE: Agent refactor-squad encountered error in src/views/menu_bar_view.swift:42
 LEVEL: error
@@ -210,7 +210,7 @@ ACTION: View details
 
 ### Low Token Budget
 
-```
+```text
 TITLE: Agent Low on Tokens
 MESSAGE: Agent analyzer has 5000 tokens remaining (budget: 100000)
 LEVEL: warning
@@ -226,7 +226,7 @@ Click the bell icon to open the drawer:
 
 Shows up to 20 notifications in reverse chronological order:
 
-```
+```text
 2026-02-19 12:34:56  ✓ Story completed
 2026-02-19 12:32:10  ⚠ Low token budget
 2026-02-19 12:30:45  → Agent updated
@@ -291,3 +291,10 @@ Preferences stored in browser local storage per user.
 - Consider batching events
 
 See [API Reference](../developer/api-reference.md) for complete notification endpoints.
+
+---
+
+## See Also
+
+- [Dashboard Guide](/docs/user/dashboard) - Using the web interface
+- [API Reference](/docs/developer/api-reference) - Complete endpoint documentation

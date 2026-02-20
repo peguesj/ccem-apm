@@ -101,6 +101,7 @@ defmodule ApmV4Web.Router do
     post "/ports/scan", ApiController, :scan_ports
     post "/ports/assign", ApiController, :assign_port
     get "/ports/clashes", ApiController, :port_clashes
+    post "/ports/set-primary", ApiController, :set_primary_port
 
     # CCEM environment manager endpoints
     get "/environments", ApiController, :environments

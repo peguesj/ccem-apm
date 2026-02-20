@@ -112,7 +112,7 @@ Ralph orchestrates the fix loop with minimal human intervention:
 
 Stories progress through states:
 
-```
+```text
 not_started → in_progress → (blocked) → completed
 ```
 
@@ -140,7 +140,7 @@ Lists all stories with:
 
 Example:
 
-```
+```text
 Objective 1: Multi-project support (40% complete)
   ✓ story-1: Add project selector (complete, 5200 tokens)
   ⧖ story-2: Filter agent list (in progress, 3500/4000 tokens)
@@ -268,3 +268,11 @@ Returns D3-compatible JSON for drawing the flowchart.
 - Verify D3.js loaded successfully
 
 See [API Reference](../developer/api-reference.md) for all Ralph endpoints.
+
+---
+
+## See Also
+
+- [Agent Fleet](/docs/user/agents) - Understanding agent types and statuses
+- [UPM Integration](/docs/user/upm) - Project management tracking
+- [API Reference](/docs/developer/api-reference) - Complete endpoint documentation

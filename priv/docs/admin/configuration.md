@@ -1,303 +1,166 @@
 # Configuration Reference
 
-CCEM APM is configured via `apm_config.json`, located at `/Users/jeremiah/Developer/ccem/apm/apm_config.json`.
+CCEM APM is configured via `apm_config.json`, located at `~/Developer/ccem/apm/apm_config.json`.
 
 ## File Location
 
-```
-/Users/jeremiah/Developer/ccem/apm/apm_config.json
+```text
+~/Developer/ccem/apm/apm_config.json
 ```
 
-If the file doesn't exist, CCEM APM creates a default one on first startup.
+If the file doesn't exist, the `ConfigLoader` GenServer creates a default in memory. The session init hook creates the file on disk when a Claude Code session starts.
 
-## Configuration Structure
+## Configuration Structure (v4 Schema)
 
 ```json
 {
-  "project_name": "ccem",
-  "project_root": "/Users/jeremiah/Developer/ccem",
-  "active_project": "ccem",
+  "$schema": "./apm_config_v4.schema.json",
+  "version": "4.0.0",
   "port": 3031,
+  "active_project": "my-project",
   "projects": [
     {
-      "name": "ccem",
-      "root": "/Users/jeremiah/Developer/ccem"
-    },
-    {
-      "name": "lcc",
-      "root": "/Users/jeremiah/Developer/lcc"
+      "name": "my-project",
+      "root": "/Users/jeremiah/Developer/my-project",
+      "tasks_dir": "/private/tmp/claude-503/-Users-jeremiah-Developer-my-project/tasks",
+      "prd_json": "/Users/jeremiah/Developer/my-project/.claude/ralph/prd.json",
+      "todo_md": "",
+      "status": "active",
+      "primary_port": 4000,
+      "port_ownership": "exclusive",
+      "registered_at": "2026-02-19T00:00:00Z",
+      "sessions": [
+        {
+          "session_id": "afb88ff8-7315-4887-b0df-73ff794bd6d3",
+          "session_jsonl": "/Users/jeremiah/.claude/projects/-Users-jeremiah-Developer-my-project/afb88ff8-7315-4887-b0df-73ff794bd6d3.jsonl",
+          "start_time": "2026-02-19T22:55:29Z",
+          "status": "active"
+        }
+      ]
     }
-  ],
-  "sessions": {
-    "session-abc123": {
-      "project": "ccem",
-      "started_at": "2026-02-19T10:00:00Z",
-      "last_heartbeat": "2026-02-19T12:34:56Z",
-      "agent_count": 5
-    }
-  }
+  ]
 }
 ```
 
 ## Top-Level Fields
 
-### project_name
+### version
+
 **Type**: `string`
-**Default**: `"ccem"`
-**Description**: Human-readable name of the currently active project.
+**Required**: Yes
+**Value**: `"4.0.0"`
+
+Identifies the config schema version. The session init hook checks this value and will re-initialize the config if it does not equal `"4.0.0"`.
 
 ```json
-"project_name": "my-project"
+"version": "4.0.0"
 ```
-
-### project_root
-**Type**: `string`
-**Default**: Current working directory
-**Description**: Absolute filesystem path to the active project root.
-
-```json
-"project_root": "/Users/jeremiah/Developer/my-project"
-```
-
-Must be an absolute path. Relative paths are not supported.
-
-### active_project
-**Type**: `string`
-**Default**: `"ccem"`
-**Description**: Project ID matching an entry in the `projects` array.
-
-```json
-"active_project": "ccem"
-```
-
-Used for routing API requests and filtering data by project.
 
 ### port
+
 **Type**: `integer`
 **Default**: `3031`
-**Description**: HTTP server listen port.
+
+HTTP server listen port for the Phoenix application. Configured in `config/dev.exs` via the `PORT` environment variable.
 
 ```json
 "port": 3031
 ```
 
-Valid range: 1024-65535. Ports < 1024 require root/sudo.
+### active_project
+
+**Type**: `string`
+**Default**: `null`
+
+Name of the currently active project. Must match a `name` field in the `projects` array. Updated automatically by the session init hook each time a new Claude Code session starts.
+
+```json
+"active_project": "my-project"
+```
+
+The `ConfigLoader.get_active_project/0` function looks up this name in the `projects` array and returns the matching project map.
 
 ### projects
+
 **Type**: `array of objects`
-**Description**: Array of configured projects.
+**Default**: `[]`
 
-```json
-"projects": [
-  {
-    "name": "ccem",
-    "root": "/Users/jeremiah/Developer/ccem"
-  },
-  {
-    "name": "lcc",
-    "root": "/Users/jeremiah/Developer/lcc"
-  }
-]
-```
+Array of all registered projects. Projects are added automatically by the session init hook via jq UPSERT logic -- they are never overwritten, only appended or updated.
 
-Each project object:
+## Project Object Fields
+
+Each object in the `projects` array has the following fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| **name** | string | Unique project identifier (lowercase, hyphens ok) |
-| **root** | string | Absolute path to project directory |
+| **name** | string | Unique project identifier, derived from `basename` of the working directory |
+| **root** | string | Absolute path to the project directory |
+| **tasks_dir** | string | Path to Claude Code tasks directory (usually under `/private/tmp/claude-503/`) |
+| **prd_json** | string | Path to Ralph PRD file if found at `{root}/.claude/ralph/prd.json`, otherwise `""` |
+| **todo_md** | string | Path to TODO file if found under `{root}/.claude/plans/`, otherwise `""` |
+| **status** | string | Project status: `"active"` |
+| **primary_port** | integer | Primary dev server port for this project (optional, set via `/api/ports/set-primary`) |
+| **port_ownership** | string | Port ownership mode: `"exclusive"` or `"shared"` (optional) |
+| **registered_at** | ISO 8601 string | Timestamp when the project was first registered |
+| **sessions** | array | Array of session objects associated with this project |
 
-### sessions
-**Type**: `object`
-**Description**: Map of active session metadata.
+## Session Object Fields
+
+Each object in a project's `sessions` array:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| **session_id** | string | UUID of the Claude Code session |
+| **session_jsonl** | string | Path to the session's JSONL transcript file |
+| **start_time** | ISO 8601 string | When the session was registered |
+| **status** | string | Session status: `"active"` |
+
+## ConfigLoader GenServer API
+
+The `ApmV4.ConfigLoader` module provides the runtime interface to the config:
+
+| Function | Return | Description |
+|----------|--------|-------------|
+| `get_config()` | `map()` | Returns the full parsed config map |
+| `get_project(name)` | `map() \| nil` | Finds a project by name in the projects array |
+| `get_active_project()` | `map() \| nil` | Returns the project matching `active_project` |
+| `reload()` | `:ok` | Re-reads config from disk, broadcasts via PubSub |
+| `update_project(params)` | `{:ok, map()} \| {:error, String.t()}` | Updates a project's fields and persists to disk |
+
+On startup, `ConfigLoader` also syncs all sessions from the config into the `AgentRegistry` so the dashboard shows accurate session counts immediately.
+
+## Default Configuration
+
+If `apm_config.json` does not exist or fails to parse, `ConfigLoader` uses this default:
 
 ```json
-"sessions": {
-  "session-abc123": {
-    "project": "ccem",
-    "started_at": "2026-02-19T10:00:00Z",
-    "last_heartbeat": "2026-02-19T12:34:56Z",
-    "agent_count": 5
-  }
+{
+  "version": "4.0.0",
+  "port": 3031,
+  "active_project": null,
+  "projects": []
 }
 ```
-
-Managed automatically by APM. Manual editing not recommended.
-
-Session object fields:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| **project** | string | Project the session belongs to |
-| **started_at** | ISO 8601 string | Session creation timestamp |
-| **last_heartbeat** | ISO 8601 string | Most recent session heartbeat |
-| **agent_count** | integer | Number of agents in session |
-
-## Optional Fields
-
-### apm_server_url
-**Type**: `string`
-**Default**: Auto-detected
-**Description**: Full URL of APM server (for remote setups).
-
-```json
-"apm_server_url": "http://localhost:3031"
-```
-
-Used by CCEMAgent and external clients. Auto-set to `http://localhost:{port}`.
-
-### max_agents
-**Type**: `integer`
-**Default**: `1000`
-**Description**: Maximum agents before performance optimizations kick in.
-
-```json
-"max_agents": 500
-```
-
-At this threshold, agent indexes become more aggressive about cleanup.
-
-### max_sessions
-**Type**: `integer`
-**Default**: `100`
-**Description**: Maximum concurrent sessions before cleanup.
-
-```json
-"max_sessions": 50
-```
-
-Oldest inactive sessions are archived when exceeded.
-
-### token_budget
-**Type**: `integer`
-**Default**: `100000`
-**Description**: Default token budget per agent.
-
-```json
-"token_budget": 100000
-```
-
-Used for notifications and budget tracking.
-
-### polling_interval_seconds
-**Type**: `integer`
-**Default**: `5`
-**Description**: CCEMAgent polling interval.
-
-```json
-"polling_interval_seconds": 10
-```
-
-Adjust for different resource usage profiles.
-
-### enable_docs_server
-**Type**: `boolean`
-**Default**: `true`
-**Description**: Serve documentation wiki from `/docs`.
-
-```json
-"enable_docs_server": true
-```
-
-### docs_path
-**Type**: `string`
-**Default**: `"priv/docs"`
-**Description**: Relative path to documentation directory.
-
-```json
-"docs_path": "priv/docs"
-```
-
-### enable_agent_discovery
-**Type**: `boolean`
-**Default**: `false`
-**Description**: Auto-discover agents from environment.
-
-```json
-"enable_agent_discovery": true
-```
-
-When enabled, agents can be discovered and registered automatically.
-
-### log_level
-**Type**: `string`
-**Default**: `"info"`
-**Description**: Logging verbosity.
-
-```json
-"log_level": "debug"
-```
-
-Valid values: `debug`, `info`, `warn`, `error`
 
 ## Environment Variables
 
-Configuration can be overridden by environment variables:
-
 | Variable | Overrides | Example |
 |----------|-----------|---------|
-| `APM_PORT` | `port` | `export APM_PORT=3032` |
-| `APM_PROJECT` | `active_project` | `export APM_PROJECT=lcc` |
-| `APM_CONFIG_PATH` | File location | `export APM_CONFIG_PATH=/path/to/config.json` |
-| `APM_LOG_LEVEL` | `log_level` | `export APM_LOG_LEVEL=debug` |
+| `PORT` | Phoenix HTTP listen port | `PORT=3032 mix phx.server` |
 
-Environment variables take precedence over file config.
-
-```bash
-APM_PORT=3032 APM_LOG_LEVEL=debug mix phx.server
-```
+The Phoenix endpoint reads `PORT` from the environment in `config/dev.exs` and `config/runtime.exs`. The config file's `port` field is informational for the hook and dashboard.
 
 ## Adding a New Project
 
-### Step 1: Edit Configuration
+Projects are added automatically when a Claude Code session starts in a new directory. The session init hook runs `basename` on the working directory to derive the project name and uses jq to UPSERT the project into the `projects` array.
 
-Add to `projects` array:
-
-```json
-{
-  "name": "new-project",
-  "root": "/Users/jeremiah/Developer/new-project"
-}
-```
-
-### Step 2: Reload Configuration
-
-Restart server or POST to reload endpoint:
+To add a project manually:
 
 ```bash
-curl -X POST http://localhost:3031/api/config/reload
-```
-
-### Step 3: Verify
-
-Check project appears in dashboard selector:
-
-```bash
-curl http://localhost:3031/api/projects
-```
-
-Response:
-
-```json
-{
-  "projects": [
-    {"name": "ccem", "root": "/Users/jeremiah/Developer/ccem"},
-    {"name": "new-project", "root": "/Users/jeremiah/Developer/new-project"}
-  ],
-  "active": "ccem"
-}
-```
-
-## Switching Active Project
-
-### Via Configuration File
-
-Edit `active_project`:
-
-```json
-{
-  "active_project": "lcc"
-}
+jq --arg name "new-project" --arg root "/path/to/project" \
+  '.projects += [{"name": $name, "root": $root, "tasks_dir": "", "prd_json": "", "todo_md": "", "status": "active", "registered_at": (now | todate), "sessions": []}]' \
+  ~/Developer/ccem/apm/apm_config.json > /tmp/config.tmp && \
+  mv /tmp/config.tmp ~/Developer/ccem/apm/apm_config.json
 ```
 
 Then reload:
@@ -306,216 +169,68 @@ Then reload:
 curl -X POST http://localhost:3031/api/config/reload
 ```
 
-### Via Environment Variable
+## Switching Active Project
+
+The `active_project` field is updated automatically by the session init hook whenever a new Claude Code session starts. It can also be changed manually:
 
 ```bash
-export APM_PROJECT=lcc
-mix phx.server
+jq '.active_project = "other-project"' ~/Developer/ccem/apm/apm_config.json > /tmp/config.tmp && \
+  mv /tmp/config.tmp ~/Developer/ccem/apm/apm_config.json
+curl -X POST http://localhost:3031/api/config/reload
 ```
 
-### Via Dashboard
+## Reloading Configuration
 
-Click project selector dropdown in web UI and choose project.
+Configuration can be reloaded at runtime via the API:
 
-## Multi-Project Configuration
-
-Example with multiple projects:
-
-```json
-{
-  "project_name": "lcc",
-  "project_root": "/Users/jeremiah/Developer/lcc",
-  "active_project": "lcc",
-  "port": 3031,
-  "projects": [
-    {
-      "name": "ccem",
-      "root": "/Users/jeremiah/Developer/ccem"
-    },
-    {
-      "name": "lcc",
-      "root": "/Users/jeremiah/Developer/lcc"
-    },
-    {
-      "name": "strategic-thinking",
-      "root": "/Users/jeremiah/Developer/strategic-thinking"
-    }
-  ],
-  "sessions": {}
-}
+```bash
+curl -X POST http://localhost:3031/api/config/reload
 ```
 
-Each project is isolated:
-- Agents registered with different projects don't interact
-- Dashboard filters by active project
-- Metrics and skills tracked per-project
-- Session lifecycle independent per project
+This calls `ConfigLoader.reload/0`, which re-reads the file from disk, syncs sessions into the `AgentRegistry`, and broadcasts a `{:config_reloaded, config}` event on the `apm:config` PubSub topic. All connected LiveView dashboards update automatically via WebSocket.
 
 ## Port Configuration
 
-### Default Port
+The APM server listens on port 3031 by default. To use a different port:
 
-```json
-{
-  "port": 3031
-}
+```bash
+PORT=3032 mix phx.server
 ```
 
-### Custom Port
-
-```json
-{
-  "port": 3032
-}
-```
-
-Access at `http://localhost:3032`
-
-### Port Conflicts
-
-If port is already in use:
+If the port is already in use:
 
 ```bash
 # Find process using port
 lsof -ti:3031
 
 # Kill the process
-kill -9 <pid>
-
-# Or change port in config
+kill -9 $(lsof -ti:3031)
 ```
-
-## Logging Configuration
-
-### Log Level
-
-```json
-{
-  "log_level": "debug"
-}
-```
-
-Levels:
-- `debug` - Verbose logging for development
-- `info` - Standard logging (default)
-- `warn` - Only warnings and errors
-- `error` - Only errors
-
-### Log Output
-
-Logs print to stdout:
-
-```bash
-mix phx.server
-# [info] Running ApmV4Web.Endpoint with cowboy ...
-# [debug] Received agent registration ...
-```
-
-Redirect to file:
-
-```bash
-mix phx.server > apm.log 2>&1 &
-```
-
-## Configuration Validation
-
-CCEM APM validates config on startup:
-
-- All project roots must exist and be absolute paths
-- Port must be in valid range (1024-65535)
-- All string fields must be non-empty
-- Arrays must be properly formed
-
-Invalid config prints error:
-
-```
-[error] Invalid configuration: "project_root" is not an absolute path
-```
-
-## Reloading Configuration
-
-Configuration reloaded in three scenarios:
-
-1. **Server restart**: Explicitly kill and restart
-2. **API endpoint**: POST `/api/config/reload`
-3. **File watch**: Auto-reload if file modified (if enabled)
-
-Reload notification broadcast to all clients:
-
-```
-[info] Configuration reloaded
-```
-
-Dashboard updates automatically via WebSocket.
 
 ## Backup and Recovery
 
-### Backup Configuration
-
 ```bash
-cp /Users/jeremiah/Developer/ccem/apm/apm_config.json \
-   /Users/jeremiah/Developer/ccem/apm/apm_config.json.backup
-```
+# Backup
+cp ~/Developer/ccem/apm/apm_config.json ~/Developer/ccem/apm/apm_config.json.backup
 
-### Restore from Backup
-
-```bash
-cp /Users/jeremiah/Developer/ccem/apm/apm_config.json.backup \
-   /Users/jeremiah/Developer/ccem/apm/apm_config.json
+# Restore
+cp ~/Developer/ccem/apm/apm_config.json.backup ~/Developer/ccem/apm/apm_config.json
 curl -X POST http://localhost:3031/api/config/reload
-```
-
-### Version Control
-
-Track `apm_config.json` in git (with sensitive data redacted):
-
-```bash
-git add /Users/jeremiah/Developer/ccem/apm/apm_config.json
-git commit -m "Update APM configuration"
-```
-
-## Default Configuration
-
-If `apm_config.json` doesn't exist, CCEM APM creates:
-
-```json
-{
-  "project_name": "ccem",
-  "project_root": "/Users/jeremiah/Developer/ccem",
-  "active_project": "ccem",
-  "port": 3031,
-  "projects": [
-    {
-      "name": "ccem",
-      "root": "/Users/jeremiah/Developer/ccem"
-    }
-  ],
-  "sessions": {},
-  "log_level": "info",
-  "token_budget": 100000,
-  "polling_interval_seconds": 5
-}
 ```
 
 ## Troubleshooting
 
 **Configuration not loading?**
-- Verify file path: `/Users/jeremiah/Developer/ccem/apm/apm_config.json`
-- Check file permissions: `ls -la apm_config.json`
-- Verify valid JSON: `jq empty apm_config.json`
-
-**Port already in use?**
-- Find process: `lsof -ti:3031`
-- Kill it: `kill -9 <pid>`
-- Or change port in config
+- Verify file exists: `ls -la ~/Developer/ccem/apm/apm_config.json`
+- Check valid JSON: `jq empty ~/Developer/ccem/apm/apm_config.json`
+- Check version field equals `"4.0.0"`
 
 **Project not appearing?**
-- Verify entry in `projects` array
-- Check path is absolute: `/Users/...` not `./relative/path`
+- Verify entry in `projects` array: `jq '.projects[].name' ~/Developer/ccem/apm/apm_config.json`
 - Reload config: `curl -X POST http://localhost:3031/api/config/reload`
 
 **Changes not taking effect?**
-- Restart server or POST to `/api/config/reload`
-- Check environment variables aren't overriding
+- POST to `/api/config/reload` or `/api/reload`
+- Both endpoints call the same `ConfigLoader.reload/0` function
 
 See [Deployment](deployment.md) for production setup.

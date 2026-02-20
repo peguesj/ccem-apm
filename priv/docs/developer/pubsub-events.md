@@ -11,10 +11,18 @@ apm:agents          - Agent lifecycle and updates
 apm:notifications   - Alerts and notifications
 apm:config          - Configuration changes
 apm:tasks           - Task execution
-apm:commands        - Slash command execution
+apm:commands        - Slash command registration
 apm:upm             - UPM execution tracking
 apm:skills          - Skill tracking
 apm:audit           - Audit logging
+apm:alerts          - Alert rule engine
+apm:environments    - Environment scanning
+apm:input           - User input requests/responses
+apm:plane           - Plane PM integration
+apm:metrics         - Fleet metrics
+apm:slos            - SLO status transitions
+apm:ag_ui           - AG-UI Server-Sent Events
+apm:ports           - Port assignment events
 ```
 
 ## Subscribing to Topics
@@ -22,14 +30,8 @@ apm:audit           - Audit logging
 In LiveView or GenServer:
 
 ```elixir
-ApmV4.PubSub.subscribe("apm:agents")
-ApmV4.PubSub.subscribe("apm:notifications")
-```
-
-Unsubscribe:
-
-```elixir
-ApmV4.PubSub.unsubscribe("apm:agents")
+Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:agents")
+Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:notifications")
 ```
 
 ## apm:agents Topic
@@ -45,20 +47,19 @@ Fired when new agent registers.
   %{
     id: "agent-abc123",
     name: "test-generator",
-    type: "individual",
-    status: "active",
+    status: "idle",
     tier: 2,
-    project: "ccem",
-    capabilities: ["test-writing", "mock-generation"],
+    deps: [],
+    metadata: %{},
     registered_at: ~U[2026-02-19 12:00:00Z]
   }
 }
 ```
 
-**Broadcast from**: `AgentRegistry.register_agent/1`
+**Broadcast from**: `ApmV4.AgentRegistry` in `handle_cast(:register_agent, ...)`
 
 ### {:agent_updated, agent}
-Fired when agent properties change.
+Fired when agent status or properties change.
 
 ```elixir
 {
@@ -66,15 +67,12 @@ Fired when agent properties change.
   %{
     id: "agent-abc123",
     status: "active",
-    current_task: "Generating tests for UserService",
-    progress: 75,
-    token_usage: 12500,
     last_heartbeat: ~U[2026-02-19 12:34:56Z]
   }
 }
 ```
 
-**Broadcast from**: `AgentRegistry.heartbeat/2`, `AgentRegistry.update_agent_status/2`
+**Broadcast from**: `ApmV4.AgentRegistry` in `handle_cast(:update_status, ...)` and `handle_cast(:update_agent, ...)`
 
 ### {:agent_discovered, agent_id, project}
 Fired when agent auto-discovered from environment.
@@ -87,25 +85,7 @@ Fired when agent auto-discovered from environment.
 }
 ```
 
-**Broadcast from**: `AgentDiscovery.discover/1`
-
-### {:agent_heartbeat, agent_id, metrics}
-Periodic heartbeat with metrics.
-
-```elixir
-{
-  :agent_heartbeat,
-  "agent-abc123",
-  %{
-    status: "active",
-    token_usage: 12500,
-    tasks_completed: 5,
-    error_rate: 0.02
-  }
-}
-```
-
-**Broadcast from**: `AgentRegistry.heartbeat/2`
+**Broadcast from**: `ApmV4.AgentDiscovery`
 
 ## apm:notifications Topic
 
@@ -118,17 +98,16 @@ Fired when new notification created.
 {
   :notification_added,
   %{
-    id: "notif-abc123",
+    id: 1,
     level: "success",
     title: "Story Completed",
     message: "Create project selector - 3200 tokens",
-    created_at: ~U[2026-02-19 12:34:56Z],
-    action_url: "/ralph"
+    created_at: ~U[2026-02-19 12:34:56Z]
   }
 }
 ```
 
-**Broadcast from**: `DashboardStore.add_notification/1`
+**Broadcast from**: `ApmV4.AgentRegistry.add_notification/1`
 
 ### :notifications_read
 Fired when all notifications marked as read.
@@ -137,48 +116,35 @@ Fired when all notifications marked as read.
 :notifications_read
 ```
 
-**Broadcast from**: `DashboardStore.read_all_notifications/0`
+**Broadcast from**: `ApmV4.AgentRegistry.mark_all_read/0`
 
 ## apm:config Topic
 
 Configuration and environment changes.
 
 ### {:config_reloaded, config}
-Fired when config file reloaded.
+Fired when config file reloaded or project updated.
 
 ```elixir
 {
   :config_reloaded,
   %{
-    project_name: "ccem",
-    project_root: "/Users/jeremiah/Developer/ccem",
-    active_project: "ccem",
-    port: 3031,
-    projects: [...]
+    "project_name" => "ccem",
+    "project_root" => "/Users/jeremiah/Developer/ccem",
+    "active_project" => "ccem",
+    "projects" => [...]
   }
 }
 ```
 
-**Broadcast from**: `ConfigLoader.reload_config/0`
-
-### {:project_switched, project_name}
-Fired when active project changes.
-
-```elixir
-{
-  :project_switched,
-  "lcc"
-}
-```
-
-**Broadcast from**: `ConfigLoader.set_active_project/1`
+**Broadcast from**: `ApmV4.ConfigLoader.reload/0` and `ApmV4Web.ApiController.update_project/2`
 
 ## apm:tasks Topic
 
 Task execution and lifecycle events.
 
 ### {:tasks_synced, project, tasks}
-Fired when tasks synced from external source (Plane, Linear).
+Fired when tasks synced via the API.
 
 ```elixir
 {
@@ -186,58 +152,19 @@ Fired when tasks synced from external source (Plane, Linear).
   "ccem",
   [
     %{
-      id: "CCEM-123",
-      title: "Add project selector",
-      status: "in_progress",
-      assigned_to: "agent-abc123"
-    },
-    ...
+      "id" => "CCEM-123",
+      "title" => "Add project selector",
+      "status" => "in_progress"
+    }
   ]
 }
 ```
 
-**Broadcast from**: `TaskSync.sync_tasks/1`
-
-### {:task_started, task_id}
-Fired when task begins.
-
-```elixir
-{
-  :task_started,
-  "CCEM-123"
-}
-```
-
-**Broadcast from**: `TaskRunner.start_task/1`
-
-### {:task_completed, task_id}
-Fired when task completes.
-
-```elixir
-{
-  :task_completed,
-  "CCEM-123"
-}
-```
-
-**Broadcast from**: `TaskRunner.complete_task/1`
-
-### {:task_failed, task_id, reason}
-Fired when task fails.
-
-```elixir
-{
-  :task_failed,
-  "CCEM-123",
-  "Compilation error in generated code"
-}
-```
-
-**Broadcast from**: `TaskRunner.fail_task/2`
+**Broadcast from**: `ApmV4.ProjectStore.sync_tasks/2`
 
 ## apm:commands Topic
 
-Slash command execution events.
+Slash command registration events.
 
 ### {:commands_updated, project}
 Fired when command list updated for project.
@@ -249,20 +176,7 @@ Fired when command list updated for project.
 }
 ```
 
-**Broadcast from**: `CommandRegistry.update_commands/1`
-
-### {:command_executed, command, agent_id}
-Fired when slash command executed.
-
-```elixir
-{
-  :command_executed,
-  "/spawn",
-  "agent-abc123"
-}
-```
-
-**Broadcast from**: `CommandRunner.execute/2`
+**Broadcast from**: `ApmV4.ProjectStore.register_commands/2`
 
 ## apm:upm Topic
 
@@ -275,7 +189,7 @@ Fired when UPM session created.
 {
   :upm_session_registered,
   %{
-    session_id: "upm-abc123",
+    id: "upm-abc123",
     project: "ccem",
     title: "Multi-project dashboard",
     created_at: ~U[2026-02-19 12:00:00Z],
@@ -284,7 +198,7 @@ Fired when UPM session created.
 }
 ```
 
-**Broadcast from**: `UpmStore.register_session/1`
+**Broadcast from**: `ApmV4.UpmStore.register_session/1`
 
 ### {:upm_agent_registered, params}
 Fired when agent assigned to UPM story.
@@ -293,15 +207,14 @@ Fired when agent assigned to UPM story.
 {
   :upm_agent_registered,
   %{
-    session_id: "upm-abc123",
-    agent_id: "agent-xyz789",
-    story_id: "story-1-1",
-    assigned_at: ~U[2026-02-19 12:30:00Z]
+    "upm_session_id" => "upm-abc123",
+    "agent_id" => "agent-xyz789",
+    "story_id" => "story-1-1"
   }
 }
 ```
 
-**Broadcast from**: `UpmStore.register_agent/2`
+**Broadcast from**: `ApmV4.UpmStore.register_agent/1`
 
 ### {:upm_event, event}
 Fired for UPM execution events.
@@ -310,14 +223,10 @@ Fired for UPM execution events.
 {
   :upm_event,
   %{
-    session_id: "upm-abc123",
+    upm_session_id: "upm-abc123",
     story_id: "story-1-1",
-    agent_id: "agent-xyz789",
     event_type: "progress_update",
-    data: %{
-      progress_percent: 75,
-      tokens_consumed: 1500
-    },
+    data: %{"progress_percent" => 75},
     timestamp: ~U[2026-02-19 12:34:56Z]
   }
 }
@@ -334,84 +243,46 @@ Event types:
 - `milestone_reached` - Wave milestone
 - `wave_completed` - All stories in wave done
 
-**Broadcast from**: `UpmStore.log_event/1`
+**Broadcast from**: `ApmV4.UpmStore.record_event/1`
+
+### {:formation_registered, formation}
+Fired when a new formation is registered.
+
+**Broadcast from**: `ApmV4.UpmStore`
+
+### {:formation_updated, formation}
+Fired when a formation is updated.
+
+**Broadcast from**: `ApmV4.UpmStore`
 
 ## apm:skills Topic
 
 Skill tracking and analytics.
 
-### {:skill_tracked, skill}
+### {:skill_tracked, session_id, skill_name}
 Fired when skill usage logged.
 
 ```elixir
 {
   :skill_tracked,
-  %{
-    agent_id: "agent-abc123",
-    skill: "test-writing",
-    project: "ccem",
-    context: %{
-      language: "swift",
-      test_framework: "XCTest"
-    },
-    timestamp: ~U[2026-02-19 12:34:56Z]
-  }
+  "session-abc123",
+  "test-writing"
 }
 ```
 
-**Broadcast from**: `SkillTracker.track_skill/2`
-
-### {:methodology_detected, methodology}
-Fired when methodology pattern detected.
-
-```elixir
-{
-  :methodology_detected,
-  %{
-    methodology: "tdd",
-    confidence: 0.92,
-    agents: ["test-gen", "code-writer", "refactorer"],
-    active_since: ~U[2026-02-19 10:00:00Z],
-    events_count: 45
-  }
-}
-```
-
-Methodologies: `tdd`, `refactor-max`, `fix-loop`
-
-**Broadcast from**: `SkillTracker.detect_methodologies/0`
-
-### {:anomaly_detected, anomaly}
-Fired when unusual behavior detected.
-
-```elixir
-{
-  :anomaly_detected,
-  %{
-    type: "high_token_spike",
-    agent_id: "agent-abc123",
-    skill: "analysis",
-    normal: 2000,
-    observed: 45000,
-    timestamp: ~U[2026-02-19 12:34:56Z]
-  }
-}
-```
-
-**Broadcast from**: `SkillTracker.detect_anomalies/0`
+**Broadcast from**: `ApmV4.SkillTracker.track_skill/4`
 
 ## apm:audit Topic
 
 Audit logging for compliance and debugging.
 
-### {:audit_entry, entry}
+### {:audit_event, event}
 Fired for all auditable events.
 
 ```elixir
 {
-  :audit_entry,
+  :audit_event,
   %{
-    id: "audit-abc123",
     entity_type: "agent",
     entity_id: "agent-xyz789",
     action: "registered",
@@ -422,31 +293,147 @@ Fired for all auditable events.
 }
 ```
 
-Audited actions:
-- Agent registration, update, deletion
-- Project switches
-- Configuration changes
-- Task state changes
-- UPM session events
+**Broadcast from**: `ApmV4.AuditLog`
 
-**Broadcast from**: `AuditLog.log/1` (called from various stores)
+## apm:alerts Topic
+
+Alert rule engine events.
+
+### {:alert_fired, alert}
+Fired when an alert rule condition is met.
+
+```elixir
+{
+  :alert_fired,
+  %{
+    rule_name: "high_token_usage",
+    severity: "warning",
+    message: "Token usage exceeded threshold",
+    timestamp: ~U[2026-02-19 12:34:56Z]
+  }
+}
+```
+
+**Broadcast from**: `ApmV4.AlertRulesEngine`
+
+## apm:environments Topic
+
+Environment scanning events.
+
+### {:environments_updated, count}
+Fired when environment scan completes.
+
+```elixir
+{:environments_updated, 12}
+```
+
+**Broadcast from**: `ApmV4.EnvironmentScanner`
+
+## apm:input Topic
+
+User input request and response events.
+
+### {:input_requested, input}
+Fired when an agent requests user input.
+
+```elixir
+{
+  :input_requested,
+  %{
+    id: 1,
+    agent_id: "agent-abc123",
+    prompt: "Confirm deployment?",
+    input_type: "confirmation"
+  }
+}
+```
+
+**Broadcast from**: `ApmV4.ProjectStore.add_input_request/1`
+
+### {:input_responded, input}
+Fired when user responds to an input request.
+
+```elixir
+{
+  :input_responded,
+  %{
+    id: 1,
+    choice: "yes",
+    responded_at: ~U[2026-02-19 12:35:00Z]
+  }
+}
+```
+
+**Broadcast from**: `ApmV4.ProjectStore.respond_to_input/2`
+
+## apm:plane Topic
+
+Plane PM integration events.
+
+### {:plane_updated, project_name}
+Fired when Plane PM data is updated for a project.
+
+```elixir
+{:plane_updated, "ccem"}
+```
+
+**Broadcast from**: `ApmV4.ProjectStore.update_plane/2`
+
+## apm:metrics Topic
+
+Fleet metrics events.
+
+### {:fleet_metrics_updated, metrics}
+Fired when fleet-wide metrics are recalculated.
+
+```elixir
+{:fleet_metrics_updated, %{total_agents: 12, active: 5, ...}}
+```
+
+**Broadcast from**: `ApmV4.MetricsCollector`
+
+## apm:slos Topic
+
+SLO status transition events.
+
+### {:slo_transition, sli_name, old_status, new_status}
+Fired when an SLO transitions between statuses.
+
+```elixir
+{:slo_transition, "agent_uptime", :healthy, :degraded}
+```
+
+**Broadcast from**: `ApmV4.SloEngine`
+
+## apm:ag_ui Topic
+
+AG-UI Server-Sent Events for real-time streaming.
+
+### {:ag_ui_event, event}
+Fired for AG-UI compatible events.
+
+**Broadcast from**: `ApmV4.EventStream`
 
 ## Broadcast Example
 
-Broadcasting from GenServer:
+Broadcasting from a GenServer:
 
 ```elixir
-defmodule ApmV4.Stores.AgentRegistry do
-  def register_agent(agent_data) do
-    agent = %Agent{...}
+defmodule ApmV4.AgentRegistry do
+  def register_agent(agent_id, metadata, project_name) do
+    GenServer.cast(__MODULE__, {:register_agent, agent_id, metadata, project_name})
+  end
 
-    # Store in state...
+  def handle_cast({:register_agent, agent_id, metadata, project_name}, state) do
+    agent = build_agent(agent_id, metadata, project_name)
+
+    # Store in ETS
     :ets.insert(:agents, {agent.id, agent})
 
     # Broadcast event
-    ApmV4.PubSub.broadcast("apm:agents", {:agent_registered, agent})
+    Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:agents", {:agent_registered, agent})
 
-    {:ok, agent}
+    {:noreply, state}
   end
 end
 ```
@@ -457,8 +444,8 @@ end
 defmodule ApmV4Web.DashboardLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      ApmV4.PubSub.subscribe("apm:agents")
-      ApmV4.PubSub.subscribe("apm:notifications")
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:agents")
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:notifications")
     end
 
     {:ok, socket}
@@ -495,10 +482,10 @@ end
 In tests, broadcast directly:
 
 ```elixir
-ApmV4.PubSub.broadcast("apm:agents", {:agent_registered, agent})
+Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:agents", {:agent_registered, agent})
 
 # In LiveView test
 send(view.pid, {:agent_registered, agent})
 ```
 
-See [Testing](../developer/architecture.md#testing) for more.
+See [Architecture](architecture.md) for system design details.

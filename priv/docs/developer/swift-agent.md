@@ -6,431 +6,487 @@ CCEMAgent is a native macOS application providing real-time monitoring and contr
 
 CCEMAgent runs as a persistent menubar app (system tray on macOS) with:
 
-- **Real-time Agent Status**: Live display of active agents and health
-- **Quick Actions**: Register agents, trigger commands, pause/resume
-- **Health Monitoring**: APM server status and connection health
-- **Token Tracking**: Display cumulative token usage
-- **Notifications**: Alert badges for errors and important events
-- **Login Item**: Auto-launch on system startup
+- **Real-time Project Status**: Live display of all CCEM projects with agent counts and session activity
+- **UPM Monitoring**: Wave progress, story status, and session tracking
+- **Health Monitoring**: APM server connection state with auto-reconnect
+- **Environment Filtering**: Toggle between All and Active project views
+- **Drift Detection**: Per-project drift status monitoring
+- **Login Item**: Auto-launch on system startup via ServiceManagement
 
 ## Architecture
 
 ```
-┌─────────────────────────────────┐
-│  MenuBarView (SwiftUI)          │
-│  - Status display               │
-│  - Agent list                   │
-│  - Quick action buttons         │
-└────────────┬────────────────────┘
-             │
-┌────────────▼────────────────────┐
-│  EnvironmentMonitor             │
-│  - Polls APM server             │
-│  - Tracks agent state           │
-│  - Manages timers               │
-└────────────┬────────────────────┘
-             │
-┌────────────▼────────────────────┐
-│  APMClient (URLSession)         │
-│  - HTTP requests to APM API     │
-│  - JSON parsing                 │
-│  - Error handling               │
-└────────────┬────────────────────┘
-             │
-       http://localhost:3031
++----------------------------------+
+|  MenuBarView (SwiftUI)           |
+|  - Header with connection state  |
+|  - Filter picker (All/Active)    |
+|  - Environment list              |
+|  - UPM status bar                |
+|  - Action buttons                |
++----------------+-----------------+
+                 |
++----------------v-----------------+
+|  EnvironmentMonitor (@Observable)|
+|  - Polls APM server (10s)        |
+|  - Tracks environments           |
+|  - Manages connection state      |
+|  - Fetches UPM status            |
++----------------+-----------------+
+                 |
++----------------v-----------------+
+|  APMClient (actor)               |
+|  - async/await HTTP requests     |
+|  - JSON decoding                 |
+|  - Error handling                |
++----------------+-----------------+
+                 |
+           http://localhost:3031
 ```
 
 ## Key Components
 
-### MenuBarView
+### APMClient
 
-The main UI component for the menubar app.
+An `actor` providing thread-safe async HTTP communication with the APM server.
 
 ```swift
-struct MenuBarView: View {
-  @StateObject var monitor: EnvironmentMonitor
-  @State var isPopoverPresented = false
+actor APMClient {
+    private let baseURL = URL(string: "http://localhost:3031")!
+    private let session: URLSession
+    private let decoder: JSONDecoder
 
-  var body: some View {
-    VStack(spacing: 10) {
-      // Server status
-      HStack {
-        Image(systemName: monitor.isHealthy ? "checkmark.circle.fill" : "xmark.circle.fill")
-          .foregroundColor(monitor.isHealthy ? .green : .red)
-        Text(monitor.statusText)
-      }
-
-      // Agent count
-      Text("Agents: \(monitor.agents.count)")
-        .font(.headline)
-
-      // Quick agent list
-      List(monitor.activeAgents, id: \.id) { agent in
-        HStack {
-          Circle()
-            .fill(agent.statusColor)
-            .frame(width: 8, height: 8)
-          VStack(alignment: .leading, spacing: 2) {
-            Text(agent.name)
-              .font(.caption)
-            Text(agent.status)
-              .font(.caption2)
-              .foregroundColor(.gray)
-          }
-          Spacer()
-          Text("\(agent.tier)")
-            .font(.caption)
-        }
-        .padding(.vertical, 4)
-      }
-
-      // Token usage
-      VStack(alignment: .leading, spacing: 4) {
-        Text("Token Usage")
-          .font(.caption)
-          .bold()
-        ProgressView(value: monitor.tokenPercentage)
-          .tint(.blue)
-        Text("\(monitor.totalTokens) / \(monitor.maxTokens)")
-          .font(.caption2)
-          .foregroundColor(.gray)
-      }
-
-      Divider()
-
-      // Action buttons
-      HStack(spacing: 10) {
-        Button(action: { monitor.refresh() }) {
-          Image(systemName: "arrow.clockwise")
-        }
-        .help("Refresh status")
-
-        Button(action: { openDashboard() }) {
-          Image(systemName: "globe")
-        }
-        .help("Open dashboard")
-
-        Button(action: { quit() }) {
-          Image(systemName: "xmark")
-        }
-        .help("Quit")
-      }
-      .buttonStyle(.borderless)
-      .font(.caption)
+    init() {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 5
+        config.timeoutIntervalForResource = 10
+        self.session = URLSession(configuration: config)
+        self.decoder = JSONDecoder()
     }
-    .padding()
-    .frame(width: 300)
-  }
+
+    func checkHealth() async throws -> HealthStatus {
+        let url = baseURL.appendingPathComponent("health")
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APMClientError.badResponse
+        }
+        return try decoder.decode(HealthStatus.self, from: data)
+    }
+
+    func fetchProjects() async throws -> [APMProject] {
+        let url = baseURL.appendingPathComponent("api/projects")
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APMClientError.badResponse
+        }
+        if let wrapper = try? decoder.decode(ProjectListResponse.self, from: data) {
+            return wrapper.projects
+        }
+        if let list = try? decoder.decode([APMProject].self, from: data) {
+            return list
+        }
+        return []
+    }
+
+    func fetchEnvironments() async throws -> [APMProject] {
+        let url = baseURL.appendingPathComponent("api/environments")
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APMClientError.badResponse
+        }
+        if let wrapper = try? decoder.decode(EnvironmentListResponse.self, from: data) {
+            return wrapper.environments
+        }
+        if let list = try? decoder.decode([APMProject].self, from: data) {
+            return list
+        }
+        return []
+    }
+
+    func fetchUPMStatus() async throws -> UPMStatus {
+        let url = baseURL.appendingPathComponent("api/upm/status")
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APMClientError.badResponse
+        }
+        return try decoder.decode(UPMStatus.self, from: data)
+    }
+
+    func fetchData() async throws -> APMDataResponse {
+        let url = baseURL.appendingPathComponent("api/data")
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APMClientError.badResponse
+        }
+        return try decoder.decode(APMDataResponse.self, from: data)
+    }
+}
+```
+
+### APMClientError
+
+```swift
+enum APMClientError: Error, LocalizedError {
+    case badResponse
+    case decodingFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .badResponse: return "Bad response from APM server"
+        case .decodingFailed: return "Failed to decode APM response"
+        }
+    }
 }
 ```
 
 ### EnvironmentMonitor
 
-Manages polling of APM server and state updates.
+Uses Swift Observation framework (`@Observable`) with `@MainActor` isolation. Polls the APM server every 10 seconds using structured concurrency.
 
 ```swift
-class EnvironmentMonitor: NSObject, ObservableObject {
-  @Published var agents: [Agent] = []
-  @Published var isHealthy = false
-  @Published var statusText = "Connecting..."
-  @Published var totalTokens = 0
-  @Published var maxTokens = 100000
+@MainActor
+@Observable
+final class EnvironmentMonitor {
+    var connectionState: ConnectionState = .disconnected
+    var environments: [APMEnvironment] = []
+    var healthStatus: HealthStatus?
+    var lastError: String?
+    var lastRefresh: Date?
+    var filter: EnvironmentFilter = .all
+    var upmStatus: UPMStatus?
 
-  private let client: APMClient
-  private var timer: Timer?
-
-  override init() {
-    self.client = APMClient(baseURL: "http://localhost:3031")
-    super.init()
-    startPolling()
-  }
-
-  func startPolling() {
-    // Poll every 5 seconds
-    timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-      self?.updateStatus()
-    }
-    updateStatus() // Immediate check
-  }
-
-  func updateStatus() {
-    client.getHealth { [weak self] result in
-      DispatchQueue.main.async {
-        switch result {
-        case .success(let health):
-          self?.isHealthy = true
-          self?.statusText = "Connected"
-          self?.updateAgents()
-
-        case .failure(let error):
-          self?.isHealthy = false
-          self?.statusText = "Disconnected: \(error.localizedDescription)"
+    var filteredEnvironments: [APMEnvironment] {
+        switch filter {
+        case .all: return environments
+        case .active: return environments.filter { $0.sessionCount > 0 }
         }
-      }
     }
-  }
 
-  func updateAgents() {
-    client.getAgents { [weak self] result in
-      DispatchQueue.main.async {
-        switch result {
-        case .success(let agents):
-          self?.agents = agents
-          self?.totalTokens = agents.reduce(0) { $0 + $1.tokenUsage }
+    var activeCount: Int {
+        environments.filter { $0.sessionCount > 0 }.count
+    }
 
-        case .failure(let error):
-          print("Error fetching agents: \(error)")
+    private let client = APMClient()
+    private let driftDetector = DriftDetector()
+    private var pollTask: Task<Void, Never>?
+    private let pollInterval: TimeInterval = 10
+
+    func start() {
+        guard pollTask == nil else { return }
+        pollTask = Task {
+            while !Task.isCancelled {
+                await self.refresh()
+                try? await Task.sleep(for: .seconds(self.pollInterval))
+            }
         }
-      }
     }
-  }
 
-  func refresh() {
-    updateStatus()
-  }
+    func stop() {
+        pollTask?.cancel()
+        pollTask = nil
+    }
 
-  deinit {
-    timer?.invalidate()
-  }
+    func refresh() async {
+        connectionState = .connecting
+
+        do {
+            let health = try await client.checkHealth()
+            healthStatus = health
+            connectionState = health.isHealthy ? .connected : .disconnected
+        } catch {
+            connectionState = .disconnected
+            lastError = error.localizedDescription
+            environments = []
+            return
+        }
+
+        // Build environments from health projects
+        let healthProjects = healthStatus?.projects ?? []
+        var updatedEnvironments: [APMEnvironment] = []
+
+        for hp in healthProjects {
+            let project = APMProject(
+                id: hp.name, name: hp.name, projectRoot: nil,
+                sessionCount: hp.sessionCount, lastActivity: nil, status: hp.status
+            )
+            let drift = await driftDetector.detectDrift(for: project)
+            updatedEnvironments.append(APMEnvironment(
+                id: hp.name, project: project,
+                driftStatus: drift, agentCount: hp.agentCount
+            ))
+        }
+
+        environments = updatedEnvironments.sorted {
+            ($0.sessionCount, $0.name) > ($1.sessionCount, $1.name)
+        }
+        lastRefresh = Date()
+        lastError = nil
+
+        // Fetch UPM status (best-effort)
+        do {
+            upmStatus = try await client.fetchUPMStatus()
+        } catch {
+            upmStatus = nil
+        }
+    }
+
+    func openDashboard() {
+        guard let url = URL(string: "http://localhost:3031") else { return }
+        NSWorkspace.shared.open(url)
+    }
 }
 ```
 
-### APMClient
-
-HTTP client for communicating with APM server.
+### ConnectionState
 
 ```swift
-class APMClient {
-  private let baseURL: URL
-  private let session = URLSession.shared
+enum ConnectionState: Equatable {
+    case connected
+    case disconnected
+    case connecting
 
-  init(baseURL: String) {
-    self.baseURL = URL(string: baseURL)!
-  }
-
-  func getHealth(completion: @escaping (Result<HealthStatus, Error>) -> Void) {
-    let url = baseURL.appendingPathComponent("health")
-    var request = URLRequest(url: url)
-    request.timeoutInterval = 5.0
-
-    session.dataTask(with: request) { data, response, error in
-      if let error = error {
-        completion(.failure(error))
-        return
-      }
-
-      guard let data = data else {
-        completion(.failure(APIError.noData))
-        return
-      }
-
-      do {
-        let health = try JSONDecoder().decode(HealthStatus.self, from: data)
-        completion(.success(health))
-      } catch {
-        completion(.failure(error))
-      }
-    }.resume()
-  }
-
-  func getAgents(completion: @escaping (Result<[Agent], Error>) -> Void) {
-    let url = baseURL.appendingPathComponent("api/agents")
-    var request = URLRequest(url: url)
-    request.timeoutInterval = 5.0
-
-    session.dataTask(with: request) { data, response, error in
-      if let error = error {
-        completion(.failure(error))
-        return
-      }
-
-      guard let data = data else {
-        completion(.failure(APIError.noData))
-        return
-      }
-
-      do {
-        let response = try JSONDecoder().decode(AgentsResponse.self, from: data)
-        completion(.success(response.agents))
-      } catch {
-        completion(.failure(error))
-      }
-    }.resume()
-  }
-}
-
-enum APIError: Error {
-  case noData
-  case decodingError
+    var label: String {
+        switch self {
+        case .connected: return "Connected"
+        case .disconnected: return "Disconnected"
+        case .connecting: return "Connecting..."
+        }
+    }
 }
 ```
 
-### HealthStatus Model
+### EnvironmentFilter
+
+```swift
+enum EnvironmentFilter: String, CaseIterable {
+    case all = "All"
+    case active = "Active"
+}
+```
+
+### MenuBarView
+
+The main UI component using `@Bindable` for two-way binding with the `@Observable` monitor.
+
+```swift
+struct MenuBarView: View {
+    @Bindable var monitor: EnvironmentMonitor
+    @Bindable var launchManager: LaunchManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            headerSection       // Connection state, project/active counts, UPM bar
+            Divider()
+            contentSection      // Filter picker + environment list or disconnected view
+            Divider()
+            refreshLabel        // "Updated X ago"
+            actionsSection      // Open Dashboard, Help, Refresh, Launch at Login, Quit
+        }
+        .frame(width: 340)
+    }
+}
+```
+
+**Header section** shows:
+- "CCEM APM" title with `StatusIndicator` and connection label
+- Project count and active count badges
+- UPM wave progress bar and story completion when UPM is active
+
+**Content section** shows:
+- Segmented picker for All/Active filter (with active count in label)
+- Scrollable list of `EnvironmentRow` components (max height 300)
+- Disconnected view with error message when server unreachable
+
+**Actions section** shows:
+- Open Dashboard (opens browser to localhost:3031)
+- Help & Docs (opens /docs)
+- Refresh button (triggers async refresh)
+- Launch at Login toggle (via LaunchManager)
+- Quit button
+
+### Model Types
+
+#### HealthStatus
 
 ```swift
 struct HealthStatus: Codable {
-  let status: String
-  let timestamp: Date
-  let version: String
+    let status: String?
+    let uptime: Double?
+    let serverVersion: String?       // "server_version"
+    let totalProjects: Int?          // "total_projects"
+    let activeProject: String?       // "active_project"
+    let projects: [HealthProject]?
+
+    var isHealthy: Bool {
+        status?.lowercased() == "ok" || status?.lowercased() == "healthy"
+    }
 }
 ```
 
-### Agent Model
+#### HealthProject
 
 ```swift
-struct Agent: Codable, Identifiable {
-  let id: String
-  let name: String
-  let type: String
-  let status: String
-  let tier: Int
-  let project: String
-  let capabilities: [String]
-  let tokenUsage: Int
+struct HealthProject: Codable, Identifiable {
+    let name: String
+    let status: String
+    let sessionCount: Int            // "session_count"
+    let agentCount: Int              // "agent_count"
 
-  enum CodingKeys: String, CodingKey {
-    case id, name, type, status, tier, project, capabilities
-    case tokenUsage = "token_usage"
-  }
-
-  var statusColor: Color {
-    switch status {
-    case "active": return .green
-    case "idle": return .yellow
-    case "error": return .red
-    case "discovered": return .gray
-    default: return .gray
-    }
-  }
-}
-
-struct AgentsResponse: Codable {
-  let agents: [Agent]
-  let total: Int
+    var id: String { name }
+    var isActive: Bool { sessionCount > 0 }
 }
 ```
 
-## LaunchManager
-
-Manages login item (auto-launch on startup).
+#### UPMStatus
 
 ```swift
-class LaunchManager {
-  static let shared = LaunchManager()
+struct UPMStatus: Codable {
+    let active: Bool
+    let session: UPMSession?
+    let events: [UPMEvent]?
+}
+```
 
-  func addToLoginItems() {
-    let app = NSApplication.shared
-    guard let appPath = Bundle.main.bundlePath as NSString? else { return }
+#### UPMSession
 
-    do {
-      try LSRegisterURL(URL(fileURLWithPath: appPath) as CFURL, false)
-    } catch {
-      print("Error registering launch item: \(error)")
-    }
-  }
+```swift
+struct UPMSession: Codable {
+    let id: String
+    let status: String
+    let currentWave: Int             // "current_wave"
+    let totalWaves: Int              // "total_waves"
+    let stories: [UPMStory]?
+}
+```
 
-  func removeFromLoginItems() {
-    // Implementation for removing from login items
-  }
+#### UPMStory
+
+```swift
+struct UPMStory: Codable, Identifiable {
+    let id: String
+    let title: String?
+    let status: String
+    let agentId: String?             // "agent_id"
+}
+```
+
+#### UPMEvent
+
+```swift
+struct UPMEvent: Codable, Identifiable {
+    let id: Int
+    let eventType: String            // "event_type"
+    let timestamp: String?
+}
+```
+
+#### APMProject
+
+```swift
+struct APMProject: Codable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let projectRoot: String?         // "project_root"
+    let sessionCount: Int?           // "session_count"
+    let lastActivity: Date?          // "last_activity"
+    let status: String?
+}
+```
+
+#### APMEnvironment
+
+```swift
+struct APMEnvironment: Identifiable, Hashable {
+    let id: String
+    let project: APMProject
+    var driftStatus: DriftStatus
+    var agentCount: Int = 0
+
+    var name: String { project.name }
+    var sessionCount: Int { project.sessionCount ?? 0 }
+    var lastActivity: Date? { project.lastActivity }
+    var isActive: Bool { sessionCount > 0 }
+}
+```
+
+#### DriftStatus
+
+```swift
+enum DriftStatus: Hashable {
+    case clean
+    case drifted(String)
+    case unknown
 }
 ```
 
 ## Polling Architecture
 
-The menubar app uses a polling approach:
+The menubar app uses a structured concurrency polling approach:
 
-1. **Polling Interval**: 5 seconds by default
-2. **Health Check**: `GET /health` to verify connection
-3. **Agent List**: `GET /api/agents` for current agents
-4. **Token Tracking**: Aggregate token usage from agents
-5. **Error Handling**: Graceful degradation if APM unavailable
-
-Adjust polling interval in EnvironmentMonitor:
-
-```swift
-timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { ... }
-```
+1. **Polling Interval**: 10 seconds (configurable via `pollInterval`)
+2. **Health Check**: `GET /health` to verify connection and get project summaries
+3. **Environment Building**: Constructs `APMEnvironment` list from health response projects
+4. **Drift Detection**: Per-project drift detection via `DriftDetector`
+5. **UPM Status**: Best-effort `GET /api/upm/status` fetch
+6. **Error Handling**: Graceful degradation -- shows disconnected view with error message
 
 ## Features
 
 ### Status Indicator
 
-Shows connection status with visual indicator:
-- Green checkmark: Connected and healthy
-- Red X: Disconnected or error
-- Status text shows last update time
+Shows connection state with the `StatusIndicator` component:
+- Green pulse: Connected and healthy
+- Red: Disconnected or error
+- Yellow pulse: Connecting
 
-### Agent List
+### Environment List
 
-Displays active agents with:
-- Status badge (green/yellow/red)
-- Agent name
-- Current status
-- Tier level
+Displays all projects with:
+- Project name and status
+- Session count and agent count
+- Drift detection status
+- Sorted by session count (active first), then alphabetically
 
-Click on agent to open detailed view in dashboard.
+### Filter Picker
+
+Segmented control to switch between:
+- **All**: Show all environments
+- **Active**: Show only environments with active sessions (count shown in label)
+
+### UPM Status Bar
+
+When UPM is active, shows:
+- Wave progress (e.g., "UPM Wave 2/4")
+- Session status with color coding (running=blue, verifying=orange, verified/shipped=green)
+- Story progress bar and completion count
 
 ### Quick Actions
 
-Buttons for common operations:
-
-- **Refresh**: Manual refresh of agent status
-- **Dashboard**: Open web dashboard in browser
-- **Quit**: Close the menubar app
-
-### Token Usage
-
-Progress bar shows cumulative token usage across all agents:
-
-```
-Tokens: [████████░░] 80000 / 100000
-```
-
-Click to open token usage details in dashboard.
-
-### Notifications
-
-System notifications for important events:
-
-- Agent registered
-- Agent error
-- Low token budget
-- APM server reconnected
+- **Open Dashboard**: Opens web dashboard at `http://localhost:3031`
+- **Help & Docs**: Opens documentation at `http://localhost:3031/docs`
+- **Refresh**: Manual async refresh
+- **Launch at Login**: Toggle via `LaunchManager` using `ServiceManagement`
+- **Quit**: Terminates the app
 
 ## Building and Deployment
 
-### Build from Source
+### Build with Swift Package Manager
 
 ```bash
 cd /Users/jeremiah/Developer/ccem/CCEMAgent
-xcodebuild -scheme CCEMAgent -configuration Release build
+swift build -c release
+```
+
+### Build from Xcode
+
+```bash
+open CCEMAgent.xcodeproj
+# Build and run with Cmd+R
 ```
 
 ### Install as App
 
 ```bash
-cp -r build/Release/CCEMAgent.app /Applications/
-```
-
-### Auto-Launch on Login
-
-Enable in app preferences or call:
-
-```swift
-LaunchManager.shared.addToLoginItems()
-```
-
-## Configuration
-
-The menubar app reads from `apm_config.json`:
-
-```json
-{
-  "apm_server_url": "http://localhost:3031",
-  "polling_interval_seconds": 5,
-  "max_agents_in_menu": 10,
-  "token_budget": 100000
-}
+cp -r .build/Release/CCEMAgent.app /Applications/
 ```
 
 ## Troubleshooting
@@ -440,86 +496,43 @@ The menubar app reads from `apm_config.json`:
 2. Check network connectivity: `curl http://localhost:3031/health`
 3. Review CCEMAgent logs in Console.app
 
-### Agent list not updating
-1. Check polling interval (default 5 seconds)
-2. Verify agents are registered in APM
+### Environment list not updating
+1. Check polling interval (default 10 seconds)
+2. Verify projects are configured in `apm_config.json`
 3. Try manual refresh button
-
-### Token usage not accurate
-1. Ensure agents sending heartbeats
-2. Check `/api/agents` response includes token_usage
-3. Verify max token budget in config
 
 ### App crashes on launch
 1. Check system console logs
 2. Verify Swift runtime is installed
 3. Try running from Xcode debugger
 
-## Development
-
-### Run from Xcode
-
-```bash
-open CCEMAgent.xcodeproj
-# Build and run with Cmd+R
-```
-
-### Testing with Mock Data
-
-Create mock APMClient for testing:
-
-```swift
-class MockAPMClient: APMClient {
-  override func getAgents(completion: @escaping (Result<[Agent], Error>) -> Void) {
-    let mockAgents = [
-      Agent(id: "1", name: "test-gen", type: "individual", ...)
-    ]
-    completion(.success(mockAgents))
-  }
-}
-```
-
 ## Performance
 
 - **Memory**: ~50MB baseline
 - **CPU**: <5% at rest, <15% during refresh
-- **Network**: 2-3 HTTP requests every 5 seconds
+- **Network**: 2-3 HTTP requests every 10 seconds
 - **Battery**: Minimal impact due to infrequent updates
 
 Adjust polling interval to reduce resource usage:
 
 ```swift
-// Slower polling for laptop battery life
-timer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { ... }
+private let pollInterval: TimeInterval = 30  // Slower polling for battery life
 ```
 
 ## Security
 
-- HTTPS support for secure connections
-- API key authentication (if APM requires)
+- Communicates only with local APM server (localhost:3031)
 - No credential storage in app
-- Communicates only with local APM server
-
-For remote APM server:
-
-```swift
-init(baseURL: String, apiKey: String) {
-  self.baseURL = URL(string: baseURL)!
-  self.apiKey = apiKey
-}
-
-private func addAuthHeader(to request: inout URLRequest) {
-  request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-}
-```
+- API key authentication supported if APM requires it
 
 ## Integration with Claude Code
 
 When Claude Code session starts, CCEMAgent automatically:
 
-1. Detects session initialization from config file watch
-2. Updates APM server URL if changed
-3. Displays active agents for current session
-4. Shows relevant notifications
+1. Detects session via health check polling (projects show updated session counts)
+2. Displays active environments for current session
+3. Shows UPM progress when a UPM session is active
+
+The CCEM APM `SessionStart` hook at `~/Developer/ccem/apm/hooks/session_init.sh` updates the APM config, which the server picks up and reflects in the health endpoint that CCEMAgent polls.
 
 See [Getting Started](../user/getting-started.md) for session integration.

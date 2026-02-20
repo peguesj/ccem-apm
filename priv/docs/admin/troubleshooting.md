@@ -21,8 +21,7 @@ mix phx.server
 **Solution 2: Use different port**
 
 ```bash
-export APM_PORT=3032
-mix phx.server
+PORT=3032 mix phx.server
 ```
 
 **Solution 3: Find what's using the port**
@@ -180,26 +179,20 @@ Send another heartbeat to activate it again.
 
 ### Session Not Appearing in Config
 
-**Check hook is being sourced**:
+**Check per-session file was created**:
 
 ```bash
-echo $CCEM_SESSION_ID
-# Should output something like: session-abc123
+ls ~/Developer/ccem/apm/sessions/
+# Should contain {session_id}.json files
 ```
 
-If empty, source the hook:
+**Check config file for sessions within the project**:
 
 ```bash
-source ~/Developer/ccem/apm/hooks/session_init.sh
+jq '.projects[] | select(.name == "my-project") | .sessions' ~/Developer/ccem/apm/apm_config.json
 ```
 
-**Check config file**:
-
-```bash
-cat ~/Developer/ccem/apm/apm_config.json | jq .sessions
-```
-
-Should show your session.
+Should show your session in the project's `sessions` array.
 
 **Reload config if needed**:
 
@@ -295,14 +288,13 @@ Config changes require server restart:
 lsof -ti:3031 | xargs kill -9
 
 # Start with new port
-export APM_PORT=3032
-mix phx.server
+PORT=3032 mix phx.server
 ```
 
 **Verify with environment variable**:
 
 ```bash
-echo $APM_PORT
+echo $PORT
 ```
 
 ## Performance Issues
@@ -558,8 +550,7 @@ Ctrl+R (Windows/Linux)
 ### Enable Debug Logging
 
 ```bash
-export APM_LOG_LEVEL=debug
-mix phx.server
+APM_LOG_LEVEL=debug mix phx.server
 ```
 
 This prints detailed logs to help diagnose issues.

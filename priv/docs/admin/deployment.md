@@ -40,7 +40,7 @@ Set production environment variables:
 
 ```bash
 export MIX_ENV=prod
-export APM_PORT=3031
+export PORT=3031
 export SECRET_KEY_BASE=$(openssl rand -base64 32)
 ```
 
@@ -181,10 +181,8 @@ export SECRET_KEY_BASE=$(openssl rand -base64 32)
 ### Optional
 
 ```bash
-export APM_PORT=3031
-export APM_PROJECT=ccem
+export PORT=3031
 export APM_CONFIG_PATH=/etc/ccem/apm_config.json
-export APM_LOG_LEVEL=info
 ```
 
 ### HTTP Binding
@@ -200,7 +198,7 @@ export PORT=3031            # Must match config
 
 ### Local Development
 
-```
+```text
 http://localhost:3031
 ```
 
@@ -214,7 +212,7 @@ export BIND_HOST=0.0.0.0
 
 Access from other machines:
 
-```
+```text
 http://<server-ip>:3031
 ```
 

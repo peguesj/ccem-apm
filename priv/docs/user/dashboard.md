@@ -87,7 +87,7 @@ When you select an agent, the right panel shows five tabs:
 
 Detailed agent information:
 
-```
+```text
 Name: test-agent
 Type: individual
 Status: active
@@ -124,7 +124,7 @@ Unified Project Management execution tracking:
 
 Example:
 
-```
+```text
 Wave 1: Foundation (80% complete)
   - Story 1: Setup (completed)
   - Story 2: Config (completed)
@@ -223,3 +223,12 @@ The dashboard adapts to screen size:
 - Verify project name matches apm_config.json
 
 See [Troubleshooting](../admin/troubleshooting.md) for more help.
+
+---
+
+## See Also
+
+- [Agent Fleet](/docs/user/agents) - Understanding agent types and statuses
+- [Ralph Methodology](/docs/user/ralph) - Autonomous workflow execution
+- [UPM Integration](/docs/user/upm) - Project management tracking
+- [Skills Analytics](/docs/user/skills) - Skill usage and co-occurrence

@@ -175,7 +175,7 @@ Namespaces are useful for:
 
 The dashboard displays all agents in a filterable table:
 
-```
+```text
 Name            Type        Status    Tier  Project   Updated
 test-gen        individual  active    2     ccem      5 mins ago
 refactor-squad  squadron    active    3     ccem      2 mins ago
@@ -305,3 +305,11 @@ Response includes:
 - Check agent heartbeats are being received
 
 See [API Reference](../developer/api-reference.md) for complete endpoint documentation.
+
+---
+
+## See Also
+
+- [Ralph Methodology](/docs/user/ralph) - Autonomous workflow execution
+- [Skills Analytics](/docs/user/skills) - Skill usage and co-occurrence
+- [API Reference](/docs/developer/api-reference) - Complete endpoint documentation

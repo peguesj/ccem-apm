@@ -76,10 +76,23 @@ All notable changes to CCEM APM are documented in this file.
 - **Login Item**: Auto-launch on system startup
 - **URLSession Polling**: Efficient HTTP polling architecture
 
+#### UPM Execution Tracking API
+- `POST /api/upm/register` - Register a UPM execution session
+- `POST /api/upm/agent` - Register an agent within a UPM session
+- `POST /api/upm/event` - Log a UPM execution event
+- `GET /api/upm/status` - Get current UPM execution status
+
+#### Port Management API
+- `GET /api/ports` - List all known port assignments across projects
+- `POST /api/ports/scan` - Scan system for active ports
+- `POST /api/ports/assign` - Assign a port to a project
+- `GET /api/ports/clashes` - Detect port conflicts between projects
+- `POST /api/ports/set-primary` - Set a project's primary dev server port
+
 #### REST API Compatibility
 - **REST v1 API**: Backward compatible with APM v3
 - **V2 API**: New comprehensive API with OpenAPI spec
-- **Endpoints**: 40+ endpoints for agents, notifications, UPM, skills
+- **Endpoints**: 50+ endpoints for agents, notifications, UPM, skills, ports, environments
 - **Server-Sent Events**: Real-time event streaming (`/api/ag-ui/events`)
 - **Data Import/Export**: Full data export/import as JSON
 - **Rate Limiting**: Graceful rate limiting with Retry-After headers
@@ -127,7 +140,9 @@ All notable changes to CCEM APM are documented in this file.
 - `SkillsLive` (`/skills`) - Skills analytics
 - `RalphFlowchartLive` (`/ralph`) - Ralph flowchart
 - `SessionTimelineLive` (`/timeline`) - Event timeline
-- `DocsLive` (`/docs`) - Documentation viewer
+- `DocsLive` (`/docs`, `/docs/*path`) - Documentation viewer with nested paths
+- `FormationLive` (`/formation`) - Agent formation and orchestration view
+- `PortsLive` (`/ports`) - Port management and clash detection dashboard
 
 ### Data Persistence
 

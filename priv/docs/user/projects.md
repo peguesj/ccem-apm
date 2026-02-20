@@ -247,3 +247,10 @@ Returns agents filtered by project.
 - Verify apm_config.json updated correctly: `cat ~/Developer/ccem/apm/apm_config.json | jq .active_project`
 
 See [Configuration](../admin/configuration.md) for advanced multi-project setup.
+
+---
+
+## See Also
+
+- [Configuration](/docs/admin/configuration) - apm_config.json setup
+- [Agent Fleet](/docs/user/agents) - Understanding agent types and statuses

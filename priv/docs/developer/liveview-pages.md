@@ -1,6 +1,6 @@
 # LiveView Pages
 
-CCEM APM v4 uses Phoenix LiveView for real-time, interactive web pages. Each page maintains WebSocket connection with server for live updates without page refresh.
+CCEM APM v4 uses Phoenix LiveView for real-time, interactive web pages. Each page maintains a WebSocket connection with the server for live updates without page refresh.
 
 ## Architecture
 
@@ -15,8 +15,8 @@ defmodule ApmV4Web.DashboardLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       # Subscribe to PubSub topics
-      ApmV4.PubSub.subscribe("apm:agents")
-      ApmV4.PubSub.subscribe("apm:notifications")
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:agents")
+      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:notifications")
     end
 
     # Load initial data
@@ -33,7 +33,6 @@ end
 ## DashboardLive
 
 **Route**: `/`
-**Template**: `lib/apm_v4_web/live/dashboard_live.html.heex`
 **Module**: `ApmV4Web.DashboardLive`
 
 The main dashboard showing all agents, metrics, and real-time data.
@@ -49,10 +48,10 @@ The main dashboard showing all agents, metrics, and real-time data.
 ### PubSub Subscriptions
 
 ```elixir
-subscribe("apm:agents")      # Agent registration, updates
+subscribe("apm:agents")         # Agent registration, updates
 subscribe("apm:notifications")  # New alerts
-subscribe("apm:config")      # Config changes
-subscribe("apm:skills")      # Skill events
+subscribe("apm:config")         # Config changes
+subscribe("apm:skills")         # Skill events
 ```
 
 ### Event Handlers
@@ -78,7 +77,6 @@ Hooks.DependencyGraph
 ## AllProjectsLive
 
 **Route**: `/apm-all`
-**Template**: `lib/apm_v4_web/live/all_projects_live.html.heex`
 **Module**: `ApmV4Web.AllProjectsLive`
 
 Multi-project overview and management page.
@@ -94,8 +92,8 @@ Multi-project overview and management page.
 ### PubSub Subscriptions
 
 ```elixir
-subscribe("apm:config")      # Config reload, project changes
-subscribe("apm:agents")      # Agent registration
+subscribe("apm:config")    # Config reload, project changes
+subscribe("apm:agents")    # Agent registration
 ```
 
 ### Event Handlers
@@ -108,7 +106,6 @@ handle_info({:agent_registered, agent}, socket)
 ## SkillsLive
 
 **Route**: `/skills`
-**Template**: `lib/apm_v4_web/live/skills_live.html.heex`
 **Module**: `ApmV4Web.SkillsLive`
 
 Skill tracking, analytics, and methodology detection.
@@ -124,8 +121,8 @@ Skill tracking, analytics, and methodology detection.
 ### PubSub Subscriptions
 
 ```elixir
-subscribe("apm:skills")      # Skill tracking events
-subscribe("apm:agents")      # Agent updates for context
+subscribe("apm:skills")    # Skill tracking events
+subscribe("apm:agents")    # Agent updates for context
 ```
 
 ### Event Handlers
@@ -148,7 +145,6 @@ Hooks.TrendingChart
 ## RalphFlowchartLive
 
 **Route**: `/ralph`
-**Template**: `lib/apm_v4_web/live/ralph_flowchart_live.html.heex`
 **Module**: `ApmV4Web.RalphFlowchartLive`
 
 Ralph methodology flowchart and story tracking visualization.
@@ -164,9 +160,9 @@ Ralph methodology flowchart and story tracking visualization.
 ### PubSub Subscriptions
 
 ```elixir
-subscribe("apm:agents")      # Agent status changes
-subscribe("apm:upm")         # Story and wave progress
-subscribe("apm:tasks")       # Task completions
+subscribe("apm:agents")    # Agent status changes
+subscribe("apm:upm")       # Story and wave progress
+subscribe("apm:tasks")     # Task completions
 ```
 
 ### Event Handlers
@@ -190,7 +186,6 @@ Hooks.DependencyArrows
 ## SessionTimelineLive
 
 **Route**: `/timeline`
-**Template**: `lib/apm_v4_web/live/session_timeline_live.html.heex`
 **Module**: `ApmV4Web.SessionTimelineLive`
 
 Session execution timeline with event log.
@@ -206,10 +201,10 @@ Session execution timeline with event log.
 ### PubSub Subscriptions
 
 ```elixir
-subscribe("apm:agents")      # All agent events
-subscribe("apm:upm")         # UPM execution events
-subscribe("apm:audit")       # Audit log entries
-subscribe("apm:tasks")       # Task events
+subscribe("apm:agents")    # All agent events
+subscribe("apm:upm")       # UPM execution events
+subscribe("apm:audit")     # Audit log entries
+subscribe("apm:tasks")     # Task events
 ```
 
 ### Event Handlers
@@ -230,118 +225,133 @@ Hooks.Timeline
 Hooks.EventFilter
 ```
 
-## DocsLive
+## FormationLive
 
-**Route**: `/docs`
-**Template**: `lib/apm_v4_web/live/docs_live.html.heex`
-**Module**: `ApmV4Web.DocsLive`
+**Route**: `/formation`
+**Module**: `ApmV4Web.FormationLive`
 
-Interactive documentation viewer with search and navigation.
+Formation hierarchy visualization using a D3.js tree layout. Displays the formation > squadron > agent hierarchy with real-time PubSub updates.
 
 ### Components
 
-- **Doc List**: Sidebar navigation of all docs
-- **Doc Viewer**: Rendered markdown content
-- **Search**: Full-text search across docs
-- **Breadcrumbs**: Current doc path
-- **Table of Contents**: Headings from current doc
+- **D3 Tree Graph**: Interactive force-directed graph of formation hierarchy rendered via the `FormationGraph` JS hook
+- **Inspector Panel**: Click any node (formation, squadron, or agent) to inspect details including ID, status, member count, story assignment, wave, and role
+- **Formation Tree Sidebar**: Collapsible tree listing all formations, squadrons, and agents with status indicators
+- **Empty State**: Guidance on creating formations when none are registered
 
 ### Features
 
-- **Markdown Rendering**: Converts .md to HTML
-- **Syntax Highlighting**: Code blocks with language detection
-- **Search Indexing**: Full-text search over all docs
-- **Static Serving**: Docs in `priv/docs/`
+- Agents are grouped into formations by `formation_id` metadata
+- Within formations, agents are grouped into squadrons by `squadron` metadata
+- Nodes are color-coded by level (formation=accent, squadron=info, agent=primary)
+- Status badges indicate active/error/idle state at every level
+- Real-time updates when agents register or change status
 
 ### PubSub Subscriptions
 
-None - docs are static.
+```elixir
+subscribe("apm:agents")    # Agent registration and updates
+subscribe("apm:upm")       # Formation and UPM session events
+```
+
+### Event Handlers
+
+```elixir
+handle_info({:agent_registered, _agent}, socket)
+handle_info({:agent_updated, _agent}, socket)
+handle_info({:agent_discovered, _, _}, socket)
+handle_info({:upm_session_registered, _}, socket)
+handle_info({:upm_agent_registered, _}, socket)
+```
+
+### JS Hooks
+
+```javascript
+// FormationGraph hook - renders D3 tree layout
+Hooks.FormationGraph
+```
+
+## PortsLive
+
+**Route**: `/ports`
+**Module**: `ApmV4Web.PortsLive`
+
+Port management dashboard for viewing and managing port assignments across all CCEM projects.
+
+### Components
+
+- **Summary Bar**: Total projects, active count, clash count with scan button
+- **Filter Bar**: Filter by status (all/active/clashes) and namespace (all/web/api/service/tool)
+- **Port Cards Grid**: Each project shown as a card with port number, namespace badge, active status dot, and clash warnings with reassign button
+- **Port Ranges Sidebar**: Visual display of configured port ranges per namespace with usage bars
+- **Clash Resolution Panel**: Lists all port clashes with affected projects
+
+### Features
+
+- Real-time updates via `apm:ports` PubSub topic
+- Scan active ports on the system to detect which are in use
+- Assign new ports to projects from available ranges
+- Detect and resolve port clashes between projects
+- Filter by status (active, clashes) and namespace (web, api, service, tool)
+
+### PubSub Subscriptions
+
+```elixir
+subscribe("apm:ports")    # Port assignment events
+```
+
+### Event Handlers
+
+```elixir
+handle_info({:port_assigned, _, _}, socket)
+```
+
+## DocsLive
+
+**Route**: `/docs` and `/docs/*path`
+**Module**: `ApmV4Web.DocsLive`
+
+Industry-standard documentation viewer with search, navigation, and responsive layout.
+
+### Components
+
+- **Left TOC Panel**: Collapsible category tree (Overview, User Guide, Developer, Administration) with category icons
+- **Search Box**: Full-text search with Cmd+K shortcut, debounced input, grouped results by category with snippets
+- **Content Area**: Rendered markdown with Tailwind Typography (prose) styling, syntax-highlighted code blocks
+- **Breadcrumbs**: Current doc path navigation
+- **On-Page TOC**: Right sidebar listing h2/h3 headings from current page with anchor links (desktop only)
+- **Prev/Next Navigation**: Links to previous and next pages based on TOC order
+- **Mobile Support**: Responsive with mobile TOC overlay and hamburger menu
+
+### Features
+
+- **Markdown Rendering**: Converts `.md` files from `priv/docs/` to HTML via `DocsStore`
+- **Read Time Estimation**: Estimated reading time based on word count
+- **Category Organization**: Pages grouped into root, user, developer, admin categories
+- **Search**: Full-text search across all documentation pages with highlighted snippets
+- **Collapsible Categories**: Toggle category visibility in the TOC
+- **Static Content**: No PubSub subscriptions -- docs are loaded from `DocsStore` GenServer
+
+### PubSub Subscriptions
+
+None -- docs are static content served from the `DocsStore` cache.
 
 ## Sidebar Navigation
 
-All pages include sidebar with navigation:
+All pages include a consistent sidebar with navigation links to all LiveView pages:
 
-```heex
-<aside class="sidebar">
-  <nav>
-    <a href="/" class={active?(page, :dashboard)}>
-      Dashboard
-    </a>
-    <a href="/apm-all" class={active?(page, :projects)}>
-      All Projects
-    </a>
-    <a href="/skills" class={active?(page, :skills)}>
-      Skills
-    </a>
-    <a href="/ralph" class={active?(page, :ralph)}>
-      Ralph
-    </a>
-    <a href="/timeline" class={active?(page, :timeline)}>
-      Timeline
-    </a>
-    <a href="/docs" class={active?(page, :docs)}>
-      Docs
-    </a>
-  </nav>
-</aside>
+```
+Dashboard        /
+All Projects     /apm-all
+Skills           /skills      (with badge count)
+Ralph            /ralph
+Timeline         /timeline
+Formations       /formation
+Ports            /ports
+Docs             /docs
 ```
 
-Active page is highlighted using conditional class.
-
-## JS Hooks
-
-JavaScript hooks enable client-side interactivity:
-
-### Clock Hook
-Updates relative timestamps every second.
-
-```javascript
-Hooks.Clock = {
-  mounted() {
-    setInterval(() => {
-      this.updateTimestamps()
-    }, 1000)
-  }
-}
-```
-
-### DependencyGraph Hook
-Renders D3.js force-directed graph.
-
-```javascript
-Hooks.DependencyGraph = {
-  mounted() {
-    const data = JSON.parse(this.el.dataset.graph)
-    d3.forceSimulation(data.nodes)
-      .force("link", d3.forceLink(data.links))
-      .on("tick", () => this.updateGraph())
-  }
-}
-```
-
-### RalphFlowchart Hook
-Renders SVG flowchart with swimlanes.
-
-```javascript
-Hooks.RalphFlowchart = {
-  mounted() {
-    const svg = d3.select(this.el)
-    this.drawFlowchart(svg)
-  }
-}
-```
-
-### Timeline Hook
-Renders timeline visualization.
-
-```javascript
-Hooks.Timeline = {
-  mounted() {
-    const timeline = new Timeline(this.el, this.el.dataset.events)
-    timeline.render()
-  }
-}
-```
+Active page is highlighted with `bg-primary/10 text-primary font-medium`. Each page defines its own sidebar via a `nav_item` component.
 
 ## Live Update Pattern
 
@@ -400,9 +410,8 @@ See `test/apm_v4_web/live/` for examples.
 To add a new LiveView page:
 
 1. Create module in `lib/apm_v4_web/live/`
-2. Create template in `lib/apm_v4_web/live/` with `.html.heex`
-3. Add route in `lib/apm_v4_web/router.ex`
-4. Add nav link in sidebar component
-5. Subscribe to relevant PubSub topics
+2. Add route in `lib/apm_v4_web/router.ex`
+3. Add nav link in the `nav_item` section of your render function
+4. Subscribe to relevant PubSub topics
 
 See [Extending CCEM](extending.md) for details.
