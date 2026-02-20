@@ -6,7 +6,12 @@ ExUnit.start()
 # them here globally for the test suite.
 for module <- [
   ApmV4.AgentRegistry,
-  ApmV4.AuditLog
+  ApmV4.AuditLog,
+  ApmV4.AlertRulesEngine,
+  ApmV4.MetricsCollector,
+  ApmV4.SloEngine,
+  ApmV4.EventStream,
+  ApmV4.SkillTracker
 ] do
   case module.start_link([]) do
     {:ok, _pid} -> :ok

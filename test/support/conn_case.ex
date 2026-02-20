@@ -32,6 +32,21 @@ defmodule ApmV4Web.ConnCase do
   end
 
   setup _tags do
+    # Ensure AgentRegistry and AuditLog are alive before each test.
+    # They run under the supervision tree but may exceed restart intensity
+    # under rapid concurrent test failures.
+    for module <- [
+      ApmV4.AgentRegistry, ApmV4.AuditLog, ApmV4.AlertRulesEngine,
+      ApmV4.MetricsCollector, ApmV4.SloEngine, ApmV4.EventStream,
+      ApmV4.SkillTracker
+    ] do
+      case module.start_link([]) do
+        {:ok, _} -> :ok
+        {:error, {:already_started, _}} -> :ok
+        _ -> :ok
+      end
+    end
+
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 end
