@@ -665,14 +665,4 @@ defmodule ApmV4Web.V2.ApiV2Controller do
   defp parse_scope("fleet"), do: :fleet
   defp parse_scope(_), do: :fleet
 
-  # OpenAPI parameter helpers
-  defp cursor_param, do: %{name: "cursor", in: "query", schema: %{type: "string"}}
-  defp limit_param, do: %{name: "limit", in: "query", schema: %{type: "integer", default: 50, maximum: 200}}
-  defp id_param, do: %{name: "id", in: "path", required: true, schema: %{type: "string"}}
-  defp agent_id_param, do: %{name: "agent_id", in: "path", required: true, schema: %{type: "string"}}
-  defp since_param, do: %{name: "since", in: "query", schema: %{type: "string", format: "date-time"}}
-  defp severity_param, do: %{name: "severity", in: "query", schema: %{type: "string"}}
-  defp rule_id_param, do: %{name: "rule_id", in: "query", schema: %{type: "string"}}
-  defp event_type_param, do: %{name: "event_type", in: "query", schema: %{type: "string"}}
-  defp actor_param, do: %{name: "actor", in: "query", schema: %{type: "string"}}
 end
