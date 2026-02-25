@@ -52,6 +52,7 @@ defmodule ApmV4Web.AllProjectsLive do
       |> assign(:config, config)
       |> assign(:projects, projects)
       |> assign(:agents, agents)
+      |> assign(:active_count, Enum.count(agents, &(&1.status == "active")))
       |> assign(:notifications, notifications)
       |> assign(:session_count, session_count)
       |> assign(:widgets, widgets)
@@ -71,6 +72,10 @@ defmodule ApmV4Web.AllProjectsLive do
     <div class="flex h-screen bg-base-300 overflow-hidden">
       <%!-- Sidebar --%>
       <aside class="w-14 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0 items-center py-3 gap-2">
+        <%!-- Brand / counts --%>
+        <div class="tooltip tooltip-right mb-1" data-tip={"#{length(@projects)} projects · #{@active_count} active"}>
+          <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
+        </div>
         <a href="/" class="tooltip tooltip-right" data-tip="Dashboard">
           <button class="btn btn-ghost btn-sm btn-square">
             <.icon name="hero-squares-2x2" class="size-4" />
@@ -382,40 +387,110 @@ defmodule ApmV4Web.AllProjectsLive do
               widget={@widgets["inspector"] || %{id: "inspector", title: "Inspector", locked: false, collapsed: false, height: 280}}
               extra_class="col-span-12"
             >
-              <div class="flex gap-1 mb-3 flex-wrap">
-                <%= for tab <- [:ralph, :upm, :ports, :commands, :todos] do %>
+              <%!-- Tab bar --%>
+              <div class="flex gap-0.5 mb-3 border-b border-base-300 pb-2">
+                <%= for {label, tab} <- [{"Ralph", :ralph}, {"UPM", :upm}, {"Ports", :ports}, {"Commands", :commands}, {"TODOs", :todos}] do %>
                   <button
-                    class={"btn btn-xs #{if @inspector_tab == tab, do: "btn-primary", else: "btn-ghost"}"}
+                    class={[
+                      "px-3 py-1 text-xs font-medium rounded-t transition-colors",
+                      @inspector_tab == tab && "bg-primary/10 text-primary border-b-2 border-primary",
+                      @inspector_tab != tab && "text-base-content/50 hover:text-base-content hover:bg-base-300"
+                    ]}
                     phx-click="switch_inspector_tab"
                     phx-value-tab={tab}
                   >
-                    <%= tab %>
+                    <%= label %>
                   </button>
                 <% end %>
               </div>
-              <div class="overflow-auto" style="max-height: 200px;">
+
+              <%!-- Tab content --%>
+              <div class="overflow-y-auto" style="max-height: 220px;">
                 <%= if @inspector_tab == :ralph do %>
                   <%= if map_size(@ralph_data) > 0 do %>
-                    <pre class="text-xs font-mono"><%= Jason.encode!(@ralph_data, pretty: true) %></pre>
+                    <div class="space-y-2">
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="text-base-content/50">Branch</span>
+                        <span class="font-mono text-primary truncate max-w-[200px]">
+                          {get_in(@ralph_data, ["branchName"]) || "—"}
+                        </span>
+                      </div>
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="text-base-content/50">Stories</span>
+                        <span class="font-mono">
+                          {length(get_in(@ralph_data, ["userStories"]) || [])} total
+                        </span>
+                      </div>
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="text-base-content/50">Passing</span>
+                        <span class="font-mono text-success">
+                          {Enum.count(get_in(@ralph_data, ["userStories"]) || [], &(&1["passes"] == true))} passed
+                        </span>
+                      </div>
+                    </div>
                   <% else %>
-                    <p class="text-xs text-base-content/50 py-4 text-center">No ralph data</p>
+                    <div class="flex flex-col items-center justify-center py-8 gap-2 text-base-content/30">
+                      <.icon name="hero-arrow-path" class="size-6" />
+                      <p class="text-xs">No prd.json for this project</p>
+                    </div>
                   <% end %>
                 <% end %>
+
                 <%= if @inspector_tab == :upm do %>
                   <%= if map_size(@upm_status) > 0 do %>
-                    <pre class="text-xs font-mono"><%= Jason.encode!(@upm_status, pretty: true) %></pre>
+                    <div class="space-y-2">
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="text-base-content/50">Session</span>
+                        <span class="font-mono truncate max-w-[200px] text-primary">
+                          {get_in(@upm_status, ["upm_session_id"]) || "—"}
+                        </span>
+                      </div>
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="text-base-content/50">Wave</span>
+                        <span class="font-mono">{get_in(@upm_status, ["wave"]) || "—"}</span>
+                      </div>
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="text-base-content/50">Status</span>
+                        <span class={[
+                          "badge badge-xs",
+                          case get_in(@upm_status, ["status"]) do
+                            "running" -> "badge-success"
+                            "failed"  -> "badge-error"
+                            _         -> "badge-ghost"
+                          end
+                        ]}>
+                          {get_in(@upm_status, ["status"]) || "idle"}
+                        </span>
+                      </div>
+                    </div>
                   <% else %>
-                    <p class="text-xs text-base-content/50 py-4 text-center">No UPM status</p>
+                    <div class="flex flex-col items-center justify-center py-8 gap-2 text-base-content/30">
+                      <.icon name="hero-play-circle" class="size-6" />
+                      <p class="text-xs">No active UPM session. Start with /upm build.</p>
+                    </div>
                   <% end %>
                 <% end %>
+
                 <%= if @inspector_tab == :ports do %>
-                  <p class="text-xs text-base-content/50 py-4 text-center">Port management coming soon</p>
+                  <div class="flex flex-col items-center justify-center py-8 gap-2 text-base-content/30">
+                    <.icon name="hero-signal" class="size-6" />
+                    <p class="text-xs">View port details on the Dashboard.</p>
+                    <.link navigate={~p"/"} class="btn btn-xs btn-ghost text-primary mt-1">Go to Dashboard</.link>
+                  </div>
                 <% end %>
+
                 <%= if @inspector_tab == :commands do %>
-                  <p class="text-xs text-base-content/50 py-4 text-center">Commands coming soon</p>
+                  <div class="flex flex-col items-center justify-center py-8 gap-2 text-base-content/30">
+                    <.icon name="hero-command-line" class="size-6" />
+                    <p class="text-xs">No commands registered. POST to /api/commands to add.</p>
+                  </div>
                 <% end %>
+
                 <%= if @inspector_tab == :todos do %>
-                  <p class="text-xs text-base-content/50 py-4 text-center">Todos coming soon</p>
+                  <div class="flex flex-col items-center justify-center py-8 gap-2 text-base-content/30">
+                    <.icon name="hero-check-circle" class="size-6" />
+                    <p class="text-xs">No tasks synced. POST to /api/tasks/sync to add.</p>
+                  </div>
                 <% end %>
               </div>
             </.widget>
@@ -576,6 +651,7 @@ defmodule ApmV4Web.AllProjectsLive do
       {:noreply,
        socket
        |> assign(:agents, agents)
+       |> assign(:active_count, Enum.count(agents, &(&1.status == "active")))
        |> push_graph_data(agents)}
     end
   end

@@ -122,7 +122,9 @@ defmodule ApmV4Web.DashboardLive do
             <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
             CCEM APM v4
           </h1>
-          <p class="text-xs text-base-content/50 mt-1">Agent Performance Monitor</p>
+          <p class="text-xs text-base-content/50 mt-1">
+            {length(@projects)} projects · {@active_count} active
+          </p>
         </div>
         <nav class="flex-1 p-2 space-y-1">
           <.nav_item icon="hero-squares-2x2" label="Dashboard" active={@active_nav == :dashboard} href="/" />
