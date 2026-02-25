@@ -109,6 +109,9 @@ defmodule ApmV4Web.Router do
     post "/environments/:name/exec", ApiController, :exec_command
     post "/environments/:name/session/start", ApiController, :start_session
     post "/environments/:name/session/stop", ApiController, :stop_session
+
+    # OpenAPI spec alias (v1-friendly URL, same as /api/v2/openapi.json)
+    get "/openapi.json", ApmV4Web.V2.ApiV2Controller, :openapi
   end
 
   # v2 REST API (Phase 3.1)

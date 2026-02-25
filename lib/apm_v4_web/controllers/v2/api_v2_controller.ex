@@ -212,54 +212,436 @@ defmodule ApmV4Web.V2.ApiV2Controller do
 
   # ========== OpenAPI ==========
 
-  @doc "GET /api/v2/openapi.json - OpenAPI 3.0 spec"
+  @doc "GET /api/v2/openapi.json - OpenAPI 3.0.3 spec (full coverage)"
   def openapi(conn, _params) do
-    spec = %{
-      openapi: "3.0.3",
-      info: %{
-        title: "CCEM APM v5 API",
-        version: "2.0.0",
-        description: "v2 REST API for CCEM Agent Performance Monitor"
+    json(conn, build_spec())
+  end
+
+  defp build_spec do
+    %{
+      "openapi" => "3.0.3",
+      "info" => %{
+        "title" => "CCEM APM v4 API",
+        "version" => "4.0.0",
+        "description" => "Complete REST API for CCEM Agent Performance Monitor. Also available at /api/openapi.json."
       },
-      paths: %{
-        "/api/v2/agents" => %{
-          get: %{summary: "List agents", parameters: [cursor_param(), limit_param()]}
-        },
-        "/api/v2/agents/{id}" => %{
-          get: %{summary: "Get agent detail", parameters: [id_param()]}
-        },
-        "/api/v2/sessions" => %{
-          get: %{summary: "List sessions", parameters: [cursor_param(), limit_param()]}
-        },
-        "/api/v2/metrics" => %{
-          get: %{summary: "Fleet metrics summary"}
-        },
-        "/api/v2/metrics/{agent_id}" => %{
-          get: %{summary: "Agent metrics", parameters: [agent_id_param(), since_param()]}
-        },
-        "/api/v2/slos" => %{
-          get: %{summary: "List all SLIs with error budgets"}
-        },
-        "/api/v2/slos/{name}" => %{
-          get: %{summary: "Get single SLI with history"}
-        },
-        "/api/v2/alerts" => %{
-          get: %{summary: "Alert history", parameters: [cursor_param(), limit_param(), severity_param(), rule_id_param()]}
-        },
-        "/api/v2/alerts/rules" => %{
-          get: %{summary: "List alert rules"},
-          post: %{summary: "Create alert rule"}
-        },
-        "/api/v2/audit" => %{
-          get: %{summary: "Audit log", parameters: [cursor_param(), limit_param(), event_type_param(), actor_param(), since_param()]}
-        },
-        "/api/v2/openapi.json" => %{
-          get: %{summary: "This OpenAPI spec"}
-        }
+      "servers" => [%{"url" => "http://localhost:3031", "description" => "Local APM server"}],
+      "tags" => [
+        %{"name" => "Health", "description" => "Server health and status"},
+        %{"name" => "Agents", "description" => "Agent registration and management"},
+        %{"name" => "Sessions", "description" => "Session tracking"},
+        %{"name" => "Notifications", "description" => "Notification management"},
+        %{"name" => "Data", "description" => "Aggregated data and master state"},
+        %{"name" => "Ralph", "description" => "Ralph methodology integration"},
+        %{"name" => "Commands", "description" => "Slash command registry"},
+        %{"name" => "Tasks", "description" => "Task synchronization and input"},
+        %{"name" => "Skills", "description" => "Skill invocation tracking"},
+        %{"name" => "UPM", "description" => "Unified Project Management execution"},
+        %{"name" => "Ports", "description" => "Port registry and clash detection"},
+        %{"name" => "Environments", "description" => "CCEM environment management"},
+        %{"name" => "Config", "description" => "Server configuration"},
+        %{"name" => "Projects", "description" => "Multi-project management"},
+        %{"name" => "AG-UI", "description" => "AG-UI SSE event stream"},
+        %{"name" => "A2UI", "description" => "A2UI declarative component specs"},
+        %{"name" => "Metrics", "description" => "Performance metrics (v2)"},
+        %{"name" => "SLOs", "description" => "Service Level Objectives (v2)"},
+        %{"name" => "Alerts", "description" => "Alert rules and history (v2)"},
+        %{"name" => "Audit", "description" => "Audit log (v2)"},
+        %{"name" => "Export", "description" => "Data export and import (v2)"}
+      ],
+      "paths" => build_paths(),
+      "components" => %{
+        "schemas" => build_schemas(),
+        "parameters" => build_parameters()
       }
     }
+  end
 
-    json(conn, spec)
+  defp build_paths do
+    Map.merge(build_v1_paths(), build_v2_paths())
+  end
+
+  defp build_v1_paths do
+    %{
+      "/health" => %{
+        "get" => %{"operationId" => "healthCheck", "summary" => "Server health check", "tags" => ["Health"],
+          "responses" => %{"200" => %{"description" => "Server is healthy",
+            "content" => %{"application/json" => %{"schema" => %{"type" => "object",
+              "properties" => %{"status" => %{"type" => "string"}, "timestamp" => %{"type" => "string", "format" => "date-time"}}}}}}}}
+      },
+      "/api/status" => %{
+        "get" => %{"operationId" => "getStatus", "summary" => "APM server status", "tags" => ["Health"],
+          "responses" => %{"200" => %{"description" => "Status info"}}}
+      },
+      "/api/agents" => %{
+        "get" => %{"operationId" => "listAgents", "summary" => "List all agents", "tags" => ["Agents"],
+          "parameters" => [%{"$ref" => "#/components/parameters/ProjectParam"}],
+          "responses" => %{"200" => %{"description" => "Agent list",
+            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Agent"}}}}}}}
+      },
+      "/api/register" => %{
+        "post" => %{"operationId" => "registerAgent", "summary" => "Register an agent", "tags" => ["Agents"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["agent_id"],
+            "properties" => %{"agent_id" => %{"type" => "string"}, "project" => %{"type" => "string"},
+              "role" => %{"type" => "string"}, "status" => %{"type" => "string"}}}}}},
+          "responses" => %{"200" => %{"description" => "Registered"}, "400" => %{"$ref" => "#/components/schemas/Error"}}}
+      },
+      "/api/heartbeat" => %{
+        "post" => %{"operationId" => "sendHeartbeat", "summary" => "Update agent heartbeat", "tags" => ["Agents"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["agent_id"],
+            "properties" => %{"agent_id" => %{"type" => "string"}, "status" => %{"type" => "string"},
+              "message" => %{"type" => "string"}}}}}},
+          "responses" => %{"200" => %{"description" => "Heartbeat recorded"}}}
+      },
+      "/api/agents/register" => %{
+        "post" => %{"operationId" => "registerAgentV3", "summary" => "Register agent (v3-compat alias)", "tags" => ["Agents"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/Agent"}}}},
+          "responses" => %{"200" => %{"description" => "Registered"}}}
+      },
+      "/api/agents/update" => %{
+        "post" => %{"operationId" => "updateAgentV3", "summary" => "Full agent update (v3-compat)", "tags" => ["Agents"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/Agent"}}}},
+          "responses" => %{"200" => %{"description" => "Updated"}}}
+      },
+      "/api/agents/discover" => %{
+        "get" => %{"operationId" => "discoverAgents", "summary" => "Trigger agent discovery scan", "tags" => ["Agents"],
+          "responses" => %{"200" => %{"description" => "Discovery results"}}}
+      },
+      "/api/data" => %{
+        "get" => %{"operationId" => "getMasterData", "summary" => "Master data aggregation (active project)", "tags" => ["Data"],
+          "responses" => %{"200" => %{"description" => "Aggregated APM state"}}}
+      },
+      "/api/notifications" => %{
+        "get" => %{"operationId" => "listNotifications", "summary" => "List notifications", "tags" => ["Notifications"],
+          "responses" => %{"200" => %{"description" => "Notification list",
+            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Notification"}}}}}}}
+      },
+      "/api/notify" => %{
+        "post" => %{"operationId" => "addNotification", "summary" => "Add a notification", "tags" => ["Notifications"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["message"],
+            "properties" => %{"message" => %{"type" => "string"}, "type" => %{"type" => "string"},
+              "agent_id" => %{"type" => "string"}}}}}},
+          "responses" => %{"200" => %{"description" => "Added"}}}
+      },
+      "/api/notifications/add" => %{
+        "post" => %{"operationId" => "addNotificationV3", "summary" => "Add notification (v3-compat)", "tags" => ["Notifications"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Added"}}}
+      },
+      "/api/notifications/read-all" => %{
+        "post" => %{"operationId" => "markAllNotificationsRead", "summary" => "Mark all notifications read", "tags" => ["Notifications"],
+          "responses" => %{"200" => %{"description" => "Marked read"}}}
+      },
+      "/api/ralph" => %{
+        "get" => %{"operationId" => "getRalph", "summary" => "Ralph data for active project", "tags" => ["Ralph"],
+          "responses" => %{"200" => %{"description" => "Ralph state"}}}
+      },
+      "/api/ralph/flowchart" => %{
+        "get" => %{"operationId" => "getRalphFlowchart", "summary" => "D3-compatible flowchart data", "tags" => ["Ralph"],
+          "responses" => %{"200" => %{"description" => "Flowchart nodes and edges"}}}
+      },
+      "/api/commands" => %{
+        "get" => %{"operationId" => "listCommands", "summary" => "List commands for active project", "tags" => ["Commands"],
+          "responses" => %{"200" => %{"description" => "Command list"}}},
+        "post" => %{"operationId" => "registerCommands", "summary" => "Register slash commands", "tags" => ["Commands"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Registered"}}}
+      },
+      "/api/tasks/sync" => %{
+        "post" => %{"operationId" => "syncTasks", "summary" => "Replace active project's task list", "tags" => ["Tasks"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "properties" => %{"tasks" => %{"type" => "array", "items" => %{"type" => "object"}}}}}}},
+          "responses" => %{"200" => %{"description" => "Synced"}}}
+      },
+      "/api/input/pending" => %{
+        "get" => %{"operationId" => "getPendingInput", "summary" => "Get pending input requests", "tags" => ["Tasks"],
+          "responses" => %{"200" => %{"description" => "Pending input requests"}}}
+      },
+      "/api/input/request" => %{
+        "post" => %{"operationId" => "createInputRequest", "summary" => "Create input request", "tags" => ["Tasks"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Created"}}}
+      },
+      "/api/input/respond" => %{
+        "post" => %{"operationId" => "respondToInput", "summary" => "Respond to input request", "tags" => ["Tasks"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Responded"}}}
+      },
+      "/api/skills" => %{
+        "get" => %{"operationId" => "listSkills", "summary" => "List tracked skills", "tags" => ["Skills"],
+          "parameters" => [%{"$ref" => "#/components/parameters/ProjectParam"},
+            %{"name" => "session_id", "in" => "query", "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Skill invocations"}}}
+      },
+      "/api/skills/track" => %{
+        "post" => %{"operationId" => "trackSkill", "summary" => "Track a skill invocation", "tags" => ["Skills"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["skill"],
+            "properties" => %{"skill" => %{"type" => "string"}, "session_id" => %{"type" => "string"},
+              "project" => %{"type" => "string"}}}}}},
+          "responses" => %{"200" => %{"description" => "Tracked"}}}
+      },
+      "/api/upm/register" => %{
+        "post" => %{"operationId" => "upmRegister", "summary" => "Register a UPM execution session", "tags" => ["UPM"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Registered"}}}
+      },
+      "/api/upm/agent" => %{
+        "post" => %{"operationId" => "upmAgent", "summary" => "Register agent with work-item binding", "tags" => ["UPM"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Registered"}}}
+      },
+      "/api/upm/event" => %{
+        "post" => %{"operationId" => "upmEvent", "summary" => "Report UPM lifecycle event", "tags" => ["UPM"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Recorded"}}}
+      },
+      "/api/upm/status" => %{
+        "get" => %{"operationId" => "upmStatus", "summary" => "Current UPM execution state", "tags" => ["UPM"],
+          "responses" => %{"200" => %{"description" => "UPM state"}}}
+      },
+      "/api/ports" => %{
+        "get" => %{"operationId" => "listPorts", "summary" => "List registered ports", "tags" => ["Ports"],
+          "responses" => %{"200" => %{"description" => "Port registry"}}}
+      },
+      "/api/ports/scan" => %{
+        "post" => %{"operationId" => "scanPorts", "summary" => "Scan for active ports", "tags" => ["Ports"],
+          "responses" => %{"200" => %{"description" => "Scan results"}}}
+      },
+      "/api/ports/assign" => %{
+        "post" => %{"operationId" => "assignPort", "summary" => "Assign a port to a service", "tags" => ["Ports"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "properties" => %{"port" => %{"type" => "integer"}, "service" => %{"type" => "string"}}}}}},
+          "responses" => %{"200" => %{"description" => "Assigned"}}}
+      },
+      "/api/ports/clashes" => %{
+        "get" => %{"operationId" => "getPortClashes", "summary" => "Detect port clashes", "tags" => ["Ports"],
+          "responses" => %{"200" => %{"description" => "Clash list"}}}
+      },
+      "/api/ports/set-primary" => %{
+        "post" => %{"operationId" => "setPrimaryPort", "summary" => "Set primary port for a service", "tags" => ["Ports"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Set"}}}
+      },
+      "/api/projects" => %{
+        "get" => %{"operationId" => "listProjects", "summary" => "List all projects with agent counts", "tags" => ["Projects"],
+          "responses" => %{"200" => %{"description" => "Projects list"}}},
+        "patch" => %{"operationId" => "updateProject", "summary" => "Update project metadata", "tags" => ["Projects"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Updated"}}}
+      },
+      "/api/config/reload" => %{
+        "post" => %{"operationId" => "reloadConfig", "summary" => "Hot-reload multi-project config", "tags" => ["Config"],
+          "responses" => %{"200" => %{"description" => "Reloaded"}}}
+      },
+      "/api/reload" => %{
+        "post" => %{"operationId" => "reloadConfigAlias", "summary" => "Reload config (alias)", "tags" => ["Config"],
+          "responses" => %{"200" => %{"description" => "Reloaded"}}}
+      },
+      "/api/plane/update" => %{
+        "post" => %{"operationId" => "updatePlane", "summary" => "Update Plane PM context", "tags" => ["Projects"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Updated"}}}
+      },
+      "/api/environments" => %{
+        "get" => %{"operationId" => "listEnvironments", "summary" => "List all Claude Code environments", "tags" => ["Environments"],
+          "responses" => %{"200" => %{"description" => "Environment list"}}}
+      },
+      "/api/environments/{name}" => %{
+        "get" => %{"operationId" => "getEnvironment", "summary" => "Full environment detail", "tags" => ["Environments"],
+          "parameters" => [%{"name" => "name", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Environment detail"}, "404" => %{"description" => "Not found"}}}
+      },
+      "/api/environments/{name}/exec" => %{
+        "post" => %{"operationId" => "execInEnvironment", "summary" => "Execute command in environment", "tags" => ["Environments"],
+          "parameters" => [%{"name" => "name", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["command"],
+            "properties" => %{"command" => %{"type" => "string"}}}}}},
+          "responses" => %{"200" => %{"description" => "Execution result"}}}
+      },
+      "/api/environments/{name}/session/start" => %{
+        "post" => %{"operationId" => "startEnvironmentSession", "summary" => "Launch Claude Code session", "tags" => ["Environments"],
+          "parameters" => [%{"name" => "name", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Session started"}}}
+      },
+      "/api/environments/{name}/session/stop" => %{
+        "post" => %{"operationId" => "stopEnvironmentSession", "summary" => "Kill Claude Code session", "tags" => ["Environments"],
+          "parameters" => [%{"name" => "name", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Session stopped"}}}
+      },
+      "/api/v2/export" => %{
+        "get" => %{"operationId" => "exportData", "summary" => "Export APM data (JSON or CSV)", "tags" => ["Export"],
+          "parameters" => [%{"name" => "format", "in" => "query", "schema" => %{"type" => "string", "enum" => ["json", "csv"]}}],
+          "responses" => %{"200" => %{"description" => "Export data"}}}
+      },
+      "/api/v2/import" => %{
+        "post" => %{"operationId" => "importData", "summary" => "Import APM data from JSON", "tags" => ["Export"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Imported"}}}
+      },
+      "/api/ag-ui/events" => %{
+        "get" => %{"operationId" => "agUiEventStream", "summary" => "AG-UI SSE event stream", "tags" => ["AG-UI"],
+          "parameters" => [%{"name" => "agent_id", "in" => "query", "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Server-sent events stream",
+            "content" => %{"text/event-stream" => %{"schema" => %{"type" => "string"}}}}}
+        }
+      },
+      "/api/a2ui/components" => %{
+        "get" => %{"operationId" => "a2uiComponents", "summary" => "A2UI declarative component specs", "tags" => ["A2UI"],
+          "responses" => %{"200" => %{"description" => "Component specifications"}}}
+      },
+      "/api/openapi.json" => %{
+        "get" => %{"operationId" => "getOpenApiV1", "summary" => "OpenAPI 3.0.3 spec (v1 alias)", "tags" => ["Health"],
+          "responses" => %{"200" => %{"description" => "OpenAPI specification"}}}
+      }
+    }
+  end
+
+  defp build_v2_paths do
+    %{
+      "/api/v2/agents" => %{
+        "get" => %{"operationId" => "v2ListAgents", "summary" => "Paginated agent list (cursor-based)", "tags" => ["Agents"],
+          "parameters" => [%{"$ref" => "#/components/parameters/CursorParam"}, %{"$ref" => "#/components/parameters/LimitParam"}],
+          "responses" => %{"200" => %{"description" => "Paginated agents",
+            "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/PaginatedAgents"}}}}}}
+      },
+      "/api/v2/agents/{id}" => %{
+        "get" => %{"operationId" => "v2GetAgent", "summary" => "Agent detail with health score", "tags" => ["Agents"],
+          "parameters" => [%{"$ref" => "#/components/parameters/AgentIdParam"}],
+          "responses" => %{"200" => %{"description" => "Agent detail",
+            "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/Agent"}}}},
+            "404" => %{"description" => "Not found"}}}
+      },
+      "/api/v2/sessions" => %{
+        "get" => %{"operationId" => "v2ListSessions", "summary" => "Paginated session list", "tags" => ["Sessions"],
+          "parameters" => [%{"$ref" => "#/components/parameters/CursorParam"}, %{"$ref" => "#/components/parameters/LimitParam"}],
+          "responses" => %{"200" => %{"description" => "Paginated sessions"}}}
+      },
+      "/api/v2/metrics" => %{
+        "get" => %{"operationId" => "v2FleetMetrics", "summary" => "Fleet-wide metrics summary", "tags" => ["Metrics"],
+          "responses" => %{"200" => %{"description" => "Fleet metrics"}}}
+      },
+      "/api/v2/metrics/{agent_id}" => %{
+        "get" => %{"operationId" => "v2AgentMetrics", "summary" => "Per-agent metrics", "tags" => ["Metrics"],
+          "parameters" => [%{"$ref" => "#/components/parameters/AgentIdParam"}, %{"$ref" => "#/components/parameters/SinceParam"}],
+          "responses" => %{"200" => %{"description" => "Agent metrics"}}}
+      },
+      "/api/v2/slos" => %{
+        "get" => %{"operationId" => "v2ListSlos", "summary" => "All SLIs with error budgets", "tags" => ["SLOs"],
+          "responses" => %{"200" => %{"description" => "SLO list",
+            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/SLO"}}}}}}}
+      },
+      "/api/v2/slos/{name}" => %{
+        "get" => %{"operationId" => "v2GetSlo", "summary" => "Single SLI with history", "tags" => ["SLOs"],
+          "parameters" => [%{"name" => "name", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "SLO detail"}, "404" => %{"description" => "Not found"}}}
+      },
+      "/api/v2/alerts" => %{
+        "get" => %{"operationId" => "v2ListAlerts", "summary" => "Alert history with filters", "tags" => ["Alerts"],
+          "parameters" => [%{"$ref" => "#/components/parameters/CursorParam"}, %{"$ref" => "#/components/parameters/LimitParam"},
+            %{"$ref" => "#/components/parameters/SeverityParam"},
+            %{"name" => "rule_id", "in" => "query", "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Alert history",
+            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Alert"}}}}}}}
+      },
+      "/api/v2/alerts/rules" => %{
+        "get" => %{"operationId" => "v2ListAlertRules", "summary" => "List alert rules", "tags" => ["Alerts"],
+          "responses" => %{"200" => %{"description" => "Alert rules",
+            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/AlertRule"}}}}}}},
+        "post" => %{"operationId" => "v2CreateAlertRule", "summary" => "Create alert rule", "tags" => ["Alerts"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["metric", "threshold"],
+            "properties" => %{"id" => %{"type" => "string"}, "name" => %{"type" => "string"},
+              "metric" => %{"type" => "string"}, "scope" => %{"type" => "string", "enum" => ["fleet", "agent"]},
+              "threshold" => %{"type" => "number"}, "comparator" => %{"type" => "string"},
+              "severity" => %{"type" => "string", "enum" => ["info", "warning", "critical"]},
+              "consecutive_breaches" => %{"type" => "integer"}}}}}},
+          "responses" => %{"201" => %{"description" => "Created"}, "400" => %{"description" => "Invalid rule"}}}
+      },
+      "/api/v2/audit" => %{
+        "get" => %{"operationId" => "v2ListAudit", "summary" => "Audit log with cursor pagination", "tags" => ["Audit"],
+          "parameters" => [%{"$ref" => "#/components/parameters/CursorParam"}, %{"$ref" => "#/components/parameters/LimitParam"},
+            %{"$ref" => "#/components/parameters/SinceParam"},
+            %{"name" => "event_type", "in" => "query", "schema" => %{"type" => "string"}},
+            %{"name" => "actor", "in" => "query", "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Audit entries",
+            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/AuditEntry"}}}}}}}
+      },
+      "/api/v2/openapi.json" => %{
+        "get" => %{"operationId" => "v2GetOpenApi", "summary" => "OpenAPI 3.0.3 specification", "tags" => ["Health"],
+          "responses" => %{"200" => %{"description" => "OpenAPI spec"}}}
+      }
+    }
+  end
+
+  defp build_schemas do
+    %{
+      "Agent" => %{"type" => "object", "properties" => %{
+        "id" => %{"type" => "string"}, "name" => %{"type" => "string"},
+        "status" => %{"type" => "string", "enum" => ["active", "idle", "error", "offline"]},
+        "project" => %{"type" => "string"}, "role" => %{"type" => "string"},
+        "last_heartbeat" => %{"type" => "string", "format" => "date-time"},
+        "registered_at" => %{"type" => "string", "format" => "date-time"}}},
+      "PaginatedAgents" => %{"type" => "object", "properties" => %{
+        "data" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Agent"}},
+        "meta" => %{"type" => "object", "properties" => %{
+          "total" => %{"type" => "integer"}, "cursor" => %{"type" => "string"},
+          "has_more" => %{"type" => "boolean"}}}}},
+      "Notification" => %{"type" => "object", "properties" => %{
+        "id" => %{"type" => "string"}, "message" => %{"type" => "string"},
+        "type" => %{"type" => "string"}, "read" => %{"type" => "boolean"},
+        "timestamp" => %{"type" => "string", "format" => "date-time"}}},
+      "AlertRule" => %{"type" => "object", "properties" => %{
+        "id" => %{"type" => "string"}, "name" => %{"type" => "string"},
+        "metric" => %{"type" => "string"}, "scope" => %{"type" => "string"},
+        "threshold" => %{"type" => "number"},
+        "comparator" => %{"type" => "string", "enum" => ["gt", "gte", "lt", "lte", "eq"]},
+        "severity" => %{"type" => "string", "enum" => ["info", "warning", "critical"]},
+        "enabled" => %{"type" => "boolean"}, "consecutive_breaches" => %{"type" => "integer"},
+        "window_s" => %{"type" => "integer"}}},
+      "Alert" => %{"type" => "object", "properties" => %{
+        "id" => %{"type" => "string"}, "rule_id" => %{"type" => "string"},
+        "value" => %{"type" => "number"},
+        "severity" => %{"type" => "string", "enum" => ["info", "warning", "critical"]},
+        "timestamp" => %{"type" => "string", "format" => "date-time"},
+        "acknowledged" => %{"type" => "boolean"}}},
+      "SLO" => %{"type" => "object", "properties" => %{
+        "name" => %{"type" => "string"}, "target" => %{"type" => "number"},
+        "current" => %{"type" => "number"},
+        "status" => %{"type" => "string", "enum" => ["ok", "at_risk", "breached"]},
+        "error_budget_remaining" => %{"type" => "number"}}},
+      "AuditEntry" => %{"type" => "object", "properties" => %{
+        "id" => %{"type" => "string"}, "action" => %{"type" => "string"},
+        "actor" => %{"type" => "string"}, "resource" => %{"type" => "string"},
+        "timestamp" => %{"type" => "string", "format" => "date-time"},
+        "metadata" => %{"type" => "object", "additionalProperties" => true}}},
+      "PaginatedResponse" => %{"type" => "object", "properties" => %{
+        "data" => %{"type" => "array", "items" => %{}},
+        "next_cursor" => %{"type" => "string"}, "total" => %{"type" => "integer"}}},
+      "Error" => %{"type" => "object", "properties" => %{
+        "error" => %{"type" => "string"}, "message" => %{"type" => "string"}}}
+    }
+  end
+
+  defp build_parameters do
+    %{
+      "CursorParam" => %{"name" => "cursor", "in" => "query", "required" => false,
+        "description" => "Pagination cursor for next page", "schema" => %{"type" => "string"}},
+      "LimitParam" => %{"name" => "limit", "in" => "query", "required" => false,
+        "description" => "Maximum results to return", "schema" => %{"type" => "integer", "default" => 50, "maximum" => 500}},
+      "AgentIdParam" => %{"name" => "id", "in" => "path", "required" => true,
+        "description" => "Agent ID", "schema" => %{"type" => "string"}},
+      "SinceParam" => %{"name" => "since", "in" => "query", "required" => false,
+        "description" => "Return results after this ISO 8601 timestamp", "schema" => %{"type" => "string", "format" => "date-time"}},
+      "SeverityParam" => %{"name" => "severity", "in" => "query", "required" => false,
+        "description" => "Filter by severity", "schema" => %{"type" => "string", "enum" => ["info", "warning", "critical"]}},
+      "ProjectParam" => %{"name" => "project", "in" => "query", "required" => false,
+        "description" => "Filter by project name", "schema" => %{"type" => "string"}}
+    }
   end
 
   # ========== Private Helpers ==========
