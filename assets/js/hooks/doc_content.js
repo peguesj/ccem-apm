@@ -5,10 +5,32 @@
 const DocContent = {
   mounted() {
     this.decorateCodeBlocks()
+    this.renderMermaid()
   },
 
   updated() {
     this.decorateCodeBlocks()
+    this.renderMermaid()
+  },
+
+  renderMermaid() {
+    const diagrams = this.el.querySelectorAll(".mermaid")
+    if (!diagrams.length) return
+    const tryRender = (attempts = 0) => {
+      if (window.mermaid) {
+        diagrams.forEach((el) => {
+          if (el.dataset.processed) {
+            el.removeAttribute("data-processed")
+            el.innerHTML = el.dataset.src || el.textContent
+          }
+        })
+        try { window.mermaid.run({ nodes: Array.from(diagrams) }) }
+        catch (e) { console.warn("Mermaid render error:", e) }
+      } else if (attempts < 20) {
+        setTimeout(() => tryRender(attempts + 1), 250)
+      }
+    }
+    tryRender()
   },
 
   decorateCodeBlocks() {

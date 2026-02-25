@@ -29,6 +29,28 @@
         window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
       })();
     </script>
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        themeVariables: {
+          primaryColor: '#7c3aed',
+          primaryTextColor: '#e2e8f0',
+          primaryBorderColor: '#6d28d9',
+          lineColor: '#64748b',
+          secondaryColor: '#1e293b',
+          tertiaryColor: '#0f172a',
+          background: '#0f172a',
+          mainBkg: '#1e293b',
+          nodeBorder: '#6d28d9',
+          clusterBkg: '#1e293b',
+          titleColor: '#e2e8f0',
+          edgeLabelBackground: '#1e293b'
+        }
+      });
+      window.mermaid = mermaid;
+    </script>
   </head>
   <body>
     <ApmV4Web.Accessibility.skip_link />
