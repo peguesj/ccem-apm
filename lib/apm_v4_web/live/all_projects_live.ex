@@ -58,6 +58,9 @@ defmodule ApmV4Web.AllProjectsLive do
       |> assign(:drill_project, nil)
       |> assign(:uptime, uptime())
       |> push_graph_data(agents)
+      |> assign(:ralph_data, %{})
+      |> assign(:upm_status, %{})
+      |> assign(:inspector_tab, :ralph)
 
     {:ok, socket}
   end
@@ -373,6 +376,50 @@ defmodule ApmV4Web.AllProjectsLive do
               </div>
             </.widget>
 
+            <%!-- Inspector Panel Widget --%>
+            <.widget
+              id="inspector"
+              widget={@widgets["inspector"] || %{id: "inspector", locked: false, collapsed: false, height: 280}}
+              extra_class="col-span-12"
+            >
+              <div class="flex gap-1 mb-3 flex-wrap">
+                <%= for tab <- [:ralph, :upm, :ports, :commands, :todos] do %>
+                  <button
+                    class={"btn btn-xs #{if @inspector_tab == tab, do: "btn-primary", else: "btn-ghost"}"}
+                    phx-click="switch_inspector_tab"
+                    phx-value-tab={tab}
+                  >
+                    <%= tab %>
+                  </button>
+                <% end %>
+              </div>
+              <div class="overflow-auto" style="max-height: 200px;">
+                <%= if @inspector_tab == :ralph do %>
+                  <%= if map_size(@ralph_data) > 0 do %>
+                    <pre class="text-xs font-mono"><%= Jason.encode!(@ralph_data, pretty: true) %></pre>
+                  <% else %>
+                    <p class="text-xs text-base-content/50 py-4 text-center">No ralph data</p>
+                  <% end %>
+                <% end %>
+                <%= if @inspector_tab == :upm do %>
+                  <%= if map_size(@upm_status) > 0 do %>
+                    <pre class="text-xs font-mono"><%= Jason.encode!(@upm_status, pretty: true) %></pre>
+                  <% else %>
+                    <p class="text-xs text-base-content/50 py-4 text-center">No UPM status</p>
+                  <% end %>
+                <% end %>
+                <%= if @inspector_tab == :ports do %>
+                  <p class="text-xs text-base-content/50 py-4 text-center">Port management coming soon</p>
+                <% end %>
+                <%= if @inspector_tab == :commands do %>
+                  <p class="text-xs text-base-content/50 py-4 text-center">Commands coming soon</p>
+                <% end %>
+                <%= if @inspector_tab == :todos do %>
+                  <p class="text-xs text-base-content/50 py-4 text-center">Todos coming soon</p>
+                <% end %>
+              </div>
+            </.widget>
+
           </div>
         </div>
       </div>
@@ -479,6 +526,10 @@ defmodule ApmV4Web.AllProjectsLive do
   def handle_event("inspect_agent", _params, socket) do
     # Navigate to main dashboard with agent selected — just redirect
     {:noreply, redirect(socket, to: "/")}
+  end
+
+  def handle_event("switch_inspector_tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, :inspector_tab, String.to_existing_atom(tab))}
   end
 
   # --- PubSub Handlers ---
@@ -701,4 +752,6 @@ defmodule ApmV4Web.AllProjectsLive do
   defp notif_class("success"), do: "badge-success"
   defp notif_class("info"),    do: "badge-info"
   defp notif_class(_),         do: "badge-ghost"
+
+  defp load_ralph_for_project(_project, _config), do: %{}
 end
