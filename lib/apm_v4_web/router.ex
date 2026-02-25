@@ -30,6 +30,7 @@ defmodule ApmV4Web.Router do
     live "/", DashboardLive, :index
     live "/apm-all", AllProjectsLive, :index
     live "/ralph", RalphFlowchartLive, :index
+    live "/workflow/:type", WorkflowLive, :show
     live "/skills", SkillsLive, :index
     live "/timeline", SessionTimelineLive, :index
     live "/docs", DocsLive, :index
