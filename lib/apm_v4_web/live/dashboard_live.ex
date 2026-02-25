@@ -228,38 +228,99 @@ defmodule ApmV4Web.DashboardLive do
               <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-circle indicator">
                 <.icon name="hero-bell" class="size-4" />
                 <span
-                  :if={length(@notifications) > 0}
+                  :if={Enum.any?(@notifications, &(!&1.read))}
                   class="indicator-item badge badge-xs badge-error"
                 >
-                  {length(@notifications)}
+                  {Enum.count(@notifications, &(!&1.read))}
                 </span>
               </div>
-              <div tabindex="0" class="dropdown-content z-50 w-80 mt-2">
+              <div tabindex="0" class="dropdown-content z-50 w-96 mt-2">
                 <div class="card bg-base-200 border border-base-300 shadow-xl">
-                  <div class="card-body p-3">
-                    <div class="flex justify-between items-center mb-2">
+                  <div class="card-body p-0">
+                    <%!-- Header --%>
+                    <div class="flex justify-between items-center px-3 pt-3 pb-2 border-b border-base-300">
                       <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
                         Notifications
+                        <span :if={length(@notifications) > 0} class="ml-1 text-base-content/40 font-normal normal-case">
+                          ({length(@notifications)})
+                        </span>
                       </h3>
-                      <button class="text-xs text-primary hover:underline" phx-click="clear_notifications">
-                        Clear all
-                      </button>
-                    </div>
-                    <.live_region id="notification-list" politeness="polite">
-                      <div class="space-y-1 max-h-64 overflow-y-auto">
-                        <div
-                          :for={notif <- Enum.take(@notifications, 10)}
-                          class="p-2 rounded bg-base-300 text-xs"
+                      <div class="flex items-center gap-2">
+                        <button
+                          class="text-xs text-primary hover:underline"
+                          phx-click="mark_all_read"
                         >
-                          <div class="flex items-center gap-2 mb-1">
-                            <span class={["badge badge-xs", notif_badge_class(notif.level)]}>
-                              {notif.level}
+                          Mark read
+                        </button>
+                        <span class="text-base-content/20">·</span>
+                        <button
+                          class="text-xs text-error/70 hover:text-error hover:underline"
+                          phx-click="clear_notifications"
+                        >
+                          Clear all
+                        </button>
+                      </div>
+                    </div>
+                    <%!-- Notification list --%>
+                    <.live_region id="notification-list" politeness="polite">
+                      <div class="space-y-0 max-h-96 overflow-y-auto divide-y divide-base-300">
+                        <div
+                          :for={notif <- Enum.take(@notifications, 15)}
+                          class={["p-3 text-xs transition-colors hover:bg-base-300/50", if(!notif.read, do: "bg-base-300/30 border-l-2 border-primary", else: "")]}
+                        >
+                          <div class="flex items-start gap-2">
+                            <span class={["badge badge-xs mt-0.5 flex-shrink-0", notif_badge_class(notif[:type] || notif[:level])]}>
+                              {notif[:type] || notif[:level] || "info"}
                             </span>
-                            <span class="font-semibold truncate">{notif.title}</span>
+                            <div class="flex-1 min-w-0">
+                              <div class="font-semibold truncate">{notif[:title]}</div>
+                              <p class="text-base-content/60 mt-0.5 leading-snug">{notif[:message]}</p>
+                              <%!-- Contextual metadata --%>
+                              <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[10px] text-base-content/40">
+                                <span :if={notif[:category]}><%= notif[:category] %></span>
+                                <span :if={notif[:project_name]}><%= notif[:project_name] %></span>
+                                <span :if={notif[:formation_id]}>fmt: {notif[:formation_id]}</span>
+                                <span :if={notif[:agent_id]}>agent: {notif[:agent_id]}</span>
+                              </div>
+                              <%!-- Action buttons --%>
+                              <div class="flex items-center gap-2 mt-2">
+                                <%= if notif[:formation_id] do %>
+                                  <.link
+                                    href="/formation"
+                                    class="btn btn-xs btn-ghost text-[10px] px-1.5 py-0.5 h-auto min-h-0 border border-base-content/20"
+                                  >
+                                    View Formation
+                                  </.link>
+                                <% end %>
+                                <%= if notif[:agent_id] do %>
+                                  <button
+                                    phx-click="select_agent"
+                                    phx-value-id={notif[:agent_id]}
+                                    class="btn btn-xs btn-ghost text-[10px] px-1.5 py-0.5 h-auto min-h-0 border border-base-content/20"
+                                  >
+                                    Inspect Agent
+                                  </button>
+                                <% end %>
+                                <%= if notif[:category] in ["upm", "formation"] do %>
+                                  <.link
+                                    href="/workflow/upm"
+                                    class="btn btn-xs btn-ghost text-[10px] px-1.5 py-0.5 h-auto min-h-0 border border-base-content/20"
+                                  >
+                                    UPM Flow
+                                  </.link>
+                                <% end %>
+                                <button
+                                  phx-click="dismiss_notification"
+                                  phx-value-id={notif[:id]}
+                                  class="ml-auto text-[10px] text-base-content/30 hover:text-base-content/60"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                          <p class="text-base-content/60 truncate">{notif.message}</p>
                         </div>
-                        <p :if={@notifications == []} class="text-center text-base-content/40 py-4">
+                        <p :if={@notifications == []} class="text-center text-base-content/40 py-6 text-xs">
                           No notifications
                         </p>
                       </div>
@@ -966,6 +1027,19 @@ defmodule ApmV4Web.DashboardLive do
   def handle_event("clear_notifications", _params, socket) do
     AgentRegistry.clear_notifications()
     {:noreply, assign(socket, :notifications, [])}
+  end
+
+  def handle_event("mark_all_read", _params, socket) do
+    AgentRegistry.mark_all_notifications_read()
+    notifications = Enum.map(socket.assigns.notifications, &Map.put(&1, :read, true))
+    {:noreply, assign(socket, :notifications, notifications)}
+  end
+
+  def handle_event("dismiss_notification", %{"id" => id_str}, socket) do
+    id = String.to_integer(id_str)
+    AgentRegistry.dismiss_notification(id)
+    notifications = Enum.reject(socket.assigns.notifications, &(&1[:id] == id))
+    {:noreply, assign(socket, :notifications, notifications)}
   end
 
   def handle_event("select_agent", %{"agent_id" => agent_id}, socket) do

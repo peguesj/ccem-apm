@@ -134,6 +134,16 @@ defmodule ApmV4.AgentRegistry do
     GenServer.call(__MODULE__, {:update_agent, agent_id, fields})
   end
 
+  @doc "Mark all notifications as read (alias for mark_all_read/0)."
+  @spec mark_all_notifications_read() :: :ok
+  def mark_all_notifications_read, do: mark_all_read()
+
+  @doc "Dismiss (delete) a single notification by id."
+  @spec dismiss_notification(integer()) :: :ok
+  def dismiss_notification(id) do
+    GenServer.call(__MODULE__, {:dismiss_notification, id})
+  end
+
   @doc "Clear all notifications."
   @spec clear_notifications() :: :ok
   def clear_notifications do
@@ -298,6 +308,11 @@ defmodule ApmV4.AgentRegistry do
 
   def handle_call(:clear_notifications, _from, state) do
     :ets.delete_all_objects(@notifications_table)
+    {:reply, :ok, state}
+  end
+
+  def handle_call({:dismiss_notification, id}, _from, state) do
+    :ets.delete(@notifications_table, id)
     {:reply, :ok, state}
   end
 
