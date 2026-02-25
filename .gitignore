@@ -35,3 +35,8 @@ apm_v4-*.tar
 npm-debug.log
 /assets/node_modules/
 
+
+# Runtime artifacts
+.apm.pid
+.claude/hooks/
+archive/
