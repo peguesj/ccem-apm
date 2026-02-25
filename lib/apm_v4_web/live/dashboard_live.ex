@@ -74,6 +74,7 @@ defmodule ApmV4Web.DashboardLive do
       |> assign(:port_ranges, port_ranges)
       |> assign(:port_remediation, nil)
       |> assign(:graph_expanded, false)
+      |> assign(:graph_view, :graph)
       |> assign(:show_anon, false)
       |> assign(:saved_layouts, DashboardStore.list_layouts())
       |> assign(:saved_presets, DashboardStore.list_presets())
@@ -459,14 +460,29 @@ defmodule ApmV4Web.DashboardLive do
                   <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
                     Dependency Graph
                   </h3>
-                  <div class="flex items-center gap-3">
-                    <%!-- Legend --%>
-                    <div class="flex items-center gap-2 text-[9px] text-base-content/40">
-                      <span class="flex items-center gap-0.5"><span class="inline-block w-2.5 h-2.5 rounded-full border-2 border-base-content/30"></span> agent</span>
-                      <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-3 rounded-full border-2 border-dashed border-info/60"></span> squadron</span>
-                      <span class="flex items-center gap-0.5"><span class="inline-block w-3.5 h-3.5 rounded-full border-2 border-dotted border-warning/60"></span> swarm</span>
-                      <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-1.5 rounded bg-primary/20 border border-primary/50"></span> namespace</span>
+                  <div class="flex items-center gap-2">
+                    <%!-- Graph/List pill toggle --%>
+                    <div class="flex items-center gap-0.5 bg-base-300 rounded-full p-0.5">
+                      <button
+                        phx-click="set_graph_view"
+                        phx-value-view="graph"
+                        class={["px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors", if(@graph_view == :graph, do: "bg-base-100 shadow-sm text-base-content", else: "text-base-content/40 hover:text-base-content")]}
+                      >Graph</button>
+                      <button
+                        phx-click="set_graph_view"
+                        phx-value-view="list"
+                        class={["px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors", if(@graph_view == :list, do: "bg-base-100 shadow-sm text-base-content", else: "text-base-content/40 hover:text-base-content")]}
+                      >List</button>
                     </div>
+                    <%!-- Legend (graph only) --%>
+                    <%= if @graph_view == :graph do %>
+                      <div class="flex items-center gap-2 text-[9px] text-base-content/40">
+                        <span class="flex items-center gap-0.5"><span class="inline-block w-2.5 h-2.5 rounded-full border-2 border-base-content/30"></span> agent</span>
+                        <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-3 rounded-full border-2 border-dashed border-info/60"></span> squadron</span>
+                        <span class="flex items-center gap-0.5"><span class="inline-block w-3.5 h-3.5 rounded-full border-2 border-dotted border-warning/60"></span> swarm</span>
+                        <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-1.5 rounded bg-primary/20 border border-primary/50"></span> namespace</span>
+                      </div>
+                    <% end %>
                     <button
                       class="btn btn-ghost btn-xs"
                       phx-click="toggle_graph"
@@ -476,17 +492,56 @@ defmodule ApmV4Web.DashboardLive do
                     </button>
                   </div>
                 </div>
-                <div
-                  id="dep-graph"
-                  class={[
-                    "w-full rounded-xl relative overflow-hidden",
-                    @graph_expanded && "h-[calc(100%-2rem)]" || "h-[420px]"
-                  ]}
-                  style="background: #151b28;"
-                  phx-hook="DependencyGraph"
-                  phx-update="ignore"
-                >
-                </div>
+                <%= if @graph_view == :graph do %>
+                  <div
+                    id="dep-graph"
+                    class={[
+                      "w-full rounded-xl relative overflow-hidden",
+                      @graph_expanded && "h-[calc(100%-2rem)]" || "h-[420px]"
+                    ]}
+                    style="background: #151b28;"
+                    phx-hook="DependencyGraph"
+                    phx-update="ignore"
+                  >
+                  </div>
+                <% else %>
+                  <%!-- List view --%>
+                  <div class="overflow-y-auto max-h-[420px] space-y-1 pr-1">
+                    <%= for agent <- @agents do %>
+                      <div
+                        class="flex items-center gap-3 p-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors cursor-pointer"
+                        phx-click="select_agent"
+                        phx-value-id={agent[:id] || agent["id"]}
+                      >
+                        <div class={["w-2 h-2 rounded-full flex-shrink-0", case (agent[:status] || agent["status"]) do
+                          "active" -> "bg-success"
+                          "error" -> "bg-error"
+                          "idle" -> "bg-warning"
+                          _ -> "bg-base-content/30"
+                        end]}></div>
+                        <div class="flex-1 min-w-0">
+                          <div class="text-xs font-medium truncate"><%= agent[:name] || agent["name"] || agent[:id] || agent["id"] %></div>
+                          <div class="text-[10px] text-base-content/50 flex items-center gap-2">
+                            <span><%= agent[:agent_type] || agent["agent_type"] || agent[:role] || "agent" %></span>
+                            <%= if w = agent[:wave] || agent["wave"] do %><span>Wave <%= w %></span><% end %>
+                            <%= if p = agent[:project] || agent["project"] do %><span class="truncate max-w-[80px]"><%= p %></span><% end %>
+                          </div>
+                        </div>
+                        <span class={["badge badge-xs", case (agent[:status] || agent["status"]) do
+                          "active" -> "badge-success"
+                          "error" -> "badge-error"
+                          "idle" -> "badge-warning"
+                          _ -> "badge-ghost"
+                        end]}><%= agent[:status] || agent["status"] || "unknown" %></span>
+                      </div>
+                    <% end %>
+                    <%= if @agents == [] do %>
+                      <div class="text-center text-xs text-base-content/40 py-12">
+                        No agents registered. POST to <code class="font-mono">/api/register</code> to add agents.
+                      </div>
+                    <% end %>
+                  </div>
+                <% end %>
               </div>
             </div>
 
@@ -853,6 +908,10 @@ defmodule ApmV4Web.DashboardLive do
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, String.to_existing_atom(tab))}
+  end
+
+  def handle_event("set_graph_view", %{"view" => view}, socket) do
+    {:noreply, assign(socket, :graph_view, String.to_existing_atom(view))}
   end
 
   def handle_event("toggle_graph", _params, socket) do
