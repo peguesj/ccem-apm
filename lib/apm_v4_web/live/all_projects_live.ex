@@ -829,5 +829,4 @@ defmodule ApmV4Web.AllProjectsLive do
   defp notif_class("info"),    do: "badge-info"
   defp notif_class(_),         do: "badge-ghost"
 
-  defp load_ralph_for_project(_project, _config), do: %{}
 end

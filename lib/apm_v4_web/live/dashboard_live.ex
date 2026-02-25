@@ -76,6 +76,8 @@ defmodule ApmV4Web.DashboardLive do
       |> assign(:graph_expanded, false)
       |> assign(:graph_view, :graph)
       |> assign(:show_anon, false)
+      |> assign(:list_expanded_nodes, MapSet.new(["root"]))
+      |> assign(:hierarchy, nil)
       |> assign(:saved_layouts, DashboardStore.list_layouts())
       |> assign(:saved_presets, DashboardStore.list_presets())
       # Global filter bar state (Splunk/ELK-style)
@@ -568,37 +570,16 @@ defmodule ApmV4Web.DashboardLive do
                   >
                   </div>
                 <% else %>
-                  <%!-- List view --%>
-                  <div class="overflow-y-auto max-h-[420px] space-y-1 pr-1">
-                    <%= for agent <- @agents do %>
-                      <div
-                        class="flex items-center gap-3 p-2 rounded-lg bg-base-300 hover:bg-base-200 transition-colors cursor-pointer"
-                        phx-click="select_agent"
-                        phx-value-id={agent[:id] || agent["id"]}
-                      >
-                        <div class={["w-2 h-2 rounded-full flex-shrink-0", case (agent[:status] || agent["status"]) do
-                          "active" -> "bg-success"
-                          "error" -> "bg-error"
-                          "idle" -> "bg-warning"
-                          _ -> "bg-base-content/30"
-                        end]}></div>
-                        <div class="flex-1 min-w-0">
-                          <div class="text-xs font-medium truncate"><%= agent[:name] || agent["name"] || agent[:id] || agent["id"] %></div>
-                          <div class="text-[10px] text-base-content/50 flex items-center gap-2">
-                            <span><%= agent[:agent_type] || agent["agent_type"] || agent[:role] || "agent" %></span>
-                            <%= if w = agent[:wave] || agent["wave"] do %><span>Wave <%= w %></span><% end %>
-                            <%= if p = agent[:project] || agent["project"] do %><span class="truncate max-w-[80px]"><%= p %></span><% end %>
-                          </div>
-                        </div>
-                        <span class={["badge badge-xs", case (agent[:status] || agent["status"]) do
-                          "active" -> "badge-success"
-                          "error" -> "badge-error"
-                          "idle" -> "badge-warning"
-                          _ -> "badge-ghost"
-                        end]}><%= agent[:status] || agent["status"] || "unknown" %></span>
-                      </div>
-                    <% end %>
-                    <%= if @agents == [] do %>
+                  <%!-- List view: hierarchical recursive tree --%>
+                  <div class="overflow-y-auto max-h-[420px] pr-1 select-none">
+                    <%= if @hierarchy do %>
+                      <.tree_node
+                        node={@hierarchy}
+                        depth={0}
+                        expanded={@list_expanded_nodes}
+                        selected_id={@selected_agent && (@selected_agent[:id] || @selected_agent["id"])}
+                      />
+                    <% else %>
                       <div class="text-center text-xs text-base-content/40 py-12">
                         No agents registered. POST to <code class="font-mono">/api/register</code> to add agents.
                       </div>
@@ -974,7 +955,28 @@ defmodule ApmV4Web.DashboardLive do
   end
 
   def handle_event("set_graph_view", %{"view" => view}, socket) do
-    {:noreply, assign(socket, :graph_view, String.to_existing_atom(view))}
+    socket = assign(socket, :graph_view, String.to_existing_atom(view))
+
+    # When switching to list view, expand ancestors of selected agent
+    socket =
+      if view == "list" do
+        selected = socket.assigns[:selected_agent]
+        agent_id = selected && (selected[:id] || selected["id"])
+        hierarchy = socket.assigns[:hierarchy]
+        expanded = socket.assigns[:list_expanded_nodes] || MapSet.new(["root"])
+
+        updated =
+          case agent_id && hierarchy && find_ancestor_path(hierarchy, agent_id) do
+            nil -> expanded
+            path -> Enum.reduce(path, expanded, &MapSet.put(&2, &1))
+          end
+
+        assign(socket, :list_expanded_nodes, updated)
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   def handle_event("toggle_graph", _params, socket) do
@@ -1049,14 +1051,36 @@ defmodule ApmV4Web.DashboardLive do
 
     socket =
       if agent do
+        # Expand ancestor path in the list view so the agent is visible
+        hierarchy = socket.assigns[:hierarchy]
+        expanded = socket.assigns[:list_expanded_nodes] || MapSet.new(["root"])
+
+        updated_expanded =
+          case hierarchy && find_ancestor_path(hierarchy, agent_id) do
+            nil -> expanded
+            path -> Enum.reduce(path, expanded, &MapSet.put(&2, &1))
+          end
+
         socket
         |> assign(:active_tab, :inspector)
         |> assign(:selected_agent, agent)
+        |> assign(:list_expanded_nodes, updated_expanded)
       else
         socket
       end
 
     {:noreply, socket}
+  end
+
+  def handle_event("toggle_list_node", %{"node_id" => node_id}, socket) do
+    expanded = socket.assigns.list_expanded_nodes
+
+    updated =
+      if MapSet.member?(expanded, node_id),
+        do: MapSet.delete(expanded, node_id),
+        else: MapSet.put(expanded, node_id)
+
+    {:noreply, assign(socket, :list_expanded_nodes, updated)}
   end
 
   # --- Filter Event Handlers ---
@@ -1386,6 +1410,7 @@ defmodule ApmV4Web.DashboardLive do
 
     # Push hierarchy_data via GraphBuilder for collapsible tree
     hierarchy = GraphBuilder.build_hierarchy(graph_agents, scope: :single_project)
+    socket = assign(socket, :hierarchy, hierarchy)
     push_event(socket, "hierarchy_data", %{tree: hierarchy})
   end
 
@@ -1578,4 +1603,142 @@ defmodule ApmV4Web.DashboardLive do
       :exit, _ -> %{"projects" => [], "active_project" => nil}
     end
   end
+
+  # --- Hierarchy List Helpers ---
+
+  # Walk a hierarchy tree and return the list of ancestor node IDs (incl. target) if found.
+  defp find_ancestor_path(nil, _target_id), do: nil
+
+  defp find_ancestor_path(node, target_id) do
+    node_id = node["id"] || node[:id]
+
+    if node_id == target_id do
+      [node_id]
+    else
+      children =
+        (node["children"] || node[:children] || []) ++
+          (node["_children"] || node[:_children] || [])
+
+      Enum.find_value(children, fn child ->
+        case find_ancestor_path(child, target_id) do
+          nil -> nil
+          path -> [node_id | path]
+        end
+      end)
+    end
+  end
+
+  # Recursive tree node component for the list view
+  attr :node, :map, required: true
+  attr :depth, :integer, default: 0
+  attr :expanded, :any, required: true
+  attr :selected_id, :string, default: nil
+
+  defp tree_node(assigns) do
+    node = assigns.node
+    node_id = node["id"] || node[:id] || ""
+    node_name = node["name"] || node[:name] || node_id
+    node_type = node["type"] || node[:type] || "unknown"
+    node_status = node["status"] || node[:status] || "idle"
+    agent_count = node["agent_count"] || node[:agent_count] || 0
+    children = node["children"] || node[:children] || []
+    has_children = children != []
+    is_expanded = MapSet.member?(assigns.expanded, node_id)
+    is_selected = assigns.selected_id == node_id && node_type == "agent"
+    indent = assigns.depth * 16
+
+    assigns =
+      assigns
+      |> assign(:node_id, node_id)
+      |> assign(:node_name, node_name)
+      |> assign(:node_type, node_type)
+      |> assign(:node_status, node_status)
+      |> assign(:agent_count, agent_count)
+      |> assign(:children, children)
+      |> assign(:has_children, has_children)
+      |> assign(:is_expanded, is_expanded)
+      |> assign(:is_selected, is_selected)
+      |> assign(:indent, indent)
+
+    ~H"""
+    <div>
+      <div
+        class={[
+          "flex items-center gap-1.5 py-1 px-2 rounded-lg transition-colors",
+          "hover:bg-base-200 cursor-pointer group",
+          @is_selected && "bg-primary/10 ring-1 ring-primary/30"
+        ]}
+        style={"padding-left: #{@indent + 8}px"}
+        phx-click={if @has_children, do: "toggle_list_node", else: "select_agent"}
+        phx-value-node_id={if @has_children, do: @node_id}
+        phx-value-agent_id={unless @has_children, do: @node_id}
+      >
+        <%!-- Expand/collapse chevron --%>
+        <span class="w-3 flex-shrink-0 text-[10px] text-base-content/40">
+          <%= cond do %>
+            <% @has_children && @is_expanded -> %>&#x25BE;
+            <% @has_children -> %>&#x25B8;
+            <% true -> %>&nbsp;
+          <% end %>
+        </span>
+
+        <%!-- Type icon --%>
+        <span class={["text-[11px] flex-shrink-0", status_text_class(@node_status)]}>
+          <%= node_type_icon(@node_type) %>
+        </span>
+
+        <%!-- Name --%>
+        <span class={[
+          "text-xs flex-1 truncate",
+          @node_type == "agent" && "font-mono",
+          @is_selected && "text-primary font-medium"
+        ]}>
+          {@node_name}
+        </span>
+
+        <%!-- Agent count badge for non-leaf nodes --%>
+        <%= if @has_children && @agent_count > 0 do %>
+          <span class="text-[9px] text-base-content/30 flex-shrink-0">{@agent_count}</span>
+        <% end %>
+
+        <%!-- Status dot for agents --%>
+        <%= if @node_type == "agent" do %>
+          <span class={["w-1.5 h-1.5 rounded-full flex-shrink-0", status_dot_class(@node_status)]}></span>
+        <% end %>
+      </div>
+
+      <%!-- Children --%>
+      <div :if={@has_children && @is_expanded}>
+        <.tree_node
+          :for={child <- @children}
+          node={child}
+          depth={@depth + 1}
+          expanded={@expanded}
+          selected_id={@selected_id}
+        />
+      </div>
+    </div>
+    """
+  end
+
+  defp node_type_icon("root"), do: "\u25A1"
+  defp node_type_icon("project"), do: "\u25A3"
+  defp node_type_icon("formation"), do: "\u25C9"
+  defp node_type_icon("squadron"), do: "\u25A0"
+  defp node_type_icon("agent"), do: "\u25CB"
+  defp node_type_icon(_), do: "\u25A1"
+
+  defp status_text_class("active"), do: "text-success"
+  defp status_text_class("running"), do: "text-success"
+  defp status_text_class("error"), do: "text-error"
+  defp status_text_class("warning"), do: "text-warning"
+  defp status_text_class("completed"), do: "text-purple-400"
+  defp status_text_class(_), do: "text-base-content/40"
+
+  defp status_dot_class("active"), do: "bg-success"
+  defp status_dot_class("running"), do: "bg-success"
+  defp status_dot_class("error"), do: "bg-error"
+  defp status_dot_class("warning"), do: "bg-warning"
+  defp status_dot_class("completed"), do: "bg-purple-400"
+  defp status_dot_class(_), do: "bg-base-content/30"
 end
