@@ -379,7 +379,7 @@ defmodule ApmV4Web.AllProjectsLive do
             <%!-- Inspector Panel Widget --%>
             <.widget
               id="inspector"
-              widget={@widgets["inspector"] || %{id: "inspector", locked: false, collapsed: false, height: 280}}
+              widget={@widgets["inspector"] || %{id: "inspector", title: "Inspector", locked: false, collapsed: false, height: 280}}
               extra_class="col-span-12"
             >
               <div class="flex gap-1 mb-3 flex-wrap">
