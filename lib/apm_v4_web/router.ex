@@ -36,6 +36,7 @@ defmodule ApmV4Web.Router do
     live "/docs", DocsLive, :index
     live "/docs/*path", DocsLive, :show
     live "/formation", FormationLive, :index
+    live "/notifications", NotificationLive, :index
     live "/ports", PortsLive, :index
   end
 
@@ -147,6 +148,10 @@ defmodule ApmV4Web.Router do
     post "/formations", ApiV2Controller, :create_formation
     get "/formations/:id", ApiV2Controller, :get_formation
     get "/formations/:id/agents", ApiV2Controller, :get_formation_agents
+
+    # Verification (VerifyStore)
+    post "/verify/double", ApiV2Controller, :verify_double
+    get "/verify/:id", ApiV2Controller, :verify_status
   end
 
   # A2UI flexible format endpoint

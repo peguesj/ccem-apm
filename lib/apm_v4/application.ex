@@ -32,6 +32,7 @@ defmodule ApmV4.Application do
       ApmV4.PortManager,
       ApmV4.WorkflowSchemaStore,
       ApmV4.SkillHookDeployer,
+      ApmV4.VerifyStore,
       # Start to serve requests, typically the last entry
       ApmV4Web.Endpoint
     ]
