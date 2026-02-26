@@ -17,7 +17,7 @@ defmodule ApmV4Web.ApiController do
   alias ApmV4.EnvironmentScanner
   alias ApmV4.CommandRunner
 
-  @server_version "4.0.0"
+  @server_version "2.4.0"
 
   # ============================
   # GET Endpoints
