@@ -303,6 +303,8 @@ defmodule ApmV4Web.ApiController do
         story_id: params["story_id"],
         plane_issue_id: params["plane_issue_id"],
         wave: params["wave"],
+        wave_number: params["wave_number"],
+        wave_total: params["wave_total"],
         work_item_title: params["work_item_title"],
         upm_session_id: params["upm_session_id"]
       }
@@ -340,18 +342,32 @@ defmodule ApmV4Web.ApiController do
 
   @doc "POST /api/notify -- add notification with optional scoped fields"
   def notify(conn, params) do
-    notification = %{
-      title: params["title"] || "Notification",
-      message: params["message"] || params["body"] || "",
-      type: params["type"] || params["level"] || "info",
-      category: params["category"],
-      project_name: params["project_name"] || params["project"],
-      namespace: params["namespace"],
-      formation_id: params["formation_id"],
-      squadron_id: params["squadron_id"],
-      agent_id: params["agent_id"],
-      story_id: params["story_id"]
-    }
+    # deploy_agents category carries wave-specific metadata
+    wave_fields =
+      if params["category"] == "deploy_agents" do
+        %{
+          wave_number: params["wave_number"],
+          wave_total: params["wave_total"],
+          wave_status: params["wave_status"]
+        }
+      else
+        %{}
+      end
+
+    notification =
+      %{
+        title: params["title"] || "Notification",
+        message: params["message"] || params["body"] || "",
+        type: params["type"] || params["level"] || "info",
+        category: params["category"],
+        project_name: params["project_name"] || params["project"],
+        namespace: params["namespace"],
+        formation_id: params["formation_id"],
+        squadron_id: params["squadron_id"],
+        agent_id: params["agent_id"],
+        story_id: params["story_id"]
+      }
+      |> Map.merge(wave_fields)
 
     id = AgentRegistry.add_notification(notification)
 

@@ -27,6 +27,7 @@ defmodule ApmV4Web.FormationLive do
       |> assign(:formations, formations)
       |> assign(:active_formation, active_formation)
       |> assign(:selected_node, nil)
+      |> assign(:wave_progress, %{current_wave: 0, total_waves: 0, agents_in_wave: 0, agents_complete: 0})
       |> assign(:active_skill_count, skill_count())
       |> push_formation_graph(formations)
 
@@ -111,6 +112,20 @@ defmodule ApmV4Web.FormationLive do
               <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
                 Inspector
               </h3>
+            </div>
+            <%!-- Wave progress (shown when a formation with wave data is selected) --%>
+            <div :if={@wave_progress.total_waves > 0} class="px-4 py-3 border-b border-base-300 bg-base-300/30">
+              <div class="text-xs text-base-content/50 uppercase tracking-wider mb-1">Wave Progress</div>
+              <div class="text-sm font-mono text-base-content/80">
+                Wave <%= @wave_progress.current_wave %> of <%= @wave_progress.total_waves %>
+                &mdash; <%= @wave_progress.agents_complete %>/<%= @wave_progress.agents_in_wave %> agents
+              </div>
+              <div class="h-1.5 bg-base-300 rounded mt-2">
+                <div
+                  class="h-1.5 bg-success rounded transition-all duration-300"
+                  style={"width:#{wave_percent(@wave_progress)}%"}
+                ></div>
+              </div>
             </div>
             <div class="p-4">
               <div :if={@selected_node == nil} class="text-center text-base-content/30 py-8 text-xs">
@@ -223,7 +238,8 @@ defmodule ApmV4Web.FormationLive do
       member_count: formation.agent_count,
       status: formation_status(formation)
     }
-    {:noreply, assign(socket, :selected_node, node)}
+    wave_progress = AgentRegistry.wave_progress(id)
+    {:noreply, socket |> assign(:selected_node, node) |> assign(:wave_progress, wave_progress)}
   end
 
   def handle_event("select_squadron", %{"formation" => fid, "squadron" => name}, socket) do
@@ -404,6 +420,10 @@ defmodule ApmV4Web.FormationLive do
   defp agent_dot("error"), do: "bg-error"
   defp agent_dot("idle"), do: "bg-base-content/30"
   defp agent_dot(_), do: "bg-base-content/20"
+
+  defp wave_percent(%{agents_in_wave: n, agents_complete: c}) when n > 0,
+    do: round(c / n * 100)
+  defp wave_percent(_), do: 0
 
   defp skill_count do
     try do

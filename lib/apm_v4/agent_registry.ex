@@ -59,6 +59,24 @@ defmodule ApmV4.AgentRegistry do
     end)
   end
 
+  @doc "Return wave progress for a formation. Returns a map with current_wave, total_waves, agents_in_wave, agents_complete."
+  @spec wave_progress(String.t()) :: map()
+  def wave_progress(formation_id) do
+    agents =
+      :ets.tab2list(@agents_table)
+      |> Enum.map(fn {_id, a} -> a end)
+      |> Enum.filter(fn a -> Map.get(a, :formation_id) == formation_id end)
+
+    wave_numbers = agents |> Enum.map(&Map.get(&1, :wave_number)) |> Enum.reject(&is_nil/1)
+    wave_totals = agents |> Enum.map(&Map.get(&1, :wave_total)) |> Enum.reject(&is_nil/1)
+    current_wave = if wave_numbers == [], do: 0, else: Enum.max(wave_numbers)
+    total_waves = if wave_totals == [], do: 0, else: Enum.max(wave_totals)
+    agents_in_wave = Enum.count(agents, &(Map.get(&1, :wave_number) == current_wave))
+    agents_complete = Enum.count(agents, &(Map.get(&1, :wave_number) == current_wave and Map.get(&1, :status) in ["idle", "completed", "done"]))
+
+    %{current_wave: current_wave, total_waves: total_waves, agents_in_wave: agents_in_wave, agents_complete: agents_complete}
+  end
+
   @doc "Update an agent's status. Returns :ok or {:error, :not_found}."
   @spec update_status(String.t(), String.t()) :: :ok | {:error, :not_found}
   def update_status(agent_id, status) do
@@ -195,6 +213,8 @@ defmodule ApmV4.AgentRegistry do
         story_id: Map.get(metadata, :story_id, nil),
         plane_issue_id: Map.get(metadata, :plane_issue_id, nil),
         wave: Map.get(metadata, :wave, nil),
+        wave_number: Map.get(metadata, :wave_number, nil),
+        wave_total: Map.get(metadata, :wave_total, nil),
         work_item_title: Map.get(metadata, :work_item_title, nil),
         upm_session_id: Map.get(metadata, :upm_session_id, nil),
         registered_at: now,
