@@ -32,6 +32,7 @@ import SessionTimeline from "./hooks/session_timeline"
 import FormationGraph from "./hooks/formation_graph"
 import Toast from "./hooks/toast"
 import DocContent from "./hooks/doc_content"
+import WorkflowGraph from "./hooks/workflow_graph"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -52,6 +53,7 @@ const Hooks = {
   SessionTimeline,
   FormationGraph,
   Toast,
+  WorkflowGraph,
   DocContent
 }
 

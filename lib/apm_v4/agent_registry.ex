@@ -59,6 +59,24 @@ defmodule ApmV4.AgentRegistry do
     end)
   end
 
+  @doc "Return wave progress for a formation. Returns a map with current_wave, total_waves, agents_in_wave, agents_complete."
+  @spec wave_progress(String.t()) :: map()
+  def wave_progress(formation_id) do
+    agents =
+      :ets.tab2list(@agents_table)
+      |> Enum.map(fn {_id, a} -> a end)
+      |> Enum.filter(fn a -> Map.get(a, :formation_id) == formation_id end)
+
+    wave_numbers = agents |> Enum.map(&Map.get(&1, :wave_number)) |> Enum.reject(&is_nil/1)
+    wave_totals = agents |> Enum.map(&Map.get(&1, :wave_total)) |> Enum.reject(&is_nil/1)
+    current_wave = if wave_numbers == [], do: 0, else: Enum.max(wave_numbers)
+    total_waves = if wave_totals == [], do: 0, else: Enum.max(wave_totals)
+    agents_in_wave = Enum.count(agents, &(Map.get(&1, :wave_number) == current_wave))
+    agents_complete = Enum.count(agents, &(Map.get(&1, :wave_number) == current_wave and Map.get(&1, :status) in ["idle", "completed", "done"]))
+
+    %{current_wave: current_wave, total_waves: total_waves, agents_in_wave: agents_in_wave, agents_complete: agents_complete}
+  end
+
   @doc "Update an agent's status. Returns :ok or {:error, :not_found}."
   @spec update_status(String.t(), String.t()) :: :ok | {:error, :not_found}
   def update_status(agent_id, status) do
@@ -134,6 +152,16 @@ defmodule ApmV4.AgentRegistry do
     GenServer.call(__MODULE__, {:update_agent, agent_id, fields})
   end
 
+  @doc "Mark all notifications as read (alias for mark_all_read/0)."
+  @spec mark_all_notifications_read() :: :ok
+  def mark_all_notifications_read, do: mark_all_read()
+
+  @doc "Dismiss (delete) a single notification by id."
+  @spec dismiss_notification(integer()) :: :ok
+  def dismiss_notification(id) do
+    GenServer.call(__MODULE__, {:dismiss_notification, id})
+  end
+
   @doc "Clear all notifications."
   @spec clear_notifications() :: :ok
   def clear_notifications do
@@ -185,6 +213,8 @@ defmodule ApmV4.AgentRegistry do
         story_id: Map.get(metadata, :story_id, nil),
         plane_issue_id: Map.get(metadata, :plane_issue_id, nil),
         wave: Map.get(metadata, :wave, nil),
+        wave_number: Map.get(metadata, :wave_number, nil),
+        wave_total: Map.get(metadata, :wave_total, nil),
         work_item_title: Map.get(metadata, :work_item_title, nil),
         upm_session_id: Map.get(metadata, :upm_session_id, nil),
         registered_at: now,
@@ -298,6 +328,11 @@ defmodule ApmV4.AgentRegistry do
 
   def handle_call(:clear_notifications, _from, state) do
     :ets.delete_all_objects(@notifications_table)
+    {:reply, :ok, state}
+  end
+
+  def handle_call({:dismiss_notification, id}, _from, state) do
+    :ets.delete(@notifications_table, id)
     {:reply, :ok, state}
   end
 

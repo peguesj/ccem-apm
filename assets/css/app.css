@@ -158,3 +158,202 @@
   from { opacity: 1; transform: translateX(0); }
   to { opacity: 0; transform: translateX(100%); }
 }
+
+/* ============================================
+   Documentation Wiki Styles (.doc-content)
+   ============================================ */
+
+.doc-content {
+  color: oklch(var(--bc));
+  line-height: 1.75;
+  font-size: 0.9375rem;
+}
+
+.doc-content h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid oklch(var(--p) / 0.3);
+  color: oklch(var(--bc));
+}
+
+.doc-content h2 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid oklch(var(--p));
+  color: oklch(var(--bc));
+}
+
+.doc-content h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
+  color: oklch(var(--bc) / 0.9);
+}
+
+.doc-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: oklch(var(--bc) / 0.85);
+}
+
+.doc-content p {
+  margin-bottom: 1.25rem;
+  color: oklch(var(--bc) / 0.85);
+}
+
+.doc-content a {
+  color: oklch(var(--p));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+.doc-content a:hover {
+  color: oklch(var(--pf, var(--p)));
+  text-decoration-color: oklch(var(--p) / 0.5);
+}
+
+.doc-content code:not(pre code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8125em;
+  padding: 0.15em 0.45em;
+  border-radius: 4px;
+  background: oklch(var(--b3, var(--b2)) / 0.8);
+  color: oklch(var(--s));
+  border: 1px solid oklch(var(--bc) / 0.1);
+}
+
+.code-block-wrapper {
+  margin: 1.5rem 0;
+}
+
+.code-block-header {
+  background: #161b22;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+}
+
+.doc-content pre {
+  background: #0d1117 !important;
+  overflow-x: auto;
+  padding: 1.25rem 1.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.doc-content pre code {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  color: #e6edf3;
+  font-size: inherit;
+}
+
+.copy-btn {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: ui-monospace, monospace;
+}
+.copy-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.8);
+  border-color: rgba(255,255,255,0.3);
+}
+.copy-btn.copied {
+  color: #3fb950;
+  border-color: #3fb950;
+}
+
+.table-wrapper {
+  margin: 1.5rem 0;
+  overflow-x: auto;
+}
+
+.doc-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.doc-content th {
+  background: oklch(var(--b3, var(--b2)));
+  font-weight: 600;
+  text-align: left;
+  padding: 0.625rem 1rem;
+  border-bottom: 2px solid oklch(var(--bc) / 0.15);
+  color: oklch(var(--bc));
+  white-space: nowrap;
+}
+
+.doc-content td {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid oklch(var(--bc) / 0.08);
+  color: oklch(var(--bc) / 0.8);
+  vertical-align: top;
+}
+
+.doc-content tr:nth-child(even) td {
+  background: oklch(var(--b2) / 0.5);
+}
+
+.doc-content tr:hover td {
+  background: oklch(var(--p) / 0.05);
+}
+
+.doc-content blockquote {
+  margin: 1.5rem 0;
+  padding: 0.75rem 1.25rem;
+  border-left: 4px solid oklch(var(--p) / 0.6);
+  background: oklch(var(--p) / 0.05);
+  border-radius: 0 8px 8px 0;
+  color: oklch(var(--bc) / 0.75);
+  font-style: italic;
+}
+.doc-content blockquote p { margin: 0; color: inherit; }
+
+.doc-content ul, .doc-content ol {
+  margin: 1rem 0 1.25rem 0;
+  padding-left: 1.5rem;
+}
+.doc-content ul { list-style-type: disc; }
+.doc-content ol { list-style-type: decimal; }
+.doc-content li {
+  margin-bottom: 0.35rem;
+  color: oklch(var(--bc) / 0.85);
+  padding-left: 0.25rem;
+}
+.doc-content li > ul, .doc-content li > ol { margin-top: 0.35rem; margin-bottom: 0; }
+.doc-content ul ul { list-style-type: circle; }
+
+.doc-content hr {
+  border: none;
+  border-top: 1px solid oklch(var(--bc) / 0.12);
+  margin: 2.5rem 0;
+}
+
+.mermaid-wrapper {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+.mermaid-wrapper .mermaid { display: inline-block; max-width: 100%; }
+
+.doc-content strong { font-weight: 600; color: oklch(var(--bc)); }
+.doc-content em { color: oklch(var(--bc) / 0.85); }

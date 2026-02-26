@@ -5,6 +5,20 @@ defmodule ApmV4.GraphBuilder do
   Pure function module (no GenServer) that builds hierarchical graph data
   suitable for D3.js visualization on the APM dashboard.
 
+  ## Node structure (flat — matches JS dependency_graph.js expectations)
+
+      %{
+        "id"          => "formation-myproject-fmt-001",
+        "name"        => "fmt-001",
+        "type"        => "formation",   # "root" | "project" | "formation" | "squadron" | "agent"
+        "status"      => "active",
+        "agent_count" => 12,
+        "children"    => [...]          # [] for leaf agent nodes
+      }
+
+  All properties are **top-level string keys** so that D3's `d.data.id`,
+  `d.data.type`, `d.data.status` etc. work correctly in JS.
+
   ## Scopes
 
     * `:all_projects` - root > project nodes > formation nodes > agents
@@ -64,7 +78,7 @@ defmodule ApmV4.GraphBuilder do
           children: formation_children
         )
       end)
-      |> Enum.sort_by(&get_in(&1, ["data", "name"]))
+      |> Enum.sort_by(& &1["name"])
 
     make_node(id: "root", name: "APM", type: "root", children: project_children)
   end
@@ -97,7 +111,7 @@ defmodule ApmV4.GraphBuilder do
       )
     end)
     |> Enum.sort_by(fn node ->
-      name = get_in(node, ["data", "name"])
+      name = node["name"]
       if name == "ungrouped", do: {1, name}, else: {0, name}
     end)
   end
@@ -125,7 +139,7 @@ defmodule ApmV4.GraphBuilder do
           )
         end)
         |> Enum.sort_by(fn node ->
-          name = get_in(node, ["data", "name"])
+          name = node["name"]
           if name == "ungrouped", do: {1, name}, else: {0, name}
         end)
     end
@@ -139,40 +153,36 @@ defmodule ApmV4.GraphBuilder do
       name = Map.get(agent, :name) || Map.get(agent, "name") || "unknown"
       id = Map.get(agent, :id) || Map.get(agent, "id") || "unknown"
       status = Map.get(agent, :status) || Map.get(agent, "status") || "idle"
+      agent_type = Map.get(agent, :agent_type) || Map.get(agent, "agent_type") || "individual"
 
       %{
-        "name" => name,
-        "children" => [],
-        "data" => %{
-          "id" => id,
-          "name" => name,
-          "type" => "agent",
-          "status" => status,
-          "agent_type" => Map.get(agent, :agent_type) || Map.get(agent, "agent_type") || "individual"
-        }
+        "id"         => id,
+        "name"       => name,
+        "type"       => "agent",
+        "status"     => status,
+        "agent_type" => agent_type,
+        "agent_count" => 0,
+        "children"   => []
       }
     end)
-    |> Enum.sort_by(&get_in(&1, ["data", "name"]))
+    |> Enum.sort_by(& &1["name"])
   end
 
   # --- Node constructor with status aggregation ---
 
   defp make_node(opts) do
-    id = Keyword.fetch!(opts, :id)
-    name = Keyword.fetch!(opts, :name)
-    type = Keyword.fetch!(opts, :type)
+    id       = Keyword.fetch!(opts, :id)
+    name     = Keyword.fetch!(opts, :name)
+    type     = Keyword.fetch!(opts, :type)
     children = Keyword.get(opts, :children, [])
 
     %{
-      "name" => name,
-      "children" => children,
-      "data" => %{
-        "id" => id,
-        "name" => name,
-        "type" => type,
-        "status" => aggregate_status(children),
-        "agent_count" => count_agents(children)
-      }
+      "id"          => id,
+      "name"        => name,
+      "type"        => type,
+      "status"      => aggregate_status(children),
+      "agent_count" => count_agents(children),
+      "children"    => children
     }
   end
 
@@ -180,15 +190,15 @@ defmodule ApmV4.GraphBuilder do
 
   defp aggregate_status(children) do
     children
-    |> Enum.map(&(get_in(&1, ["data", "status"]) || "idle"))
+    |> Enum.map(&(&1["status"] || "idle"))
     |> Enum.min_by(&Map.get(@status_priority, &1, 99))
   end
 
   defp count_agents(children) do
     Enum.reduce(children, 0, fn node, acc ->
-      case get_in(node, ["data", "type"]) do
+      case node["type"] do
         "agent" -> acc + 1
-        _ -> acc + (get_in(node, ["data", "agent_count"]) || 0)
+        _ -> acc + (node["agent_count"] || 0)
       end
     end)
   end
@@ -196,7 +206,7 @@ defmodule ApmV4.GraphBuilder do
   # --- Collapse state collection ---
 
   defp collect_collapsed_ids(node, current_depth, max_expanded_depth) do
-    node_id = get_in(node, ["data", "id"])
+    node_id  = node["id"]
     children = Map.get(node, "children", [])
 
     own_id =

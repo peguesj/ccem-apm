@@ -74,7 +74,10 @@ defmodule ApmV4Web.DashboardLive do
       |> assign(:port_ranges, port_ranges)
       |> assign(:port_remediation, nil)
       |> assign(:graph_expanded, false)
+      |> assign(:graph_view, :graph)
       |> assign(:show_anon, false)
+      |> assign(:list_expanded_nodes, MapSet.new(["root"]))
+      |> assign(:hierarchy, nil)
       |> assign(:saved_layouts, DashboardStore.list_layouts())
       |> assign(:saved_presets, DashboardStore.list_presets())
       # Global filter bar state (Splunk/ELK-style)
@@ -121,7 +124,9 @@ defmodule ApmV4Web.DashboardLive do
             <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
             CCEM APM v4
           </h1>
-          <p class="text-xs text-base-content/50 mt-1">Agent Performance Monitor</p>
+          <p class="text-xs text-base-content/50 mt-1">
+            {length(@projects)} projects · {@active_count} active
+          </p>
         </div>
         <nav class="flex-1 p-2 space-y-1">
           <.nav_item icon="hero-squares-2x2" label="Dashboard" active={@active_nav == :dashboard} href="/" />
@@ -227,38 +232,99 @@ defmodule ApmV4Web.DashboardLive do
               <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-circle indicator">
                 <.icon name="hero-bell" class="size-4" />
                 <span
-                  :if={length(@notifications) > 0}
+                  :if={Enum.any?(@notifications, &(!&1.read))}
                   class="indicator-item badge badge-xs badge-error"
                 >
-                  {length(@notifications)}
+                  {Enum.count(@notifications, &(!&1.read))}
                 </span>
               </div>
-              <div tabindex="0" class="dropdown-content z-50 w-80 mt-2">
+              <div tabindex="0" class="dropdown-content z-50 w-96 mt-2">
                 <div class="card bg-base-200 border border-base-300 shadow-xl">
-                  <div class="card-body p-3">
-                    <div class="flex justify-between items-center mb-2">
+                  <div class="card-body p-0">
+                    <%!-- Header --%>
+                    <div class="flex justify-between items-center px-3 pt-3 pb-2 border-b border-base-300">
                       <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
                         Notifications
+                        <span :if={length(@notifications) > 0} class="ml-1 text-base-content/40 font-normal normal-case">
+                          ({length(@notifications)})
+                        </span>
                       </h3>
-                      <button class="text-xs text-primary hover:underline" phx-click="clear_notifications">
-                        Clear all
-                      </button>
-                    </div>
-                    <.live_region id="notification-list" politeness="polite">
-                      <div class="space-y-1 max-h-64 overflow-y-auto">
-                        <div
-                          :for={notif <- Enum.take(@notifications, 10)}
-                          class="p-2 rounded bg-base-300 text-xs"
+                      <div class="flex items-center gap-2">
+                        <button
+                          class="text-xs text-primary hover:underline"
+                          phx-click="mark_all_read"
                         >
-                          <div class="flex items-center gap-2 mb-1">
-                            <span class={["badge badge-xs", notif_badge_class(notif.level)]}>
-                              {notif.level}
+                          Mark read
+                        </button>
+                        <span class="text-base-content/20">·</span>
+                        <button
+                          class="text-xs text-error/70 hover:text-error hover:underline"
+                          phx-click="clear_notifications"
+                        >
+                          Clear all
+                        </button>
+                      </div>
+                    </div>
+                    <%!-- Notification list --%>
+                    <.live_region id="notification-list" politeness="polite">
+                      <div class="space-y-0 max-h-96 overflow-y-auto divide-y divide-base-300">
+                        <div
+                          :for={notif <- Enum.take(@notifications, 15)}
+                          class={["p-3 text-xs transition-colors hover:bg-base-300/50", if(!notif.read, do: "bg-base-300/30 border-l-2 border-primary", else: "")]}
+                        >
+                          <div class="flex items-start gap-2">
+                            <span class={["badge badge-xs mt-0.5 flex-shrink-0", notif_badge_class(notif[:type] || notif[:level])]}>
+                              {notif[:type] || notif[:level] || "info"}
                             </span>
-                            <span class="font-semibold truncate">{notif.title}</span>
+                            <div class="flex-1 min-w-0">
+                              <div class="font-semibold truncate">{notif[:title]}</div>
+                              <p class="text-base-content/60 mt-0.5 leading-snug">{notif[:message]}</p>
+                              <%!-- Contextual metadata --%>
+                              <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[10px] text-base-content/40">
+                                <span :if={notif[:category]}><%= notif[:category] %></span>
+                                <span :if={notif[:project_name]}><%= notif[:project_name] %></span>
+                                <span :if={notif[:formation_id]}>fmt: {notif[:formation_id]}</span>
+                                <span :if={notif[:agent_id]}>agent: {notif[:agent_id]}</span>
+                              </div>
+                              <%!-- Action buttons --%>
+                              <div class="flex items-center gap-2 mt-2">
+                                <%= if notif[:formation_id] do %>
+                                  <.link
+                                    href="/formation"
+                                    class="btn btn-xs btn-ghost text-[10px] px-1.5 py-0.5 h-auto min-h-0 border border-base-content/20"
+                                  >
+                                    View Formation
+                                  </.link>
+                                <% end %>
+                                <%= if notif[:agent_id] do %>
+                                  <button
+                                    phx-click="select_agent"
+                                    phx-value-id={notif[:agent_id]}
+                                    class="btn btn-xs btn-ghost text-[10px] px-1.5 py-0.5 h-auto min-h-0 border border-base-content/20"
+                                  >
+                                    Inspect Agent
+                                  </button>
+                                <% end %>
+                                <%= if notif[:category] in ["upm", "formation"] do %>
+                                  <.link
+                                    href="/workflow/upm"
+                                    class="btn btn-xs btn-ghost text-[10px] px-1.5 py-0.5 h-auto min-h-0 border border-base-content/20"
+                                  >
+                                    UPM Flow
+                                  </.link>
+                                <% end %>
+                                <button
+                                  phx-click="dismiss_notification"
+                                  phx-value-id={notif[:id]}
+                                  class="ml-auto text-[10px] text-base-content/30 hover:text-base-content/60"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                          <p class="text-base-content/60 truncate">{notif.message}</p>
                         </div>
-                        <p :if={@notifications == []} class="text-center text-base-content/40 py-4">
+                        <p :if={@notifications == []} class="text-center text-base-content/40 py-6 text-xs">
                           No notifications
                         </p>
                       </div>
@@ -459,14 +525,29 @@ defmodule ApmV4Web.DashboardLive do
                   <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
                     Dependency Graph
                   </h3>
-                  <div class="flex items-center gap-3">
-                    <%!-- Legend --%>
-                    <div class="flex items-center gap-2 text-[9px] text-base-content/40">
-                      <span class="flex items-center gap-0.5"><span class="inline-block w-2.5 h-2.5 rounded-full border-2 border-base-content/30"></span> agent</span>
-                      <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-3 rounded-full border-2 border-dashed border-info/60"></span> squadron</span>
-                      <span class="flex items-center gap-0.5"><span class="inline-block w-3.5 h-3.5 rounded-full border-2 border-dotted border-warning/60"></span> swarm</span>
-                      <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-1.5 rounded bg-primary/20 border border-primary/50"></span> namespace</span>
+                  <div class="flex items-center gap-2">
+                    <%!-- Graph/List pill toggle --%>
+                    <div class="flex items-center gap-0.5 bg-base-300 rounded-full p-0.5">
+                      <button
+                        phx-click="set_graph_view"
+                        phx-value-view="graph"
+                        class={["px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors", if(@graph_view == :graph, do: "bg-base-100 shadow-sm text-base-content", else: "text-base-content/40 hover:text-base-content")]}
+                      >Graph</button>
+                      <button
+                        phx-click="set_graph_view"
+                        phx-value-view="list"
+                        class={["px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors", if(@graph_view == :list, do: "bg-base-100 shadow-sm text-base-content", else: "text-base-content/40 hover:text-base-content")]}
+                      >List</button>
                     </div>
+                    <%!-- Legend (graph only) --%>
+                    <%= if @graph_view == :graph do %>
+                      <div class="flex items-center gap-2 text-[9px] text-base-content/40">
+                        <span class="flex items-center gap-0.5"><span class="inline-block w-2.5 h-2.5 rounded-full border-2 border-base-content/30"></span> agent</span>
+                        <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-3 rounded-full border-2 border-dashed border-info/60"></span> squadron</span>
+                        <span class="flex items-center gap-0.5"><span class="inline-block w-3.5 h-3.5 rounded-full border-2 border-dotted border-warning/60"></span> swarm</span>
+                        <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-1.5 rounded bg-primary/20 border border-primary/50"></span> namespace</span>
+                      </div>
+                    <% end %>
                     <button
                       class="btn btn-ghost btn-xs"
                       phx-click="toggle_graph"
@@ -476,17 +557,35 @@ defmodule ApmV4Web.DashboardLive do
                     </button>
                   </div>
                 </div>
-                <div
-                  id="dep-graph"
-                  class={[
-                    "w-full rounded-xl relative overflow-hidden",
-                    @graph_expanded && "h-[calc(100%-2rem)]" || "h-[420px]"
-                  ]}
-                  style="background: #151b28;"
-                  phx-hook="DependencyGraph"
-                  phx-update="ignore"
-                >
-                </div>
+                <%= if @graph_view == :graph do %>
+                  <div
+                    id="dep-graph"
+                    class={[
+                      "w-full rounded-xl relative overflow-hidden",
+                      @graph_expanded && "h-[calc(100%-2rem)]" || "h-[420px]"
+                    ]}
+                    style="background: #151b28;"
+                    phx-hook="DependencyGraph"
+                    phx-update="ignore"
+                  >
+                  </div>
+                <% else %>
+                  <%!-- List view: hierarchical recursive tree --%>
+                  <div class="overflow-y-auto max-h-[420px] pr-1 select-none">
+                    <%= if @hierarchy do %>
+                      <.tree_node
+                        node={@hierarchy}
+                        depth={0}
+                        expanded={@list_expanded_nodes}
+                        selected_id={@selected_agent && (@selected_agent[:id] || @selected_agent["id"])}
+                      />
+                    <% else %>
+                      <div class="text-center text-xs text-base-content/40 py-12">
+                        No agents registered. POST to <code class="font-mono">/api/register</code> to add agents.
+                      </div>
+                    <% end %>
+                  </div>
+                <% end %>
               </div>
             </div>
 
@@ -855,6 +954,31 @@ defmodule ApmV4Web.DashboardLive do
     {:noreply, assign(socket, :active_tab, String.to_existing_atom(tab))}
   end
 
+  def handle_event("set_graph_view", %{"view" => view}, socket) do
+    socket = assign(socket, :graph_view, String.to_existing_atom(view))
+
+    # When switching to list view, expand ancestors of selected agent
+    socket =
+      if view == "list" do
+        selected = socket.assigns[:selected_agent]
+        agent_id = selected && (selected[:id] || selected["id"])
+        hierarchy = socket.assigns[:hierarchy]
+        expanded = socket.assigns[:list_expanded_nodes] || MapSet.new(["root"])
+
+        updated =
+          case agent_id && hierarchy && find_ancestor_path(hierarchy, agent_id) do
+            nil -> expanded
+            path -> Enum.reduce(path, expanded, &MapSet.put(&2, &1))
+          end
+
+        assign(socket, :list_expanded_nodes, updated)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
   def handle_event("toggle_graph", _params, socket) do
     expanded = !socket.assigns.graph_expanded
     socket =
@@ -909,19 +1033,54 @@ defmodule ApmV4Web.DashboardLive do
     {:noreply, assign(socket, :notifications, [])}
   end
 
+  def handle_event("mark_all_read", _params, socket) do
+    AgentRegistry.mark_all_notifications_read()
+    notifications = Enum.map(socket.assigns.notifications, &Map.put(&1, :read, true))
+    {:noreply, assign(socket, :notifications, notifications)}
+  end
+
+  def handle_event("dismiss_notification", %{"id" => id_str}, socket) do
+    id = String.to_integer(id_str)
+    AgentRegistry.dismiss_notification(id)
+    notifications = Enum.reject(socket.assigns.notifications, &(&1[:id] == id))
+    {:noreply, assign(socket, :notifications, notifications)}
+  end
+
   def handle_event("select_agent", %{"agent_id" => agent_id}, socket) do
     agent = AgentRegistry.get_agent(agent_id)
 
     socket =
       if agent do
+        # Expand ancestor path in the list view so the agent is visible
+        hierarchy = socket.assigns[:hierarchy]
+        expanded = socket.assigns[:list_expanded_nodes] || MapSet.new(["root"])
+
+        updated_expanded =
+          case hierarchy && find_ancestor_path(hierarchy, agent_id) do
+            nil -> expanded
+            path -> Enum.reduce(path, expanded, &MapSet.put(&2, &1))
+          end
+
         socket
         |> assign(:active_tab, :inspector)
         |> assign(:selected_agent, agent)
+        |> assign(:list_expanded_nodes, updated_expanded)
       else
         socket
       end
 
     {:noreply, socket}
+  end
+
+  def handle_event("toggle_list_node", %{"node_id" => node_id}, socket) do
+    expanded = socket.assigns.list_expanded_nodes
+
+    updated =
+      if MapSet.member?(expanded, node_id),
+        do: MapSet.delete(expanded, node_id),
+        else: MapSet.put(expanded, node_id)
+
+    {:noreply, assign(socket, :list_expanded_nodes, updated)}
   end
 
   # --- Filter Event Handlers ---
@@ -1251,6 +1410,7 @@ defmodule ApmV4Web.DashboardLive do
 
     # Push hierarchy_data via GraphBuilder for collapsible tree
     hierarchy = GraphBuilder.build_hierarchy(graph_agents, scope: :single_project)
+    socket = assign(socket, :hierarchy, hierarchy)
     push_event(socket, "hierarchy_data", %{tree: hierarchy})
   end
 
@@ -1443,4 +1603,142 @@ defmodule ApmV4Web.DashboardLive do
       :exit, _ -> %{"projects" => [], "active_project" => nil}
     end
   end
+
+  # --- Hierarchy List Helpers ---
+
+  # Walk a hierarchy tree and return the list of ancestor node IDs (incl. target) if found.
+  defp find_ancestor_path(nil, _target_id), do: nil
+
+  defp find_ancestor_path(node, target_id) do
+    node_id = node["id"] || node[:id]
+
+    if node_id == target_id do
+      [node_id]
+    else
+      children =
+        (node["children"] || node[:children] || []) ++
+          (node["_children"] || node[:_children] || [])
+
+      Enum.find_value(children, fn child ->
+        case find_ancestor_path(child, target_id) do
+          nil -> nil
+          path -> [node_id | path]
+        end
+      end)
+    end
+  end
+
+  # Recursive tree node component for the list view
+  attr :node, :map, required: true
+  attr :depth, :integer, default: 0
+  attr :expanded, :any, required: true
+  attr :selected_id, :string, default: nil
+
+  defp tree_node(assigns) do
+    node = assigns.node
+    node_id = node["id"] || node[:id] || ""
+    node_name = node["name"] || node[:name] || node_id
+    node_type = node["type"] || node[:type] || "unknown"
+    node_status = node["status"] || node[:status] || "idle"
+    agent_count = node["agent_count"] || node[:agent_count] || 0
+    children = node["children"] || node[:children] || []
+    has_children = children != []
+    is_expanded = MapSet.member?(assigns.expanded, node_id)
+    is_selected = assigns.selected_id == node_id && node_type == "agent"
+    indent = assigns.depth * 16
+
+    assigns =
+      assigns
+      |> assign(:node_id, node_id)
+      |> assign(:node_name, node_name)
+      |> assign(:node_type, node_type)
+      |> assign(:node_status, node_status)
+      |> assign(:agent_count, agent_count)
+      |> assign(:children, children)
+      |> assign(:has_children, has_children)
+      |> assign(:is_expanded, is_expanded)
+      |> assign(:is_selected, is_selected)
+      |> assign(:indent, indent)
+
+    ~H"""
+    <div>
+      <div
+        class={[
+          "flex items-center gap-1.5 py-1 px-2 rounded-lg transition-colors",
+          "hover:bg-base-200 cursor-pointer group",
+          @is_selected && "bg-primary/10 ring-1 ring-primary/30"
+        ]}
+        style={"padding-left: #{@indent + 8}px"}
+        phx-click={if @has_children, do: "toggle_list_node", else: "select_agent"}
+        phx-value-node_id={if @has_children, do: @node_id}
+        phx-value-agent_id={unless @has_children, do: @node_id}
+      >
+        <%!-- Expand/collapse chevron --%>
+        <span class="w-3 flex-shrink-0 text-[10px] text-base-content/40">
+          <%= cond do %>
+            <% @has_children && @is_expanded -> %>&#x25BE;
+            <% @has_children -> %>&#x25B8;
+            <% true -> %>&nbsp;
+          <% end %>
+        </span>
+
+        <%!-- Type icon --%>
+        <span class={["text-[11px] flex-shrink-0", status_text_class(@node_status)]}>
+          <%= node_type_icon(@node_type) %>
+        </span>
+
+        <%!-- Name --%>
+        <span class={[
+          "text-xs flex-1 truncate",
+          @node_type == "agent" && "font-mono",
+          @is_selected && "text-primary font-medium"
+        ]}>
+          {@node_name}
+        </span>
+
+        <%!-- Agent count badge for non-leaf nodes --%>
+        <%= if @has_children && @agent_count > 0 do %>
+          <span class="text-[9px] text-base-content/30 flex-shrink-0">{@agent_count}</span>
+        <% end %>
+
+        <%!-- Status dot for agents --%>
+        <%= if @node_type == "agent" do %>
+          <span class={["w-1.5 h-1.5 rounded-full flex-shrink-0", status_dot_class(@node_status)]}></span>
+        <% end %>
+      </div>
+
+      <%!-- Children --%>
+      <div :if={@has_children && @is_expanded}>
+        <.tree_node
+          :for={child <- @children}
+          node={child}
+          depth={@depth + 1}
+          expanded={@expanded}
+          selected_id={@selected_id}
+        />
+      </div>
+    </div>
+    """
+  end
+
+  defp node_type_icon("root"), do: "\u25A1"
+  defp node_type_icon("project"), do: "\u25A3"
+  defp node_type_icon("formation"), do: "\u25C9"
+  defp node_type_icon("squadron"), do: "\u25A0"
+  defp node_type_icon("agent"), do: "\u25CB"
+  defp node_type_icon(_), do: "\u25A1"
+
+  defp status_text_class("active"), do: "text-success"
+  defp status_text_class("running"), do: "text-success"
+  defp status_text_class("error"), do: "text-error"
+  defp status_text_class("warning"), do: "text-warning"
+  defp status_text_class("completed"), do: "text-purple-400"
+  defp status_text_class(_), do: "text-base-content/40"
+
+  defp status_dot_class("active"), do: "bg-success"
+  defp status_dot_class("running"), do: "bg-success"
+  defp status_dot_class("error"), do: "bg-error"
+  defp status_dot_class("warning"), do: "bg-warning"
+  defp status_dot_class("completed"), do: "bg-purple-400"
+  defp status_dot_class(_), do: "bg-base-content/30"
 end

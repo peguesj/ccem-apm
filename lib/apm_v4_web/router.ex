@@ -30,11 +30,13 @@ defmodule ApmV4Web.Router do
     live "/", DashboardLive, :index
     live "/apm-all", AllProjectsLive, :index
     live "/ralph", RalphFlowchartLive, :index
+    live "/workflow/:type", WorkflowLive, :show
     live "/skills", SkillsLive, :index
     live "/timeline", SessionTimelineLive, :index
     live "/docs", DocsLive, :index
     live "/docs/*path", DocsLive, :show
     live "/formation", FormationLive, :index
+    live "/notifications", NotificationLive, :index
     live "/ports", PortsLive, :index
   end
 
@@ -113,6 +115,9 @@ defmodule ApmV4Web.Router do
     # OpenAPI spec alias (v1-friendly URL, same as /api/v2/openapi.json)
     get "/openapi.json", V2.ApiV2Controller, :openapi
 
+    # Hook deployment
+    post "/hooks/deploy", ApiController, :deploy_hooks
+
   end
 
   # v2 REST API (Phase 3.1)
@@ -131,6 +136,22 @@ defmodule ApmV4Web.Router do
     post "/alerts/rules", ApiV2Controller, :create_alert_rule
     get "/audit", ApiV2Controller, :list_audit
     get "/openapi.json", ApiV2Controller, :openapi
+
+    # Workflows (WorkflowSchemaStore)
+    get "/workflows", ApiV2Controller, :list_workflows
+    post "/workflows", ApiV2Controller, :create_workflow
+    get "/workflows/:id", ApiV2Controller, :get_workflow
+    patch "/workflows/:id", ApiV2Controller, :update_workflow
+
+    # Formations (UpmStore)
+    get "/formations", ApiV2Controller, :list_formations
+    post "/formations", ApiV2Controller, :create_formation
+    get "/formations/:id", ApiV2Controller, :get_formation
+    get "/formations/:id/agents", ApiV2Controller, :get_formation_agents
+
+    # Verification (VerifyStore)
+    post "/verify/double", ApiV2Controller, :verify_double
+    get "/verify/:id", ApiV2Controller, :verify_status
   end
 
   # A2UI flexible format endpoint

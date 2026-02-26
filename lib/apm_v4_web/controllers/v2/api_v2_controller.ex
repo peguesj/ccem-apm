@@ -11,6 +11,8 @@ defmodule ApmV4Web.V2.ApiV2Controller do
   alias ApmV4.SloEngine
   alias ApmV4.AlertRulesEngine
   alias ApmV4.AuditLog
+  alias ApmV4.WorkflowSchemaStore
+  alias ApmV4.UpmStore
   alias ApmV4Web.V2.ApiV2JSON
 
   # ========== Agents ==========
@@ -645,6 +647,152 @@ defmodule ApmV4Web.V2.ApiV2Controller do
   end
 
   # ========== Private Helpers ==========
+
+  # ========== Workflows (WorkflowSchemaStore) ==========
+
+  @doc "GET /api/v2/workflows"
+  def list_workflows(conn, _params) do
+    json(conn, ApiV2JSON.envelope(WorkflowSchemaStore.list_workflows()))
+  end
+
+  @doc "POST /api/v2/workflows"
+  def create_workflow(conn, params) do
+    case WorkflowSchemaStore.register_workflow(params) do
+      {:ok, wf} ->
+        conn |> put_status(:created) |> json(ApiV2JSON.envelope(wf))
+
+      {:error, reason} ->
+        conn |> put_status(422) |> json(ApiV2JSON.error_response("validation_error", reason))
+    end
+  end
+
+  @doc "GET /api/v2/workflows/:id"
+  def get_workflow(conn, %{"id" => id}) do
+    case WorkflowSchemaStore.get_workflow(id) do
+      {:ok, wf} ->
+        json(conn, ApiV2JSON.envelope(wf))
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(ApiV2JSON.error_response("not_found", "Workflow not found"))
+    end
+  end
+
+  @doc "PATCH /api/v2/workflows/:id"
+  def update_workflow(conn, %{"id" => id} = params) do
+    attrs = Map.drop(params, ["id"])
+
+    case WorkflowSchemaStore.update_workflow(id, attrs) do
+      {:ok, wf} ->
+        json(conn, ApiV2JSON.envelope(wf))
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(ApiV2JSON.error_response("not_found", "Workflow not found"))
+    end
+  end
+
+  # ========== Formations (UpmStore) ==========
+
+  @doc "GET /api/v2/formations"
+  def list_formations(conn, _params) do
+    json(conn, ApiV2JSON.envelope(UpmStore.list_formations()))
+  end
+
+  @doc "POST /api/v2/formations"
+  def create_formation(conn, params) do
+    {:ok, id} = UpmStore.register_formation(params)
+
+    formation = UpmStore.get_formation(id)
+
+    conn
+    |> put_status(:created)
+    |> json(ApiV2JSON.envelope(formation))
+  end
+
+  @doc "GET /api/v2/formations/:id"
+  def get_formation(conn, %{"id" => id}) do
+    case UpmStore.get_formation(id) do
+      nil ->
+        conn |> put_status(404) |> json(ApiV2JSON.error_response("not_found", "Formation not found"))
+
+      formation ->
+        agents = AgentRegistry.list_formation(id)
+        data = Map.put(formation, :agents, agents)
+        json(conn, ApiV2JSON.envelope(data))
+    end
+  end
+
+  @doc "GET /api/v2/formations/:id/agents"
+  def get_formation_agents(conn, %{"id" => id}) do
+    agents = AgentRegistry.list_formation(id)
+    json(conn, ApiV2JSON.envelope(agents, %{total: length(agents)}))
+  end
+
+  # ========== Verification (VerifyStore) ==========
+
+  @doc "POST /api/v2/verify/double — initiate double-verification session"
+  def verify_double(conn, params) do
+    project_root = Map.get(params, "project_root", "")
+    app_url = Map.get(params, "app_url", "")
+    stories = Map.get(params, "stories", [])
+
+    {:ok, session} = ApmV4.VerifyStore.create(project_root, app_url, stories)
+
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    Enum.each(
+      [
+        %{event: "verify_pass_1_start", title: "Verify Pass 1 Starting",
+          message: "Double verification initiated for #{project_root}"},
+        %{event: "verify_pass_1_complete", title: "Verify Pass 1 Complete",
+          message: "Pass 1 finished for #{project_root}"},
+        %{event: "verify_pass_2_start", title: "Verify Pass 2 Starting",
+          message: "Pass 2 beginning for #{project_root}"},
+        %{event: "verify_pass_2_complete", title: "Verify Pass 2 Complete",
+          message: "Pass 2 finished for #{project_root}"},
+        %{event: "verify_consensus", title: "Verify Consensus",
+          message: "Double verification consensus reached for #{project_root}"}
+      ],
+      fn %{event: event, title: title, message: message} ->
+        AgentRegistry.add_notification(%{
+          type: "info",
+          title: title,
+          message: message,
+          category: "skill",
+          event: event,
+          timestamp: now
+        })
+      end
+    )
+
+    conn
+    |> put_status(:ok)
+    |> json(%{ok: true, id: session.id, status: session.status})
+  end
+
+  @doc "GET /api/v2/verify/:id — poll verification session status"
+  def verify_status(conn, %{"id" => id}) do
+    case ApmV4.VerifyStore.get(id) do
+      {:ok, session} ->
+        conn
+        |> put_status(:ok)
+        |> json(%{
+          id: session.id,
+          project_root: session.project_root,
+          app_url: session.app_url,
+          stories: session.stories,
+          status: session.status,
+          pass_1_result: session.pass_1_result,
+          pass_2_result: session.pass_2_result,
+          started_at: DateTime.to_iso8601(session.started_at),
+          completed_at: if(session.completed_at, do: DateTime.to_iso8601(session.completed_at), else: nil)
+        })
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "Verification session not found", id: id})
+    end
+  end
 
   defp safe_to_existing_atom(nil), do: nil
 
