@@ -804,4 +804,23 @@ defmodule ApmV4Web.ApiController do
   def set_primary_port(conn, _params) do
     conn |> put_status(400) |> json(%{ok: false, error: "required: project, port"})
   end
+
+  # --- Hook deployment ---
+
+  def deploy_hooks(conn, %{"skill" => skill, "project_root" => project_root} = params) do
+    hooks = Map.get(params, "hooks", :all)
+    hooks = if hooks == "all" or is_nil(hooks), do: :all, else: hooks
+
+    case ApmV4.SkillHookDeployer.deploy_hooks(project_root, skill, hooks) do
+      {:ok, result} ->
+        json(conn, %{ok: true, deployed: result.deployed, skipped: result.skipped})
+
+      {:error, reason} ->
+        conn |> put_status(422) |> json(%{ok: false, error: reason})
+    end
+  end
+
+  def deploy_hooks(conn, _params) do
+    conn |> put_status(400) |> json(%{ok: false, error: "required: skill, project_root"})
+  end
 end

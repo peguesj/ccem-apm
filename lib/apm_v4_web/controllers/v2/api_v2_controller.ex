@@ -11,6 +11,8 @@ defmodule ApmV4Web.V2.ApiV2Controller do
   alias ApmV4.SloEngine
   alias ApmV4.AlertRulesEngine
   alias ApmV4.AuditLog
+  alias ApmV4.WorkflowSchemaStore
+  alias ApmV4.UpmStore
   alias ApmV4Web.V2.ApiV2JSON
 
   # ========== Agents ==========
@@ -645,6 +647,85 @@ defmodule ApmV4Web.V2.ApiV2Controller do
   end
 
   # ========== Private Helpers ==========
+
+  # ========== Workflows (WorkflowSchemaStore) ==========
+
+  @doc "GET /api/v2/workflows"
+  def list_workflows(conn, _params) do
+    json(conn, ApiV2JSON.envelope(WorkflowSchemaStore.list_workflows()))
+  end
+
+  @doc "POST /api/v2/workflows"
+  def create_workflow(conn, params) do
+    case WorkflowSchemaStore.register_workflow(params) do
+      {:ok, wf} ->
+        conn |> put_status(:created) |> json(ApiV2JSON.envelope(wf))
+
+      {:error, reason} ->
+        conn |> put_status(422) |> json(ApiV2JSON.error_response("validation_error", reason))
+    end
+  end
+
+  @doc "GET /api/v2/workflows/:id"
+  def get_workflow(conn, %{"id" => id}) do
+    case WorkflowSchemaStore.get_workflow(id) do
+      {:ok, wf} ->
+        json(conn, ApiV2JSON.envelope(wf))
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(ApiV2JSON.error_response("not_found", "Workflow not found"))
+    end
+  end
+
+  @doc "PATCH /api/v2/workflows/:id"
+  def update_workflow(conn, %{"id" => id} = params) do
+    attrs = Map.drop(params, ["id"])
+
+    case WorkflowSchemaStore.update_workflow(id, attrs) do
+      {:ok, wf} ->
+        json(conn, ApiV2JSON.envelope(wf))
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(ApiV2JSON.error_response("not_found", "Workflow not found"))
+    end
+  end
+
+  # ========== Formations (UpmStore) ==========
+
+  @doc "GET /api/v2/formations"
+  def list_formations(conn, _params) do
+    json(conn, ApiV2JSON.envelope(UpmStore.list_formations()))
+  end
+
+  @doc "POST /api/v2/formations"
+  def create_formation(conn, params) do
+    {:ok, id} = UpmStore.register_formation(params)
+
+    formation = UpmStore.get_formation(id)
+
+    conn
+    |> put_status(:created)
+    |> json(ApiV2JSON.envelope(formation))
+  end
+
+  @doc "GET /api/v2/formations/:id"
+  def get_formation(conn, %{"id" => id}) do
+    case UpmStore.get_formation(id) do
+      nil ->
+        conn |> put_status(404) |> json(ApiV2JSON.error_response("not_found", "Formation not found"))
+
+      formation ->
+        agents = AgentRegistry.list_formation(id)
+        data = Map.put(formation, :agents, agents)
+        json(conn, ApiV2JSON.envelope(data))
+    end
+  end
+
+  @doc "GET /api/v2/formations/:id/agents"
+  def get_formation_agents(conn, %{"id" => id}) do
+    agents = AgentRegistry.list_formation(id)
+    json(conn, ApiV2JSON.envelope(agents, %{total: length(agents)}))
+  end
 
   defp safe_to_existing_atom(nil), do: nil
 

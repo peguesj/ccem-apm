@@ -114,6 +114,9 @@ defmodule ApmV4Web.Router do
     # OpenAPI spec alias (v1-friendly URL, same as /api/v2/openapi.json)
     get "/openapi.json", V2.ApiV2Controller, :openapi
 
+    # Hook deployment
+    post "/hooks/deploy", ApiController, :deploy_hooks
+
   end
 
   # v2 REST API (Phase 3.1)
@@ -132,6 +135,18 @@ defmodule ApmV4Web.Router do
     post "/alerts/rules", ApiV2Controller, :create_alert_rule
     get "/audit", ApiV2Controller, :list_audit
     get "/openapi.json", ApiV2Controller, :openapi
+
+    # Workflows (WorkflowSchemaStore)
+    get "/workflows", ApiV2Controller, :list_workflows
+    post "/workflows", ApiV2Controller, :create_workflow
+    get "/workflows/:id", ApiV2Controller, :get_workflow
+    patch "/workflows/:id", ApiV2Controller, :update_workflow
+
+    # Formations (UpmStore)
+    get "/formations", ApiV2Controller, :list_formations
+    post "/formations", ApiV2Controller, :create_formation
+    get "/formations/:id", ApiV2Controller, :get_formation
+    get "/formations/:id/agents", ApiV2Controller, :get_formation_agents
   end
 
   # A2UI flexible format endpoint
