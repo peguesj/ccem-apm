@@ -1,0 +1,87 @@
+# CCEM APM v4 - Collapsible Graph + Notifications Phase
+# Branch: ralph/apm-v4-multi-project
+# Started: 2026-02-19
+# Previous phase archived to: archive/2026-02-19-gap-closure/
+
+## Phase Overview
+- Collapsible hierarchical dependency graph with click-to-expand
+- Curved connector lines between nodes (d3.linkVertical)
+- Agent lifecycle toast notifications (scoped by project/namespace)
+- CCEM Agent macOS notification integration
+
+---
+
+## US-032 - Add scoped agent lifecycle notification categories to AgentRegistry
+- Enhanced AgentRegistry notification struct with scoped fields: category, project_name, namespace, formation_id, squadron_id, agent_id, story_id
+- add_notification/1 now accepts full scoped map with backward compat for legacy title/message/level format
+- get_notifications/1 accepts keyword filters: [:category, :project_name, :namespace, :type]
+- PubSub broadcast on apm:notifications includes full scoped notification data
+- Files changed: lib/apm_v4/agent_registry.ex
+- Learnings: Pattern matching for atom/string-keyed maps requires separate function heads or Map.get with string keys
+---
+
+## US-033 - Create hierarchical graph data builder module
+- Created GraphBuilder module at lib/apm_v4/graph_builder.ex (~282 lines)
+- build_hierarchy/2 with :all_projects scope (root > project > formation > agent) and :single_project scope
+- collapse_state/1,2 returns IDs of nodes that should start collapsed (depth > expand_depth)
+- Agents without formation grouped under "ungrouped" namespace node
+- Status aggregation bubbles up worst-case status through hierarchy
+- Files changed: lib/apm_v4/graph_builder.ex (NEW)
+- Learnings: Pure function modules with comprehensive @spec are ideal for data transformation; pipe chains for grouping/sorting
+---
+
+## US-034 - Add toast notification JS hook and SCADA-themed CSS
+- Created toast.js LiveView hook handling show_toast event with type/title/message/duration/category/agent_id
+- SCADA-themed glassmorphic cards: #1c2536 bg, status-colored left border (success=#7eef6d, error=#ff6b5a, warning=#ffaa44, info=#5daaff)
+- Max 5 visible toasts, auto-dismiss, slide-in/fade-out CSS animations
+- Toast container div added to app.html.heex (LiveView context, not root.html.heex)
+- Files changed: assets/js/hooks/toast.js (NEW), assets/js/app.js, assets/css/app.css, lib/apm_v4_web/components/layouts.ex, lib/apm_v4_web/components/layouts/app.html.heex
+- Learnings: phx-hook only works inside LiveView context (app.html.heex), not in dead views (root.html.heex)
+---
+
+## US-035 - Refactor dependency graph for collapsible hierarchy with curved connectors
+- Complete rewrite of dependency_graph.js from force-directed (665 lines) to d3.tree() hierarchy (568 lines)
+- Collapsible nodes via _toggleChildren() swapping d.children and d._children
+- d3.linkVertical() for curved Bezier connector paths instead of straight lines
+- SVG arrowhead markers in 4 color variants (default, active, error, warning)
+- 750ms transitions with d3.easeCubicInOut for smooth expand/collapse
+- Handles both hierarchy_data (new) and agents_updated (backward compat) events
+- Keyboard navigation: Enter/Space expand/collapse, Arrow keys navigate tree
+- Expand state preservation across data refreshes
+- Files changed: assets/js/hooks/dependency_graph.js (REWRITE)
+- Learnings: D3 enter/update/exit pattern with position snapshots (x0/y0) is key for smooth hierarchical transitions
+---
+
+## US-036 - Enhance notification API with lifecycle events and scoped queries
+- Enhanced POST /api/notify to accept full scoped payload (type, title, message, category, project_name, namespace, formation_id, etc.)
+- Enhanced GET /api/notifications with filter query params (?category, ?project, ?namespace, ?type, ?limit)
+- Default limit 100, max 1000, newest-first ordering
+- Response includes notification ID for reference
+- Backward compatible with legacy title/message/level calls
+- Files changed: lib/apm_v4_web/controllers/api_controller.ex
+- Learnings: Elixir pattern matching in controller actions enables clean optional param handling
+---
+
+## US-037 - Integrate collapsible graph and toast notifications in DashboardLive and AllProjectsLive
+- DashboardLive pushes hierarchy_data via GraphBuilder.build_hierarchy with :single_project scope
+- AllProjectsLive pushes hierarchy_data with :all_projects scope
+- Both LiveViews subscribe to apm:notifications and push show_toast for lifecycle events
+- DashboardLive filters toasts by active project; AllProjectsLive shows all
+- Handles toggle_node events from JS, tracks expanded_nodes in MapSet
+- Graph data re-pushed on agents_updated PubSub event
+- Files changed: lib/apm_v4_web/live/dashboard_live.ex, lib/apm_v4_web/live/all_projects_live.ex
+- Learnings: MapSet for tracking expand state is efficient; format_toast/1 helper keeps LiveView handlers clean
+---
+
+## US-038 - CCEM Agent notification polling and macOS toast display
+- Added APMNotification and NotificationsResponse models to HealthStatus.swift
+- Added fetchNotifications(since:category:project:limit:) to APMClient actor
+- Added notification polling every 5 seconds in EnvironmentMonitor (separate from 10s main poll)
+- UNUserNotificationCenter replaces osascript for macOS notifications
+- Title format: [project] title, body includes message/namespace/agentId
+- Category identifiers: com.ccem.agent.lifecycle, com.ccem.formation.lifecycle
+- Notifications grouped by project via threadIdentifier
+- Only agent/formation categories displayed as toasts (skip upm/skill)
+- Files changed: CCEMAgent Models/HealthStatus.swift, Services/APMClient.swift, Services/EnvironmentMonitor.swift, CCEMAgentApp.swift
+- Learnings: UNUserNotificationCenter.add() is async in Swift; separate poll intervals prevent notification spam; seenNotificationIds Set prevents duplicate toasts
+---

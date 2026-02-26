@@ -1,0 +1,218 @@
+{
+  "version": "1.0.0",
+  "title": "CCEM APM v4 Documentation",
+  "categories": [
+    {
+      "id": "overview",
+      "label": "Overview",
+      "icon": "hero-home",
+      "order": 0,
+      "pages": [
+        {
+          "slug": "index",
+          "title": "CCEM APM v4 Documentation",
+          "file": "index.md",
+          "description": "CCEM APM v4 overview, architecture diagram, feature list, and quick-start guide",
+          "icon": "hero-book-open",
+          "order": 0,
+          "tags": ["overview", "introduction", "welcome"]
+        },
+        {
+          "slug": "changelog",
+          "title": "Changelog",
+          "file": "changelog.md",
+          "description": "Version history: v4.0.0 features, LiveView pages, API endpoints, Formation, Ports, Docs",
+          "icon": "hero-clipboard-document-list",
+          "order": 1,
+          "tags": ["changelog", "releases", "history"]
+        }
+      ]
+    },
+    {
+      "id": "user",
+      "label": "User Guide",
+      "icon": "hero-user",
+      "order": 1,
+      "pages": [
+        {
+          "slug": "user/getting-started",
+          "title": "Getting Started with CCEM APM v4",
+          "file": "user/getting-started.md",
+          "description": "Installation prerequisites, first launch, session initialization hooks, and agent registration walkthrough",
+          "icon": "hero-rocket-launch",
+          "order": 0,
+          "tags": ["getting-started", "installation", "setup"]
+        },
+        {
+          "slug": "user/dashboard",
+          "title": "Dashboard Guide",
+          "file": "user/dashboard.md",
+          "description": "Real-time dashboard panels: agent fleet, dependency graph, stats grid, UPM execution, right-panel tabs",
+          "icon": "hero-chart-bar",
+          "order": 1,
+          "tags": ["dashboard", "monitoring", "ui"]
+        },
+        {
+          "slug": "user/projects",
+          "title": "Multi-Project Support",
+          "file": "user/projects.md",
+          "description": "Multi-project configuration, project switching, namespace isolation, and config structure",
+          "icon": "hero-folder",
+          "order": 2,
+          "tags": ["projects", "multi-project", "namespacing"]
+        },
+        {
+          "slug": "user/agents",
+          "title": "Agent Fleet Management",
+          "file": "user/agents.md",
+          "description": "Agent lifecycle, types (individual/squadron/swarm/orchestrator), tiers, statuses, registration API",
+          "icon": "hero-cpu-chip",
+          "order": 3,
+          "tags": ["agents", "fleet", "monitoring"]
+        },
+        {
+          "slug": "user/ralph",
+          "title": "Ralph Methodology",
+          "file": "user/ralph.md",
+          "description": "Ralph autonomous methodology: PRD-driven execution, story states, escalation rules, flowchart visualization",
+          "icon": "hero-arrow-path",
+          "order": 4,
+          "tags": ["ralph", "methodology", "fix-loop", "autonomous"]
+        },
+        {
+          "slug": "user/upm",
+          "title": "UPM - Unified Project Management",
+          "file": "user/upm.md",
+          "description": "UPM execution tracking: session registration, agent-story binding, wave progress, lifecycle events",
+          "icon": "hero-rectangle-group",
+          "order": 5,
+          "tags": ["upm", "project-management", "tracking"]
+        },
+        {
+          "slug": "user/skills",
+          "title": "Skills Tracking and Analytics",
+          "file": "user/skills.md",
+          "description": "Skill usage analytics, co-occurrence matrix, methodology detection, UEBA patterns",
+          "icon": "hero-academic-cap",
+          "order": 6,
+          "tags": ["skills", "analytics", "ueba", "tracking"]
+        },
+        {
+          "slug": "user/notifications",
+          "title": "Notifications System",
+          "file": "user/notifications.md",
+          "description": "Toast notification system: levels, categories, duration, built-in types, formation/UPM events",
+          "icon": "hero-bell",
+          "order": 7,
+          "tags": ["notifications", "alerts", "events"]
+        }
+      ]
+    },
+    {
+      "id": "developer",
+      "label": "Developer",
+      "icon": "hero-code-bracket",
+      "order": 2,
+      "pages": [
+        {
+          "slug": "developer/architecture",
+          "title": "System Architecture",
+          "file": "developer/architecture.md",
+          "description": "OTP supervision tree, GenServer stores, ETS tables, PubSub topics, data flow",
+          "icon": "hero-building-library",
+          "order": 0,
+          "tags": ["architecture", "otp", "genserver", "design"]
+        },
+        {
+          "slug": "developer/api-reference",
+          "title": "REST API Reference",
+          "file": "developer/api-reference.md",
+          "description": "Complete REST API: 50+ endpoints for agents, notifications, UPM, ports, skills, config, export/import",
+          "icon": "hero-globe-alt",
+          "order": 1,
+          "tags": ["api", "rest", "endpoints", "websocket"]
+        },
+        {
+          "slug": "developer/liveview-pages",
+          "title": "LiveView Pages",
+          "file": "developer/liveview-pages.md",
+          "description": "All 8 LiveView pages: Dashboard, AllProjects, Skills, Ralph, Timeline, Formation, Ports, Docs",
+          "icon": "hero-window",
+          "order": 2,
+          "tags": ["liveview", "phoenix", "pages", "ui"]
+        },
+        {
+          "slug": "developer/pubsub-events",
+          "title": "PubSub Events Reference",
+          "file": "developer/pubsub-events.md",
+          "description": "All PubSub topics and event types: agents, notifications, config, tasks, commands, UPM, alerts, environments",
+          "icon": "hero-signal",
+          "order": 3,
+          "tags": ["pubsub", "events", "real-time", "broadcasting"]
+        },
+        {
+          "slug": "developer/swift-agent",
+          "title": "SwiftUI Menubar Agent (CCEMAgent)",
+          "file": "developer/swift-agent.md",
+          "description": "CCEMAgent SwiftUI menubar app: APMClient actor, EnvironmentMonitor, UPM status, models",
+          "icon": "hero-computer-desktop",
+          "order": 4,
+          "tags": ["swift", "macos", "menubar", "native"]
+        },
+        {
+          "slug": "developer/extending",
+          "title": "Extending CCEM APM",
+          "file": "developer/extending.md",
+          "description": "Adding GenServers, API endpoints, LiveView pages, PubSub topics to the APM codebase",
+          "icon": "hero-puzzle-piece",
+          "order": 5,
+          "tags": ["extending", "plugins", "customization"]
+        }
+      ]
+    },
+    {
+      "id": "admin",
+      "label": "Administration",
+      "icon": "hero-cog-6-tooth",
+      "order": 3,
+      "pages": [
+        {
+          "slug": "admin/configuration",
+          "title": "Configuration Reference",
+          "file": "admin/configuration.md",
+          "description": "apm_config.json schema: projects array, sessions, port ownership, per-project fields",
+          "icon": "hero-adjustments-horizontal",
+          "order": 0,
+          "tags": ["configuration", "config", "settings"]
+        },
+        {
+          "slug": "admin/hooks",
+          "title": "Session Initialization Hooks",
+          "file": "admin/hooks.md",
+          "description": "Session initialization hook: project detection, jq config UPSERT, session file creation",
+          "icon": "hero-link",
+          "order": 1,
+          "tags": ["hooks", "session", "initialization", "shell"]
+        },
+        {
+          "slug": "admin/deployment",
+          "title": "Production Deployment",
+          "file": "admin/deployment.md",
+          "description": "Production setup: systemd, environment variables, reverse proxy, backups, monitoring",
+          "icon": "hero-server-stack",
+          "order": 2,
+          "tags": ["deployment", "production", "server"]
+        },
+        {
+          "slug": "admin/troubleshooting",
+          "title": "Troubleshooting Guide",
+          "file": "admin/troubleshooting.md",
+          "description": "Common issues: connection failures, config errors, agent registration, performance",
+          "icon": "hero-wrench-screwdriver",
+          "order": 3,
+          "tags": ["troubleshooting", "debugging", "issues", "fixes"]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,231 @@
+{
+  "project": "CCEM APM v4",
+  "branchName": "ralph/apm-v4-phoenix",
+  "description": "Port CCEM APM from Python to Phoenix/Elixir with AG-UI, A2UI, Swift WebKit, LiveView+D3.js Ralph flowchart",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Scaffold Phoenix project with deps and supervision tree",
+      "description": "As a developer, I need a Phoenix project scaffolded at ~/Developer/ccem/apm-v4 with all required dependencies so that subsequent user stories have a working foundation to build on. This includes mix phx.new, adding Phoenix, LiveView, Jason, and Bandit to mix.exs, configuring the supervision tree with Application module, and verifying the app compiles and boots cleanly.",
+      "acceptanceCriteria": [
+        "Phoenix project created at ~/Developer/ccem/apm-v4 via mix phx.new apm_v4 --no-ecto (Ecto added later if needed)",
+        "mix.exs includes deps: {:phoenix, '~> 1.7'}, {:phoenix_live_view, '~> 1.0'}, {:jason, '~> 1.4'}, {:bandit, '~> 1.5'}",
+        "Application module defines a supervision tree with Endpoint and PubSub children",
+        "mix deps.get succeeds without errors",
+        "mix compile succeeds without warnings",
+        "mix phx.server starts and serves on port 3031",
+        "Config sets port 3031 to match existing APM convention"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Phoenix 1.8.3 scaffolded with Elixir 1.19.5/OTP 28. Port 3031 configured. All deps installed. 5/5 tests pass. Zero compiler warnings."
+    },
+    {
+      "id": "US-002",
+      "title": "Port agent registry and session management to ETS/GenServer",
+      "description": "As a developer, I need the Python dict-based AGENTS registry, notification system, and session state ported to Elixir using ETS tables and a GenServer so that agent fleet state is managed concurrently and survives process restarts. The Python source uses global dicts (AGENTS, TASKS, PLANE_PM, SLASH_COMMANDS) and threading locks which map naturally to ETS + GenServer.",
+      "acceptanceCriteria": [
+        "ApmV4.AgentRegistry GenServer created with ETS-backed storage",
+        "register_agent/2 accepts agent_id and metadata map, stores in ETS",
+        "get_agent/1 retrieves agent by ID, list_agents/0 returns all agents",
+        "update_status/2 updates agent status (idle, active, error, discovered)",
+        "Session tracking: register_session/1, get_session/1, list_sessions/0",
+        "Notification queue ported: add_notification/1, get_notifications/0, clear_notifications/0",
+        "GenServer starts under the application supervision tree",
+        "mix test passes for AgentRegistry with at least 6 test cases"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "GenServer with 3 ETS tables (agents, sessions, notifications). 14 test cases covering agent CRUD, session tracking, notification queue with 200-cap, and error handling. 19/19 tests pass. Zero compiler warnings."
+    },
+    {
+      "id": "US-003",
+      "title": "Port HTTP API endpoints to Phoenix controllers",
+      "description": "As a developer, I need the Python HTTPServer endpoints ported to Phoenix controllers so that Claude Code hooks and external tools can register agents, send heartbeats, and query status via the same API contract. The Python server handles GET /api/status, POST /api/register, POST /api/heartbeat, GET /api/agents, and POST /api/notify.",
+      "acceptanceCriteria": [
+        "GET /api/status returns JSON with uptime, agent_count, session_id, server_version",
+        "POST /api/register accepts {agent_id, name, tier, status, deps, metadata} and registers agent",
+        "POST /api/heartbeat accepts {agent_id, status} and updates agent last_seen timestamp",
+        "GET /api/agents returns JSON array of all registered agents with their metadata",
+        "POST /api/notify accepts {title, message, level} and adds to notification queue",
+        "All endpoints return proper JSON Content-Type headers",
+        "Error responses return appropriate HTTP status codes (400, 404, 500)",
+        "mix test passes for all controller actions with at least 10 test cases"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Phoenix API controller with 5 endpoints: GET /api/status, POST /api/register, POST /api/heartbeat, GET /api/agents, POST /api/notify. Proper HTTP status codes (201 for register, 400 for missing fields, 404 for not found). 16 test cases covering happy paths, error handling, and content-type validation. Also added clear_all/0 to AgentRegistry for safe test isolation. 35/35 tests pass. Zero compiler warnings."
+    },
+    {
+      "id": "US-004",
+      "title": "Create LiveView dashboard layout with daisyUI/Tailwind",
+      "description": "As a user, I need the embedded HTML/CSS dashboard from the Python APM ported to a Phoenix LiveView with daisyUI components so that I have a modern, responsive monitoring interface. The Python version embeds a full HTML dashboard with sidebar navigation, agent cards grid, notification area, and session info panel.",
+      "acceptanceCriteria": [
+        "LiveView module ApmV4Web.DashboardLive mounted at root path /",
+        "daisyUI and Tailwind CSS installed and configured in assets pipeline",
+        "Sidebar navigation with links: Dashboard, Agents, Ralph, Sessions, Settings",
+        "Main content area with agent cards grid showing name, status badge, tier, last_seen",
+        "Top bar with project name, uptime counter, agent count summary",
+        "Notification toast area in top-right corner",
+        "Responsive layout that works at 1024px and above",
+        "Dark theme applied matching the existing APM dashboard aesthetic",
+        "LiveView mounts and renders without JavaScript errors"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "DashboardLive LiveView at / with daisyUI/Tailwind. Sidebar nav (Dashboard, Agents, Ralph, Sessions, Settings), top bar with agent count badge + LIVE indicator + clock JS hook + notification bell dropdown + theme toggle. Stats grid (6 cards: Agents, Active, Idle, Errors, Sessions, Notifications). Agent fleet grid with tier badges, status badges, last_seen formatting. Right panel with 4 tabs (Inspector, Ralph, Commands, TODOs). D3 graph placeholder. Dark theme default. Responsive layout (lg:grid-cols-6). 11 new LiveView test cases. 45/45 tests pass. Zero compiler warnings."
+    },
+    {
+      "id": "US-005",
+      "title": "Implement D3.js dependency graph as LiveView JS hook",
+      "description": "As a user, I need the D3.js force-directed dependency graph from the Python APM dashboard ported to a Phoenix LiveView JavaScript hook so that I can visualize agent relationships and dependencies interactively. The Python version embeds D3.js code that renders agents as nodes with dependency edges.",
+      "acceptanceCriteria": [
+        "LiveView JS hook 'DependencyGraph' created in assets/js/hooks/dependency_graph.js",
+        "D3.js force simulation renders agents as circle nodes with labels",
+        "Dependency edges drawn as lines between related agents",
+        "Nodes color-coded by status: green=active, gray=idle, red=error, blue=discovered",
+        "Nodes draggable with force simulation physics",
+        "Graph updates when agent data changes via pushEvent from LiveView",
+        "Tooltip on hover showing agent details (name, tier, status, deps)",
+        "Graph renders correctly with 0, 1, 5, and 20+ agents"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "D3.js v7 added to vendor. DependencyGraph LiveView JS hook at assets/js/hooks/dependency_graph.js with force simulation, draggable nodes, status color-coding (green=active, gray=idle, red=error, blue=discovered), directional arrow edges, hover tooltips showing agent details, click-to-inspect via select_agent event. phx-update=ignore on container. push_graph_data/2 builds edges from agent deps and pushes agents_updated event. Inspector tab shows selected agent details. 9 new test cases (graph container, hook attribute, empty state, multi-agent, 5+ agents, select_agent, unknown agent, CSS sizing). 52/52 tests pass. Zero compiler warnings."
+    },
+    {
+      "id": "US-006",
+      "title": "Implement AG-UI event streaming endpoint",
+      "description": "As an AG-UI client, I need a Server-Sent Events endpoint that streams agent lifecycle events per the CopilotKit AG-UI protocol so that external UIs and CopilotKit-compatible clients can subscribe to real-time agent activity. Events follow the AG-UI spec: TEXT_MESSAGE_START, TEXT_MESSAGE_CONTENT, TEXT_MESSAGE_END, TOOL_CALL_START, TOOL_CALL_ARGS, TOOL_CALL_END, STATE_SNAPSHOT, RUN_STARTED, RUN_FINISHED.",
+      "acceptanceCriteria": [
+        "GET /api/ag-ui/events returns text/event-stream Content-Type",
+        "SSE connection stays open and streams events as they occur",
+        "Events formatted as AG-UI protocol: {type, data, timestamp, runId, threadId}",
+        "TEXT_MESSAGE_START/CONTENT/END events emitted when agents produce output",
+        "TOOL_CALL_START/ARGS/END events emitted when agents invoke tools",
+        "STATE_SNAPSHOT event emitted periodically with full agent fleet state",
+        "RUN_STARTED/RUN_FINISHED events emitted on agent registration/completion",
+        "Each event includes monotonically increasing sequence number",
+        "Client can filter events by agent_id via query parameter"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "ApmV4.EventStream GenServer with sequence counter, event storage (500 cap), and PubSub broadcasting. SSE controller at GET /api/ag-ui/events with text/event-stream Content-Type, chunked transfer encoding, keepalive comments every 30s. Initial STATE_SNAPSHOT on connect with full fleet state. Agent_id query param filtering. AgentRegistry emits RUN_STARTED on register_agent and RUN_FINISHED on completed/finished status transitions. All 9 AG-UI event types supported: TEXT_MESSAGE_START/CONTENT/END, TOOL_CALL_START/ARGS/END, STATE_SNAPSHOT, RUN_STARTED, RUN_FINISHED. Monotonically increasing sequence numbers. 28 new test cases (16 EventStream + 12 controller). 80/80 tests pass. Zero compiler warnings."
+    },
+    {
+      "id": "US-007",
+      "title": "Implement A2UI declarative component rendering endpoint",
+      "description": "As an A2UI client, I need a JSONL streaming endpoint that sends declarative UI component specifications per the Google A2UI protocol so that any compatible renderer (web, mobile, desktop) can display APM dashboard components without custom UI code. Components include cards, charts, tables, and alert specifications.",
+      "acceptanceCriteria": [
+        "GET /api/a2ui/components returns application/jsonl Content-Type",
+        "Each line is a valid JSON object describing a UI component",
+        "Component types supported: card, chart, table, alert, badge, progress",
+        "Card components include title, body, footer, variant fields",
+        "Chart components include type (bar, line, pie), data, labels fields",
+        "Table components include columns, rows, sortable fields",
+        "Alert components include level (info, warning, error), message, dismissible fields",
+        "Components include unique IDs for incremental updates",
+        "Endpoint accepts Accept header to negotiate between JSONL stream and single JSON response"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "A2UI JSONL streaming endpoint at GET /api/a2ui/components with content negotiation (application/jsonl default, application/json via Accept header). ComponentBuilder module generates 6 component types: card (4 stat cards with title/body/footer/variant), chart (pie chart of status distribution with chart_type/data/labels), table (agents table with columns/rows/sortable), alert (from notifications with level/message/dismissible), badge (per-agent status with label/value/variant), progress (tier distribution with value/max/percentage). Custom MIME type registered in config.exs. Flexible API pipeline for jsonl+json Accept headers. Unique IDs on all components for incremental updates. 33 new test cases (21 ComponentBuilder + 12 controller). 113/113 tests pass. Zero compiler warnings."
+    },
+    {
+      "id": "US-008",
+      "title": "Rebuild Ralph flowchart as LiveView + D3.js",
+      "description": "As a user, I need the Ralph methodology flowchart rebuilt from the React/xyflow implementation at ~/Developer/ralph/flowchart/ into a LiveView page with D3.js so that the step-by-step Ralph progression is visible in the APM dashboard. The original uses ReactFlow with custom node components, animated edges, and step highlighting.",
+      "acceptanceCriteria": [
+        "LiveView module ApmV4Web.RalphFlowchartLive mounted at /ralph",
+        "D3.js renders Ralph methodology steps as custom-styled rectangular nodes",
+        "Edges between steps rendered as animated SVG paths with directional arrows",
+        "Node styles match original: distinct colors per phase (planning=blue, execution=green, review=orange)",
+        "Current active step highlighted with glow effect and bold border",
+        "Step progression controllable via LiveView: advance_step, reset, jump_to_step",
+        "Clicking a node shows step details in a sidebar panel",
+        "Layout algorithm positions nodes in a top-to-bottom flowchart arrangement",
+        "Flowchart renders correctly with all Ralph methodology phases"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "RalphFlowchartLive LiveView at /ralph with D3.js RalphFlowchart JS hook. 10 Ralph methodology steps in 4 phases: setup (blue, 3 steps), loop (gray, 5 steps), decision (amber, 1 step), done (green, 1 step). D3.js renders custom-styled rectangular nodes with phase color-coding, animated dashed edges with arrow markers, bezier curve paths, glow filter on active step. Step progression controls: next_step, prev_step, reset_steps, advance_step, jump_to_step. Click node to show step details in sidebar panel with phase badge, description, step number. Steps list sidebar with phase-colored dots and visibility opacity. Layout algorithm positions nodes in top-to-bottom flowchart with loop-back edge (9->4 'Yes') and exit edge (9->10 'No'). Edge labels rendered with background rect. Tooltip on hover showing step details. ResizeObserver for responsive re-rendering. phx-update=ignore on container. 22 new test cases covering mount, hook attributes, step controls, step progression, boundary conditions, step selection, phase colors, all phases. 135/135 tests pass. Zero compiler warnings."
+    },
+    {
+      "id": "US-009",
+      "title": "Add PubSub real-time updates for LiveView clients",
+      "description": "As a user viewing the dashboard, I need real-time updates pushed to my browser when agent state changes so that the dashboard reflects current fleet status without manual refresh. Phoenix.PubSub should broadcast agent registrations, heartbeats, status changes, and notifications to all connected LiveView clients.",
+      "acceptanceCriteria": [
+        "Phoenix.PubSub configured with topic 'apm:agents' for agent state changes",
+        "Phoenix.PubSub configured with topic 'apm:notifications' for notification broadcasts",
+        "AgentRegistry broadcasts on register, update_status, and heartbeat",
+        "DashboardLive subscribes to PubSub topics on mount",
+        "Agent cards update in real-time when status changes (no page refresh)",
+        "New agent registrations appear in the grid within 1 second",
+        "Notification toasts appear in real-time when POST /api/notify is called",
+        "D3.js dependency graph re-renders when agent topology changes",
+        "Multiple browser tabs all receive updates simultaneously"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "PubSub topics apm:agents and apm:notifications configured. AgentRegistry broadcasts {:agent_registered, agent} on register_agent, {:agent_updated, agent} on update_status (covers heartbeat), and {:notification_added, notif} on add_notification. DashboardLive subscribes to both topics on connected mount via Phoenix.PubSub.subscribe/2. handle_info callbacks refresh agent list, stat counts, and D3 graph data via push_graph_data/2. Notification toasts update in real-time. Multiple browser tabs all receive updates simultaneously. 9 new test cases covering: new agent appears via PubSub, status change updates, stat card updates, notification appears, rapid multi-agent registration, graph container persistence, heartbeat triggers update, multi-tab concurrent updates, topology change triggers graph push. 144/144 tests pass. Zero compiler warnings."
+    },
+    {
+      "id": "US-010",
+      "title": "Implement session JSONL parser for metrics extraction",
+      "description": "As a developer, I need the Python session log parsing logic ported to Elixir so that the dashboard can display token usage, tool call counts, and session duration metrics. The Python version reads .jsonl files from ~/.claude/projects/ and extracts token counts, tool invocations, and conversation turns.",
+      "acceptanceCriteria": [
+        "ApmV4.SessionParser module created with parse_jsonl/1 accepting a file path",
+        "Extracts total input_tokens and output_tokens from assistant messages",
+        "Counts tool_use blocks by tool name (Read, Write, Bash, Edit, etc.)",
+        "Calculates session duration from first to last message timestamp",
+        "Counts total conversation turns (user messages)",
+        "Returns structured map: %{tokens: %{input, output}, tools: %{}, duration_seconds, turns}",
+        "Handles malformed JSONL lines gracefully (skip and log warning)",
+        "Handles missing or empty files gracefully (return zero-value defaults)",
+        "mix test passes with at least 5 test cases including edge cases"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "ApmV4.SessionParser module with parse_jsonl/1 accepting file path. Extracts input_tokens + output_tokens (including cache_creation and cache_read tokens) from assistant messages. Counts tool_use blocks by tool name (e.g. Read, Bash, Edit). Calculates duration_seconds from first to last timestamp via DateTime.from_iso8601. Counts conversation turns from user messages (excludes tool_result-only messages). Returns structured map %{tokens: %{input, output}, tools: %{}, duration_seconds, turns}. Handles missing files, empty files, and malformed JSONL lines gracefully with Logger.warning and zero-value defaults. 11 test cases covering: missing file, empty file, token extraction with cache tokens, tool counting by name, user turn counting, duration calculation, malformed lines, entries without message field, no-usage assistant messages, full realistic integration, non-message-only files. 155/155 tests pass. Zero compiler warnings."
+    },
+    {
+      "id": "US-011",
+      "title": "Build Swift WebKit wrapper app for macOS",
+      "description": "As a macOS user, I need a native Swift/AppKit application that wraps the APM dashboard in a WKWebView window so that I can run the monitor as a standalone desktop app with proper window management, dock icon, and native feel instead of a browser tab.",
+      "acceptanceCriteria": [
+        "Swift project created at ~/Developer/ccem/apm-v4/swift-wrapper/ with Package.swift or Xcode project",
+        "AppKit application with a single NSWindow containing a WKWebView",
+        "WKWebView loads http://localhost:3031 on launch",
+        "Window title set to 'CCEM APM v4' with appropriate size (1200x800 default)",
+        "Window remembers position and size between launches (NSUserDefaults)",
+        "Menu bar includes Reload (Cmd+R) and Open in Browser (Cmd+Shift+B) items",
+        "App displays a connection error view if localhost:3031 is not reachable",
+        "App builds with swift build or xcodebuild without errors",
+        "App icon placeholder included in Assets.xcassets"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Swift Package Manager project at swift-wrapper/ with Package.swift (macOS 13+, swift-tools-version 5.9). Single-file AppKit app (main.swift) with NSWindow + WKWebView loading localhost:3031. Window title 'CCEM APM v4', default 1200x800, min 800x600. NSUserDefaults persistence for window frame (position + size) via NSStringFromRect/NSRectFromString. Menu bar: App menu (About, Quit), File (Close Window), View (Reload Cmd+R, Open in Browser Cmd+Shift+B, Toggle Full Screen), Window (Minimize, Zoom). WKNavigationDelegate shows connection error view on didFailProvisionalNavigation/didFail with retry button and server start instructions. Developer extras enabled in WKWebView config. Assets.xcassets with AppIcon.appiconset placeholder (all 10 macOS sizes defined). .gitignore for .build/ and .swiftpm/. swift build succeeds with Swift 6.1.2. 155/155 Elixir tests pass. Zero compiler warnings."
+    },
+    {
+      "id": "US-012",
+      "title": "Integration testing across all components",
+      "description": "As a developer, I need comprehensive integration tests verifying that all ported components work together end-to-end so that I can confidently deploy the Phoenix APM as a drop-in replacement for the Python version. Tests should cover HTTP API, LiveView mounting, D3.js rendering, AG-UI streaming, A2UI components, and PubSub broadcasting.",
+      "acceptanceCriteria": [
+        "mix test runs all integration tests in test/integration/ directory",
+        "API tests: register agent via POST, verify via GET /api/agents, send heartbeat, check status",
+        "LiveView tests: DashboardLive mounts and renders agent cards",
+        "LiveView tests: RalphFlowchartLive mounts and renders flowchart container",
+        "SSE test: connect to /api/ag-ui/events, register agent, verify RUN_STARTED event received",
+        "A2UI test: GET /api/a2ui/components returns valid JSONL with expected component types",
+        "PubSub test: register agent via API, verify LiveView receives update within 2 seconds",
+        "Session parser test: parse a sample .jsonl fixture and verify extracted metrics",
+        "All tests pass with mix test --include integration",
+        "Zero compiler warnings on mix compile --warnings-as-errors"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Comprehensive integration test suite at test/integration/full_stack_test.exs with 21 test cases across 7 describe blocks. API tests: full register->heartbeat->agents->status flow, multi-agent batch registration, notification creation. LiveView tests: DashboardLive mounts with agent cards and stat counts, D3 graph container with hook. RalphFlowchartLive mounts at /ralph, renders all 10 steps, step progression controls work. AG-UI SSE tests: RUN_STARTED on register, full lifecycle RUN_STARTED->RUN_FINISHED, STATE_SNAPSHOT on SSE connect. A2UI tests: JSONL response with all 6 component types (card, table, chart, alert, badge, progress), JSON content negotiation via Accept header. PubSub tests: agent registration appears in LiveView, status change updates LiveView, notification appears in LiveView, rapid multi-agent registration. SessionParser: fixture-based test with verified token counts (1150 input, 450 output), tool counts (Read x2, Bash x1, Edit x1), duration (30s), turns (2). Cross-component: agent visible in agents list + A2UI components + EventStream. JSONL fixture at test/fixtures/sample_session.jsonl. 176/176 tests pass. Zero compiler warnings."
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+/* See the Tailwind configuration guide for advanced usage
+   https://tailwindcss.com/docs/configuration */
+
+@import "tailwindcss" source(none);
+@source "../css";
+@source "../js";
+@source "../../lib/apm_v4_web";
+
+/* A Tailwind plugin that makes "hero-#{ICON}" classes available.
+   The heroicons installation itself is managed by your mix.exs */
+@plugin "../vendor/heroicons";
+
+/* daisyUI Tailwind Plugin. You can update this file by fetching the latest version with:
+   curl -sLO https://github.com/saadeghi/daisyui/releases/latest/download/daisyui.js
+   Make sure to look at the daisyUI changelog: https://daisyui.com/docs/changelog/ */
+@plugin "../vendor/daisyui";
+
+/* Add variants based on LiveView classes */
+@custom-variant phx-click-loading (.phx-click-loading&, .phx-click-loading &);
+@custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
+@custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
+
+/* Use the data attribute for dark mode  */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Make LiveView wrapper divs transparent for layout */
+[data-phx-session], [data-phx-teleported-src] { display: contents }
+
+/* This file is for your main application CSS */
+
+/* === WCAG 2.2 AA Contrast Overrides === */
+/* Override daisyUI badge colors that fail WCAG 1.4.3 (4.5:1 minimum) */
+.badge-success {
+  background-color: #006d45;
+  color: #fff;
+  border-color: #006d45;
+}
+.badge-warning {
+  background-color: #7a5900;
+  color: #fff;
+  border-color: #7a5900;
+}
+.badge-error {
+  background-color: #c62828;
+  color: #fff;
+  border-color: #c62828;
+}
+.badge-info {
+  background-color: #005fa3;
+  color: #fff;
+  border-color: #005fa3;
+}
+
+/* Focus ring for keyboard navigation (WCAG 2.4.7) */
+*:focus-visible {
+  outline: 3px solid hsl(var(--p));
+  outline-offset: 2px;
+}
+
+/* Minimum hit target for graph nodes (WCAG 2.5.8) */
+.graph-node {
+  min-width: 24px;
+  min-height: 24px;
+}
+
+/* Skip link styling */
+.skip-link:focus {
+  clip: auto;
+  clip-path: none;
+  width: auto;
+  height: auto;
+  overflow: visible;
+}
+
+/* === Industrial SCADA Theme === */
+
+/* Dependency graph tooltip */
+.dep-tooltip {
+  background: rgba(21, 27, 40, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(42, 53, 72, 0.8);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 11px;
+  z-index: 100;
+  pointer-events: none;
+  max-width: 280px;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(126, 239, 109, 0.05);
+}
+
+/* Graph card pulse animation for active nodes */
+@keyframes scada-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.15; }
+}
+
+.pulse-ring {
+  animation: scada-pulse 2.5s ease-in-out infinite;
+}
+
+/* Pipeline dot subtle pulse */
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Glassmorphic card style for dashboard widgets */
+.glass-card {
+  background: rgba(28, 37, 54, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(42, 53, 72, 0.6);
+  border-radius: 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(61, 80, 106, 0.8);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Industrial sidebar styling */
+.scada-sidebar {
+  background: rgba(18, 22, 34, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(42, 53, 72, 0.5);
+}
+
+/* Dot grid background for main content areas */
+.dot-grid-bg {
+  background-color: #0f1420;
+  background-image: radial-gradient(circle, #1e2a3a 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Status indicator glow */
+.status-glow-active {
+  box-shadow: 0 0 8px rgba(126, 239, 109, 0.3), inset 0 0 4px rgba(126, 239, 109, 0.1);
+}
+.status-glow-error {
+  box-shadow: 0 0 8px rgba(255, 107, 90, 0.3), inset 0 0 4px rgba(255, 107, 90, 0.1);
+}
+.status-glow-info {
+  box-shadow: 0 0 8px rgba(93, 170, 255, 0.3), inset 0 0 4px rgba(93, 170, 255, 0.1);
+}
+
+/* Toast notification animations */
+@keyframes toast-slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toast-fade-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(100%); }
+}
