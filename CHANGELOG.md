@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.4.0 (2026-02-25)
+## v4.0.0 (2026-02-25)
 
 Formation UX integration — full Wave 3 delivery.
 
