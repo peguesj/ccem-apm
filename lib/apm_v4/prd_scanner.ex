@@ -42,7 +42,7 @@ defmodule ApmV4.PrdScanner do
     |> Enum.uniq()
   end
 
-  defp find_in_dir(dir, depth) when depth > @max_depth, do: []
+  defp find_in_dir(_dir, depth) when depth > @max_depth, do: []
   defp find_in_dir(dir, depth) do
     prd_path = Path.join(dir, "prd.json")
     found = if File.exists?(prd_path), do: [prd_path], else: []
