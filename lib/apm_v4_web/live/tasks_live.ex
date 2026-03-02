@@ -63,13 +63,17 @@ defmodule ApmV4Web.TasksLive do
     assign(socket, :tasks, tasks)
   end
 
-  defp selected_task(socket) do
-    case socket.assigns[:selected_task_id] do
+  defp selected_task(assigns) do
+    case assigns[:selected_task_id] do
       nil -> nil
       id ->
-        case BackgroundTasksStore.get_task(id) do
-          {:ok, task} -> task
-          _ -> nil
+        try do
+          case BackgroundTasksStore.get_task(id) do
+            {:ok, task} -> task
+            _ -> nil
+          end
+        rescue _ -> nil
+        catch :exit, _ -> nil
         end
     end
   end
