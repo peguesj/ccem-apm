@@ -128,11 +128,11 @@ defmodule ApmV4.UPM.Adapters.Linear do
     url = String.to_charlist(@linear_api)
     body = Jason.encode!(%{query: query})
     headers = [
-      {'Content-Type', 'application/json'},
-      {'Authorization', String.to_charlist(api_key || "")}
+      {~c"Content-Type", ~c"application/json"},
+      {~c"Authorization", String.to_charlist(api_key || "")}
     ]
 
-    case :httpc.request(:post, {url, headers, 'application/json', String.to_charlist(body)}, [], []) do
+    case :httpc.request(:post, {url, headers, ~c"application/json", String.to_charlist(body)}, [], []) do
       {:ok, {{_, 200, _}, _, resp_body}} ->
         Jason.decode(List.to_string(resp_body))
 

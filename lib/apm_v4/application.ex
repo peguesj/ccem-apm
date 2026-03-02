@@ -41,6 +41,7 @@ defmodule ApmV4.Application do
       ApmV4.UPM.PMIntegrationStore,
       ApmV4.UPM.VCSIntegrationStore,
       ApmV4.UPM.WorkItemStore,
+      ApmV4.UPM.SyncEngine,
       ApmV4.ActionEngine,
       ApmV4.AnalyticsStore,
       ApmV4.HealthCheckRunner,
