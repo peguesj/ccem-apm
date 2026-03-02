@@ -32,7 +32,10 @@ defmodule ApmV4Web.AnalyticsLive do
     )
   end
 
-  attr :active, :string, default: ""
+  attr :active, :string, default: "false"
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+  attr :href, :string, required: true
 
   defp nav_item(assigns) do
     ~H"""

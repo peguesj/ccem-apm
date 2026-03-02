@@ -33,7 +33,10 @@ defmodule ApmV4Web.ConversationMonitorLive do
 
   defp count_active(conversations), do: Enum.count(conversations, & &1.active)
 
-  attr :active, :string, default: ""
+  attr :active, :string, default: "false"
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+  attr :href, :string, required: true
 
   defp nav_item(assigns) do
     ~H"""

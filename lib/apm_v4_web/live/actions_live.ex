@@ -27,13 +27,15 @@ defmodule ApmV4Web.ActionsLive do
      |> assign(:project_path, "")
      |> assign(:selected_project, nil)
      |> assign(:selected_run, nil)
-     |> assign(:scanning, false)}
+     |> assign(:scanning, false)
+     |> assign(:selected_paths, MapSet.new())}
   end
 
   @impl true
   def handle_info(:refresh, socket) do
     runs = safe_call(fn -> ActionEngine.list_runs() end, socket.assigns.runs)
-    {:noreply, assign(socket, :runs, runs)}
+    projects = load_projects()
+    {:noreply, socket |> assign(:runs, runs) |> assign(:projects, projects)}
   end
 
   def handle_info(:scan_complete, socket) do
@@ -128,6 +130,62 @@ defmodule ApmV4Web.ActionsLive do
     {:noreply, assign(socket, :scanning, true)}
   end
 
+  # --- Selection events ---
+
+  def handle_event("toggle_row", %{"path" => path}, socket) do
+    selected = socket.assigns.selected_paths
+
+    new_selected =
+      if MapSet.member?(selected, path),
+        do: MapSet.delete(selected, path),
+        else: MapSet.put(selected, path)
+
+    {:noreply, assign(socket, :selected_paths, new_selected)}
+  end
+
+  def handle_event("select_all", _params, socket) do
+    all_paths = socket.assigns.projects |> Enum.map(& &1.path) |> MapSet.new()
+    {:noreply, assign(socket, :selected_paths, all_paths)}
+  end
+
+  def handle_event("deselect_all", _params, socket) do
+    {:noreply, assign(socket, :selected_paths, MapSet.new())}
+  end
+
+  def handle_event("range_select", %{"from" => from, "to" => to}, socket) do
+    from_i = coerce_int(from)
+    to_i = coerce_int(to)
+
+    paths_in_range =
+      socket.assigns.projects
+      |> Enum.with_index()
+      |> Enum.filter(fn {_, i} -> i >= from_i and i <= to_i end)
+      |> Enum.map(fn {p, _} -> p.path end)
+      |> MapSet.new()
+
+    new_selected = MapSet.union(socket.assigns.selected_paths, paths_in_range)
+    {:noreply, assign(socket, :selected_paths, new_selected)}
+  end
+
+  def handle_event("run_bulk_action", %{"action" => action_id}, socket) do
+    paths = MapSet.to_list(socket.assigns.selected_paths)
+    action = Enum.find(socket.assigns.catalog, &(&1.id == action_id))
+    count = length(paths)
+
+    Enum.each(paths, fn path ->
+      safe_call(fn -> ActionEngine.run_action(action_id, path) end, {:error, :skipped})
+    end)
+
+    runs = safe_call(fn -> ActionEngine.list_runs() end, socket.assigns.runs)
+    suffix = if count == 1, do: "", else: "s"
+
+    {:noreply,
+     socket
+     |> assign(:selected_paths, MapSet.new())
+     |> assign(:runs, runs)
+     |> put_flash(:info, "Running #{action.name} on #{count} project#{suffix}")}
+  end
+
   # --- Components ---
 
   attr :icon, :string, required: true
@@ -209,7 +267,8 @@ defmodule ApmV4Web.ActionsLive do
           </div>
         </header>
 
-        <div class="flex-1 overflow-auto p-4 space-y-6">
+        <%!-- Scrollable body — extra bottom padding leaves room for the bulk toolbar --%>
+        <div class="flex-1 overflow-auto p-4 space-y-6 pb-24">
 
           <%!-- Projects Status Table --%>
           <div>
@@ -236,22 +295,71 @@ defmodule ApmV4Web.ActionsLive do
                 <button phx-click="scan_projects" class="link link-primary ml-1">Scan now</button>
               </div>
 
-              <table :if={@projects != []} class="w-full text-sm">
+              <table
+                :if={@projects != []}
+                id="projects-select-table"
+                phx-hook="ShiftSelect"
+                class="w-full text-sm"
+              >
                 <thead>
                   <tr class="border-b border-base-300 bg-base-300/30">
-                    <th class="px-4 py-2 text-left text-xs text-base-content/50 font-medium">Project</th>
-                    <th class="px-4 py-2 text-left text-xs text-base-content/50 font-medium">Stack</th>
-                    <th class="px-4 py-2 text-center text-xs text-base-content/50 font-medium">Hooks</th>
-                    <th class="px-4 py-2 text-center text-xs text-base-content/50 font-medium">Memory</th>
-                    <th class="px-4 py-2 text-center text-xs text-base-content/50 font-medium">Config</th>
-                    <th class="px-4 py-2 text-right text-xs text-base-content/50 font-medium">Actions</th>
+                    <th class="px-3 py-2 w-8" data-no-select="true">
+                      <%!-- Select-all / deselect-all header checkbox --%>
+                      <input
+                        type="checkbox"
+                        class="checkbox checkbox-xs"
+                        phx-click={
+                          if @projects != [] and MapSet.size(@selected_paths) == length(@projects),
+                            do: "deselect_all",
+                            else: "select_all"
+                        }
+                        checked={
+                          @projects != [] and MapSet.size(@selected_paths) == length(@projects)
+                        }
+                      />
+                    </th>
+                    <th class="px-4 py-2 text-left text-xs text-base-content/50 font-medium">
+                      Project
+                    </th>
+                    <th class="px-4 py-2 text-left text-xs text-base-content/50 font-medium">
+                      Stack
+                    </th>
+                    <th class="px-4 py-2 text-center text-xs text-base-content/50 font-medium">
+                      Hooks
+                    </th>
+                    <th class="px-4 py-2 text-center text-xs text-base-content/50 font-medium">
+                      Memory
+                    </th>
+                    <th class="px-4 py-2 text-center text-xs text-base-content/50 font-medium">
+                      Config
+                    </th>
+                    <th class="px-4 py-2 text-right text-xs text-base-content/50 font-medium">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr
-                    :for={proj <- @projects}
-                    class="border-b border-base-300/50 hover:bg-base-300/20 transition-colors"
+                    :for={{proj, index} <- Enum.with_index(@projects)}
+                    data-row-index={index}
+                    phx-click="toggle_row"
+                    phx-value-path={proj.path}
+                    class={[
+                      "border-b border-base-300/50 cursor-pointer transition-colors select-none",
+                      MapSet.member?(@selected_paths, proj.path) &&
+                        "bg-primary/5 hover:bg-primary/10" ||
+                        "hover:bg-base-300/20"
+                    ]}
                   >
+                    <%!-- Row checkbox — stops propagation so toggle_row doesn't double-fire --%>
+                    <td class="px-3 py-3" data-no-select="true">
+                      <input
+                        type="checkbox"
+                        class="checkbox checkbox-xs pointer-events-none"
+                        checked={MapSet.member?(@selected_paths, proj.path)}
+                        readonly
+                      />
+                    </td>
                     <td class="px-4 py-3">
                       <div class="font-medium text-base-content text-sm">{proj.name}</div>
                       <div class="text-[10px] text-base-content/40 font-mono truncate max-w-xs">
@@ -270,7 +378,9 @@ defmodule ApmV4Web.ActionsLive do
                     <td class="px-4 py-3 text-center">
                       <.status_cell value={proj[:has_apm_config] || false} />
                     </td>
-                    <td class="px-4 py-3">
+                    <%!-- Per-row action buttons — LiveView delegation fires the button's phx-click first,
+                         so the TR's toggle_row does not fire when a button is clicked. --%>
+                    <td class="px-4 py-3" data-no-select="true">
                       <div class="flex items-center justify-end gap-1">
                         <button
                           :for={action <- @catalog}
@@ -366,6 +476,57 @@ defmodule ApmV4Web.ActionsLive do
       </div>
     </div>
 
+    <%!-- Bulk Action Toolbar — fixed bottom bar, visible when rows are selected --%>
+    <div
+      :if={MapSet.size(@selected_paths) > 0}
+      class="fixed bottom-0 inset-x-0 bg-base-200 border-t border-primary/30 px-6 py-3 flex items-center gap-3 z-40 shadow-xl"
+    >
+      <span class="text-sm font-medium text-base-content/70 tabular-nums">
+        {MapSet.size(@selected_paths)} selected
+      </span>
+      <div class="w-px h-5 bg-base-300" />
+      <button
+        phx-click="run_bulk_action"
+        phx-value-action="update_hooks"
+        class="btn btn-sm btn-outline gap-1.5"
+      >
+        <.icon name="hero-code-bracket" class="size-3.5" />
+        Update Hooks
+      </button>
+      <button
+        phx-click="run_bulk_action"
+        phx-value-action="add_memory_pointer"
+        class="btn btn-sm btn-outline gap-1.5"
+      >
+        <.icon name="hero-bookmark" class="size-3.5" />
+        Add Memory
+      </button>
+      <button
+        phx-click="run_bulk_action"
+        phx-value-action="backfill_apm_config"
+        class="btn btn-sm btn-outline gap-1.5"
+      >
+        <.icon name="hero-cog-6-tooth" class="size-3.5" />
+        Backfill Config
+      </button>
+      <button
+        phx-click="run_bulk_action"
+        phx-value-action="analyze_project"
+        class="btn btn-sm btn-outline gap-1.5"
+      >
+        <.icon name="hero-magnifying-glass" class="size-3.5" />
+        Analyze
+      </button>
+      <div class="flex-1" />
+      <button
+        phx-click="deselect_all"
+        class="btn btn-ghost btn-sm text-base-content/40 gap-1.5"
+      >
+        <.icon name="hero-x-mark" class="size-3.5" />
+        Clear
+      </button>
+    </div>
+
     <%!-- Run Action Modal --%>
     <div
       :if={@show_modal and @selected_action}
@@ -411,7 +572,6 @@ defmodule ApmV4Web.ActionsLive do
                 <div class="text-sm font-medium text-base-content truncate">{proj.name}</div>
                 <div class="text-[10px] text-base-content/40 font-mono truncate">{proj.path}</div>
               </div>
-              <%!-- Action-specific status indicator --%>
               <span class={[
                 "badge badge-xs flex-shrink-0",
                 action_applied?(proj, @selected_action.id) && "badge-success" || "badge-ghost opacity-60"
@@ -497,6 +657,10 @@ defmodule ApmV4Web.ActionsLive do
       Map.merge(proj, status)
     end)
   end
+
+  defp coerce_int(v) when is_integer(v), do: v
+  defp coerce_int(v) when is_binary(v), do: String.to_integer(v)
+  defp coerce_int(_), do: 0
 
   defp safe_call(fun, default) do
     try do

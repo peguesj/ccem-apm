@@ -28,7 +28,10 @@ defmodule ApmV4Web.PluginDashboardLive do
     assign(socket, mcp_servers: mcp_servers, plugins: plugins, page_title: "Plugins")
   end
 
-  attr :active, :string, default: ""
+  attr :active, :string, default: "false"
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+  attr :href, :string, required: true
 
   defp nav_item(assigns) do
     ~H"""

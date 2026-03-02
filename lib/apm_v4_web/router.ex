@@ -46,6 +46,7 @@ defmodule ApmV4Web.Router do
     live "/conversations", ConversationMonitorLive, :index
     live "/plugins", PluginDashboardLive, :index
     live "/backfill", BackfillLive, :index
+    live "/drtw", DrtwLive, :index
   end
 
   # v3-compatible health check (outside /api scope)

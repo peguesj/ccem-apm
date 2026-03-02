@@ -33,6 +33,7 @@ import FormationGraph from "./hooks/formation_graph"
 import Toast from "./hooks/toast"
 import DocContent from "./hooks/doc_content"
 import WorkflowGraph from "./hooks/workflow_graph"
+import ShiftSelect from "./hooks/shift_select"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -54,7 +55,8 @@ const Hooks = {
   FormationGraph,
   Toast,
   WorkflowGraph,
-  DocContent
+  DocContent,
+  ShiftSelect
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
