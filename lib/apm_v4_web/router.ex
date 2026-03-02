@@ -47,6 +47,9 @@ defmodule ApmV4Web.Router do
     live "/plugins", PluginDashboardLive, :index
     live "/backfill", BackfillLive, :index
     live "/drtw", DrtwLive, :index
+    live "/upm", UpmLive, :index
+    live "/upm/:project_id", UpmLive, :project
+    live "/upm/:project_id/board", UpmLive, :board
   end
 
   # v3-compatible health check (outside /api scope)
@@ -101,11 +104,44 @@ defmodule ApmV4Web.Router do
     get "/v2/export", ApiController, :export
     post "/v2/import", ApiController, :import_data
 
-    # UPM execution tracking
+    # UPM execution tracking (APM telemetry)
     post "/upm/register", ApiController, :upm_register
     post "/upm/agent", ApiController, :upm_agent
     post "/upm/event", ApiController, :upm_event
     get "/upm/status", ApiController, :upm_status
+
+    # UPM module — projects
+    get "/upm/projects", UpmController, :list_projects
+    post "/upm/projects", UpmController, :create_project
+    post "/upm/projects/scan", UpmController, :scan_projects
+    get "/upm/projects/:id", UpmController, :get_project
+    put "/upm/projects/:id", UpmController, :update_project
+    delete "/upm/projects/:id", UpmController, :delete_project
+
+    # UPM module — PM integrations
+    get "/upm/pm_integrations", UpmController, :list_pm_integrations
+    post "/upm/pm_integrations", UpmController, :create_pm_integration
+    get "/upm/pm_integrations/:id", UpmController, :get_pm_integration
+    put "/upm/pm_integrations/:id", UpmController, :update_pm_integration
+    delete "/upm/pm_integrations/:id", UpmController, :delete_pm_integration
+    post "/upm/pm_integrations/:id/test", UpmController, :test_pm_integration
+
+    # UPM module — VCS integrations
+    get "/upm/vcs_integrations", UpmController, :list_vcs_integrations
+    post "/upm/vcs_integrations", UpmController, :create_vcs_integration
+    get "/upm/vcs_integrations/:id", UpmController, :get_vcs_integration
+    put "/upm/vcs_integrations/:id", UpmController, :update_vcs_integration
+    delete "/upm/vcs_integrations/:id", UpmController, :delete_vcs_integration
+    post "/upm/vcs_integrations/:id/test", UpmController, :test_vcs_integration
+
+    # UPM module — work items
+    get "/upm/work_items", UpmController, :list_work_items
+    get "/upm/work_items/drift", UpmController, :drift_report
+
+    # UPM module — sync
+    post "/upm/sync", UpmController, :sync_all
+    post "/upm/sync/:project_id", UpmController, :sync_project
+    get "/upm/sync/status", UpmController, :sync_status
 
     # Port management
     get "/ports", ApiController, :ports

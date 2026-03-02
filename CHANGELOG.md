@@ -1,5 +1,29 @@
 # Changelog
 
+## v4.1.0 (2026-03-02)
+
+UPM Module — Unified Project Management with PM/VCS integrations, bidirectional sync, LiveView dashboard, and CCEMAgent integration.
+
+### Added
+- **UPM.ProjectRegistry**: ETS-backed GenServer; scan, upsert, delete projects; persists to `~/.ccem/upm/projects.json`
+- **UPM.PMIntegrationStore**: PM platform store (Plane, Linear, Jira, Monday, MSProject) with adapter-delegated test_connection
+- **UPM.VCSIntegrationStore**: VCS store (GitHub, AzureDevOps) with sync_type (bidirectional/push/pull)
+- **UPM.WorkItemStore**: Work item store with drift detection (`detect_drift/1`, `detect_drift_all/0`)
+- **UPM.SyncEngine**: 5-minute scheduled bidirectional sync GenServer; PubSub `upm:sync`
+- **PM Adapters**: Plane (PlaneClient), Linear (GraphQL/:httpc), Jira/Monday/MSProject (stubs)
+- **VCS Adapters**: GitHub (`gh` CLI), AzureDevOps (`az devops` CLI)
+- **UpmController**: 22 REST endpoints at `/api/upm/*` (projects, PM integrations, VCS integrations, work items, sync)
+- **UpmLive**: LiveView at `/upm`, `/upm/:id`, `/upm/:id/board` with Kanban board and PubSub for all 5 UPM topics
+- **Nav item**: UPM (hero-circle-stack) added to all 19 LiveViews
+- **CCEMAgent UPMMonitor**: `@Observable` Swift class polling UPM endpoints every 60s
+- **CCEMAgent UPMModels**: Codable Swift structs for all UPM data types
+- **CCEMAgent MenuBar**: UPM section with project count, sync/drift stats, recent sync history, and quick actions
+
+### Architecture
+- 5 new OTP supervisor children: UPM.ProjectRegistry, PMIntegrationStore, VCSIntegrationStore, WorkItemStore, SyncEngine
+- PubSub topics: `upm:projects`, `upm:pm_integrations`, `upm:vcs_integrations`, `upm:work_items`, `upm:sync`
+- 28 new routes (3 browser LiveView + 25 API)
+
 ## v4.0.0 (2026-02-25)
 
 Formation UX integration — full Wave 3 delivery.

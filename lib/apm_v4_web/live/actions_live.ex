@@ -243,6 +243,7 @@ defmodule ApmV4Web.ActionsLive do
           <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
           <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
           <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
+          <.nav_item icon="hero-circle-stack" label="UPM" active={false} href="/upm" />
           <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
           <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
           <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
