@@ -967,6 +967,60 @@ defmodule ApmV4Web.ApiController do
     end
   end
 
+  # ============================
+  # Intake Endpoints
+  # ============================
+
+  @doc "POST /api/intake -- submit an intake event"
+  def intake_submit(conn, params) do
+    case ApmV4.Intake.Store.submit(params) do
+      {:ok, event} ->
+        json(conn, %{ok: true, id: event.id, received_at: DateTime.to_iso8601(event.received_at)})
+      {:error, reason} ->
+        conn
+        |> put_status(503)
+        |> json(%{ok: false, error: to_string(reason)})
+    end
+  end
+
+  @doc "GET /api/intake -- list intake events with optional filters"
+  def intake_list(conn, params) do
+    opts =
+      [
+        source: params["source"],
+        event_type: params["event_type"],
+        limit: parse_limit(params["limit"], 50)
+      ]
+      |> Enum.reject(fn {_, v} -> is_nil(v) end)
+
+    events = ApmV4.Intake.Store.list(opts)
+    json(conn, %{ok: true, events: Enum.map(events, &intake_event_json/1), count: length(events)})
+  end
+
+  @doc "GET /api/intake/watchers -- list registered intake watchers"
+  def intake_watchers(conn, _params) do
+    watchers = ApmV4.Intake.Store.watchers()
+    json(conn, %{
+      ok: true,
+      watchers: Enum.map(watchers, fn m ->
+        %{name: m.name(), event_types: m.event_types(), sources: m.sources(), enabled: m.enabled?()}
+      end)
+    })
+  end
+
+  defp intake_event_json(event) do
+    %{
+      id: event.id,
+      source: event.source,
+      event_type: event.event_type,
+      severity: event.severity,
+      project: event.project,
+      environment: event.environment,
+      payload: event.payload,
+      received_at: DateTime.to_iso8601(event.received_at)
+    }
+  end
+
   # --- Agent Telemetry (time-bucketed, last hour) ---
 
   def telemetry(conn, _params) do

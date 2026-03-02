@@ -47,6 +47,7 @@ defmodule ApmV4Web.Router do
     live "/plugins", PluginDashboardLive, :index
     live "/backfill", BackfillLive, :index
     live "/drtw", DrtwLive, :index
+    live "/intake", IntakeLive, :index
   end
 
   # v3-compatible health check (outside /api scope)
@@ -164,6 +165,11 @@ defmodule ApmV4Web.Router do
 
     # Agent telemetry (time-bucketed)
     get "/telemetry", ApiController, :telemetry
+
+    # Intake event pipeline
+    post "/intake", ApiController, :intake_submit
+    get "/intake", ApiController, :intake_list
+    get "/intake/watchers", ApiController, :intake_watchers
 
   end
 

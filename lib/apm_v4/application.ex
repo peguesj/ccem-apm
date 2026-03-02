@@ -44,6 +44,7 @@ defmodule ApmV4.Application do
       ApmV4.PluginScanner,
       ApmV4.BackfillStore,
       ApmV4.SkillsRegistryStore,
+      {ApmV4.Intake.Store, []},
       # Start to serve requests, typically the last entry
       ApmV4Web.Endpoint
     ]
