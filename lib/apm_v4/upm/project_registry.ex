@@ -164,7 +164,7 @@ defmodule ApmV4.UPM.ProjectRegistry do
 
   defp do_scan_and_sync do
     try do
-      scanned = ApmV4.ProjectScanner.scan_all()
+      scanned = ApmV4.ProjectScanner.scan()
 
       Enum.each(scanned, fn project_map ->
         attrs = %{

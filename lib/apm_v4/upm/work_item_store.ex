@@ -200,7 +200,7 @@ defmodule ApmV4.UPM.WorkItemStore do
                 details: [%{id: item.id, title: item.title, drift: details} | acc.details]
             }
 
-          {:error, _} ->
+          _ ->
             %{acc | errors: acc.errors + 1}
         end
       end)
