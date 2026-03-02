@@ -50,6 +50,18 @@ defmodule ApmV4.ActionEngine do
     @catalog
   end
 
+  @doc """
+  Returns the current application status of APM actions for a project path.
+  Pure filesystem check — no GenServer call needed.
+  """
+  def project_status(project_path) do
+    %{
+      has_hooks: check_hooks_present(project_path),
+      has_memory_pointer: check_memory_pointer_present(project_path),
+      has_apm_config: check_apm_config_present(project_path)
+    }
+  end
+
   def run_action(action_type, project_path, params \\ %{}) do
     GenServer.call(__MODULE__, {:run_action, action_type, project_path, params})
   end
@@ -139,6 +151,27 @@ defmodule ApmV4.ActionEngine do
         new_state = put_in(state, [:runs, run_id], updated)
         {:noreply, new_state}
     end
+  end
+
+  # --- Status check helpers (used by project_status/1) ---
+
+  defp check_hooks_present(path) do
+    hooks_dir = Path.join(path, ".claude/hooks")
+    Enum.all?(["session_init.sh", "pre_tool_use.sh", "post_tool_use.sh"], fn hook ->
+      File.exists?(Path.join(hooks_dir, hook))
+    end)
+  end
+
+  defp check_memory_pointer_present(path) do
+    case File.read(Path.join(path, ".claude/CLAUDE.md")) do
+      {:ok, content} -> String.contains?(content, "CCEM APM Integration")
+      _ -> false
+    end
+  end
+
+  defp check_apm_config_present(path) do
+    File.exists?(Path.join(path, "apm/apm_config.json")) or
+      File.exists?(Path.join(path, ".claude/apm_config.json"))
   end
 
   # --- Action implementations ---
