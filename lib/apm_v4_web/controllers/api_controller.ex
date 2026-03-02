@@ -839,4 +839,178 @@ defmodule ApmV4Web.ApiController do
   def deploy_hooks(conn, _params) do
     conn |> put_status(400) |> json(%{ok: false, error: "required: skill, project_root"})
   end
+
+  # --- Background Tasks ---
+
+  def list_bg_tasks(conn, params) do
+    filter =
+      %{}
+      |> then(fn f -> if params["status"], do: Map.put(f, :status, params["status"]), else: f end)
+      |> then(fn f -> if params["project"], do: Map.put(f, :project, params["project"]), else: f end)
+
+    tasks = ApmV4.BackgroundTasksStore.list_tasks(filter)
+    json(conn, %{tasks: tasks})
+  end
+
+  def register_bg_task(conn, params) do
+    case ApmV4.BackgroundTasksStore.register_task(params) do
+      {:ok, task} -> json(conn, %{task: task})
+      {:error, reason} -> conn |> put_status(400) |> json(%{error: to_string(reason)})
+    end
+  end
+
+  def get_bg_task(conn, %{"id" => id}) do
+    case ApmV4.BackgroundTasksStore.get_task(id) do
+      {:ok, task} -> json(conn, %{task: task})
+      {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "not found"})
+    end
+  end
+
+  def get_bg_task_logs(conn, %{"id" => id}) do
+    case ApmV4.BackgroundTasksStore.get_task(id) do
+      {:ok, task} -> json(conn, %{logs: task.logs})
+      {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "not found"})
+    end
+  end
+
+  def stop_bg_task(conn, %{"id" => id}) do
+    ApmV4.BackgroundTasksStore.stop_task(id)
+    json(conn, %{ok: true})
+  end
+
+  def delete_bg_task(conn, %{"id" => id}) do
+    ApmV4.BackgroundTasksStore.delete_task(id)
+    json(conn, %{ok: true})
+  end
+
+  # --- Project Scanner ---
+
+  def scanner_scan(conn, params) do
+    base_path = params["base_path"]
+    case ApmV4.ProjectScanner.scan(base_path) do
+      {:ok, results} -> json(conn, %{results: results, count: length(results)})
+      {:error, reason} -> conn |> put_status(500) |> json(%{error: to_string(reason)})
+    end
+  end
+
+  def scanner_results(conn, _params) do
+    results = ApmV4.ProjectScanner.get_results()
+    json(conn, %{results: results, count: length(results)})
+  end
+
+  def scanner_status(conn, _params) do
+    status = ApmV4.ProjectScanner.get_status()
+    json(conn, status)
+  end
+
+  # --- Actions Engine ---
+
+  def list_actions(conn, _params) do
+    catalog = ApmV4.ActionEngine.list_catalog()
+    json(conn, %{actions: catalog})
+  end
+
+  def run_action(conn, params) do
+    action_type = params["action_type"]
+    project_path = params["project_path"] || ""
+    action_params = params["params"] || %{}
+
+    case ApmV4.ActionEngine.run_action(action_type, project_path, action_params) do
+      {:ok, run_id} -> json(conn, %{run_id: run_id})
+      {:error, reason} -> conn |> put_status(400) |> json(%{error: to_string(reason)})
+    end
+  end
+
+  def list_action_runs(conn, _params) do
+    runs = ApmV4.ActionEngine.list_runs()
+    json(conn, %{runs: runs})
+  end
+
+  def get_action_run(conn, %{"id" => id}) do
+    case ApmV4.ActionEngine.get_run(id) do
+      {:ok, run} -> json(conn, %{run: run})
+      {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "not found"})
+    end
+  end
+
+  # --- Agent Telemetry (time-bucketed, last hour) ---
+
+  def telemetry(conn, _params) do
+    now = DateTime.utc_now()
+    agents = AgentRegistry.list_agents()
+
+    buckets =
+      for i <- 11..0//-1 do
+        bucket_start = DateTime.add(now, -(i + 1) * 5 * 60, :second)
+        bucket_end = DateTime.add(now, -i * 5 * 60, :second)
+
+        bucket_agents =
+          Enum.filter(agents, fn agent ->
+            registered =
+              case Map.get(agent, :registered_at) || Map.get(agent, "registered_at") do
+                nil -> nil
+                ts when is_binary(ts) ->
+                  case DateTime.from_iso8601(ts) do
+                    {:ok, dt, _} -> dt
+                    _ -> nil
+                  end
+                _ -> nil
+              end
+
+            case registered do
+              nil ->
+                false
+
+              dt ->
+                DateTime.compare(dt, bucket_start) != :lt &&
+                  DateTime.compare(dt, bucket_end) == :lt
+            end
+          end)
+
+        started = length(bucket_agents)
+
+        completed =
+          bucket_agents
+          |> Enum.filter(fn a ->
+            (Map.get(a, :status) || Map.get(a, "status", "")) in ["completed", "done", "success"]
+          end)
+          |> length()
+
+        failed =
+          bucket_agents
+          |> Enum.filter(fn a ->
+            (Map.get(a, :status) || Map.get(a, "status", "")) == "failed"
+          end)
+          |> length()
+
+        %{
+          bucket: DateTime.to_iso8601(bucket_start),
+          display_time: Calendar.strftime(bucket_start, "%H:%M"),
+          agents_started: started,
+          agents_completed: completed,
+          agents_failed: failed
+        }
+      end
+
+    total_started = Enum.sum(Enum.map(buckets, & &1.agents_started))
+    total_completed = Enum.sum(Enum.map(buckets, & &1.agents_completed))
+    total_failed = Enum.sum(Enum.map(buckets, & &1.agents_failed))
+
+    active_now =
+      agents
+      |> Enum.filter(fn a ->
+        (Map.get(a, :status) || Map.get(a, "status", "")) == "active"
+      end)
+      |> length()
+
+    json(conn, %{
+      data_points: buckets,
+      summary: %{
+        total_started: total_started,
+        total_completed: total_completed,
+        total_failed: total_failed,
+        active_now: active_now
+      }
+    })
+  end
 end

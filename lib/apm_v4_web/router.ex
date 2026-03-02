@@ -38,6 +38,9 @@ defmodule ApmV4Web.Router do
     live "/formation", FormationLive, :index
     live "/notifications", NotificationLive, :index
     live "/ports", PortsLive, :index
+    live "/tasks", TasksLive, :index
+    live "/scanner", ScannerLive, :index
+    live "/actions", ActionsLive, :index
   end
 
   # v3-compatible health check (outside /api scope)
@@ -117,6 +120,28 @@ defmodule ApmV4Web.Router do
 
     # Hook deployment
     post "/hooks/deploy", ApiController, :deploy_hooks
+
+    # Background tasks
+    get "/bg-tasks", ApiController, :list_bg_tasks
+    post "/bg-tasks", ApiController, :register_bg_task
+    get "/bg-tasks/:id", ApiController, :get_bg_task
+    get "/bg-tasks/:id/logs", ApiController, :get_bg_task_logs
+    post "/bg-tasks/:id/stop", ApiController, :stop_bg_task
+    delete "/bg-tasks/:id", ApiController, :delete_bg_task
+
+    # Project scanner
+    post "/scanner/scan", ApiController, :scanner_scan
+    get "/scanner/results", ApiController, :scanner_results
+    get "/scanner/status", ApiController, :scanner_status
+
+    # Actions
+    get "/actions", ApiController, :list_actions
+    post "/actions/run", ApiController, :run_action
+    get "/actions/runs", ApiController, :list_action_runs
+    get "/actions/runs/:id", ApiController, :get_action_run
+
+    # Agent telemetry (time-bucketed)
+    get "/telemetry", ApiController, :telemetry
 
   end
 
