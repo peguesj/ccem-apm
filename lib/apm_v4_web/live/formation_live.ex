@@ -17,7 +17,8 @@ defmodule ApmV4Web.FormationLive do
     end
 
     agents = AgentRegistry.list_agents()
-    formations = build_formation_tree(agents)
+    upm_formations = try do UpmStore.list_formations() catch :exit, _ -> [] end
+    formations = build_formation_tree(agents, upm_formations)
     active_formation = try do UpmStore.get_active_formation() catch :exit, _ -> nil end
 
     socket =
@@ -47,13 +48,17 @@ defmodule ApmV4Web.FormationLive do
           </h1>
           <p class="text-xs text-base-content/50 mt-1">Agent Performance Monitor</p>
         </div>
-        <nav class="flex-1 p-2 space-y-1">
+        <nav class="flex-1 p-2 space-y-1 overflow-y-auto">
           <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
           <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
+          <.nav_item icon="hero-rectangle-group" label="Formations" active={true} href="/formation" />
+          <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
+          <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
+          <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
+          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
+          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
           <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" badge={@active_skill_count} />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
-          <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
-          <.nav_item icon="hero-rectangle-group" label="Formations" active={true} href="/formation" />
           <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
           <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
         </nav>
@@ -98,8 +103,11 @@ defmodule ApmV4Web.FormationLive do
                 <.icon name="hero-rectangle-group" class="size-16 text-base-content/20 mx-auto mb-4" />
                 <h3 class="text-lg font-semibold text-base-content/40">No Formations Active</h3>
                 <p class="text-sm text-base-content/30 mt-1 max-w-md">
-                  Formations appear when agents are registered with formation_id metadata.
-                  Use /upm build or /formation deploy to create hierarchical agent structures.
+                  Formations appear when agents are registered via <code class="font-mono text-xs">/formation deploy</code>
+                  or when agents heartbeat with <code class="font-mono text-xs">formation_id</code> metadata.
+                </p>
+                <p class="text-xs text-base-content/20 mt-2">
+                  POST /api/upm/register with formation manifest to populate this view.
                 </p>
               </div>
             </div>
@@ -175,21 +183,24 @@ defmodule ApmV4Web.FormationLive do
               <div class="space-y-2">
                 <div :for={formation <- @formations} class="space-y-0.5">
                   <button
-                    class="w-full text-left px-2 py-1 rounded text-xs font-semibold text-primary hover:bg-base-300"
+                    class="w-full text-left px-2 py-1 rounded text-xs font-semibold text-primary hover:bg-base-300 flex items-center gap-1"
                     phx-click="select_formation"
                     phx-value-id={formation.id}
                   >
-                    {formation.name}
-                    <span class="badge badge-xs badge-ghost ml-1">{formation.agent_count}</span>
+                    <span class={["w-1.5 h-1.5 rounded-full flex-shrink-0", agent_dot(formation_status(formation))]}></span>
+                    <span class="flex-1 truncate">{formation.name}</span>
+                    <span class="badge badge-xs badge-ghost">{formation.agent_count}</span>
+                    <span :if={formation[:source] == :upm} class="badge badge-xs badge-outline opacity-50">reg</span>
                   </button>
                   <div :for={squadron <- formation.squadrons} class="pl-4">
                     <button
-                      class="w-full text-left px-2 py-0.5 rounded text-[10px] text-info hover:bg-base-300"
+                      class="w-full text-left px-2 py-0.5 rounded text-[10px] text-info hover:bg-base-300 flex items-center gap-1"
                       phx-click="select_squadron"
                       phx-value-formation={formation.id}
                       phx-value-squadron={squadron.name}
                     >
-                      {squadron.name}
+                      <span class={["w-1 h-1 rounded-full flex-shrink-0", agent_dot(squadron[:status] || "idle")]}></span>
+                      <span class="flex-1 truncate">{squadron.name}</span>
                       <span class="text-base-content/30">{length(squadron.agents)}</span>
                     </button>
                     <div :for={agent <- squadron.agents} class="pl-4">
@@ -199,13 +210,15 @@ defmodule ApmV4Web.FormationLive do
                         phx-value-id={agent.id}
                       >
                         <span class={["w-1.5 h-1.5 rounded-full", agent_dot(agent.status)]}></span>
-                        {agent.name}
+                        <span class="flex-1 truncate">{agent.name}</span>
+                        <span :if={agent[:story_id]} class="font-mono text-[9px] text-primary/70">{agent.story_id}</span>
                       </button>
                     </div>
                   </div>
                 </div>
                 <div :if={@formations == []} class="text-xs text-base-content/30 py-4 text-center">
-                  No formations registered
+                  No formations registered.<br/>
+                  <span class="text-[9px]">Use /formation deploy to create one.</span>
                 </div>
               </div>
             </div>
@@ -221,7 +234,8 @@ defmodule ApmV4Web.FormationLive do
   @impl true
   def handle_event("refresh", _params, socket) do
     agents = AgentRegistry.list_agents()
-    formations = build_formation_tree(agents)
+    upm_formations = try do UpmStore.list_formations() catch :exit, _ -> [] end
+    formations = build_formation_tree(agents, upm_formations)
     {:noreply,
      socket
      |> assign(:agents, agents)
@@ -285,11 +299,14 @@ defmodule ApmV4Web.FormationLive do
   def handle_info({:agent_discovered, _, _}, socket), do: refresh(socket)
   def handle_info({:upm_session_registered, _}, socket), do: refresh(socket)
   def handle_info({:upm_agent_registered, _}, socket), do: refresh(socket)
+  def handle_info({:formation_registered, _}, socket), do: refresh(socket)
+  def handle_info({:formation_updated, _}, socket), do: refresh(socket)
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   defp refresh(socket) do
     agents = AgentRegistry.list_agents()
-    formations = build_formation_tree(agents)
+    upm_formations = try do UpmStore.list_formations() catch :exit, _ -> [] end
+    formations = build_formation_tree(agents, upm_formations)
     {:noreply,
      socket
      |> assign(:agents, agents)
@@ -324,36 +341,93 @@ defmodule ApmV4Web.FormationLive do
 
   # --- Helpers ---
 
-  defp build_formation_tree(agents) do
-    # Group agents by formation_id
+  # Build formation tree merging live AgentRegistry data with UpmStore registered formations.
+  # UpmStore formations show even when no agents are actively heartbeating (e.g. completed runs).
+  defp build_formation_tree(agents, upm_formations) do
+    # Build from live agents (AgentRegistry) — real-time data
     formation_groups =
       agents
       |> Enum.filter(&(&1[:formation_id] != nil))
       |> Enum.group_by(& &1[:formation_id])
 
-    Enum.map(formation_groups, fn {formation_id, formation_agents} ->
-      # Group by squadron within formation
-      squadron_groups = Enum.group_by(formation_agents, &(&1[:squadron] || "default"))
+    live_formations =
+      Enum.map(formation_groups, fn {formation_id, formation_agents} ->
+        squadron_groups = Enum.group_by(formation_agents, &(&1[:squadron] || "default"))
 
-      squadrons =
-        Enum.map(squadron_groups, fn {squadron_name, sq_agents} ->
-          %{
-            name: squadron_name,
-            agents: Enum.map(sq_agents, fn a ->
-              %{id: a.id, name: a.name, status: a.status, role: a[:role],
-                story_id: a[:story_id], wave: a[:wave], swarm: a[:swarm], cluster: a[:cluster]}
-            end)
-          }
-        end)
-        |> Enum.sort_by(& &1.name)
+        squadrons =
+          Enum.map(squadron_groups, fn {squadron_name, sq_agents} ->
+            %{
+              name: squadron_name,
+              status: if(Enum.any?(sq_agents, &(&1.status == "error")), do: "error",
+                       else: if(Enum.any?(sq_agents, &(&1.status == "active")), do: "active", else: "idle")),
+              agents: Enum.map(sq_agents, fn a ->
+                %{id: a.id, name: a.name, status: a.status, role: a[:role],
+                  story_id: a[:story_id], wave: a[:wave], swarm: a[:swarm], cluster: a[:cluster]}
+              end)
+            }
+          end)
+          |> Enum.sort_by(& &1.name)
 
-      %{
-        id: formation_id,
-        name: formation_id,
-        agent_count: length(formation_agents),
-        squadrons: squadrons
-      }
-    end)
+        %{
+          id: formation_id,
+          name: formation_id,
+          agent_count: length(formation_agents),
+          squadrons: squadrons,
+          source: :live
+        }
+      end)
+
+    # Merge UpmStore registered formations (completed/historical runs)
+    live_ids = MapSet.new(live_formations, & &1.id)
+
+    upm_only = Enum.filter(upm_formations, &(!MapSet.member?(live_ids, &1.id)))
+
+    upm_trees =
+      Enum.map(upm_only, fn f ->
+        squadrons =
+          (f.squadrons || [])
+          |> Enum.map(fn sq ->
+            agents_list =
+              (sq["agents"] || sq[:agents] || [])
+              |> Enum.map(fn a ->
+                %{id: a["id"] || a[:id] || "?", name: a["id"] || a[:id] || "?",
+                  status: a["status"] || a[:status] || "idle",
+                  story_id: a["story_id"] || a[:story_id], role: a["role"] || a[:role],
+                  wave: nil, swarm: nil, cluster: nil}
+              end)
+
+            sq_status = sq["status"] || sq[:status] || "idle"
+            %{
+              name: sq["name"] || sq[:name] || sq["id"] || sq[:id] || "?",
+              status: sq_status,
+              agents: agents_list
+            }
+          end)
+          |> Enum.sort_by(& &1.name)
+
+        all_sq_statuses = Enum.map(squadrons, & &1.status)
+        formation_status =
+          cond do
+            Enum.all?(all_sq_statuses, &(&1 in ["complete", "pass", "done"])) -> "complete"
+            Enum.any?(all_sq_statuses, &(&1 == "error")) -> "error"
+            Enum.any?(all_sq_statuses, &(&1 in ["active", "running"])) -> "active"
+            true -> f.status || "idle"
+          end
+
+        total_agents = Enum.sum(Enum.map(squadrons, &length(&1.agents)))
+
+        %{
+          id: f.id,
+          name: f.id,
+          agent_count: total_agents,
+          squadrons: squadrons,
+          status: formation_status,
+          registered_at: f.registered_at,
+          source: :upm
+        }
+      end)
+
+    (live_formations ++ upm_trees)
     |> Enum.sort_by(& &1.name)
   end
 
@@ -387,20 +461,24 @@ defmodule ApmV4Web.FormationLive do
     push_event(socket, "formation_data", %{nodes: Enum.reverse(nodes), edges: Enum.reverse(edges)})
   end
 
+  defp formation_status(%{status: status}) when status in ["complete", "pass", "done"], do: "complete"
   defp formation_status(formation) do
     all_agents = Enum.flat_map(formation.squadrons, & &1.agents)
     cond do
       Enum.any?(all_agents, &(&1.status == "error")) -> "error"
       Enum.any?(all_agents, &(&1.status == "active")) -> "active"
-      true -> "idle"
+      Enum.all?(all_agents, &(&1.status in ["pass", "complete", "done"])) and all_agents != [] -> "complete"
+      true -> formation[:status] || "idle"
     end
   end
 
+  defp squadron_status(%{status: status}) when status in ["complete", "pass", "done"], do: "complete"
   defp squadron_status(squadron) do
     cond do
       Enum.any?(squadron.agents, &(&1.status == "error")) -> "error"
       Enum.any?(squadron.agents, &(&1.status == "active")) -> "active"
-      true -> "idle"
+      Enum.all?(squadron.agents, &(&1.status in ["pass", "complete", "done"])) and squadron.agents != [] -> "complete"
+      true -> squadron[:status] || "idle"
     end
   end
 
@@ -412,11 +490,17 @@ defmodule ApmV4Web.FormationLive do
   defp level_badge(_), do: "bg-base-content/20 text-base-content/60"
 
   defp status_badge("active"), do: "badge-success"
+  defp status_badge("complete"), do: "badge-info"
+  defp status_badge("pass"), do: "badge-info"
+  defp status_badge("done"), do: "badge-info"
   defp status_badge("error"), do: "badge-error"
   defp status_badge("idle"), do: "badge-ghost"
   defp status_badge(_), do: "badge-ghost"
 
   defp agent_dot("active"), do: "bg-success"
+  defp agent_dot("complete"), do: "bg-info"
+  defp agent_dot("pass"), do: "bg-info"
+  defp agent_dot("done"), do: "bg-info"
   defp agent_dot("error"), do: "bg-error"
   defp agent_dot("idle"), do: "bg-base-content/30"
   defp agent_dot(_), do: "bg-base-content/20"

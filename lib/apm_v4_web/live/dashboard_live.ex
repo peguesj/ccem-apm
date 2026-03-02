@@ -128,13 +128,17 @@ defmodule ApmV4Web.DashboardLive do
             {length(@projects)} projects · {@active_count} active
           </p>
         </div>
-        <nav class="flex-1 p-2 space-y-1">
+        <nav class="flex-1 p-2 space-y-1 overflow-y-auto">
           <.nav_item icon="hero-squares-2x2" label="Dashboard" active={@active_nav == :dashboard} href="/" />
           <.nav_item icon="hero-globe-alt" label="All Projects" active={@active_nav == :all} href="/apm-all" />
+          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
+          <.nav_item icon="hero-clock" label="Timeline" active={@active_nav == :timeline} href="/timeline" />
+          <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
+          <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
+          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
+          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
           <.nav_item icon="hero-sparkles" label="Skills" active={@active_nav == :skills} href="/skills" badge={@active_skill_count} />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={@active_nav == :ralph} href="/ralph" />
-          <.nav_item icon="hero-clock" label="Timeline" active={@active_nav == :timeline} href="/timeline" />
-          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
           <button
             phx-click="switch_tab"
             phx-value-tab="ports"

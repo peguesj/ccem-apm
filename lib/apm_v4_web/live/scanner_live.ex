@@ -11,7 +11,17 @@ defmodule ApmV4Web.ScannerLive do
       :timer.send_interval(@refresh_interval, self(), :refresh)
     end
 
-    status = ProjectScanner.get_status()
+    status =
+      try do ProjectScanner.get_status()
+      rescue _ -> %{status: :offline, message: "ProjectScanner not running"}
+      catch :exit, _ -> %{status: :offline, message: "ProjectScanner not running"}
+      end
+
+    results =
+      try do ProjectScanner.get_results()
+      rescue _ -> []
+      catch :exit, _ -> []
+      end
 
     {:ok,
      socket
@@ -19,12 +29,16 @@ defmodule ApmV4Web.ScannerLive do
      |> assign(:base_path, "~/Developer")
      |> assign(:scanning, false)
      |> assign(:scanner_status, status)
-     |> assign(:results, ProjectScanner.get_results())}
+     |> assign(:results, results)}
   end
 
   @impl true
   def handle_info(:refresh, socket) do
-    status = ProjectScanner.get_status()
+    status =
+      try do ProjectScanner.get_status()
+      rescue _ -> %{status: :offline, message: "ProjectScanner not running"}
+      catch :exit, _ -> %{status: :offline, message: "ProjectScanner not running"}
+      end
     scanning = status.status == :scanning
 
     socket =
@@ -34,7 +48,8 @@ defmodule ApmV4Web.ScannerLive do
 
     socket =
       if not scanning and socket.assigns.scanning do
-        assign(socket, :results, ProjectScanner.get_results())
+        results = try do ProjectScanner.get_results() rescue _ -> [] catch :exit, _ -> [] end
+        assign(socket, :results, results)
       else
         socket
       end
@@ -44,13 +59,42 @@ defmodule ApmV4Web.ScannerLive do
 
   @impl true
   def handle_event("scan", %{"base_path" => path}, socket) do
-    Task.start(fn -> ProjectScanner.scan(path) end)
+    Task.start(fn ->
+      try do ProjectScanner.scan(path) rescue _ -> :ok catch :exit, _ -> :ok end
+    end)
     {:noreply, socket |> assign(:scanning, true) |> assign(:base_path, path)}
   end
 
   def handle_event("update_path", %{"base_path" => path}, socket) do
     {:noreply, assign(socket, :base_path, path)}
   end
+
+  # --- Components ---
+
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+  attr :active, :boolean, default: false
+  attr :href, :string, required: true
+  attr :badge, :any, default: nil
+
+  defp nav_item(assigns) do
+    ~H"""
+    <a
+      href={@href}
+      class={[
+        "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors",
+        @active && "bg-primary/10 text-primary font-medium",
+        !@active && "text-base-content/60 hover:text-base-content hover:bg-base-300"
+      ]}
+    >
+      <.icon name={@icon} class="size-4" />
+      {@label}
+      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
+    </a>
+    """
+  end
+
+  # --- Helpers ---
 
   defp stack_badge_class("node"), do: "badge-yellow"
   defp stack_badge_class("elixir"), do: "badge-purple"
@@ -84,62 +128,73 @@ defmodule ApmV4Web.ScannerLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-gray-950 text-gray-100">
-      <!-- Sidebar -->
-      <nav class="w-56 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col py-4">
-        <div class="px-4 mb-6">
-          <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">CCEM APM</span>
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <%!-- Sidebar --%>
+      <aside class="w-56 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
+        <div class="p-4 border-b border-base-300">
+          <h1 class="text-lg font-bold text-primary flex items-center gap-2">
+            <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
+            CCEM APM v4
+          </h1>
+          <p class="text-xs text-base-content/50 mt-1">Agent Performance Monitor</p>
         </div>
-        <.link navigate="/" class="sidebar-link"><span>Dashboard</span></.link>
-        <.link navigate="/tasks" class="sidebar-link"><span>Background Tasks</span></.link>
-        <.link navigate="/scanner" class="sidebar-link sidebar-link-active"><span>Project Scanner</span></.link>
-        <.link navigate="/actions" class="sidebar-link"><span>Actions</span></.link>
-        <.link navigate="/formation" class="sidebar-link"><span>Formations</span></.link>
-        <.link navigate="/ports" class="sidebar-link"><span>Ports</span></.link>
-        <.link navigate="/notifications" class="sidebar-link"><span>Notifications</span></.link>
-      </nav>
+        <nav class="flex-1 p-2 space-y-1 overflow-y-auto">
+          <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
+          <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
+          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
+          <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
+          <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
+          <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
+          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={true} href="/scanner" />
+          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
+          <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" />
+          <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
+          <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
+          <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
+        </nav>
+      </aside>
 
-      <!-- Main content -->
+      <%!-- Main content --%>
       <div class="flex-1 flex flex-col overflow-hidden">
-        <!-- Header -->
-        <div class="bg-gray-900 border-b border-gray-800 px-6 py-4">
-          <div class="flex items-center justify-between mb-3">
-            <h1 class="text-lg font-semibold">Project Scanner</h1>
-            <span class="text-xs text-gray-400"><%= scanner_status_text(@scanner_status) %></span>
+        <%!-- Header --%>
+        <header class="bg-base-200 border-b border-base-300 flex-shrink-0">
+          <div class="h-12 flex items-center justify-between px-4">
+            <div class="flex items-center gap-3">
+              <h2 class="text-sm font-semibold text-base-content">Project Scanner</h2>
+              <span class="text-xs text-base-content/40"><%= scanner_status_text(@scanner_status) %></span>
+            </div>
           </div>
-          <form phx-submit="scan" class="flex gap-2">
-            <input
-              type="text"
-              name="base_path"
-              value={@base_path}
-              phx-change="update_path"
-              placeholder="~/Developer"
-              class="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
-            />
-            <button
-              type="submit"
-              disabled={@scanning}
-              class="btn-primary"
-            >
-              <%= if @scanning do %>
-                <span class="animate-pulse">Scanning...</span>
-              <% else %>
-                Scan
-              <% end %>
-            </button>
-          </form>
-        </div>
+          <div class="px-4 pb-3">
+            <form phx-submit="scan" class="flex gap-2">
+              <input
+                type="text"
+                name="base_path"
+                value={@base_path}
+                phx-change="update_path"
+                placeholder="~/Developer"
+                class="input input-bordered input-sm flex-1 bg-base-100 text-sm"
+              />
+              <button type="submit" disabled={@scanning} class="btn btn-primary btn-sm">
+                <%= if @scanning do %>
+                  <span class="animate-pulse">Scanning…</span>
+                <% else %>
+                  Scan
+                <% end %>
+              </button>
+            </form>
+          </div>
+        </header>
 
-        <!-- Results -->
-        <div class="flex-1 overflow-auto p-6">
+        <%!-- Results --%>
+        <div class="flex-1 overflow-auto p-4">
           <%= if @results == [] and not @scanning do %>
-            <div class="text-center text-gray-500 py-12">
+            <div class="text-center text-base-content/40 py-12">
               <p>No results yet. Enter a base path and click Scan.</p>
             </div>
           <% else %>
             <table class="w-full text-sm">
               <thead>
-                <tr class="text-left text-gray-400 border-b border-gray-800">
+                <tr class="text-left text-base-content/50 border-b border-base-300">
                   <th class="pb-3 pr-4">Name</th>
                   <th class="pb-3 pr-4">Stack</th>
                   <th class="pb-3 pr-4">Ports</th>
@@ -151,8 +206,8 @@ defmodule ApmV4Web.ScannerLive do
               </thead>
               <tbody>
                 <%= for project <- @results do %>
-                  <tr class="border-b border-gray-800/50 hover:bg-gray-800/30">
-                    <td class="py-3 pr-4 font-medium"><%= project.name %></td>
+                  <tr class="border-b border-base-300/50 hover:bg-base-200/50">
+                    <td class="py-3 pr-4 font-medium text-base-content"><%= project.name %></td>
                     <td class="py-3 pr-4">
                       <div class="flex flex-wrap gap-1">
                         <%= for lang <- project.stack do %>
@@ -160,23 +215,23 @@ defmodule ApmV4Web.ScannerLive do
                         <% end %>
                       </div>
                     </td>
-                    <td class="py-3 pr-4 text-gray-400">
+                    <td class="py-3 pr-4 text-base-content/60">
                       <%= if project.ports == [] do %>
-                        <span class="text-gray-600">—</span>
+                        <span class="text-base-content/30">—</span>
                       <% else %>
                         <%= Enum.join(project.ports, ", ") %>
                       <% end %>
                     </td>
                     <td class="py-3 pr-4">
                       <%= if project.has_claude_config do %>
-                        <span class="text-green-400">✓</span>
+                        <span class="text-success">✓</span>
                       <% else %>
-                        <span class="text-gray-600">✗</span>
+                        <span class="text-base-content/30">✗</span>
                       <% end %>
                     </td>
-                    <td class="py-3 pr-4 text-gray-400"><%= project.agent_count %></td>
-                    <td class="py-3 pr-4 text-gray-400"><%= project.formation_count %></td>
-                    <td class="py-3 text-xs text-gray-500 font-mono truncate max-w-xs"><%= project.path %></td>
+                    <td class="py-3 pr-4 text-base-content/60"><%= project.agent_count %></td>
+                    <td class="py-3 pr-4 text-base-content/60"><%= project.formation_count %></td>
+                    <td class="py-3 text-xs text-base-content/40 font-mono truncate max-w-xs"><%= project.path %></td>
                   </tr>
                 <% end %>
               </tbody>

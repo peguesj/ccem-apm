@@ -44,7 +44,7 @@ defmodule ApmV4Web.WorkflowLive do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
       <!-- Sidebar -->
-      <div class="w-56 bg-base-100 border-r border-base-300 flex flex-col flex-shrink-0">
+      <div class="w-56 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
         <div class="p-4 border-b border-base-300">
           <div class="flex items-center gap-2">
             <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -76,7 +76,7 @@ defmodule ApmV4Web.WorkflowLive do
       <!-- Main content -->
       <div class="flex-1 flex flex-col overflow-hidden">
         <!-- Header -->
-        <div class="bg-base-100 border-b border-base-300 px-6 py-3">
+        <div class="bg-base-200 border-b border-base-300 px-6 py-3">
           <div class="flex items-center justify-between">
             <div>
               <h1 class="text-lg font-bold"><%= @workflow.title %></h1>
@@ -104,7 +104,7 @@ defmodule ApmV4Web.WorkflowLive do
           </div>
 
           <!-- Right panel -->
-          <div class="w-72 bg-base-100 border-l border-base-300 flex flex-col">
+          <div class="w-72 bg-base-200 border-l border-base-300 flex flex-col">
             <!-- Phase legend -->
             <div class="p-4 border-b border-base-300">
               <h3 class="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-3">Phases</h3>

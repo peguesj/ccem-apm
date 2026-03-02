@@ -48,23 +48,19 @@ defmodule ApmV4Web.NotificationLive do
           </h1>
           <p class="text-xs text-base-content/50 mt-1">Agent Performance Monitor</p>
         </div>
-        <nav class="flex-1 p-2 space-y-1">
-          <a href="/" class="flex items-center gap-3 px-3 py-2 rounded text-sm text-base-content/60 hover:text-base-content hover:bg-base-300">
-            <.icon name="hero-squares-2x2" class="size-4" /> Dashboard
-          </a>
-          <a href="/formation" class="flex items-center gap-3 px-3 py-2 rounded text-sm text-base-content/60 hover:text-base-content hover:bg-base-300">
-            <.icon name="hero-rectangle-group" class="size-4" /> Formations
-          </a>
-          <a href="/notifications" class="flex items-center gap-3 px-3 py-2 rounded text-sm bg-primary/10 text-primary font-medium">
-            <.icon name="hero-bell" class="size-4" /> Notifications
-            <span :if={@tab_counts["all"] > 0} class="badge badge-xs badge-error ml-auto">{@tab_counts["all"]}</span>
-          </a>
-          <a href="/skills" class="flex items-center gap-3 px-3 py-2 rounded text-sm text-base-content/60 hover:text-base-content hover:bg-base-300">
-            <.icon name="hero-sparkles" class="size-4" /> Skills
-          </a>
-          <a href="/docs" class="flex items-center gap-3 px-3 py-2 rounded text-sm text-base-content/60 hover:text-base-content hover:bg-base-300">
-            <.icon name="hero-book-open" class="size-4" /> Docs
-          </a>
+        <nav class="flex-1 p-2 space-y-1 overflow-y-auto">
+          <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
+          <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
+          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
+          <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
+          <.nav_item icon="hero-bell" label="Notifications" active={true} href="/notifications" badge={@tab_counts["all"]} />
+          <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
+          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
+          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
+          <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" />
+          <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
+          <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
+          <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
         </nav>
       </aside>
 
@@ -100,6 +96,30 @@ defmodule ApmV4Web.NotificationLive do
         </div>
       </div>
     </div>
+    """
+  end
+
+  # --- Sidebar nav item ---
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+  attr :active, :boolean, default: false
+  attr :href, :string, required: true
+  attr :badge, :any, default: nil
+
+  defp nav_item(assigns) do
+    ~H"""
+    <a
+      href={@href}
+      class={[
+        "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors",
+        @active && "bg-primary/10 text-primary font-medium",
+        !@active && "text-base-content/60 hover:text-base-content hover:bg-base-300"
+      ]}
+    >
+      <.icon name={@icon} class="size-4" />
+      {@label}
+      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
+    </a>
     """
   end
 

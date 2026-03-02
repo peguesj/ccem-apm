@@ -49,13 +49,17 @@ defmodule ApmV4Web.SessionTimelineLive do
           </h1>
           <p class="text-xs text-base-content/50 mt-1">Session Timeline</p>
         </div>
-        <nav class="flex-1 p-2 space-y-1">
+        <nav class="p-2 space-y-1">
           <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
           <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
+          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
+          <.nav_item icon="hero-clock" label="Timeline" active={true} href="/timeline" />
+          <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
+          <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
+          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
+          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
           <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" badge={@active_skill_count} />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
-          <.nav_item icon="hero-clock" label="Timeline" active={true} href="/timeline" />
-          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
           <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
           <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
         </nav>

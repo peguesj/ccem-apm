@@ -38,12 +38,12 @@ defmodule ApmV4Web.TasksLive do
   end
 
   def handle_event("stop_task", %{"id" => id}, socket) do
-    BackgroundTasksStore.stop_task(id)
+    try do BackgroundTasksStore.stop_task(id) catch :exit, _ -> :ok end
     {:noreply, load_tasks(socket)}
   end
 
   def handle_event("delete_task", %{"id" => id}, socket) do
-    BackgroundTasksStore.delete_task(id)
+    try do BackgroundTasksStore.delete_task(id) catch :exit, _ -> :ok end
     {:noreply, load_tasks(socket)}
   end
 
@@ -51,7 +51,14 @@ defmodule ApmV4Web.TasksLive do
     filter = socket.assigns[:filter] || "all"
 
     filter_map = if filter == "all", do: %{}, else: %{status: filter}
-    tasks = BackgroundTasksStore.list_tasks(filter_map)
+    tasks =
+      try do
+        BackgroundTasksStore.list_tasks(filter_map)
+      rescue
+        _ -> []
+      catch
+        :exit, _ -> []
+      end
 
     assign(socket, :tasks, tasks)
   end
@@ -66,6 +73,33 @@ defmodule ApmV4Web.TasksLive do
         end
     end
   end
+
+  # --- Components ---
+
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+  attr :active, :boolean, default: false
+  attr :href, :string, required: true
+  attr :badge, :any, default: nil
+
+  defp nav_item(assigns) do
+    ~H"""
+    <a
+      href={@href}
+      class={[
+        "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors",
+        @active && "bg-primary/10 text-primary font-medium",
+        !@active && "text-base-content/60 hover:text-base-content hover:bg-base-300"
+      ]}
+    >
+      <.icon name={@icon} class="size-4" />
+      {@label}
+      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
+    </a>
+    """
+  end
+
+  # --- Helpers ---
 
   defp status_badge_class("running"), do: "badge badge-blue"
   defp status_badge_class("completed"), do: "badge badge-green"
@@ -86,47 +120,55 @@ defmodule ApmV4Web.TasksLive do
     assigns = assign(assigns, :selected_task, selected_task(assigns))
 
     ~H"""
-    <div class="flex h-screen bg-gray-950 text-gray-100">
-      <!-- Sidebar -->
-      <nav class="w-56 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col py-4">
-        <div class="px-4 mb-6">
-          <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">CCEM APM</span>
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <%!-- Sidebar --%>
+      <aside class="w-56 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
+        <div class="p-4 border-b border-base-300">
+          <h1 class="text-lg font-bold text-primary flex items-center gap-2">
+            <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
+            CCEM APM v4
+          </h1>
+          <p class="text-xs text-base-content/50 mt-1">Agent Performance Monitor</p>
         </div>
-        <.link navigate="/" class="sidebar-link"><span>Dashboard</span></.link>
-        <.link navigate="/tasks" class="sidebar-link sidebar-link-active"><span>Background Tasks</span></.link>
-        <.link navigate="/scanner" class="sidebar-link"><span>Project Scanner</span></.link>
-        <.link navigate="/actions" class="sidebar-link"><span>Actions</span></.link>
-        <.link navigate="/formation" class="sidebar-link"><span>Formations</span></.link>
-        <.link navigate="/ports" class="sidebar-link"><span>Ports</span></.link>
-        <.link navigate="/notifications" class="sidebar-link"><span>Notifications</span></.link>
-      </nav>
+        <nav class="flex-1 p-2 space-y-1 overflow-y-auto">
+          <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
+          <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
+          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
+          <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
+          <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
+          <.nav_item icon="hero-queue-list" label="Background Tasks" active={true} href="/tasks" />
+          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
+          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
+          <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" />
+          <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
+          <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
+          <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
+        </nav>
+      </aside>
 
-      <!-- Main content -->
+      <%!-- Main content --%>
       <div class="flex-1 flex flex-col overflow-hidden">
-        <!-- Header -->
-        <div class="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+        <%!-- Header --%>
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
           <div class="flex items-center gap-3">
-            <h1 class="text-lg font-semibold">Background Tasks</h1>
-            <span class="badge badge-gray"><%= length(@tasks) %> tasks</span>
+            <h2 class="text-sm font-semibold text-base-content">Background Tasks</h2>
+            <div class="badge badge-sm badge-ghost"><%= length(@tasks) %> tasks</div>
           </div>
-          <div class="flex gap-2">
-            <%= for status <- ["all", "running", "completed", "failed", "stopped"] do %>
-              <button
-                phx-click="filter"
-                phx-value-status={status}
-                class={"filter-btn #{if @filter == status, do: "filter-btn-active", else: ""}"}
-              >
-                <%= String.capitalize(status) %>
-              </button>
-            <% end %>
+          <div class="flex gap-1">
+            <button :for={status <- ["all", "running", "completed", "failed", "stopped"]}
+              phx-click="filter"
+              phx-value-status={status}
+              class={["btn btn-xs", if(@filter == status, do: "btn-primary", else: "btn-ghost")]}>
+              <%= String.capitalize(status) %>
+            </button>
           </div>
-        </div>
+        </header>
 
-        <!-- Table -->
-        <div class="flex-1 overflow-auto p-6">
+        <%!-- Table --%>
+        <div class="flex-1 overflow-auto p-4">
           <table class="w-full text-sm">
             <thead>
-              <tr class="text-left text-gray-400 border-b border-gray-800">
+              <tr class="text-left text-base-content/50 border-b border-base-300">
                 <th class="pb-3 pr-4">Name</th>
                 <th class="pb-3 pr-4">Definition</th>
                 <th class="pb-3 pr-4">Status</th>
@@ -139,31 +181,31 @@ defmodule ApmV4Web.TasksLive do
             <tbody>
               <%= if @tasks == [] do %>
                 <tr>
-                  <td colspan="7" class="py-8 text-center text-gray-500">No tasks found</td>
+                  <td colspan="7" class="py-8 text-center text-base-content/40">No tasks found</td>
                 </tr>
               <% else %>
                 <%= for task <- @tasks do %>
-                  <tr class="border-b border-gray-800/50 hover:bg-gray-800/30">
-                    <td class="py-3 pr-4 font-medium"><%= task.name %></td>
-                    <td class="py-3 pr-4 text-gray-400 max-w-xs truncate"><%= task.definition %></td>
+                  <tr class="border-b border-base-300/50 hover:bg-base-200/50">
+                    <td class="py-3 pr-4 font-medium text-base-content"><%= task.name %></td>
+                    <td class="py-3 pr-4 text-base-content/60 max-w-xs truncate"><%= task.definition %></td>
                     <td class="py-3 pr-4">
                       <span class={status_badge_class(task.status)}><%= task.status %></span>
                     </td>
-                    <td class="py-3 pr-4 text-gray-400"><%= format_runtime(task.runtime_seconds) %></td>
-                    <td class="py-3 pr-4 text-gray-400"><%= task.project %></td>
-                    <td class="py-3 pr-4 text-gray-400 max-w-xs truncate"><%= task.invoking_process %></td>
+                    <td class="py-3 pr-4 text-base-content/60"><%= format_runtime(task.runtime_seconds) %></td>
+                    <td class="py-3 pr-4 text-base-content/60"><%= task.project %></td>
+                    <td class="py-3 pr-4 text-base-content/60 max-w-xs truncate"><%= task.invoking_process %></td>
                     <td class="py-3">
                       <div class="flex gap-2">
-                        <button phx-click="view_logs" phx-value-id={task.id} class="btn-xs">
+                        <button phx-click="view_logs" phx-value-id={task.id} class="btn btn-ghost btn-xs">
                           Logs
                         </button>
                         <%= if task.status == "running" do %>
-                          <button phx-click="stop_task" phx-value-id={task.id} class="btn-xs btn-red">
+                          <button phx-click="stop_task" phx-value-id={task.id} class="btn btn-error btn-xs">
                             Stop
                           </button>
                         <% end %>
                         <%= if task.status in ["completed", "failed", "stopped"] do %>
-                          <button phx-click="delete_task" phx-value-id={task.id} class="btn-xs btn-ghost">
+                          <button phx-click="delete_task" phx-value-id={task.id} class="btn btn-ghost btn-xs">
                             Delete
                           </button>
                         <% end %>
@@ -178,17 +220,19 @@ defmodule ApmV4Web.TasksLive do
       </div>
     </div>
 
-    <!-- Logs Modal -->
+    <%!-- Logs Modal --%>
     <%= if @selected_task do %>
       <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" phx-click="close_logs">
-        <div class="bg-gray-900 rounded-lg border border-gray-700 w-3/4 max-h-3/4 flex flex-col" phx-click-stop>
-          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-700">
-            <h3 class="font-medium"><%= @selected_task.name %> — Logs</h3>
-            <button phx-click="close_logs" class="text-gray-400 hover:text-gray-100">✕</button>
+        <div class="bg-base-200 rounded-xl border border-base-300 w-3/4 max-h-3/4 flex flex-col" phx-click-stop>
+          <div class="flex items-center justify-between px-4 py-3 border-b border-base-300">
+            <h3 class="text-sm font-semibold text-base-content"><%= @selected_task.name %> — Logs</h3>
+            <button phx-click="close_logs" class="btn btn-ghost btn-xs btn-circle">
+              <.icon name="hero-x-mark" class="size-3" />
+            </button>
           </div>
-          <div class="p-4 overflow-auto font-mono text-xs text-green-400 bg-black/30 max-h-96">
+          <div class="p-4 overflow-auto font-mono text-xs text-success bg-base-300/50 max-h-96">
             <%= if @selected_task.logs == [] do %>
-              <p class="text-gray-500">No log entries</p>
+              <p class="text-base-content/40">No log entries</p>
             <% else %>
               <%= for line <- @selected_task.logs do %>
                 <div><%= line %></div>
