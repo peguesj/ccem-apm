@@ -41,6 +41,7 @@ defmodule ApmV4Web.Router do
     live "/tasks", TasksLive, :index
     live "/scanner", ScannerLive, :index
     live "/actions", ActionsLive, :index
+    live "/backfill", BackfillLive, :index
   end
 
   # v3-compatible health check (outside /api scope)
