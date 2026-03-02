@@ -866,16 +866,50 @@ defmodule ApmV4Web.ApiController do
     end
   end
 
-  def get_bg_task_logs(conn, %{"id" => id}) do
-    case ApmV4.BackgroundTasksStore.get_task(id) do
-      {:ok, task} -> json(conn, %{logs: task.logs})
+  def get_bg_task_logs(conn, %{"id" => id} = params) do
+    lines = params["lines"] |> then(fn v -> if is_binary(v), do: String.to_integer(v), else: 50 end)
+
+    case ApmV4.BackgroundTasksStore.get_task_logs(id, lines) do
+      {:ok, log_lines} ->
+        log_path =
+          case ApmV4.BackgroundTasksStore.get_task(id) do
+            {:ok, task} -> Map.get(task, :log_path)
+            _ -> nil
+          end
+
+        json(conn, %{lines: log_lines, log_path: log_path, count: length(log_lines)})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "not found"})
+
+      {:error, reason} ->
+        conn |> put_status(500) |> json(%{error: "cannot read log: #{reason}"})
+    end
+  end
+
+  def update_bg_task(conn, %{"id" => id} = params) do
+    allowed = ~w(agent_name agent_definition invoking_process log_path runtime_ms status)
+    attrs = Map.take(params, allowed)
+
+    case ApmV4.BackgroundTasksStore.update_task(id, attrs) do
+      :ok -> json(conn, %{ok: true})
       {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "not found"})
     end
   end
 
   def stop_bg_task(conn, %{"id" => id}) do
-    ApmV4.BackgroundTasksStore.stop_task(id)
-    json(conn, %{ok: true})
+    case ApmV4.BackgroundTasksStore.get_task(id) do
+      {:ok, task} ->
+        if task.os_pid do
+          System.cmd("kill", ["-TERM", to_string(task.os_pid)], stderr_to_stdout: true)
+        end
+
+        ApmV4.BackgroundTasksStore.update_task(id, %{"status" => "stopping"})
+        json(conn, %{status: "stopping"})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "not found"})
+    end
   end
 
   def delete_bg_task(conn, %{"id" => id}) do

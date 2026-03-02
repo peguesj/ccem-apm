@@ -93,6 +93,12 @@ defmodule ApmV4Web.Router do
     get "/skills", ApiController, :skills
     post "/skills/track", ApiController, :track_skill
 
+    # Skills registry (US-004)
+    get "/skills/registry", SkillsController, :registry
+    post "/skills/audit", SkillsController, :audit
+    get "/skills/:name/health", SkillsController, :health
+    get "/skills/:name", SkillsController, :show
+
     # v4-only endpoints
     get "/projects", ApiController, :projects
     patch "/projects", ApiController, :update_project
@@ -127,13 +133,23 @@ defmodule ApmV4Web.Router do
     # Hook deployment
     post "/hooks/deploy", ApiController, :deploy_hooks
 
-    # Background tasks
+    # Background tasks (US-005 enhanced)
     get "/bg-tasks", ApiController, :list_bg_tasks
     post "/bg-tasks", ApiController, :register_bg_task
     get "/bg-tasks/:id", ApiController, :get_bg_task
     get "/bg-tasks/:id/logs", ApiController, :get_bg_task_logs
+    patch "/bg-tasks/:id", ApiController, :update_bg_task
     post "/bg-tasks/:id/stop", ApiController, :stop_bg_task
     delete "/bg-tasks/:id", ApiController, :delete_bg_task
+
+    # Background tasks — /tasks alias (acceptance criteria uses /tasks/:id)
+    get "/tasks", ApiController, :list_bg_tasks
+    post "/tasks", ApiController, :register_bg_task
+    get "/tasks/:id", ApiController, :get_bg_task
+    get "/tasks/:id/logs", ApiController, :get_bg_task_logs
+    patch "/tasks/:id", ApiController, :update_bg_task
+    post "/tasks/:id/stop", ApiController, :stop_bg_task
+    delete "/tasks/:id", ApiController, :delete_bg_task
 
     # Project scanner
     post "/scanner/scan", ApiController, :scanner_scan
