@@ -36,6 +36,10 @@ defmodule ApmV4.Application do
       ApmV4.BackgroundTasksStore,
       ApmV4.ProjectScanner,
       ApmV4.ActionEngine,
+      ApmV4.AnalyticsStore,
+      ApmV4.HealthCheckRunner,
+      ApmV4.ConversationWatcher,
+      ApmV4.PluginScanner,
       # Start to serve requests, typically the last entry
       ApmV4Web.Endpoint
     ]
