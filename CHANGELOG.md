@@ -1,5 +1,25 @@
 # Changelog
 
+## v4.2.0 (2026-03-02)
+
+Dynamic APM + Claude-native feature expansion.
+
+### Added
+- **SkillsRegistryStore**: GenServer scanning `~/.claude/skills/*/SKILL.md` with ETS cache; health score algorithm (frontmatter 30%, description quality 25%, trigger keywords 20%, examples 15%, template 10%); 10-minute refresh cycle
+- **Skills Registry REST API**: `GET /api/skills/registry`, `GET /api/skills/:name`, `GET /api/skills/:name/health`, `POST /api/skills/audit` via new `SkillsController`
+- **SkillsLive Registry tab**: three-tier health dashboard (healthy/needs_attention/critical) with detail panel, health breakdown bars, Audit All + per-skill Fix buttons; nav icon → beaker
+- **ActionEngine skill-audit actions**: `fix_skill_frontmatter`, `complete_skill_description`, `add_skill_triggers`, `backfill_project_memory`, `update_hooks` — read/write SKILL.md frontmatter, extend descriptions, backfill CLAUDE.md APM memory section, add APM PreToolUse hook
+- **BackgroundTasksStore enhanced**: new fields `agent_name`, `agent_definition`, `invoking_process`, `log_path`, `runtime_ms`, `os_pid`; `get_task_logs/2` reads from log_path; `update_task/2` broadcasts PubSub `tasks:updated`
+- **Enhanced BackgroundTasks API**: `GET /api/tasks/:id/logs`, `POST /api/tasks/:id/stop`, `PATCH /api/tasks/:id` (update metadata), plus `/tasks/*` route aliases for all bg-tasks endpoints
+- **ProjectScanner Claude-native scan**: `scan_claude_native/1` returns hooks, MCPs, active listening ports (lsof), CLAUDE.md section names, UPM/formation presence detection
+- **CCEMAgent UI (v4.2.0)**: background tasks section showing agent_name + formatted runtime_ms; server version in connected header; "last 24h" telemetry window; consistent section headers with icons; "Last sync:" UPM label; `BackgroundTask` model + `fetchBackgroundTasks()` APMClient method
+
+### Architecture
+- SkillsRegistryStore added to OTP supervision tree
+- BackgroundTasksStore PubSub integration on task updates
+- SkillsController added as dedicated controller (not api_controller)
+- ActionEngine: `update_hooks` catalog entry renamed `deploy_apm_hooks` to accommodate new skill-audit variant
+
 ## v4.0.0 (2026-02-25)
 
 Formation UX integration — full Wave 3 delivery.
