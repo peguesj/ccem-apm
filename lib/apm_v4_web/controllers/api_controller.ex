@@ -866,16 +866,50 @@ defmodule ApmV4Web.ApiController do
     end
   end
 
-  def get_bg_task_logs(conn, %{"id" => id}) do
-    case ApmV4.BackgroundTasksStore.get_task(id) do
-      {:ok, task} -> json(conn, %{logs: task.logs})
+  def get_bg_task_logs(conn, %{"id" => id} = params) do
+    lines = params["lines"] |> then(fn v -> if is_binary(v), do: String.to_integer(v), else: 50 end)
+
+    case ApmV4.BackgroundTasksStore.get_task_logs(id, lines) do
+      {:ok, log_lines} ->
+        log_path =
+          case ApmV4.BackgroundTasksStore.get_task(id) do
+            {:ok, task} -> Map.get(task, :log_path)
+            _ -> nil
+          end
+
+        json(conn, %{lines: log_lines, log_path: log_path, count: length(log_lines)})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "not found"})
+
+      {:error, reason} ->
+        conn |> put_status(500) |> json(%{error: "cannot read log: #{reason}"})
+    end
+  end
+
+  def update_bg_task(conn, %{"id" => id} = params) do
+    allowed = ~w(agent_name agent_definition invoking_process log_path runtime_ms status)
+    attrs = Map.take(params, allowed)
+
+    case ApmV4.BackgroundTasksStore.update_task(id, attrs) do
+      :ok -> json(conn, %{ok: true})
       {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "not found"})
     end
   end
 
   def stop_bg_task(conn, %{"id" => id}) do
-    ApmV4.BackgroundTasksStore.stop_task(id)
-    json(conn, %{ok: true})
+    case ApmV4.BackgroundTasksStore.get_task(id) do
+      {:ok, task} ->
+        if task.os_pid do
+          System.cmd("kill", ["-TERM", to_string(task.os_pid)], stderr_to_stdout: true)
+        end
+
+        ApmV4.BackgroundTasksStore.update_task(id, %{"status" => "stopping"})
+        json(conn, %{status: "stopping"})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "not found"})
+    end
   end
 
   def delete_bg_task(conn, %{"id" => id}) do
@@ -931,6 +965,60 @@ defmodule ApmV4Web.ApiController do
       {:ok, run} -> json(conn, %{run: run})
       {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "not found"})
     end
+  end
+
+  # ============================
+  # Intake Endpoints
+  # ============================
+
+  @doc "POST /api/intake -- submit an intake event"
+  def intake_submit(conn, params) do
+    case ApmV4.Intake.Store.submit(params) do
+      {:ok, event} ->
+        json(conn, %{ok: true, id: event.id, received_at: DateTime.to_iso8601(event.received_at)})
+      {:error, reason} ->
+        conn
+        |> put_status(503)
+        |> json(%{ok: false, error: to_string(reason)})
+    end
+  end
+
+  @doc "GET /api/intake -- list intake events with optional filters"
+  def intake_list(conn, params) do
+    opts =
+      [
+        source: params["source"],
+        event_type: params["event_type"],
+        limit: parse_limit(params["limit"], 50)
+      ]
+      |> Enum.reject(fn {_, v} -> is_nil(v) end)
+
+    events = ApmV4.Intake.Store.list(opts)
+    json(conn, %{ok: true, events: Enum.map(events, &intake_event_json/1), count: length(events)})
+  end
+
+  @doc "GET /api/intake/watchers -- list registered intake watchers"
+  def intake_watchers(conn, _params) do
+    watchers = ApmV4.Intake.Store.watchers()
+    json(conn, %{
+      ok: true,
+      watchers: Enum.map(watchers, fn m ->
+        %{name: m.name(), event_types: m.event_types(), sources: m.sources(), enabled: m.enabled?()}
+      end)
+    })
+  end
+
+  defp intake_event_json(event) do
+    %{
+      id: event.id,
+      source: event.source,
+      event_type: event.event_type,
+      severity: event.severity,
+      project: event.project,
+      environment: event.environment,
+      payload: event.payload,
+      received_at: DateTime.to_iso8601(event.received_at)
+    }
   end
 
   # --- Agent Telemetry (time-bucketed, last hour) ---

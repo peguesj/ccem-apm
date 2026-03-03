@@ -37,6 +37,53 @@ defmodule ApmV4.ProjectScanner do
     GenServer.call(__MODULE__, :get_status)
   end
 
+  @doc "Returns Claude Code native configuration for a given project path."
+  @spec scan_claude_native(String.t()) :: map()
+  def scan_claude_native(path) do
+    settings_path = Path.join(path, ".claude/settings.json")
+
+    settings =
+      case File.read(settings_path) do
+        {:ok, raw} ->
+          case Jason.decode(raw) do
+            {:ok, parsed} -> parsed
+            _ -> %{}
+          end
+
+        _ ->
+          %{}
+      end
+
+    claude_md_path = Path.join(path, ".claude/CLAUDE.md")
+
+    {md_sections, has_upm, has_formation_md} =
+      case File.read(claude_md_path) do
+        {:ok, content} ->
+          sections =
+            content
+            |> String.split("\n")
+            |> Enum.filter(&String.starts_with?(&1, "## "))
+            |> Enum.map(&String.trim_leading(&1, "## "))
+
+          {sections, String.contains?(content, "upm") or String.contains?(content, "/upm"),
+           String.contains?(content, "formation") or String.contains?(content, "Formation")}
+
+        _ ->
+          {[], false, false}
+      end
+
+    has_worktrees = File.dir?(Path.join(path, ".worktrees"))
+
+    %{
+      claude_hooks: extract_hooks(settings),
+      mcps_installed: extract_mcps(settings),
+      active_ports: list_active_ports(),
+      claude_md_sections: md_sections,
+      has_upm: has_upm,
+      has_formation: has_formation_md or has_worktrees
+    }
+  end
+
   # --- GenServer callbacks ---
 
   @impl true
@@ -193,4 +240,46 @@ defmodule ApmV4.ProjectScanner do
 
   defp resolve_path("~/" <> rest), do: Path.join(System.user_home!(), rest)
   defp resolve_path(path), do: path
+
+  defp extract_hooks(settings) do
+    case Map.get(settings, "hooks") do
+      hooks when is_map(hooks) -> Map.keys(hooks)
+      _ -> []
+    end
+  end
+
+  defp extract_mcps(settings) do
+    case Map.get(settings, "mcpServers") do
+      mcps when is_map(mcps) -> Map.keys(mcps)
+      _ -> []
+    end
+  end
+
+  defp list_active_ports do
+    case System.cmd("lsof", ["-iTCP", "-n", "-P", "-sTCP:LISTEN"], stderr_to_stdout: false) do
+      {output, 0} ->
+        output
+        |> String.split("\n")
+        |> Enum.drop(1)
+        |> Enum.flat_map(fn line ->
+          parts = String.split(line, ~r/\s+/)
+
+          case Enum.at(parts, 4) do
+            nil ->
+              []
+
+            addr ->
+              case Regex.run(~r/:(\d+)$/, addr) do
+                [_, port] -> [%{port: String.to_integer(port), process: Enum.at(parts, 0, "")}]
+                _ -> []
+              end
+          end
+        end)
+        |> Enum.uniq_by(& &1.port)
+        |> Enum.sort_by(& &1.port)
+
+      _ ->
+        []
+    end
+  end
 end

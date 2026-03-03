@@ -8,6 +8,8 @@ defmodule ApmV4.Application do
   @impl true
   def start(_type, _args) do
     Application.put_env(:apm_v4, :server_start_time, System.monotonic_time(:second))
+    :inets.start()
+    :ssl.start()
 
     children = [
       ApmV4Web.Telemetry,
@@ -36,6 +38,13 @@ defmodule ApmV4.Application do
       ApmV4.BackgroundTasksStore,
       ApmV4.ProjectScanner,
       ApmV4.ActionEngine,
+      ApmV4.AnalyticsStore,
+      ApmV4.HealthCheckRunner,
+      ApmV4.ConversationWatcher,
+      ApmV4.PluginScanner,
+      ApmV4.BackfillStore,
+      ApmV4.SkillsRegistryStore,
+      {ApmV4.Intake.Store, []},
       # Start to serve requests, typically the last entry
       ApmV4Web.Endpoint
     ]

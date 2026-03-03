@@ -1,7 +1,8 @@
 defmodule ApmV4.BackgroundTasksStore do
   @moduledoc """
   GenServer tracking Claude Code background processes, tasks, and agents.
-  Stores name, definition, invoking_process, project, status, pid, logs, runtime_seconds.
+  Stores agent_name, agent_definition, invoking_process, log_path, runtime_ms, status, pid, logs.
+  Broadcasts `{:task_updated, task}` on "tasks:updated" PubSub topic on every update.
   """
   use GenServer
 
@@ -41,6 +42,28 @@ defmodule ApmV4.BackgroundTasksStore do
     GenServer.cast(__MODULE__, {:delete_task, id})
   end
 
+  @doc "Returns the last `lines` lines from the task's log_path file, or [] if unset."
+  @spec get_task_logs(String.t(), non_neg_integer()) :: {:ok, [String.t()]} | {:error, atom()}
+  def get_task_logs(id, lines \\ 50) do
+    case get_task(id) do
+      {:ok, %{log_path: log_path}} when is_binary(log_path) and log_path != "" ->
+        case File.read(log_path) do
+          {:ok, content} ->
+            tail = content |> String.split("\n") |> Enum.take(-lines)
+            {:ok, tail}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      {:ok, _task} ->
+        {:ok, []}
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
   # --- GenServer callbacks ---
 
   @impl true
@@ -51,19 +74,24 @@ defmodule ApmV4.BackgroundTasksStore do
   @impl true
   def handle_call({:register_task, attrs}, _from, state) do
     id = Map.get(attrs, "id") || ApmV4.Correlation.generate()
+
     task = %{
       id: id,
       name: Map.get(attrs, "name", "unnamed"),
-      definition: Map.get(attrs, "definition", ""),
+      agent_name: Map.get(attrs, "agent_name", Map.get(attrs, "name", "")),
+      agent_definition: Map.get(attrs, "agent_definition", Map.get(attrs, "definition", "")),
       invoking_process: Map.get(attrs, "invoking_process", ""),
+      log_path: Map.get(attrs, "log_path"),
+      runtime_ms: Map.get(attrs, "runtime_ms", 0),
       project: Map.get(attrs, "project", ""),
       status: Map.get(attrs, "status", "running"),
       pid: Map.get(attrs, "pid"),
+      os_pid: Map.get(attrs, "os_pid"),
       logs: [],
-      runtime_seconds: 0,
       started_at: DateTime.utc_now() |> DateTime.to_iso8601(),
       completed_at: nil
     }
+
     new_state = put_in(state, [:tasks, id], task)
     {:reply, {:ok, task}, new_state}
   end
@@ -75,13 +103,16 @@ defmodule ApmV4.BackgroundTasksStore do
 
       task ->
         updated = Map.merge(task, atomize_keys(attrs))
+
         updated =
           if Map.get(attrs, "status") in ["completed", "failed", "stopped"] && is_nil(updated.completed_at) do
             Map.put(updated, :completed_at, DateTime.utc_now() |> DateTime.to_iso8601())
           else
             updated
           end
+
         new_state = put_in(state, [:tasks, id], updated)
+        Phoenix.PubSub.broadcast(ApmV4.PubSub, "tasks:updated", {:task_updated, updated})
         {:reply, :ok, new_state}
     end
   end

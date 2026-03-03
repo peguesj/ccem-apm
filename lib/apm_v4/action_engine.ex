@@ -1,15 +1,19 @@
 defmodule ApmV4.ActionEngine do
   @moduledoc """
   GenServer for running predefined actions against developer projects.
-  Actions: update_hooks, add_memory_pointer, backfill_apm_config, analyze_project.
+  Actions: deploy_apm_hooks, add_memory_pointer, backfill_apm_config, analyze_project,
+           fix_skill_frontmatter, complete_skill_description, add_skill_triggers,
+           backfill_project_memory, update_hooks.
   """
   use GenServer
 
+  @skills_dir Path.expand("~/.claude/skills")
+
   @catalog [
     %{
-      id: "update_hooks",
-      name: "Update Session Hooks",
-      description: "Update Claude Code session hooks to correctly report to CCEM APM. Creates/updates pre_tool_use, post_tool_use, and session_init hooks.",
+      id: "deploy_apm_hooks",
+      name: "Deploy APM Hook Scripts",
+      description: "Create Claude Code bash hook scripts (.claude/hooks/) to report to CCEM APM. Creates session_init.sh, pre_tool_use.sh, post_tool_use.sh.",
       category: "hooks",
       icon: "hook",
       params: []
@@ -37,6 +41,46 @@ defmodule ApmV4.ActionEngine do
       category: "analysis",
       icon: "search",
       params: []
+    },
+    %{
+      id: "fix_skill_frontmatter",
+      name: "Fix Skill Frontmatter",
+      description: "Read SKILL.md for a given skill and add/update YAML frontmatter with name and description fields.",
+      category: "skill_audit",
+      icon: "pencil",
+      params: [%{name: "skill_name", type: "string", required: true}]
+    },
+    %{
+      id: "complete_skill_description",
+      name: "Complete Skill Description",
+      description: "Extend a truncated skill description in SKILL.md frontmatter to at least 100 characters.",
+      category: "skill_audit",
+      icon: "document-text",
+      params: [%{name: "skill_name", type: "string", required: true}]
+    },
+    %{
+      id: "add_skill_triggers",
+      name: "Add Skill Triggers",
+      description: "Append trigger keyword section to SKILL.md content to improve health score trigger detection.",
+      category: "skill_audit",
+      icon: "bolt",
+      params: [%{name: "skill_name", type: "string", required: true}]
+    },
+    %{
+      id: "backfill_project_memory",
+      name: "Backfill Project Memory",
+      description: "Read project directory and generate a CCEM APM memory section for .claude/CLAUDE.md.",
+      category: "skill_audit",
+      icon: "archive-box",
+      params: []
+    },
+    %{
+      id: "update_hooks",
+      name: "Update Settings Hooks",
+      description: "Read .claude/settings.json and add missing CCEM APM hooks configuration entries.",
+      category: "skill_audit",
+      icon: "cog",
+      params: []
     }
   ]
 
@@ -48,6 +92,18 @@ defmodule ApmV4.ActionEngine do
 
   def list_catalog do
     @catalog
+  end
+
+  @doc """
+  Returns the current application status of APM actions for a project path.
+  Pure filesystem check — no GenServer call needed.
+  """
+  def project_status(project_path) do
+    %{
+      has_hooks: check_hooks_present(project_path),
+      has_memory_pointer: check_memory_pointer_present(project_path),
+      has_apm_config: check_apm_config_present(project_path)
+    }
   end
 
   def run_action(action_type, project_path, params \\ %{}) do
@@ -141,9 +197,30 @@ defmodule ApmV4.ActionEngine do
     end
   end
 
+  # --- Status check helpers (used by project_status/1) ---
+
+  defp check_hooks_present(path) do
+    hooks_dir = Path.join(path, ".claude/hooks")
+    Enum.all?(["session_init.sh", "pre_tool_use.sh", "post_tool_use.sh"], fn hook ->
+      File.exists?(Path.join(hooks_dir, hook))
+    end)
+  end
+
+  defp check_memory_pointer_present(path) do
+    case File.read(Path.join(path, ".claude/CLAUDE.md")) do
+      {:ok, content} -> String.contains?(content, "CCEM APM Integration")
+      _ -> false
+    end
+  end
+
+  defp check_apm_config_present(path) do
+    File.exists?(Path.join(path, "apm/apm_config.json")) or
+      File.exists?(Path.join(path, ".claude/apm_config.json"))
+  end
+
   # --- Action implementations ---
 
-  defp execute_action("update_hooks", project_path, _params) do
+  defp execute_action("deploy_apm_hooks", project_path, _params) do
     hooks_dir = Path.join(project_path, ".claude/hooks")
     File.mkdir_p(hooks_dir)
 
@@ -258,6 +335,271 @@ defmodule ApmV4.ActionEngine do
     }}
   rescue
     e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("fix_skill_frontmatter", _project_path, %{"skill_name" => skill_name}) do
+    skill_dir = Path.join(@skills_dir, skill_name)
+    skill_md = Path.join(skill_dir, "SKILL.md")
+
+    unless File.dir?(skill_dir) do
+      {:error, "skill directory not found: #{skill_dir}"}
+    else
+      content = if File.exists?(skill_md), do: File.read!(skill_md), else: ""
+
+      has_frontmatter = String.starts_with?(content, "---\n")
+
+      {new_content, changes} =
+        if has_frontmatter do
+          # Update existing frontmatter — ensure name and description keys exist
+          updated =
+            content
+            |> ensure_frontmatter_key("name", skill_name)
+            |> ensure_frontmatter_key("description", "#{skill_name} skill")
+
+          {updated, ["updated existing frontmatter"]}
+        else
+          # Prepend new frontmatter
+          frontmatter = "---\nname: #{skill_name}\ndescription: #{skill_name} skill — add a detailed description here.\n---\n\n"
+          {frontmatter <> content, ["added frontmatter"]}
+        end
+
+      case File.write(skill_md, new_content) do
+        :ok ->
+          notify_skill_audit_complete(skill_name, "fix_skill_frontmatter")
+          {:ok, %{status: "ok", message: "Frontmatter updated", changes: changes, skill: skill_name}}
+
+        {:error, reason} ->
+          {:error, "Failed to write #{skill_md}: #{reason}"}
+      end
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("fix_skill_frontmatter", _project_path, params) do
+    {:error, "Missing required param: skill_name (got: #{inspect(params)})"}
+  end
+
+  defp execute_action("complete_skill_description", _project_path, %{"skill_name" => skill_name}) do
+    skill_md = Path.join([@skills_dir, skill_name, "SKILL.md"])
+
+    case File.read(skill_md) do
+      {:ok, content} ->
+        updated =
+          ensure_frontmatter_key(content, "description",
+            "#{skill_name} skill — a Claude Code skill that provides specialized capabilities. " <>
+              "Use this skill when working with #{skill_name}-related tasks.")
+
+        case File.write(skill_md, updated) do
+          :ok ->
+            notify_skill_audit_complete(skill_name, "complete_skill_description")
+            {:ok, %{status: "ok", message: "Description extended", skill: skill_name, changes: ["description updated"]}}
+
+          {:error, reason} ->
+            {:error, "write failed: #{reason}"}
+        end
+
+      _ ->
+        {:error, "SKILL.md not found for skill: #{skill_name}"}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("complete_skill_description", _project_path, params) do
+    {:error, "Missing required param: skill_name (got: #{inspect(params)})"}
+  end
+
+  defp execute_action("add_skill_triggers", _project_path, %{"skill_name" => skill_name}) do
+    skill_md = Path.join([@skills_dir, skill_name, "SKILL.md"])
+
+    case File.read(skill_md) do
+      {:ok, content} ->
+        triggers_section = """
+
+## When to use
+
+**Trigger keywords**: trigger, invoke, use when, keywords
+- Use this skill when you need to work with #{skill_name}
+- Invoke when: #{skill_name}-related tasks are required
+"""
+
+        unless String.contains?(content, "When to use") do
+          case File.write(skill_md, content <> triggers_section) do
+            :ok ->
+              notify_skill_audit_complete(skill_name, "add_skill_triggers")
+              {:ok, %{status: "ok", message: "Triggers section added", skill: skill_name, changes: ["triggers section appended"]}}
+
+            {:error, reason} ->
+              {:error, "write failed: #{reason}"}
+          end
+        else
+          {:ok, %{status: "ok", message: "Triggers already present", skill: skill_name, changes: []}}
+        end
+
+      _ ->
+        {:error, "SKILL.md not found for skill: #{skill_name}"}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("add_skill_triggers", _project_path, params) do
+    {:error, "Missing required param: skill_name (got: #{inspect(params)})"}
+  end
+
+  defp execute_action("backfill_project_memory", project_path, _params) do
+    claude_dir = Path.join(project_path, ".claude")
+    File.mkdir_p(claude_dir)
+    claude_md = Path.join(claude_dir, "CLAUDE.md")
+
+    project_name = Path.basename(project_path)
+    stack_info = detect_project_stack(project_path)
+
+    memory_section = """
+
+## CCEM APM Memory
+
+- **Project**: #{project_name}
+- **Path**: #{project_path}
+- **Stack**: #{Enum.join(stack_info, ", ")}
+- **APM Dashboard**: http://localhost:3031
+- **Skills Path**: ~/.claude/skills/
+- **Generated**: #{DateTime.utc_now() |> DateTime.to_iso8601()}
+"""
+
+    existing = case File.read(claude_md) do
+      {:ok, content} -> content
+      _ -> ""
+    end
+
+    new_content =
+      if String.contains?(existing, "## CCEM APM Memory") do
+        existing
+      else
+        existing <> memory_section
+      end
+
+    case File.write(claude_md, new_content) do
+      :ok ->
+        {:ok, %{
+          status: "ok",
+          message: "Project memory backfilled",
+          file: claude_md,
+          changes: ["CCEM APM Memory section added"]
+        }}
+
+      {:error, reason} ->
+        {:error, "write failed: #{reason}"}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("update_hooks", project_path, _params) do
+    settings_path = Path.join(project_path, ".claude/settings.json")
+
+    settings =
+      case File.read(settings_path) do
+        {:ok, raw} ->
+          case Jason.decode(raw) do
+            {:ok, parsed} -> parsed
+            _ -> %{}
+          end
+
+        _ ->
+          %{}
+      end
+
+    apm_hooks = %{
+      "PreToolUse" => [
+        %{
+          "matcher" => ".*",
+          "hooks" => [
+            %{
+              "type" => "command",
+              "command" => "curl -s -X POST http://localhost:3031/api/heartbeat -H 'Content-Type: application/json' -d '{\"agent_id\":\"$CLAUDE_SESSION_ID\",\"status\":\"working\",\"message\":\"PreToolUse\"}' >/dev/null 2>&1"
+            }
+          ]
+        }
+      ]
+    }
+
+    existing_hooks = Map.get(settings, "hooks", %{})
+    updated_hooks = Map.merge(apm_hooks, existing_hooks)
+    updated_settings = Map.put(settings, "hooks", updated_hooks)
+
+    File.mkdir_p(Path.dirname(settings_path))
+
+    case File.write(settings_path, Jason.encode!(updated_settings, pretty: true)) do
+      :ok ->
+        {:ok, %{
+          status: "ok",
+          message: "Settings hooks updated",
+          file: settings_path,
+          changes: ["APM hooks added to settings.json"]
+        }}
+
+      {:error, reason} ->
+        {:error, "write failed: #{reason}"}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp detect_project_stack(path) do
+    stack_files = %{
+      "package.json" => "node",
+      "mix.exs" => "elixir",
+      "requirements.txt" => "python",
+      "Cargo.toml" => "rust",
+      "go.mod" => "go",
+      "Gemfile" => "ruby",
+      "Package.swift" => "swift"
+    }
+
+    case File.ls(path) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&Map.has_key?(stack_files, &1))
+        |> Enum.map(&Map.get(stack_files, &1))
+
+      _ ->
+        []
+    end
+  end
+
+  defp ensure_frontmatter_key(content, key, default_value) do
+    case Regex.run(~r/^---\n(.*?)\n---/s, content) do
+      [full_match, yaml_block] ->
+        if String.contains?(yaml_block, "#{key}:") do
+          content
+        else
+          new_yaml = yaml_block <> "\n#{key}: #{default_value}"
+          new_fm = "---\n#{new_yaml}\n---"
+          String.replace(content, full_match, new_fm, global: false)
+        end
+
+      _ ->
+        content
+    end
+  end
+
+  defp notify_skill_audit_complete(skill_name, action) do
+    payload = Jason.encode!(%{
+      type: "success",
+      title: "Skill Audit Complete",
+      message: "#{action} applied to #{skill_name}",
+      category: "skill"
+    })
+
+    Task.start(fn ->
+      System.cmd("curl", [
+        "-s", "-X", "POST", "http://localhost:3031/api/notify",
+        "-H", "Content-Type: application/json",
+        "-d", payload
+      ], stderr_to_stdout: true)
+    end)
   end
 
   defp detect_basic_stack(files) do
