@@ -20,7 +20,7 @@ if System.get_env("PHX_SERVER") do
   config :apm_v4, ApmV4Web.Endpoint, server: true
 end
 
-config :apm_v4, ApmV4Web.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "3031"))]
+config :apm_v4, ApmV4Web.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "3032"))]
 
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
