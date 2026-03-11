@@ -40,3 +40,5 @@ npm-debug.log
 .apm.pid
 .claude/hooks/
 archive/
+.worktrees/
+assets/.claude/
