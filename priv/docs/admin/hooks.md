@@ -214,7 +214,7 @@ The hook outputs a JSON success payload to stdout for the Claude Code hook syste
   "apm_port": 3031,
   "session_id": "<uuid>",
   "project_name": "<basename>",
-  "apm_url": "http://localhost:3031"
+  "apm_url": "http://localhost:3032"
 }
 ```
 
@@ -298,7 +298,7 @@ jq '.version' ~/Developer/ccem/apm/apm_config.json
 ls ~/Developer/ccem/apm/sessions/
 
 # Force a config reload
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 
 # Check hook log for errors
 tail -20 ~/Developer/ccem/apm/hooks/apm_hook.log

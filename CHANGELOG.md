@@ -1,5 +1,50 @@
 # Changelog
 
+## v5.0.0 (2026-03-11)
+
+AG-UI protocol integration — backward-compatible event bridge for agentic monitoring.
+
+### Added
+- **AG-UI EventRouter** (`lib/apm_v4/ag_ui/event_router.ex`) — GenServer that routes typed AG-UI events (RUN_STARTED, STEP_STARTED, STEP_FINISHED, TOOL_CALL_START, TOOL_CALL_END, CUSTOM, STATE_SNAPSHOT, STATE_DELTA) to AgentRegistry, FormationStore, Dashboard, and MetricsCollector
+- **AG-UI HookBridge** (`lib/apm_v4/ag_ui/hook_bridge.ex`) — translates legacy hook payloads (register, heartbeat, notify, tool-use) into typed AG-UI events; full backward compatibility with existing hooks
+- **AG-UI StateManager** (`lib/apm_v4/ag_ui/state_manager.ex`) — ETS-backed per-agent state with snapshot/delta pattern using RFC 6902 JSON Patch
+- **AG-UI v2 Controller** (`ag_ui_v2_controller.ex`) — REST endpoints: emit, stream (SSE), state snapshot/delta, router stats
+- **AG-UI SSE streams** — global (`/api/v2/ag-ui/events`) and per-agent (`/api/v2/ag-ui/events/:agent_id`) event streams
+- **Built-in documentation wiki** — 15+ markdown pages under `/docs` with sidebar navigation, search, and syntax highlighting
+- **shift_select.js** hook — multi-select UI interaction for LiveView pages
+
+### Changed
+- **60+ REST API endpoints** (up from 50+) with expanded v2 OpenAPI spec
+- **30+ GenServers** (up from 17) under OTP supervision
+- **README.md** rewritten to document AG-UI architecture and GenServer catalog
+- **All docs** updated to reflect v5 port (3032), AG-UI, and expanded feature set
+- **MetricsCollector** enhanced with AG-UI event counting and routing stats
+- **DashboardStore** updated with AG-UI event feed integration
+
+### Fixed
+- EventRouter feedback loop (self-subscription on PubSub `ag_ui:events` topic)
+- DocsStore markdown rendering edge cases
+- ExportManager test stability
+
+## v4.3.0 (2026-03-02)
+
+Cross-platform installer, Docker socket repair, session hardening.
+
+### Added
+- **Cross-platform installer**: Modular `install.sh` + `installer/` framework with `--prefix`, `--skip-*`, `--dry-run` flags; library modules for UI, detection, deps, build, hooks, and service management; launchd/systemd service templates using `io.pegues.agent-j.labs` reverse-DNS prefix
+- **/docksock skill**: Docker socket repair automation — `status`, `repair`, `restart`, `nuke` subcommands with `--force`, `--verbose`, `--no-restart` switches; auto-detects broken `~/.docker/run/docker.sock` symlink and repairs from `docker.raw.sock`
+- **CCEMAgent DockerSocketRepair.swift**: Native Swift service with `DockerSocketStatus` enum, `status()`, `repair()`, `restart()` static methods; dynamic "Docker: OK"/"Repair Docker Socket" menu item in actionsSection
+- **session_init.sh hardening**: Stale PID validation (verifies process is actually BEAM/elixir/mix), `cleanup_stale_beam()` for zombie processes in T/U/D state, port conflict detection and recovery via netstat, polling startup health check (5x2s) with early failure detection
+
+### Changed
+- **Port canonicalized to 3032**: All 8 sources of truth updated (runtime.exs, dev.exs, hook_common.sh, session_init.sh, apm_config.json, 4 CCEMAgent Swift files, apm-server-wrapper.sh, project hooks)
+- **CCEMAgent bundle identifier**: Updated to `io.pegues.agent-j.labs.ccem.agent` in Info.plist
+- **APMServerManager.swift**: launchctl bootstrap/kickstart integration for service lifecycle
+
+### Fixed
+- CCEMAgent showing disconnected when APM running on 3032 (Swift files still referenced 3031)
+- Zombie BEAM processes surviving Docker Desktop crashes and holding port indefinitely
+
 ## v4.2.0 (2026-03-02)
 
 Dynamic APM + Claude-native feature expansion.
@@ -74,7 +119,7 @@ Complete rewrite from Python APM v3 to Phoenix/Elixir.
 - 17 GenServers with ETS-backed state
 - PubSub-driven real-time updates (8 topics)
 - No database dependency -- config file persistence
-- Bandit HTTP server on port 3031
+- Bandit HTTP server on port 3032
 
 ### Migration from v3
 - Full REST API backward compatibility

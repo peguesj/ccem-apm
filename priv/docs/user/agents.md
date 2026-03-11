@@ -69,7 +69,7 @@ An agent can be in one of five states:
 Register a new agent with the fleet:
 
 ```bash
-curl -X POST http://localhost:3031/api/register \
+curl -X POST http://localhost:3032/api/register \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test-generator",
@@ -117,7 +117,7 @@ curl -X POST http://localhost:3031/api/register \
 Keep agents alive by sending periodic heartbeats via POST `/api/heartbeat`:
 
 ```bash
-curl -X POST http://localhost:3031/api/heartbeat \
+curl -X POST http://localhost:3032/api/heartbeat \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent-uuid-1234",
@@ -139,7 +139,7 @@ The system can automatically discover agents from process logs and environment v
 Initiate agent discovery for a project:
 
 ```bash
-curl -X POST http://localhost:3031/api/agents/discover \
+curl -X POST http://localhost:3032/api/agents/discover \
   -H "Content-Type: application/json" \
   -d '{
     "project": "ccem"
@@ -151,7 +151,7 @@ curl -X POST http://localhost:3031/api/agents/discover \
 Discovered agents appear with status `discovered`. Approve them for integration:
 
 ```bash
-curl -X POST http://localhost:3031/api/agents/update \
+curl -X POST http://localhost:3032/api/agents/update \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "discovered-123",
@@ -164,7 +164,7 @@ curl -X POST http://localhost:3031/api/agents/update \
 Agents within the same session can be further isolated using namespaces:
 
 ```bash
-curl -X POST http://localhost:3031/api/register \
+curl -X POST http://localhost:3032/api/register \
   -H "Content-Type: application/json" \
   -d '{
     "name": "analyzer",
@@ -248,7 +248,7 @@ Register with multiple capabilities:
 Filter agents by capability via the API:
 
 ```bash
-curl http://localhost:3031/api/agents?capability=refactoring
+curl http://localhost:3032/api/agents?capability=refactoring
 ```
 
 ## Agent Metrics
@@ -264,7 +264,7 @@ Each agent tracks performance data:
 Retrieve metrics for a specific agent:
 
 ```bash
-curl http://localhost:3031/api/agents/agent-uuid-1234
+curl http://localhost:3032/api/agents/agent-uuid-1234
 ```
 
 Response includes:

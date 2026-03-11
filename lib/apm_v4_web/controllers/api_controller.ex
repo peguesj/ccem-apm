@@ -16,8 +16,9 @@ defmodule ApmV4Web.ApiController do
   alias ApmV4.AgentDiscovery
   alias ApmV4.EnvironmentScanner
   alias ApmV4.CommandRunner
+  alias ApmV4.AgUi.HookBridge
 
-  @server_version "4.0.0"
+  @server_version "5.0.0"
 
   # ============================
   # GET Endpoints
@@ -311,6 +312,9 @@ defmodule ApmV4Web.ApiController do
 
       :ok = AgentRegistry.register_agent(agent_id, metadata, project_name)
 
+      # Emit AG-UI RUN_STARTED event via HookBridge
+      Task.start(fn -> HookBridge.translate_register(params) end)
+
       conn
       |> put_status(201)
       |> json(%{ok: true, agent_id: agent_id})
@@ -330,6 +334,8 @@ defmodule ApmV4Web.ApiController do
 
       case AgentRegistry.update_status(agent_id, status) do
         :ok ->
+          # Emit AG-UI STEP event via HookBridge
+          Task.start(fn -> HookBridge.translate_heartbeat(params) end)
           json(conn, %{ok: true, agent_id: agent_id})
 
         {:error, :not_found} ->
@@ -377,6 +383,9 @@ defmodule ApmV4Web.ApiController do
       "apm:notifications",
       {:notification_added, Map.put(notification, :id, id)}
     )
+
+    # Emit AG-UI CUSTOM event via HookBridge
+    Task.start(fn -> HookBridge.translate_notification(params) end)
 
     json(conn, %{ok: true, id: id})
   end

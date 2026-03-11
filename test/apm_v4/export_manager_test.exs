@@ -18,36 +18,14 @@ defmodule ApmV4.ExportManagerTest do
       start_supervised!({Phoenix.PubSub, name: ApmV4.PubSub})
     end
 
-    # Terminate supervised children to avoid conflicts
-    for child <- [AgentRegistry, AlertRulesEngine, SloEngine, MetricsCollector, AuditLog] do
-      _ = Supervisor.terminate_child(ApmV4.Supervisor, child)
-      _ = Supervisor.delete_child(ApmV4.Supervisor, child)
-    end
-
-    # Clean up ETS tables
-    tables = [
-      :apm_agents, :apm_sessions, :apm_notifications,
-      :apm_alert_rules, :apm_alert_history, :apm_alert_state,
-      :apm_slo_current, :apm_slo_history,
-      :apm_agent_metrics, :apm_fleet_metrics,
-      :apm_audit_log, :apm_audit_ring
-    ]
-
-    for t <- tables do
-      try do
-        :ets.delete(t)
-      rescue
-        ArgumentError -> :ok
-      end
-    end
+    # Clear state of globally-started GenServers instead of restarting them
+    if Process.whereis(AgentRegistry), do: AgentRegistry.clear_all()
+    # AlertRulesEngine doesn't have clear_all - state persists across tests
+    if Process.whereis(SloEngine), do: SloEngine.clear_all()
+    if Process.whereis(MetricsCollector), do: MetricsCollector.clear_all()
+    if Process.whereis(AuditLog), do: AuditLog.clear_all()
 
     Application.put_env(:apm_v4, :audit_log_dir, @tmp_dir)
-
-    start_supervised!(AgentRegistry)
-    start_supervised!({AlertRulesEngine, []})
-    start_supervised!({SloEngine, [skip_timer: true]})
-    start_supervised!({MetricsCollector, []})
-    start_supervised!(AuditLog)
 
     on_exit(fn ->
       File.rm_rf!(@tmp_dir)

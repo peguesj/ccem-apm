@@ -152,8 +152,8 @@ end
 Test the endpoint with curl:
 
 ```bash
-curl http://localhost:3031/api/my_feature/test_key
-curl -X POST http://localhost:3031/api/my_feature \
+curl http://localhost:3032/api/my_feature/test_key
+curl -X POST http://localhost:3032/api/my_feature \
   -H "Content-Type: application/json" \
   -d '{"key": "test", "value": "data"}'
 ```

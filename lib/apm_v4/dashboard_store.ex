@@ -102,13 +102,15 @@ defmodule ApmV4.DashboardStore do
   def init(opts) do
     storage_dir = Keyword.get(opts, :storage_dir, @storage_dir)
     table = :ets.new(:dashboard_store, [:set, :private])
-
-    File.mkdir_p!(storage_dir)
-
     state = %{storage_dir: storage_dir, table: table}
-    load_all_from_disk(state)
+    {:ok, state, {:continue, :init_storage}}
+  end
 
-    {:ok, state}
+  @impl true
+  def handle_continue(:init_storage, state) do
+    File.mkdir_p!(state.storage_dir)
+    load_all_from_disk(state)
+    {:noreply, state}
   end
 
   @impl true

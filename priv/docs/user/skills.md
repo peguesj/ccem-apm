@@ -56,7 +56,7 @@ Strong co-occurrence (> 0.7) indicates agents frequently work together, compleme
 Log a skill usage event:
 
 ```bash
-curl -X POST http://localhost:3031/api/skills/track \
+curl -X POST http://localhost:3032/api/skills/track \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent-xyz789",
@@ -231,7 +231,7 @@ documentation    -8%  week-over-week
 Get all skills and statistics:
 
 ```bash
-curl http://localhost:3031/api/skills
+curl http://localhost:3032/api/skills
 ```
 
 Response:

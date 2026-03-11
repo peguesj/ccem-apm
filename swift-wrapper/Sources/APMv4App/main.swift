@@ -4,7 +4,7 @@ import WebKit
 // MARK: - Constants
 
 private let kAppName = "CCEM APM v4"
-private let kServerURL = "http://localhost:3031"
+private let kServerURL = "http://localhost:3032"
 private let kDefaultWidth: CGFloat = 1200
 private let kDefaultHeight: CGFloat = 800
 private let kWindowFrameKey = "MainWindowFrame"

@@ -42,7 +42,7 @@ The following diagram shows the three-layer architecture from UI down to the APM
 │  - Error handling                │
 └────────────────┬─────────────────┘
                  │
-           http://localhost:3031
+           http://localhost:3032
 ```
 
 ## Key Components
@@ -55,7 +55,7 @@ Full APMClient implementation with health check, projects, environments, UPM, an
 
 ```swift
 actor APMClient {
-    private let baseURL = URL(string: "http://localhost:3031")!
+    private let baseURL = URL(string: "http://localhost:3032")!
     private let session: URLSession
     private let decoder: JSONDecoder
 
@@ -240,7 +240,7 @@ final class EnvironmentMonitor {
     }
 
     func openDashboard() {
-        guard let url = URL(string: "http://localhost:3031") else { return }
+        guard let url = URL(string: "http://localhost:3032") else { return }
         NSWorkspace.shared.open(url)
     }
 }
@@ -315,7 +315,7 @@ struct MenuBarView: View {
 - Disconnected view with error message when server unreachable
 
 **Actions section** shows:
-- Open Dashboard (opens browser to localhost:3031)
+- Open Dashboard (opens browser to localhost:3032)
 - Help & Docs (opens /docs)
 - Refresh button (triggers async refresh)
 - Launch at Login toggle (via LaunchManager)
@@ -497,8 +497,8 @@ When UPM is active, shows:
 
 ### Quick Actions
 
-- **Open Dashboard**: Opens web dashboard at `http://localhost:3031`
-- **Help & Docs**: Opens documentation at `http://localhost:3031/docs`
+- **Open Dashboard**: Opens web dashboard at `http://localhost:3032`
+- **Help & Docs**: Opens documentation at `http://localhost:3032/docs`
 - **Refresh**: Manual async refresh
 - **Launch at Login**: Toggle via `LaunchManager` using `ServiceManagement`
 - **Quit**: Terminates the app
@@ -536,7 +536,7 @@ cp -r .build/Release/CCEMAgent.app /Applications/
 ### Menubar App Not Connecting
 
 1. Verify APM server running on port 3031
-2. Check network connectivity: `curl http://localhost:3031/health`
+2. Check network connectivity: `curl http://localhost:3032/health`
 3. Review CCEMAgent logs in Console.app
 
 ### Environment List Not Updating
@@ -566,7 +566,7 @@ private let pollInterval: TimeInterval = 30  // Slower polling for battery life
 
 ## Security
 
-- Communicates only with local APM server (localhost:3031)
+- Communicates only with local APM server (localhost:3032)
 - No credential storage in app
 - API key authentication supported if APM requires it
 

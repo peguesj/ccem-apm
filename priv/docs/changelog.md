@@ -124,7 +124,7 @@ Internal research prototype. No longer supported.
 2. **Clone new v4 repo**: `git clone <url> apm-v4`
 3. **Update config**: Map v3 projects to `apm_config.json` v4 schema
 4. **Export v3 data**: `curl http://old-server/api/v2/export > backup.json`
-5. **Import to v4**: `curl -X POST http://localhost:3031/api/v2/import -d @backup.json`
+5. **Import to v4**: `curl -X POST http://localhost:3032/api/v2/import -d @backup.json`
 6. **Test agent registration**: Verify agents connect to new server
 7. **Update agent configs**: Point to new server/port if needed
 8. **Switch production**: Update hooks and menubar app URL

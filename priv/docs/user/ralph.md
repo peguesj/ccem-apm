@@ -218,7 +218,7 @@ Ralph automatically escalates problems to higher tiers. Define rules in `prd.jso
 Get current Ralph session data:
 
 ```bash
-curl http://localhost:3031/api/ralph
+curl http://localhost:3032/api/ralph
 ```
 
 Response:
@@ -244,7 +244,7 @@ Response:
 Get flowchart visualization data (D3-compatible JSON):
 
 ```bash
-curl http://localhost:3031/api/ralph/flowchart
+curl http://localhost:3032/api/ralph/flowchart
 ```
 
 ## Best Practices

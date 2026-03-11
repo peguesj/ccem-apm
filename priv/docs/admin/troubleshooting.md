@@ -68,7 +68,7 @@ brew install elixir
 
 ### Issue: Browser Shows Connection Refused
 
-**Symptoms:** Navigating to `localhost:3031` shows "connection refused" in browser.
+**Symptoms:** Navigating to `localhost:3032` shows "connection refused" in browser.
 
 **Cause:** The APM server is not running.
 
@@ -76,7 +76,7 @@ brew install elixir
 
 ```bash
 # Verify server status
-curl http://localhost:3031/health
+curl http://localhost:3032/health
 
 # If no response, start the server
 cd /Users/jeremiah/Developer/ccem/apm-v4
@@ -94,7 +94,7 @@ mix phx.server
 1. Open browser DevTools (F12) and check the Console tab for JavaScript errors
 2. Hard-reload the page: `Cmd+Shift+R` (macOS) or `Ctrl+Shift+R` (Linux)
 3. Check the Network tab, filter by "WS", and verify a `/live` WebSocket shows status `101 Switching Protocols`
-4. If WebSocket fails, verify `curl http://localhost:3031/` returns HTML and that no firewall is blocking the port
+4. If WebSocket fails, verify `curl http://localhost:3032/` returns HTML and that no firewall is blocking the port
 
 ---
 
@@ -110,10 +110,10 @@ mix phx.server
 
 ```bash
 # Check if agent exists in registry
-curl http://localhost:3031/api/agents
+curl http://localhost:3032/api/agents
 
 # Re-register if missing
-curl -X POST http://localhost:3031/api/register \
+curl -X POST http://localhost:3032/api/register \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test-agent",
@@ -124,7 +124,7 @@ curl -X POST http://localhost:3031/api/register \
   }'
 
 # Verify project name matches a configured project
-curl http://localhost:3031/api/projects
+curl http://localhost:3032/api/projects
 ```
 
 ### Issue: Agent Disappears After Registration
@@ -137,7 +137,7 @@ curl http://localhost:3031/api/projects
 
 ```bash
 # Send a heartbeat to reactivate
-curl -X POST http://localhost:3031/api/heartbeat \
+curl -X POST http://localhost:3032/api/heartbeat \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent-abc123",
@@ -167,7 +167,7 @@ ls ~/Developer/ccem/apm/sessions/
 jq '.projects[] | select(.name == "my-project") | .sessions' ~/Developer/ccem/apm/apm_config.json
 
 # Force a config reload
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 ```
 
 ### Issue: APM Server Not Starting from Hook
@@ -240,7 +240,7 @@ jq '.projects += [{
 mv /tmp/config.tmp ~/Developer/ccem/apm/apm_config.json
 
 # Reload
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 ```
 
 ### Issue: Port Configuration Not Taking Effect
@@ -271,7 +271,7 @@ PORT=3032 mix phx.server
 
 **Fix:**
 
-1. Check agent count: `curl http://localhost:3031/api/agents | jq '.agents | length'`
+1. Check agent count: `curl http://localhost:3032/api/agents | jq '.agents | length'`
 2. Use dashboard filters to reduce visible agents
 3. Check browser DevTools for WebSocket latency
 4. Consider increasing the update throttle if configurable
@@ -289,7 +289,7 @@ PORT=3032 mix phx.server
 watch -n 5 'ps aux | grep apm_v4'
 
 # Check agent count
-curl http://localhost:3031/api/agents | jq '.total'
+curl http://localhost:3032/api/agents | jq '.total'
 
 # Restart if needed
 lsof -ti:3031 | xargs kill -9
@@ -306,10 +306,10 @@ mix phx.server
 
 ```bash
 # Check active agents
-curl http://localhost:3031/api/status
+curl http://localhost:3032/api/status
 
 # Check recent errors
-curl http://localhost:3031/api/notifications
+curl http://localhost:3032/api/notifications
 ```
 
 ---
@@ -326,7 +326,7 @@ curl http://localhost:3031/api/notifications
 
 ```bash
 # Ensure valid JSON with correct Content-Type header
-curl -X POST http://localhost:3031/api/register \
+curl -X POST http://localhost:3032/api/register \
   -H "Content-Type: application/json" \
   -d '{"name":"agent","type":"individual","project":"ccem","tier":1,"capabilities":[]}'
 ```
@@ -341,7 +341,7 @@ curl -X POST http://localhost:3031/api/register \
 
 ```bash
 # Verify the endpoint exists
-curl http://localhost:3031/api/agents
+curl http://localhost:3032/api/agents
 ```
 
 ### Issue: 429 Rate Limited
@@ -355,7 +355,7 @@ curl http://localhost:3031/api/agents
 ```bash
 # Wait for the rate limit window to reset
 sleep 60
-curl http://localhost:3031/api/agents
+curl http://localhost:3032/api/agents
 ```
 
 ### Issue: 500 Internal Server Error
@@ -410,7 +410,7 @@ sudo ufw allow 3031/tcp
 
 ```bash
 # Check server health
-curl http://localhost:3031/health
+curl http://localhost:3032/health
 
 # If behind reverse proxy, increase timeouts
 # nginx example:
@@ -432,7 +432,7 @@ curl http://localhost:3031/health
 
 ```bash
 # Verify server is running
-curl http://localhost:3031/health
+curl http://localhost:3032/health
 
 # Check app logs (macOS)
 log show --predicate 'process == "CCEMAgent"' --last 1h
@@ -465,11 +465,11 @@ APM_LOG_LEVEL=debug mix phx.server
 ### Get Full Status Report
 
 ```bash
-curl http://localhost:3031/health            # Health check
-curl http://localhost:3031/api/status         # Server status
-curl http://localhost:3031/api/agents         # All agents
-curl http://localhost:3031/api/projects       # Config
-curl http://localhost:3031/api/notifications  # Notifications
+curl http://localhost:3032/health            # Health check
+curl http://localhost:3032/api/status         # Server status
+curl http://localhost:3032/api/agents         # All agents
+curl http://localhost:3032/api/projects       # Config
+curl http://localhost:3032/api/notifications  # Notifications
 ```
 
 ---

@@ -11,7 +11,7 @@ A real-time monitoring and orchestration platform for Claude Code AI agent sessi
 - **UPM Tracking** -- Unified Project Management integration for cross-tool task sync
 - **Formation System** -- Agent squadrons and swarm orchestration with tier-based classification
 - **Documentation Wiki** -- Embedded interactive docs with slash command reference
-- **Port Management** -- Automatic port 3031 lifecycle with conflict detection
+- **Port Management** -- Automatic port 3032 lifecycle with conflict detection
 
 See the full [Changelog](changelog.md) for version history and release notes.
 
@@ -24,7 +24,7 @@ See the full [Changelog](changelog.md) for version history and release notes.
 > 1. Clone the repository: `git clone <repo-url> && cd apm-v4`
 > 2. Install dependencies: `mix deps.get`
 > 3. Start the server: `mix phx.server`
-> 4. Open the dashboard: `http://localhost:3031`
+> 4. Open the dashboard: `http://localhost:3032`
 >
 > For detailed setup instructions, see [Getting Started](user/getting-started.md).
 
@@ -96,32 +96,14 @@ Configuration, deployment, hooks, and troubleshooting.
 
 ## System Architecture Overview
 
-```text
-┌─────────────────────────────────────────────┐
-│   Phoenix LiveView (HTML/JS/CSS)            │
-│   - Dashboard, Projects, Skills, Ralph      │
-│   - Real-time updates via WebSocket         │
-└──────────────────┬──────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────┐
-│   REST API & WebSocket Routes               │
-│   - Agent registration, heartbeats          │
-│   - Notifications, tasks, commands          │
-│   - Session data, metrics, audit logs       │
-└──────────────────┬──────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────┐
-│   GenServer Stores (OTP Supervision)        │
-│   - ConfigLoader, AgentRegistry, UpmStore   │
-│   - SkillTracker, MetricsCollector          │
-│   - AlertRulesEngine, EventStream           │
-└──────────────────┬──────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────┐
-│   Data Layer (ETS + Files)                  │
-│   - apm_config.json, session JSONs          │
-│   - ETS tables for fast queries             │
-└─────────────────────────────────────────────┘
+```mermaid
+graph TD
+    A["Phoenix LiveView<br/><small>Dashboard, Projects, Skills, Ralph<br/>Real-time updates via WebSocket</small>"]
+    B["REST API & WebSocket Routes<br/><small>Agent registration, heartbeats<br/>Notifications, tasks, commands</small>"]
+    C["GenServer Stores — OTP Supervision<br/><small>ConfigLoader, AgentRegistry, UpmStore<br/>SkillTracker, MetricsCollector</small>"]
+    D["Data Layer — ETS + Files<br/><small>apm_config.json, session JSONs<br/>ETS tables for fast queries</small>"]
+
+    A --> B --> C --> D
 ```
 
 ---
@@ -143,10 +125,10 @@ Configuration, deployment, hooks, and troubleshooting.
 
 ## Default Port
 
-CCEM APM runs on **port 3031** by default. Access the dashboard at:
+CCEM APM runs on **port 3032** by default. Access the dashboard at:
 
 ```text
-http://localhost:3031
+http://localhost:3032
 ```
 
 ---

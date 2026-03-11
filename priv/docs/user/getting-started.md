@@ -67,8 +67,8 @@ mix phx.server
 You should see output similar to:
 
 ```text
-[info] Running ApmV4Web.Endpoint with cowboy 2.x.x at http://localhost:3031
-[info] Access the web interface at http://localhost:3031
+[info] Running ApmV4Web.Endpoint with cowboy 2.x.x at http://localhost:3032
+[info] Access the web interface at http://localhost:3032
 ```
 
 ### Automated Start via Session Hooks
@@ -93,7 +93,7 @@ This script performs the following steps:
 Open your browser and navigate to:
 
 ```text
-http://localhost:3031
+http://localhost:3032
 ```
 
 You should see:
@@ -109,7 +109,7 @@ You should see:
 Check the health endpoint to confirm the server is running:
 
 ```bash
-curl http://localhost:3031/health
+curl http://localhost:3032/health
 ```
 
 Expected response:
@@ -127,7 +127,7 @@ Expected response:
 Agents register via POST to `/api/register`. Send a test registration:
 
 ```bash
-curl -X POST http://localhost:3031/api/register \
+curl -X POST http://localhost:3032/api/register \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test-agent",
@@ -222,7 +222,7 @@ mix phx.server
 Check the browser console for WebSocket errors. Verify agents exist via the API:
 
 ```bash
-curl http://localhost:3031/api/agents | jq '.agents'
+curl http://localhost:3032/api/agents | jq '.agents'
 ```
 
 > **Tip:** If agents register but do not appear, confirm the `project` field in the registration payload matches the active project in `apm_config.json`.

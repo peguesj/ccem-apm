@@ -32,44 +32,52 @@ defmodule ApmV4.MetricsCollector do
   @doc "Get metrics for a specific agent."
   @spec get_agent_metrics(String.t(), keyword()) :: [map()]
   def get_agent_metrics(agent_id, opts \\ []) do
-    since = Keyword.get(opts, :since)
-    limit = Keyword.get(opts, :limit)
+    try do
+      since = Keyword.get(opts, :since)
+      limit = Keyword.get(opts, :limit)
 
-    min_bucket =
-      if since do
-        DateTime.to_unix(since, :second) |> div(60)
-      else
-        0
-      end
+      min_bucket =
+        if since do
+          DateTime.to_unix(since, :second) |> div(60)
+        else
+          0
+        end
 
-    match_spec = [
-      {{{agent_id, :"$1"}, :"$2"},
-       [{:>=, :"$1", min_bucket}],
-       [{{:"$1", :"$2"}}]}
-    ]
+      match_spec = [
+        {{{agent_id, :"$1"}, :"$2"},
+         [{:>=, :"$1", min_bucket}],
+         [{{:"$1", :"$2"}}]}
+      ]
 
-    results =
-      :ets.select(@agent_metrics_table, match_spec)
-      |> Enum.sort_by(&elem(&1, 0), :desc)
+      results =
+        :ets.select(@agent_metrics_table, match_spec)
+        |> Enum.sort_by(&elem(&1, 0), :desc)
 
-    results =
-      if limit, do: Enum.take(results, limit), else: results
+      results =
+        if limit, do: Enum.take(results, limit), else: results
 
-    Enum.map(results, fn {bucket, metrics} ->
-      Map.merge(metrics, %{
-        agent_id: agent_id,
-        bucket: bucket,
-        timestamp: DateTime.from_unix!(bucket * 60)
-      })
-    end)
+      Enum.map(results, fn {bucket, metrics} ->
+        Map.merge(metrics, %{
+          agent_id: agent_id,
+          bucket: bucket,
+          timestamp: DateTime.from_unix!(bucket * 60)
+        })
+      end)
+    rescue
+      ArgumentError -> []
+    end
   end
 
   @doc "Get latest fleet-wide aggregate metrics."
   @spec get_fleet_metrics() :: map()
   def get_fleet_metrics do
-    case :ets.lookup(@fleet_metrics_table, :latest) do
-      [{:latest, metrics}] -> metrics
-      [] -> %{}
+    try do
+      case :ets.lookup(@fleet_metrics_table, :latest) do
+        [{:latest, metrics}] -> metrics
+        [] -> %{}
+      end
+    rescue
+      ArgumentError -> %{}
     end
   end
 

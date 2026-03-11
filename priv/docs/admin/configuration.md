@@ -166,7 +166,7 @@ jq --arg name "new-project" --arg root "/path/to/project" \
 Then reload:
 
 ```bash
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 ```
 
 ## Switching Active Project
@@ -176,7 +176,7 @@ The `active_project` field is updated automatically by the session init hook whe
 ```bash
 jq '.active_project = "other-project"' ~/Developer/ccem/apm/apm_config.json > /tmp/config.tmp && \
   mv /tmp/config.tmp ~/Developer/ccem/apm/apm_config.json
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 ```
 
 ## Reloading Configuration
@@ -184,7 +184,7 @@ curl -X POST http://localhost:3031/api/config/reload
 Configuration can be reloaded at runtime via the API:
 
 ```bash
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 ```
 
 This calls `ConfigLoader.reload/0`, which re-reads the file from disk, syncs sessions into the `AgentRegistry`, and broadcasts a `{:config_reloaded, config}` event on the `apm:config` PubSub topic. All connected LiveView dashboards update automatically via WebSocket.
@@ -219,7 +219,7 @@ cp ~/Developer/ccem/apm/apm_config.json ~/Developer/ccem/apm/apm_config.json.bac
 
 # Restore
 cp ~/Developer/ccem/apm/apm_config.json.backup ~/Developer/ccem/apm/apm_config.json
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 ```
 
 ## Troubleshooting
@@ -256,7 +256,7 @@ jq '.version' ~/Developer/ccem/apm/apm_config.json
 jq '.projects[].name' ~/Developer/ccem/apm/apm_config.json
 
 # Reload config
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 ```
 
 ### Issue: Changes Not Taking Effect
@@ -269,7 +269,7 @@ curl -X POST http://localhost:3031/api/config/reload
 
 ```bash
 # POST to either endpoint (both call ConfigLoader.reload/0)
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 ```
 
 See [Deployment](deployment.md) for production setup.

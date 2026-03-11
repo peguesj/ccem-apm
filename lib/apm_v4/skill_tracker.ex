@@ -112,8 +112,13 @@ defmodule ApmV4.SkillTracker do
   @impl true
   def init(_opts) do
     table = :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
+    {:ok, %{table: table}, {:continue, :load_persisted}}
+  end
+
+  @impl true
+  def handle_continue(:load_persisted, state) do
     load_persisted()
-    {:ok, %{table: table}}
+    {:noreply, state}
   end
 
   @impl true

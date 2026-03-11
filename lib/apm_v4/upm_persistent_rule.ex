@@ -27,7 +27,7 @@ defmodule ApmV4.UpmPersistentRule do
 
   Pattern (fire-and-forget):
   ```bash
-  (curl -s -X POST http://localhost:3031/api/notify \\
+  (curl -s -X POST http://localhost:3032/api/notify \\
     -H 'Content-Type: application/json' \\
     -d '<payload>' >/dev/null 2>&1) &
   ```

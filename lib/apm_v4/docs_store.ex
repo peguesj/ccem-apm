@@ -45,8 +45,13 @@ defmodule ApmV4.DocsStore do
   @impl true
   def init(_) do
     docs_path = Application.app_dir(:apm_v4, @docs_dir)
-    {pages, toc, meta_index, ordered_slugs} = load_docs(docs_path)
-    {:ok, %{pages: pages, toc: toc, meta_index: meta_index, ordered_slugs: ordered_slugs, docs_path: docs_path}}
+    {:ok, %{pages: %{}, toc: [], meta_index: %{}, ordered_slugs: [], docs_path: docs_path}, {:continue, :load_docs}}
+  end
+
+  @impl true
+  def handle_continue(:load_docs, state) do
+    {pages, toc, meta_index, ordered_slugs} = load_docs(state.docs_path)
+    {:noreply, %{state | pages: pages, toc: toc, meta_index: meta_index, ordered_slugs: ordered_slugs}}
   end
 
   @impl true

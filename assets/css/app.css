@@ -161,130 +161,224 @@
 
 /* ============================================
    Documentation Wiki Styles (.doc-content)
+   Developer Reference — GitHub/Stripe docs aesthetic
+   daisyUI 5.x: uses --color-* variables (full oklch values)
+   Opacity via color-mix(in oklch, <color> <pct>, transparent)
    ============================================ */
 
 .doc-content {
-  color: oklch(var(--bc));
-  line-height: 1.75;
-  font-size: 0.9375rem;
+  color: color-mix(in oklch, var(--color-base-content) 88%, transparent);
+  line-height: 1.8;
+  font-size: 1rem;
 }
+
+/* --- Heading hierarchy --- */
 
 .doc-content h1 {
   font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  margin-bottom: 0.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-top: 0;
+  margin-bottom: 1rem;
   padding-bottom: 0.75rem;
-  border-bottom: 2px solid oklch(var(--p) / 0.3);
-  color: oklch(var(--bc));
+  border-bottom: 2px solid color-mix(in oklch, var(--color-primary) 25%, transparent);
+  color: var(--color-base-content);
 }
 
 .doc-content h2 {
-  font-size: 1.375rem;
-  font-weight: 600;
-  margin-top: 2.5rem;
-  margin-bottom: 0.75rem;
-  padding-left: 0.75rem;
-  border-left: 3px solid oklch(var(--p));
-  color: oklch(var(--bc));
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid color-mix(in oklch, var(--color-base-content) 10%, transparent);
+  color: var(--color-base-content);
 }
 
 .doc-content h3 {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  margin-top: 2rem;
-  margin-bottom: 0.5rem;
-  color: oklch(var(--bc) / 0.9);
+  letter-spacing: -0.01em;
+  margin-top: 2.25rem;
+  margin-bottom: 0.75rem;
+  color: color-mix(in oklch, var(--color-base-content) 95%, transparent);
 }
 
 .doc-content h4 {
-  font-size: 1rem;
+  font-size: 1.0625rem;
   font-weight: 600;
-  margin-top: 1.5rem;
+  margin-top: 1.75rem;
   margin-bottom: 0.5rem;
-  color: oklch(var(--bc) / 0.85);
+  color: color-mix(in oklch, var(--color-base-content) 90%, transparent);
 }
+
+/* --- Body text --- */
 
 .doc-content p {
   margin-bottom: 1.25rem;
-  color: oklch(var(--bc) / 0.85);
+  color: color-mix(in oklch, var(--color-base-content) 85%, transparent);
 }
 
+.doc-content strong {
+  font-weight: 650;
+  color: var(--color-base-content);
+}
+
+.doc-content em {
+  color: color-mix(in oklch, var(--color-base-content) 85%, transparent);
+}
+
+/* --- Links --- */
+
 .doc-content a {
-  color: oklch(var(--p));
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  transition: color 0.15s;
+  color: var(--color-primary);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklch, var(--color-primary) 30%, transparent);
+  transition: color 0.15s, border-color 0.15s;
 }
 .doc-content a:hover {
-  color: oklch(var(--pf, var(--p)));
-  text-decoration-color: oklch(var(--p) / 0.5);
+  color: var(--color-primary);
+  border-bottom-color: color-mix(in oklch, var(--color-primary) 70%, transparent);
 }
+
+/* --- Inline code --- */
 
 .doc-content code:not(pre code) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8125em;
-  padding: 0.15em 0.45em;
-  border-radius: 4px;
-  background: oklch(var(--b3, var(--b2)) / 0.8);
-  color: oklch(var(--s));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  padding: 0.2em 0.45em;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--color-base-100) 80%, black);
+  color: var(--color-secondary);
+  border: 1px solid color-mix(in oklch, var(--color-base-content) 10%, transparent);
 }
 
-.code-block-wrapper {
-  margin: 1.5rem 0;
-}
-
-.code-block-header {
-  background: #161b22;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 1rem;
-}
+/* --- Code blocks --- */
 
 .doc-content pre {
   background: #0d1117 !important;
   overflow-x: auto;
   padding: 1.25rem 1.5rem;
   font-size: 0.8125rem;
-  line-height: 1.65;
+  line-height: 1.7;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+  margin: 1.5rem 0;
 }
 
 .doc-content pre code {
   background: transparent !important;
   border: none !important;
   padding: 0 !important;
-  color: #e6edf3;
+  color: #c9d1d9;
   font-size: inherit;
 }
 
+/* --- highlight.js GitHub Dark theme (inlined) --- */
+.doc-content .hljs{color:#c9d1d9;background:#0d1117}
+.doc-content .hljs-doctag,.doc-content .hljs-keyword,.doc-content .hljs-meta .hljs-keyword,.doc-content .hljs-template-tag,.doc-content .hljs-template-variable,.doc-content .hljs-type,.doc-content .hljs-variable.language_{color:#ff7b72}
+.doc-content .hljs-title,.doc-content .hljs-title.class_,.doc-content .hljs-title.class_.inherited__,.doc-content .hljs-title.function_{color:#d2a8ff}
+.doc-content .hljs-attr,.doc-content .hljs-attribute,.doc-content .hljs-literal,.doc-content .hljs-meta,.doc-content .hljs-number,.doc-content .hljs-operator,.doc-content .hljs-selector-attr,.doc-content .hljs-selector-class,.doc-content .hljs-selector-id,.doc-content .hljs-variable{color:#79c0ff}
+.doc-content .hljs-meta .hljs-string,.doc-content .hljs-regexp,.doc-content .hljs-string{color:#a5d6ff}
+.doc-content .hljs-built_in,.doc-content .hljs-symbol{color:#ffa657}
+.doc-content .hljs-code,.doc-content .hljs-comment,.doc-content .hljs-formula{color:#8b949e}
+.doc-content .hljs-name,.doc-content .hljs-quote,.doc-content .hljs-selector-pseudo,.doc-content .hljs-selector-tag{color:#7ee787}
+.doc-content .hljs-subst{color:#c9d1d9}
+.doc-content .hljs-section{color:#1f6feb;font-weight:700}
+.doc-content .hljs-bullet{color:#f2cc60}
+.doc-content .hljs-emphasis{color:#c9d1d9;font-style:italic}
+.doc-content .hljs-strong{color:#c9d1d9;font-weight:700}
+.doc-content .hljs-addition{color:#aff5b4;background-color:#033a16}
+.doc-content .hljs-deletion{color:#ffdcd7;background-color:#67060c}
+
+/* --- Line numbers gutter --- */
+.doc-content pre.has-line-numbers {
+  display: flex;
+  padding-left: 0;
+}
+
+.code-line-numbers {
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 0;
+  padding-left: 1rem;
+  padding-right: 0.75rem;
+  text-align: right;
+  user-select: none;
+  -webkit-user-select: none;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  margin-right: 1rem;
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: rgba(255,255,255,0.18);
+  min-width: 2.5ch;
+}
+
+.code-line-numbers span {
+  display: block;
+}
+
+.doc-content pre.has-line-numbers code {
+  flex: 1;
+  overflow-x: auto;
+}
+
+/* Code block header bar (added by JS hook) */
+.code-block-header {
+  background: #161b22;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.code-block-header + pre {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  margin-top: 0 !important;
+}
+
+.code-block-wrapper {
+  margin: 1.75rem 0;
+}
+
+/* Copy button */
 .copy-btn {
   font-size: 0.7rem;
   padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.05);
-  color: rgba(255,255,255,0.5);
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.45);
   cursor: pointer;
   transition: all 0.15s;
   font-family: ui-monospace, monospace;
 }
 .copy-btn:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.08);
   color: rgba(255,255,255,0.8);
-  border-color: rgba(255,255,255,0.3);
+  border-color: rgba(255,255,255,0.25);
 }
 .copy-btn.copied {
   color: #3fb950;
   border-color: #3fb950;
 }
 
+/* --- Tables --- */
+
 .table-wrapper {
-  margin: 1.5rem 0;
+  margin: 1.75rem 0;
   overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklch, var(--color-base-content) 8%, transparent);
 }
 
 .doc-content table {
@@ -294,66 +388,129 @@
 }
 
 .doc-content th {
-  background: oklch(var(--b3, var(--b2)));
+  background: color-mix(in oklch, var(--color-base-100) 80%, black);
   font-weight: 600;
   text-align: left;
-  padding: 0.625rem 1rem;
-  border-bottom: 2px solid oklch(var(--bc) / 0.15);
-  color: oklch(var(--bc));
-  white-space: nowrap;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid color-mix(in oklch, var(--color-base-content) 12%, transparent);
+  color: color-mix(in oklch, var(--color-base-content) 70%, transparent);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .doc-content td {
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid oklch(var(--bc) / 0.08);
-  color: oklch(var(--bc) / 0.8);
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid color-mix(in oklch, var(--color-base-content) 6%, transparent);
+  color: color-mix(in oklch, var(--color-base-content) 80%, transparent);
   vertical-align: top;
 }
 
 .doc-content tr:nth-child(even) td {
-  background: oklch(var(--b2) / 0.5);
+  background: color-mix(in oklch, var(--color-base-100) 70%, black);
 }
 
 .doc-content tr:hover td {
-  background: oklch(var(--p) / 0.05);
+  background: color-mix(in oklch, var(--color-primary) 4%, transparent);
 }
+
+/* --- Blockquotes (admonitions) --- */
+/* !important needed to override Tailwind prose :where(blockquote) specificity */
 
 .doc-content blockquote {
-  margin: 1.5rem 0;
-  padding: 0.75rem 1.25rem;
-  border-left: 4px solid oklch(var(--p) / 0.6);
-  background: oklch(var(--p) / 0.05);
-  border-radius: 0 8px 8px 0;
-  color: oklch(var(--bc) / 0.75);
-  font-style: italic;
+  margin: 1.75rem 0 !important;
+  padding: 1rem 1.25rem !important;
+  border-left: 4px solid color-mix(in oklch, var(--color-warning) 60%, transparent) !important;
+  border-right: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  background: color-mix(in oklch, var(--color-warning) 6%, transparent) !important;
+  border-radius: 0 10px 10px 0 !important;
+  color: color-mix(in oklch, var(--color-base-content) 85%, transparent) !important;
+  font-style: normal !important;
+  quotes: none !important;
 }
-.doc-content blockquote p { margin: 0; color: inherit; }
+
+.doc-content blockquote p {
+  margin: 0 0 0.5rem 0 !important;
+  color: inherit !important;
+}
+.doc-content blockquote p:last-child { margin-bottom: 0 !important; }
+
+.doc-content blockquote strong {
+  color: var(--color-warning) !important;
+  font-weight: 700;
+}
+
+.doc-content blockquote code {
+  background: color-mix(in oklch, var(--color-warning) 10%, transparent) !important;
+  border-color: color-mix(in oklch, var(--color-warning) 20%, transparent) !important;
+}
+
+/* --- Lists --- */
 
 .doc-content ul, .doc-content ol {
-  margin: 1rem 0 1.25rem 0;
-  padding-left: 1.5rem;
+  margin: 1rem 0 1.5rem 0;
+  padding-left: 1.75rem;
 }
+
 .doc-content ul { list-style-type: disc; }
 .doc-content ol { list-style-type: decimal; }
+
 .doc-content li {
-  margin-bottom: 0.35rem;
-  color: oklch(var(--bc) / 0.85);
+  margin-bottom: 0.5rem;
+  color: color-mix(in oklch, var(--color-base-content) 85%, transparent);
   padding-left: 0.25rem;
+  line-height: 1.7;
 }
-.doc-content li > ul, .doc-content li > ol { margin-top: 0.35rem; margin-bottom: 0; }
+.doc-content li::marker {
+  color: color-mix(in oklch, var(--color-primary) 50%, transparent);
+}
+
+.doc-content li > ul, .doc-content li > ol {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+}
 .doc-content ul ul { list-style-type: circle; }
+.doc-content ul ul ul { list-style-type: square; }
+
+/* --- Horizontal rules --- */
 
 .doc-content hr {
   border: none;
-  border-top: 1px solid oklch(var(--bc) / 0.12);
-  margin: 2.5rem 0;
+  border-top: 1px solid color-mix(in oklch, var(--color-base-content) 10%, transparent);
+  margin: 3rem 0;
 }
+
+/* --- Mermaid diagrams --- */
 
 .mermaid-wrapper {
-  margin: 1.5rem 0;
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: color-mix(in oklch, var(--color-base-100) 50%, black);
+  border: 1px solid color-mix(in oklch, var(--color-base-content) 6%, transparent);
+  border-radius: 12px;
   text-align: center;
+  overflow-x: auto;
 }
-.mermaid-wrapper .mermaid { display: inline-block; max-width: 100%; }
 
-.doc-content strong { font-weight: 600; color: oklch(var(--bc)); }
-.doc-content em { color: oklch(var(--bc) / 0.85); }
+.mermaid-wrapper .mermaid {
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Mermaid dark theme overrides */
+.mermaid-wrapper .mermaid .node rect,
+.mermaid-wrapper .mermaid .node polygon {
+  fill: #1e293b !important;
+  stroke: color-mix(in oklch, var(--color-primary) 40%, transparent) !important;
+}
+.mermaid-wrapper .mermaid .nodeLabel {
+  color: #e2e8f0 !important;
+}
+.mermaid-wrapper .mermaid .edgePath .path {
+  stroke: color-mix(in oklch, var(--color-primary) 50%, transparent) !important;
+}
+.mermaid-wrapper .mermaid marker {
+  fill: color-mix(in oklch, var(--color-primary) 50%, transparent) !important;
+}

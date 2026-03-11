@@ -6,40 +6,15 @@ CCEM APM v4 is built on Phoenix/Elixir with a supervisor-based OTP architecture.
 
 The following diagram shows the layered architecture from HTTP entry point down to the data layer.
 
-```text
-┌───────────────────────────────────────────────────┐
-│  Phoenix Endpoint & Router                        │
-│  - HTTP routes                                    │
-│  - WebSocket upgrade                              │
-│  - Static assets (HTML, CSS, JS)                  │
-└─────────────────────┬─────────────────────────────┘
-                      │
-┌─────────────────────▼─────────────────────────────┐
-│  LiveView Pages & Controllers                     │
-│  - DashboardLive, AllProjectsLive, SkillsLive     │
-│  - FormationLive, PortsLive, DocsLive             │
-│  - REST controllers for API routes                │
-└─────────────────────┬─────────────────────────────┘
-                      │
-┌─────────────────────▼─────────────────────────────┐
-│  PubSub Broker (Event Bus)                        │
-│  - Topics: apm:agents, apm:notifications, etc.    │
-│  - Broadcasts real-time updates to clients        │
-└─────────────────────┬─────────────────────────────┘
-                      │
-┌─────────────────────▼─────────────────────────────┐
-│  GenServer Stores (OTP Supervision)               │
-│  - ConfigLoader, AgentRegistry, ProjectStore      │
-│  - UpmStore, SkillTracker, PortManager, DocsStore │
-│  - MetricsCollector, AlertRulesEngine             │
-└─────────────────────┬─────────────────────────────┘
-                      │
-┌─────────────────────▼─────────────────────────────┐
-│  Data Layer                                       │
-│  - ETS tables for fast lookups                    │
-│  - JSON files (apm_config.json, sessions)         │
-│  - File-based persistence                         │
-└───────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    A["Phoenix Endpoint & Router<br/><small>HTTP routes · WebSocket upgrade · Static assets</small>"]
+    B["LiveView Pages & Controllers<br/><small>DashboardLive, AllProjectsLive, SkillsLive<br/>FormationLive, PortsLive, DocsLive<br/>REST controllers for API routes</small>"]
+    C["PubSub Broker — Event Bus<br/><small>Topics: apm:agents, apm:notifications, etc.<br/>Broadcasts real-time updates to clients</small>"]
+    D["GenServer Stores — OTP Supervision<br/><small>ConfigLoader, AgentRegistry, ProjectStore<br/>UpmStore, SkillTracker, PortManager, DocsStore</small>"]
+    E["Data Layer<br/><small>ETS tables · JSON files · File-based persistence</small>"]
+
+    A --> B --> C --> D --> E
 ```
 
 ## Application Supervision Tree
@@ -48,29 +23,47 @@ The application uses a flat `one_for_one` supervision strategy defined in `lib/a
 
 The following diagram shows every supervised child process in start order.
 
-```text
-ApmV4.Supervisor (root, strategy: :one_for_one)
-├── ApmV4Web.Telemetry
-├── DNSCluster
-├── Phoenix.PubSub (name: ApmV4.PubSub)
-├── ApmV4.ConfigLoader
-├── ApmV4.DashboardStore
-├── ApmV4.ApiKeyStore
-├── ApmV4.AuditLog
-├── ApmV4.ProjectStore
-├── ApmV4.AgentRegistry
-├── ApmV4.UpmStore
-├── ApmV4.SkillTracker
-├── ApmV4.AlertRulesEngine
-├── ApmV4.MetricsCollector
-├── ApmV4.SloEngine
-├── ApmV4.EventStream
-├── ApmV4.AgentDiscovery
-├── ApmV4.EnvironmentScanner
-├── ApmV4.CommandRunner
-├── ApmV4.DocsStore
-├── ApmV4.PortManager
-└── ApmV4Web.Endpoint
+```mermaid
+graph LR
+    Root["ApmV4.Supervisor<br/><small>:one_for_one</small>"]
+
+    subgraph infra ["Infrastructure"]
+        T["Telemetry"]
+        DNS["DNSCluster"]
+        PS["PubSub"]
+        EP["Endpoint"]
+    end
+
+    subgraph stores ["Core Stores"]
+        CL["ConfigLoader"]
+        DS["DashboardStore"]
+        AK["ApiKeyStore"]
+        AL["AuditLog"]
+        PSt["ProjectStore"]
+    end
+
+    subgraph agents ["Agent / UPM"]
+        AR["AgentRegistry"]
+        US["UpmStore"]
+        AD["AgentDiscovery"]
+        ENV["EnvironmentScanner"]
+        CR["CommandRunner"]
+    end
+
+    subgraph analytics ["Analytics"]
+        SK["SkillTracker"]
+        ARE["AlertRulesEngine"]
+        MC["MetricsCollector"]
+        SLO["SloEngine"]
+        ES["EventStream"]
+        Doc["DocsStore"]
+        PM["PortManager"]
+    end
+
+    Root --> infra
+    Root --> stores
+    Root --> agents
+    Root --> analytics
 ```
 
 > **Warning:** The supervision tree uses `one_for_one` strategy. If a child crashes, only that child is restarted. Ensure each GenServer can recover its own state on restart.

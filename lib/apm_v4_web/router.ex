@@ -27,6 +27,9 @@ defmodule ApmV4Web.Router do
   scope "/", ApmV4Web do
     pipe_through :browser
 
+    # Scalar API Reference (interactive OpenAPI docs)
+    get "/api/docs", PageController, :api_docs
+
     live "/", DashboardLive, :index
     live "/apm-all", AllProjectsLive, :index
     live "/ralph", RalphFlowchartLive, :index
@@ -205,6 +208,15 @@ defmodule ApmV4Web.Router do
     # Verification (VerifyStore)
     post "/verify/double", ApiV2Controller, :verify_double
     get "/verify/:id", ApiV2Controller, :verify_status
+
+    # AG-UI Protocol (v5)
+    post "/ag-ui/emit", AgUiV2Controller, :emit
+    get "/ag-ui/events", AgUiV2Controller, :stream_events
+    get "/ag-ui/events/:agent_id", AgUiV2Controller, :stream_agent_events
+    get "/ag-ui/state/:agent_id", AgUiV2Controller, :get_state
+    put "/ag-ui/state/:agent_id", AgUiV2Controller, :set_state
+    patch "/ag-ui/state/:agent_id", AgUiV2Controller, :patch_state
+    get "/ag-ui/router/stats", AgUiV2Controller, :router_stats
   end
 
   # A2UI flexible format endpoint

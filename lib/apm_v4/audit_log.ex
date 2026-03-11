@@ -50,11 +50,14 @@ defmodule ApmV4.AuditLog do
   def init(_opts) do
     :ets.new(@ets_table, [:ordered_set, :named_table, :public, read_concurrency: true])
     :ets.new(@ring_table, [:set, :named_table, :public, read_concurrency: true])
-
     log_dir = log_dir()
-    File.mkdir_p!(log_dir)
+    {:ok, %{counter: 0, prev_hash: "genesis", log_dir: log_dir, today: Date.utc_today()}, {:continue, :init_log_dir}}
+  end
 
-    {:ok, %{counter: 0, prev_hash: "genesis", log_dir: log_dir, today: Date.utc_today()}}
+  @impl true
+  def handle_continue(:init_log_dir, state) do
+    File.mkdir_p!(state.log_dir)
+    {:noreply, state}
   end
 
   @impl true

@@ -199,7 +199,7 @@ export APM_LOG_LEVEL=debug                    # Enable verbose logging
 ### Local Development
 
 ```text
-http://localhost:3031
+http://localhost:3032
 ```
 
 ### Network Accessible
@@ -222,7 +222,7 @@ Configure nginx to forward to local APM:
 
 ```nginx
 upstream apm_v4 {
-  server localhost:3031;
+  server localhost:3032;
 }
 
 server {
@@ -277,7 +277,7 @@ config :apm_v4, ApmV4Web.Endpoint,
 ### Health Check Endpoint
 
 ```bash
-curl http://localhost:3031/health
+curl http://localhost:3032/health
 ```
 
 Response:
@@ -374,13 +374,13 @@ cp /Users/jeremiah/Developer/ccem/apm/apm_config.json \
 ### Data Export
 
 ```bash
-curl http://localhost:3031/api/v2/export > /backup/apm_export_$(date +%Y%m%d).json
+curl http://localhost:3032/api/v2/export > /backup/apm_export_$(date +%Y%m%d).json
 ```
 
 ### Restore
 
 ```bash
-curl -X POST http://localhost:3031/api/v2/import \
+curl -X POST http://localhost:3032/api/v2/import \
   -H "Content-Type: application/json" \
   -d @/backup/apm_export_DATE.json
 ```
@@ -434,7 +434,7 @@ If memory grows unbounded, check for:
 
 ### High CPU Usage
 
-- Check agent count with `curl http://localhost:3031/api/status`
+- Check agent count with `curl http://localhost:3032/api/status`
 - Monitor heartbeat frequency
 - Disable expensive operations (discovery)
 - Increase polling interval in config
@@ -485,7 +485,7 @@ erl -name debug@localhost -setcookie secret -remsh apm1@localhost
 2. Check config validity: `jq empty apm_config.json`
 3. Restore from backup if needed
 4. Restart: `/path/to/apm_v4 start`
-5. Verify with health check: `curl http://localhost:3031/health`
+5. Verify with health check: `curl http://localhost:3032/health`
 
 ### Session Recovery
 
@@ -493,7 +493,7 @@ Sessions are stored in `apm_config.json`. Restore from backup:
 
 ```bash
 cp apm_config.json.backup apm_config.json
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 ```
 
 ## Support and Maintenance

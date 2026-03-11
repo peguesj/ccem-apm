@@ -224,7 +224,7 @@ The dashboard adapts to screen size:
 ### Real-time Updates Not Working
 
 - Check WebSocket connection in DevTools Network tab
-- Verify server is running: `curl http://localhost:3031/health`
+- Verify server is running: `curl http://localhost:3032/health`
 - Restart server: `mix phx.server`
 
 ### Agents Not Appearing

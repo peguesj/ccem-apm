@@ -1,0 +1,54 @@
+2026-03-02 23:58:23,481 - __main__ - INFO - Cataloging project resources: /Users/jeremiah/Developer/ccem/apm-v4/assets
+2026-03-02 23:58:23,481 - __main__ - INFO - Cataloging file resources
+2026-03-02 23:58:23,601 - __main__ - INFO - Cataloging directory structure
+2026-03-02 23:58:23,625 - __main__ - INFO - Cataloging dependencies
+2026-03-02 23:58:23,631 - __main__ - INFO - Cataloging API endpoints
+2026-03-02 23:58:23,665 - __main__ - INFO - Resource cataloging completed: /Users/jeremiah/Developer/ccem/apm-v4/assets/.claude/hooks/data/resource_catalog.json
+2026-03-02 23:58:35,920 - __main__ - INFO - Cataloging project resources: /Users/jeremiah/Developer/ccem/apm-v4/assets
+2026-03-02 23:58:35,920 - __main__ - INFO - Cataloging file resources
+2026-03-02 23:58:36,017 - __main__ - INFO - Cataloging directory structure
+2026-03-02 23:58:36,045 - __main__ - INFO - Cataloging dependencies
+2026-03-02 23:58:36,052 - __main__ - INFO - Cataloging API endpoints
+2026-03-02 23:58:36,089 - __main__ - INFO - Resource cataloging completed: /Users/jeremiah/Developer/ccem/apm-v4/assets/.claude/hooks/data/resource_catalog.json
+2026-03-02 23:59:16,974 - __main__ - INFO - Cataloging project resources: /Users/jeremiah/Developer/ccem/apm-v4/assets
+2026-03-02 23:59:16,974 - __main__ - INFO - Cataloging file resources
+2026-03-02 23:59:17,058 - __main__ - INFO - Cataloging directory structure
+2026-03-02 23:59:17,074 - __main__ - INFO - Cataloging dependencies
+2026-03-02 23:59:17,077 - __main__ - INFO - Cataloging API endpoints
+2026-03-02 23:59:17,118 - __main__ - INFO - Resource cataloging completed: /Users/jeremiah/Developer/ccem/apm-v4/assets/.claude/hooks/data/resource_catalog.json
+2026-03-02 23:59:22,729 - __main__ - INFO - Cataloging project resources: /Users/jeremiah/Developer/ccem/apm-v4/assets
+2026-03-02 23:59:22,729 - __main__ - INFO - Cataloging file resources
+2026-03-02 23:59:22,821 - __main__ - INFO - Cataloging directory structure
+2026-03-02 23:59:22,842 - __main__ - INFO - Cataloging dependencies
+2026-03-02 23:59:22,847 - __main__ - INFO - Cataloging API endpoints
+2026-03-02 23:59:22,904 - __main__ - INFO - Resource cataloging completed: /Users/jeremiah/Developer/ccem/apm-v4/assets/.claude/hooks/data/resource_catalog.json
+2026-03-02 23:59:36,209 - __main__ - INFO - Cataloging project resources: /Users/jeremiah/Developer/ccem/apm-v4/assets
+2026-03-02 23:59:36,210 - __main__ - INFO - Cataloging file resources
+2026-03-02 23:59:36,302 - __main__ - INFO - Cataloging directory structure
+2026-03-02 23:59:36,323 - __main__ - INFO - Cataloging dependencies
+2026-03-02 23:59:36,326 - __main__ - INFO - Cataloging API endpoints
+2026-03-02 23:59:36,388 - __main__ - INFO - Resource cataloging completed: /Users/jeremiah/Developer/ccem/apm-v4/assets/.claude/hooks/data/resource_catalog.json
+2026-03-02 23:59:41,681 - __main__ - INFO - Cataloging project resources: /Users/jeremiah/Developer/ccem/apm-v4/assets
+2026-03-02 23:59:41,681 - __main__ - INFO - Cataloging file resources
+2026-03-02 23:59:41,742 - __main__ - INFO - Cataloging directory structure
+2026-03-02 23:59:41,754 - __main__ - INFO - Cataloging dependencies
+2026-03-02 23:59:41,756 - __main__ - INFO - Cataloging API endpoints
+2026-03-02 23:59:41,814 - __main__ - INFO - Resource cataloging completed: /Users/jeremiah/Developer/ccem/apm-v4/assets/.claude/hooks/data/resource_catalog.json
+2026-03-02 23:59:54,714 - __main__ - INFO - Cataloging project resources: /Users/jeremiah/Developer/ccem/apm-v4/assets
+2026-03-02 23:59:54,719 - __main__ - INFO - Cataloging file resources
+2026-03-02 23:59:54,836 - __main__ - INFO - Cataloging directory structure
+2026-03-02 23:59:54,864 - __main__ - INFO - Cataloging dependencies
+2026-03-02 23:59:54,869 - __main__ - INFO - Cataloging API endpoints
+2026-03-02 23:59:55,032 - __main__ - INFO - Resource cataloging completed: /Users/jeremiah/Developer/ccem/apm-v4/assets/.claude/hooks/data/resource_catalog.json
+2026-03-03 00:02:16,091 - __main__ - INFO - Cataloging project resources: /Users/jeremiah/Developer/ccem/apm-v4/assets
+2026-03-03 00:02:16,091 - __main__ - INFO - Cataloging file resources
+2026-03-03 00:02:16,141 - __main__ - INFO - Cataloging directory structure
+2026-03-03 00:02:16,151 - __main__ - INFO - Cataloging dependencies
+2026-03-03 00:02:16,154 - __main__ - INFO - Cataloging API endpoints
+2026-03-03 00:02:16,224 - __main__ - INFO - Resource cataloging completed: /Users/jeremiah/Developer/ccem/apm-v4/assets/.claude/hooks/data/resource_catalog.json
+2026-03-03 00:02:28,569 - __main__ - INFO - Cataloging project resources: /Users/jeremiah/Developer/ccem/apm-v4/assets
+2026-03-03 00:02:28,569 - __main__ - INFO - Cataloging file resources
+2026-03-03 00:02:28,618 - __main__ - INFO - Cataloging directory structure
+2026-03-03 00:02:28,629 - __main__ - INFO - Cataloging dependencies
+2026-03-03 00:02:28,632 - __main__ - INFO - Cataloging API endpoints
+2026-03-03 00:02:28,711 - __main__ - INFO - Resource cataloging completed: /Users/jeremiah/Developer/ccem/apm-v4/assets/.claude/hooks/data/resource_catalog.json

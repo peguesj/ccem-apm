@@ -50,7 +50,7 @@ Execution timeline entries tracking:
 Register a new UPM session to begin tracking work:
 
 ```bash
-curl -X POST http://localhost:3031/api/upm/register \
+curl -X POST http://localhost:3032/api/upm/register \
   -H "Content-Type: application/json" \
   -d '{
     "project": "ccem",
@@ -142,7 +142,7 @@ Each story tracks title, criteria, tokens, and assignment:
 Register an agent to work on a specific UPM story:
 
 ```bash
-curl -X POST http://localhost:3031/api/upm/agent \
+curl -X POST http://localhost:3032/api/upm/agent \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "upm-session-abc123",
@@ -162,7 +162,7 @@ The agent begins work on the assigned story. Progress updates are tracked automa
 Log execution events to build the timeline:
 
 ```bash
-curl -X POST http://localhost:3031/api/upm/event \
+curl -X POST http://localhost:3032/api/upm/event \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "upm-session-abc123",
@@ -198,7 +198,7 @@ curl -X POST http://localhost:3031/api/upm/event \
 Get current UPM session status:
 
 ```bash
-curl http://localhost:3031/api/upm/status?session_id=upm-session-abc123
+curl http://localhost:3032/api/upm/status?session_id=upm-session-abc123
 ```
 
 Response:

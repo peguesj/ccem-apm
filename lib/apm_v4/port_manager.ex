@@ -377,7 +377,9 @@ defmodule ApmV4.PortManager do
   defp categorize(_), do: :other
 
   defp do_scan_active_ports do
-    case System.cmd("lsof", ["-iTCP", "-sTCP:LISTEN", "-P", "-n"], stderr_to_stdout: true) do
+    lsof = System.find_executable("lsof") || "/usr/sbin/lsof"
+
+    case System.cmd(lsof, ["-iTCP", "-sTCP:LISTEN", "-P", "-n"], stderr_to_stdout: true) do
       {output, 0} ->
         raw_ports =
           output
@@ -418,8 +420,9 @@ defmodule ApmV4.PortManager do
   end
 
   defp get_process_cwd(pid) do
+    lsof = System.find_executable("lsof") || "/usr/sbin/lsof"
     # Use lsof -p PID -Fn -d cwd to get the current working directory
-    case System.cmd("lsof", ["-p", to_string(pid), "-Fn", "-d", "cwd"], stderr_to_stdout: true) do
+    case System.cmd(lsof, ["-p", to_string(pid), "-Fn", "-d", "cwd"], stderr_to_stdout: true) do
       {output, 0} ->
         output
         |> String.split("\n", trim: true)

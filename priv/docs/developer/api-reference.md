@@ -16,7 +16,7 @@ Server health check endpoint (v3-compatible, outside `/api` scope).
 Example request:
 
 ```bash
-curl http://localhost:3031/health
+curl http://localhost:3032/health
 ```
 
 Example response:
@@ -46,7 +46,7 @@ Detailed server status with session information.
 Example request:
 
 ```bash
-curl http://localhost:3031/api/status
+curl http://localhost:3032/api/status
 ```
 
 Example response:
@@ -79,7 +79,7 @@ List all agents, with optional project filter.
 Example request:
 
 ```bash
-curl 'http://localhost:3031/api/agents?project=ccem'
+curl 'http://localhost:3032/api/agents?project=ccem'
 ```
 
 Query params:
@@ -111,7 +111,7 @@ Register a new agent (also available at POST /api/agents/register).
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/register \
+curl -X POST http://localhost:3032/api/register \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent-abc123",
@@ -145,7 +145,7 @@ Send agent heartbeat (keep-alive / status update).
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/heartbeat \
+curl -X POST http://localhost:3032/api/heartbeat \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent-abc123",
@@ -172,7 +172,7 @@ Send a notification to the dashboard.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/notify \
+curl -X POST http://localhost:3032/api/notify \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Build Complete",
@@ -194,7 +194,7 @@ Full agent update (v3-compatible).
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/agents/update \
+curl -X POST http://localhost:3032/api/agents/update \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent-abc123",
@@ -216,7 +216,7 @@ Trigger agent discovery scan across environments.
 Example request:
 
 ```bash
-curl http://localhost:3031/api/agents/discover
+curl http://localhost:3032/api/agents/discover
 ```
 
 Example response:
@@ -241,7 +241,7 @@ Master data aggregation endpoint (v3-compatible). Returns agents, tasks, notific
 Example request:
 
 ```bash
-curl 'http://localhost:3031/api/data?project=ccem'
+curl 'http://localhost:3032/api/data?project=ccem'
 ```
 
 Query params:
@@ -284,7 +284,7 @@ Get recent notifications.
 Example request:
 
 ```bash
-curl http://localhost:3031/api/notifications
+curl http://localhost:3032/api/notifications
 ```
 
 Response: array of notification objects.
@@ -296,7 +296,7 @@ Create a new notification (v3-compatible).
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/notifications/add \
+curl -X POST http://localhost:3032/api/notifications/add \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Low Token Budget",
@@ -318,7 +318,7 @@ Mark all notifications as read.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/notifications/read-all
+curl -X POST http://localhost:3032/api/notifications/read-all
 ```
 
 Example response:
@@ -341,7 +341,7 @@ Get Ralph methodology data for the active project.
 Example request:
 
 ```bash
-curl 'http://localhost:3031/api/ralph?project=ccem'
+curl 'http://localhost:3032/api/ralph?project=ccem'
 ```
 
 Query params:
@@ -356,7 +356,7 @@ Get D3.js-compatible flowchart data for Ralph visualization.
 Example request:
 
 ```bash
-curl 'http://localhost:3031/api/ralph/flowchart?project=ccem'
+curl 'http://localhost:3032/api/ralph/flowchart?project=ccem'
 ```
 
 Example response:
@@ -382,7 +382,7 @@ Get registered slash commands for a project.
 Example request:
 
 ```bash
-curl 'http://localhost:3031/api/commands?project=ccem'
+curl 'http://localhost:3032/api/commands?project=ccem'
 ```
 
 Response: array of command objects.
@@ -394,7 +394,7 @@ Register slash commands for a project.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/commands \
+curl -X POST http://localhost:3032/api/commands \
   -H "Content-Type: application/json" \
   -d '{
     "project": "ccem",
@@ -425,7 +425,7 @@ Get pending user input requests.
 Example request:
 
 ```bash
-curl http://localhost:3031/api/input/pending
+curl http://localhost:3032/api/input/pending
 ```
 
 Response: array of pending input request objects.
@@ -437,7 +437,7 @@ Request user input from an agent.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/input/request \
+curl -X POST http://localhost:3032/api/input/request \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent-abc123",
@@ -459,7 +459,7 @@ Provide user input response.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/input/respond \
+curl -X POST http://localhost:3032/api/input/respond \
   -H "Content-Type: application/json" \
   -d '{
     "id": 1,
@@ -486,7 +486,7 @@ Replace a project's task list with the provided array.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/tasks/sync \
+curl -X POST http://localhost:3032/api/tasks/sync \
   -H "Content-Type: application/json" \
   -d '{
     "project": "ccem",
@@ -517,7 +517,7 @@ Reload configuration from the `apm_config.json` file.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 ```
 
 Example response:
@@ -533,7 +533,7 @@ Alias for `/api/config/reload`.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/reload
+curl -X POST http://localhost:3032/api/reload
 ```
 
 Example response:
@@ -549,7 +549,7 @@ Update Plane PM context for a project.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/plane/update \
+curl -X POST http://localhost:3032/api/plane/update \
   -H "Content-Type: application/json" \
   -d '{
     "project": "ccem",
@@ -578,19 +578,19 @@ Get skill catalog and analytics. Supports filtering by session or project.
 Full catalog request:
 
 ```bash
-curl http://localhost:3031/api/skills
+curl http://localhost:3032/api/skills
 ```
 
 Filter by session:
 
 ```bash
-curl 'http://localhost:3031/api/skills?session_id=sess-123'
+curl 'http://localhost:3032/api/skills?session_id=sess-123'
 ```
 
 Filter by project:
 
 ```bash
-curl 'http://localhost:3031/api/skills?project=ccem'
+curl 'http://localhost:3032/api/skills?project=ccem'
 ```
 
 Response (no filter):
@@ -619,7 +619,7 @@ Track a skill usage event. Requires `session_id` and `skill`.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/skills/track \
+curl -X POST http://localhost:3032/api/skills/track \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "sess-abc123",
@@ -649,7 +649,7 @@ Get all configured projects with agent and session counts.
 Example request:
 
 ```bash
-curl http://localhost:3031/api/projects
+curl http://localhost:3032/api/projects
 ```
 
 Example response:
@@ -678,7 +678,7 @@ Update project fields in config.
 Example request:
 
 ```bash
-curl -X PATCH http://localhost:3031/api/projects \
+curl -X PATCH http://localhost:3032/api/projects \
   -H "Content-Type: application/json" \
   -d '{
     "name": "ccem",
@@ -716,7 +716,7 @@ Get port assignments, ranges, and clash information.
 Example request:
 
 ```bash
-curl http://localhost:3031/api/ports
+curl http://localhost:3032/api/ports
 ```
 
 Example response:
@@ -742,7 +742,7 @@ Scan for active ports on the system.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/ports/scan
+curl -X POST http://localhost:3032/api/ports/scan
 ```
 
 Example response:
@@ -761,7 +761,7 @@ Assign an available port to a project or namespace.
 Assign by namespace:
 
 ```bash
-curl -X POST http://localhost:3031/api/ports/assign \
+curl -X POST http://localhost:3032/api/ports/assign \
   -H "Content-Type: application/json" \
   -d '{"namespace": "web"}'
 ```
@@ -769,7 +769,7 @@ curl -X POST http://localhost:3031/api/ports/assign \
 Assign by project:
 
 ```bash
-curl -X POST http://localhost:3031/api/ports/assign \
+curl -X POST http://localhost:3032/api/ports/assign \
   -H "Content-Type: application/json" \
   -d '{"project": "my-project"}'
 ```
@@ -793,7 +793,7 @@ Detect port clashes across projects.
 Example request:
 
 ```bash
-curl http://localhost:3031/api/ports/clashes
+curl http://localhost:3032/api/ports/clashes
 ```
 
 Example response:
@@ -814,7 +814,7 @@ Set the primary port for a project with ownership level.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/ports/set-primary \
+curl -X POST http://localhost:3032/api/ports/set-primary \
   -H "Content-Type: application/json" \
   -d '{
     "project": "ccem",
@@ -852,7 +852,7 @@ Register a new UPM execution session.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/upm/register \
+curl -X POST http://localhost:3032/api/upm/register \
   -H "Content-Type: application/json" \
   -d '{
     "project": "ccem",
@@ -874,7 +874,7 @@ Register an agent with work-item binding.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/upm/agent \
+curl -X POST http://localhost:3032/api/upm/agent \
   -H "Content-Type: application/json" \
   -d '{
     "upm_session_id": "upm-abc123",
@@ -902,7 +902,7 @@ Log a UPM lifecycle event.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/upm/event \
+curl -X POST http://localhost:3032/api/upm/event \
   -H "Content-Type: application/json" \
   -d '{
     "upm_session_id": "upm-abc123",
@@ -925,7 +925,7 @@ Get the current UPM execution state.
 Example request:
 
 ```bash
-curl http://localhost:3031/api/upm/status
+curl http://localhost:3032/api/upm/status
 ```
 
 Example response:
@@ -961,7 +961,7 @@ List all Claude Code environments.
 Example request:
 
 ```bash
-curl http://localhost:3031/api/environments
+curl http://localhost:3032/api/environments
 ```
 
 Example response:
@@ -991,7 +991,7 @@ Get full detail for a specific environment.
 Example request:
 
 ```bash
-curl http://localhost:3031/api/environments/ccem
+curl http://localhost:3032/api/environments/ccem
 ```
 
 ### POST /api/environments/:name/exec
@@ -1001,7 +1001,7 @@ Execute a command in an environment. Timeout capped at 120 seconds.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/environments/ccem/exec \
+curl -X POST http://localhost:3032/api/environments/ccem/exec \
   -H "Content-Type: application/json" \
   -d '{"command": "mix test", "timeout": 30}'
 ```
@@ -1030,7 +1030,7 @@ Launch a Claude Code session in an environment.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/environments/ccem/session/start \
+curl -X POST http://localhost:3032/api/environments/ccem/session/start \
   -H "Content-Type: application/json" \
   -d '{"with_ccem": true}'
 ```
@@ -1048,7 +1048,7 @@ Kill a Claude Code session in an environment.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/environments/ccem/session/stop
+curl -X POST http://localhost:3032/api/environments/ccem/session/stop
 ```
 
 Example response:
@@ -1079,7 +1079,7 @@ Example response:
 List agents with extended data including metrics.
 
 ```bash
-curl http://localhost:3031/api/v2/agents
+curl http://localhost:3032/api/v2/agents
 ```
 
 ### GET /api/v2/agents/:id
@@ -1087,7 +1087,7 @@ curl http://localhost:3031/api/v2/agents
 Get detailed agent information with associated metrics.
 
 ```bash
-curl http://localhost:3031/api/v2/agents/agent-abc123
+curl http://localhost:3032/api/v2/agents/agent-abc123
 ```
 
 ### GET /api/v2/sessions
@@ -1095,7 +1095,7 @@ curl http://localhost:3031/api/v2/agents/agent-abc123
 List all tracked sessions.
 
 ```bash
-curl http://localhost:3031/api/v2/sessions
+curl http://localhost:3032/api/v2/sessions
 ```
 
 ### GET /api/v2/metrics
@@ -1103,7 +1103,7 @@ curl http://localhost:3031/api/v2/sessions
 Get fleet-wide aggregated metrics.
 
 ```bash
-curl http://localhost:3031/api/v2/metrics
+curl http://localhost:3032/api/v2/metrics
 ```
 
 ### GET /api/v2/metrics/:agent_id
@@ -1111,7 +1111,7 @@ curl http://localhost:3031/api/v2/metrics
 Get metrics for a specific agent.
 
 ```bash
-curl http://localhost:3031/api/v2/metrics/agent-abc123
+curl http://localhost:3032/api/v2/metrics/agent-abc123
 ```
 
 ### GET /api/v2/slos
@@ -1119,7 +1119,7 @@ curl http://localhost:3031/api/v2/metrics/agent-abc123
 List all configured SLOs (Service Level Objectives).
 
 ```bash
-curl http://localhost:3031/api/v2/slos
+curl http://localhost:3032/api/v2/slos
 ```
 
 ### GET /api/v2/slos/:name
@@ -1127,7 +1127,7 @@ curl http://localhost:3031/api/v2/slos
 Get details for a specific SLO.
 
 ```bash
-curl http://localhost:3031/api/v2/slos/uptime
+curl http://localhost:3032/api/v2/slos/uptime
 ```
 
 ### GET /api/v2/alerts
@@ -1135,7 +1135,7 @@ curl http://localhost:3031/api/v2/slos/uptime
 List currently active alerts.
 
 ```bash
-curl http://localhost:3031/api/v2/alerts
+curl http://localhost:3032/api/v2/alerts
 ```
 
 ### GET /api/v2/alerts/rules
@@ -1143,7 +1143,7 @@ curl http://localhost:3031/api/v2/alerts
 Get all configured alert rules.
 
 ```bash
-curl http://localhost:3031/api/v2/alerts/rules
+curl http://localhost:3032/api/v2/alerts/rules
 ```
 
 ### POST /api/v2/alerts/rules
@@ -1153,7 +1153,7 @@ Create a new alert rule.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/v2/alerts/rules \
+curl -X POST http://localhost:3032/api/v2/alerts/rules \
   -H "Content-Type: application/json" \
   -d '{"condition": "token_usage > 80000", "action": "escalate"}'
 ```
@@ -1163,7 +1163,7 @@ curl -X POST http://localhost:3031/api/v2/alerts/rules \
 Get audit log entries.
 
 ```bash
-curl http://localhost:3031/api/v2/audit
+curl http://localhost:3032/api/v2/audit
 ```
 
 ### GET /api/v2/openapi.json
@@ -1171,7 +1171,7 @@ curl http://localhost:3031/api/v2/audit
 Get the OpenAPI specification for the full API.
 
 ```bash
-curl http://localhost:3031/api/v2/openapi.json
+curl http://localhost:3032/api/v2/openapi.json
 ```
 
 ## Data Export and Import Endpoints
@@ -1188,19 +1188,19 @@ Export APM data as JSON or CSV.
 JSON export (default):
 
 ```bash
-curl http://localhost:3031/api/v2/export > export.json
+curl http://localhost:3032/api/v2/export > export.json
 ```
 
 CSV export for a specific section:
 
 ```bash
-curl 'http://localhost:3031/api/v2/export?format=csv&section=agents' > agents.csv
+curl 'http://localhost:3032/api/v2/export?format=csv&section=agents' > agents.csv
 ```
 
 Filtered JSON export:
 
 ```bash
-curl 'http://localhost:3031/api/v2/export?sections[]=agents&sections[]=sessions&since=2026-02-01T00:00:00Z'
+curl 'http://localhost:3032/api/v2/export?sections[]=agents&sections[]=sessions&since=2026-02-01T00:00:00Z'
 ```
 
 Query params:
@@ -1217,7 +1217,7 @@ Import data from a JSON export file.
 Example request:
 
 ```bash
-curl -X POST http://localhost:3031/api/v2/import \
+curl -X POST http://localhost:3032/api/v2/import \
   -H "Content-Type: application/json" \
   -d @export.json
 ```
@@ -1241,7 +1241,7 @@ Subscribe to real-time AG-UI events via Server-Sent Events.
 Example request:
 
 ```bash
-curl http://localhost:3031/api/ag-ui/events
+curl http://localhost:3032/api/ag-ui/events
 ```
 
 Streams events as they occur:
@@ -1264,7 +1264,7 @@ data: {"type":"agent_updated","agent":"test-gen"}
 List available A2UI components (accepts JSON and JSONL).
 
 ```bash
-curl http://localhost:3031/api/a2ui/components
+curl http://localhost:3032/api/a2ui/components
 ```
 
 ## Error Responses
@@ -1294,5 +1294,5 @@ Include the API key in the Authorization header:
 
 ```bash
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  http://localhost:3031/api/status
+  http://localhost:3032/api/status
 ```

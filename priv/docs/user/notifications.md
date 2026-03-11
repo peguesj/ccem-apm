@@ -102,7 +102,7 @@ The notification drawer shows up to 20 most recent notifications with timestamps
 Create a new notification:
 
 ```bash
-curl -X POST http://localhost:3031/api/notifications/add \
+curl -X POST http://localhost:3032/api/notifications/add \
   -H "Content-Type: application/json" \
   -d '{
     "level": "warning",
@@ -142,7 +142,7 @@ curl -X POST http://localhost:3031/api/notifications/add \
 Mark all notifications as read, clearing the unread badge:
 
 ```bash
-curl -X POST http://localhost:3031/api/notifications/read-all
+curl -X POST http://localhost:3032/api/notifications/read-all
 ```
 
 ## Built-in Notification Events

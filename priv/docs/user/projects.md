@@ -84,7 +84,7 @@ Edit `/Users/jeremiah/Developer/ccem/apm/apm_config.json` and add to the `projec
 Send a reload request to the running server:
 
 ```bash
-curl -X POST http://localhost:3031/api/config/reload
+curl -X POST http://localhost:3032/api/config/reload
 ```
 
 Or restart the server entirely:
@@ -95,7 +95,7 @@ mix phx.server
 
 ### Step 3: Verify in Dashboard
 
-Open `http://localhost:3031` and check the **Project Selector** dropdown. The new project should appear.
+Open `http://localhost:3032` and check the **Project Selector** dropdown. The new project should appear.
 
 ## Switching Active Projects
 
@@ -110,7 +110,7 @@ Open `http://localhost:3031` and check the **Project Selector** dropdown. The ne
 Switch the active project programmatically:
 
 ```bash
-curl -X POST http://localhost:3031/api/config/reload \
+curl -X POST http://localhost:3032/api/config/reload \
   -H "Content-Type: application/json" \
   -d '{"active_project": "lcc"}'
 ```
@@ -137,7 +137,7 @@ Agents, sessions, and data are isolated by project namespace:
 Register an agent to a specific project:
 
 ```bash
-curl -X POST http://localhost:3031/api/register \
+curl -X POST http://localhost:3032/api/register \
   -H "Content-Type: application/json" \
   -d '{
     "name": "analyzer",
@@ -206,7 +206,7 @@ source ~/Developer/ccem/apm/hooks/session_init.sh
 List all configured projects and the currently active one:
 
 ```bash
-curl http://localhost:3031/api/projects
+curl http://localhost:3032/api/projects
 ```
 
 Response:
@@ -226,7 +226,7 @@ Response:
 Retrieve agents filtered by project:
 
 ```bash
-curl http://localhost:3031/api/agents?project=ccem
+curl http://localhost:3032/api/agents?project=ccem
 ```
 
 ## Best Practices

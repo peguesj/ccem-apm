@@ -45,9 +45,14 @@ defmodule ApmV4.EnvironmentScanner do
   def init(opts) do
     table = :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
     scan_dirs = Keyword.get(opts, :scan_dirs, @default_scan_dirs)
-    do_scan(scan_dirs)
     schedule_scan()
-    {:ok, %{table: table, scan_dirs: scan_dirs}}
+    {:ok, %{table: table, scan_dirs: scan_dirs}, {:continue, :initial_scan}}
+  end
+
+  @impl true
+  def handle_continue(:initial_scan, state) do
+    do_scan(state.scan_dirs)
+    {:noreply, state}
   end
 
   @impl true
