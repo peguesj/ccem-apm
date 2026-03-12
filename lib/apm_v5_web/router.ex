@@ -55,6 +55,7 @@ defmodule ApmV5Web.Router do
     live "/uat", UatLive, :index
     live "/tool-calls", ToolCallLive, :index
     live "/generative-ui", GenerativeUILive, :index
+    live "/a2a", A2ALive, :index
 
     # /upm redirects to workflow UPM view
     get "/upm", PageController, :upm_redirect
@@ -248,6 +249,19 @@ defmodule ApmV5Web.Router do
     get "/chat/:scope", ChatController, :index
     post "/chat/:scope/send", ChatController, :send_message
     delete "/chat/:scope", ChatController, :clear
+
+    # A2A messaging endpoints (US-032, US-033)
+    post "/a2a/send", A2AController, :send_message
+    get "/a2a/messages/:agent_id", A2AController, :messages
+    post "/a2a/ack", A2AController, :ack
+    get "/a2a/stats", A2AController, :stats
+    get "/a2a/history/:agent_id", A2AController, :history
+    post "/a2a/broadcast", A2AController, :broadcast_message
+    post "/a2a/fan-out", A2AController, :fan_out
+    get "/a2a/stream/:agent_id", A2AController, :stream
+
+    # Migration guide (US-037)
+    get "/ag-ui/migration", MigrationController, :migration_status
 
     # Agent control (US-012)
     post "/agents/:id/control", AgentControlController, :control_agent
