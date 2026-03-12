@@ -11,6 +11,9 @@ defmodule ApmV5.Application do
     :inets.start()
     :ssl.start()
 
+    # Initialize LifecycleMapper ETS tables before supervision tree starts
+    ApmV5.AgUi.LifecycleMapper.init_tables()
+
     children = [
       ApmV5Web.Telemetry,
       {DNSCluster, query: Application.get_env(:apm_v5, :dns_cluster_query) || :ignore},
@@ -45,7 +48,27 @@ defmodule ApmV5.Application do
       ApmV5.BackfillStore,
       ApmV5.SkillsRegistryStore,
       ApmV5.AgUi.StateManager,
+      ApmV5.AgUi.EventBus,
       ApmV5.AgUi.EventRouter,
+      ApmV5.AgUi.V4Compat,
+      # Wave 2: Tool call lifecycle (US-010)
+      ApmV5.AgUi.ToolCallTracker,
+      # Wave 2: Dashboard state sync (US-015)
+      ApmV5.AgUi.DashboardStateSync,
+      # Wave 2: Activity tracking (US-016)
+      ApmV5.AgUi.ActivityTracker,
+      # Wave 2: Metrics bridge (US-039)
+      ApmV5.AgUi.MetricsBridge,
+      # Wave 2: Audit bridge (US-040)
+      ApmV5.AgUi.AuditBridge,
+      # Wave 2: EventBus health (US-041)
+      ApmV5.AgUi.EventBusHealth,
+      # Wave 3: Generative UI registry (US-022)
+      ApmV5.AgUi.GenerativeUI.Registry,
+      # Wave 3: Approval gate (US-026)
+      ApmV5.AgUi.ApprovalGate,
+      # Wave 4: A2A messaging router (US-031)
+      ApmV5.AgUi.A2A.Router,
       ApmV5.ChatStore,
       {ApmV5.Intake.Store, []},
       # Start to serve requests, typically the last entry

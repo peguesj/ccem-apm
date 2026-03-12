@@ -17,6 +17,8 @@ defmodule ApmV5.AgUi.EventRouter do
   use GenServer
 
   alias ApmV5.EventStream
+  alias ApmV5.AgUi.EventBus
+  alias ApmV5.AgUi.Topics
 
   @pubsub ApmV5.PubSub
 
@@ -101,6 +103,12 @@ defmodule ApmV5.AgUi.EventRouter do
   # -- Routing Logic ----------------------------------------------------------
 
   defp do_route(%{type: type, data: data} = _event) do
+    # US-003 DoD: Dispatch all events through EventBus using Topics.topic_for/1.
+    # EventBus.publish/2 handles validation, sequence numbering via EventStream,
+    # and delivery to topic subscribers. Direct PubSub calls replaced by EventBus.
+    _topic = Topics.topic_for(type)
+    EventBus.publish(type, data)
+
     case type do
       @type_run_started ->
         route_to_agent_registry(:run_started, data)

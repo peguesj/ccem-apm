@@ -33,6 +33,12 @@ defmodule ApmV5Web.DashboardLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:commands")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:upm")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:ports")
+
+      # US-017: EventBus subscriptions for AG-UI integration
+      ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
+      ApmV5.AgUi.EventBus.subscribe("state:*")
+      ApmV5.AgUi.EventBus.subscribe("activity:*")
+      ApmV5.AgUi.EventBus.subscribe("special:custom")
     end
 
     config = safe_get_config()
@@ -1353,6 +1359,27 @@ defmodule ApmV5Web.DashboardLive do
     port_clashes = PortManager.detect_clashes()
     {:noreply, socket |> assign(:project_configs, project_configs) |> assign(:port_clashes, port_clashes)}
   end
+
+  # US-017: Handle AG-UI EventBus events
+  def handle_info({:event_bus, "lifecycle:" <> _, %{type: type}}, socket)
+      when type in ["RUN_STARTED", "RUN_FINISHED", "RUN_ERROR", "STEP_STARTED", "STEP_FINISHED"] do
+    {:noreply, refresh_agents(socket)}
+  end
+
+  def handle_info({:event_bus, "state:" <> _, _event}, socket) do
+    {:noreply, refresh_agents(socket)}
+  end
+
+  def handle_info({:event_bus, "activity:" <> _, _event}, socket) do
+    {:noreply, refresh_agents(socket)}
+  end
+
+  def handle_info({:event_bus, "special:custom", %{data: %{name: "approval_requested"}}}, socket) do
+    pending = ApmV5.AgUi.ApprovalGate.pending_count()
+    {:noreply, assign(socket, :pending_approvals, pending)}
+  end
+
+  def handle_info({:event_bus, _, _}, socket), do: {:noreply, socket}
 
   def handle_info(_msg, socket) do
     {:noreply, socket}

@@ -10,6 +10,8 @@ defmodule ApmV5Web.ActionsLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       :timer.send_interval(@refresh_interval, self(), :refresh)
+      # US-021: EventBus subscription for AG-UI activity events
+      ApmV5.AgUi.EventBus.subscribe("activity:*")
     end
 
     catalog = safe_call(fn -> ActionEngine.list_catalog() end, [])

@@ -20,6 +20,8 @@ defmodule ApmV5Web.NotificationLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:notifications")
+      # US-019: EventBus subscription for AG-UI notification events
+      ApmV5.AgUi.EventBus.subscribe("special:custom")
     end
 
     notifications = load_notifications()

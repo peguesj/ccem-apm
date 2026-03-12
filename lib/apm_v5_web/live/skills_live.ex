@@ -18,6 +18,8 @@ defmodule ApmV5Web.SkillsLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:skills")
+      # US-021: EventBus subscription for AG-UI events
+      ApmV5.AgUi.EventBus.subscribe("special:custom")
     end
 
     active_session = current_session_id()

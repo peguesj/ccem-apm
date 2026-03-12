@@ -18,6 +18,7 @@ defmodule ApmV5.AgUi.HookBridge do
   """
 
   alias ApmV5.EventStream
+  alias ApmV5.AgUi.LifecycleMapper
   alias AgUi.Core.Events.EventType
 
   @doc """
@@ -27,24 +28,12 @@ defmodule ApmV5.AgUi.HookBridge do
   """
   @spec translate_register(map()) :: map()
   def translate_register(payload) do
-    agent_id = payload["agent_id"] || payload["session_id"] || "unknown"
-    project = payload["project"] || "unknown"
-
-    metadata = %{
-      project: project,
-      role: payload["role"],
-      formation_id: payload["formation_id"],
-      formation_role: payload["formation_role"],
-      parent_agent_id: payload["parent_agent_id"],
-      wave: payload["wave"],
-      task_subject: payload["task_subject"],
-      original_payload: payload
-    }
-
-    EventStream.emit_run_started(agent_id, %{
-      thread_id: "thread-#{project}",
-      metadata: metadata
-    })
+    # US-004/US-008 DoD: Delegates to LifecycleMapper.map_registration/1 for
+    # fully-compliant AG-UI RUN_STARTED events with deterministic run_id,
+    # thread_id from formation context, and full metadata extraction.
+    # Returns same JSON shape as v4 while routing through AG-UI event pipeline.
+    mapped = LifecycleMapper.map_registration(payload)
+    EventStream.emit(mapped.type, mapped.data)
   end
 
   @doc """
@@ -55,31 +44,11 @@ defmodule ApmV5.AgUi.HookBridge do
   """
   @spec translate_heartbeat(map()) :: map()
   def translate_heartbeat(payload) do
-    agent_id = payload["agent_id"] || payload["session_id"]
-    status = payload["status"]
-
-    case status do
-      "active" ->
-        EventStream.emit(EventType.step_started(), %{
-          agent_id: agent_id,
-          step_name: payload["task_subject"] || "heartbeat",
-          metadata: strip_nils(payload)
-        })
-
-      status when status in ["completed", "done", "finished"] ->
-        EventStream.emit(EventType.step_finished(), %{
-          agent_id: agent_id,
-          step_name: payload["task_subject"] || "heartbeat",
-          metadata: strip_nils(payload)
-        })
-
-      _ ->
-        EventStream.emit(EventType.custom(), %{
-          name: "heartbeat",
-          agent_id: agent_id,
-          value: strip_nils(payload)
-        })
-    end
+    # US-005/US-008 DoD: Delegates to LifecycleMapper.map_heartbeat/1 for
+    # proper step lifecycle tracking with step_id, duration_ms computation,
+    # and token usage extraction. Returns same JSON shape as v4.
+    mapped = LifecycleMapper.map_heartbeat(payload)
+    EventStream.emit(mapped.type, mapped.data)
   end
 
   @doc """
@@ -103,26 +72,36 @@ defmodule ApmV5.AgUi.HookBridge do
   @doc """
   Translates a legacy tool-use payload to TOOL_CALL events.
 
-  Emits the full tool call lifecycle: START -> ARGS -> END.
+  US-011: Uses ToolCallTracker for lifecycle tracking and emits properly
+  sequenced events through EventBus instead of direct EventStream calls.
   """
   @spec translate_tool_use(map()) :: [map()]
   def translate_tool_use(payload) do
+    alias ApmV5.AgUi.ToolCallTracker
+
     agent_id = payload["agent_id"] || payload["session_id"]
-    run_id = payload["run_id"] || "run-#{agent_id}"
     tool_name = payload["tool_name"] || payload["tool"] || "unknown"
     tool_call_id = payload["tool_call_id"]
 
-    start_event = EventStream.emit_tool_call_start(agent_id, run_id, tool_name, tool_call_id)
-    tc_id = start_event.data[:tool_call_id]
+    # track_start publishes TOOL_CALL_START via EventBus
+    tc_id = ToolCallTracker.track_start(agent_id, tool_name, tool_call_id)
 
-    args_event =
-      if payload["args"] do
-        EventStream.emit_tool_call_args(agent_id, run_id, tc_id, payload["args"])
-      end
+    # track_args publishes TOOL_CALL_ARGS via EventBus
+    if payload["args"] do
+      ToolCallTracker.track_args(tc_id, payload["args"])
+    end
 
-    end_event = EventStream.emit_tool_call_end(agent_id, run_id, tc_id)
+    # If result data is present, track it (emits TOOL_CALL_RESULT)
+    if payload["result"] do
+      result_type = payload["result_type"] || "text"
+      ToolCallTracker.track_result(tc_id, result_type, payload["result"])
+    end
 
-    Enum.reject([start_event, args_event, end_event], &is_nil/1)
+    # track_end publishes TOOL_CALL_END via EventBus
+    ToolCallTracker.track_end(tc_id)
+
+    # Return the events for backward compatibility
+    [%{type: "TOOL_CALL_START", data: %{agent_id: agent_id, tool_call_id: tc_id, tool_name: tool_name}}]
   end
 
   @doc """
@@ -141,12 +120,6 @@ defmodule ApmV5.AgUi.HookBridge do
   end
 
   # -- Private ----------------------------------------------------------------
-
-  defp strip_nils(map) when is_map(map) do
-    map
-    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
-    |> Enum.into(%{})
-  end
 
   defp compute_delta(old_map, new_map) do
     all_keys = MapSet.union(MapSet.new(Map.keys(old_map)), MapSet.new(Map.keys(new_map)))
