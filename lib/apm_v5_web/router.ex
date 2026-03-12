@@ -52,6 +52,7 @@ defmodule ApmV5Web.Router do
     live "/drtw", DrtwLive, :index
     live "/ag-ui", AgUiLive, :index
     live "/intake", IntakeLive, :index
+    live "/uat", UatLive, :index
 
     # /upm redirects to workflow UPM view
     get "/upm", PageController, :upm_redirect
