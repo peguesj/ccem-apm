@@ -165,6 +165,7 @@ defmodule ApmV5Web.PortsLive do
           <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" />
           <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
           <.nav_item icon="hero-signal" label="Ports" active={true} href="/ports" />
+          <.nav_item icon="hero-beaker" label="UAT" active={false} href="/uat" />
           <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
         </nav>
       </aside>

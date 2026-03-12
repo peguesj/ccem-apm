@@ -51,6 +51,7 @@ defmodule ApmV5Web.Router do
     live "/backfill", BackfillLive, :index
     live "/drtw", DrtwLive, :index
     live "/intake", IntakeLive, :index
+    live "/uat", UatLive, :index
   end
 
   # v3-compatible health check (JSON) — served under /api scope instead
@@ -170,6 +171,12 @@ defmodule ApmV5Web.Router do
     post "/intake", ApiController, :intake_submit
     get "/intake", ApiController, :intake_list
     get "/intake/watchers", ApiController, :intake_watchers
+
+    # UAT (User Acceptance Testing)
+    get "/uat/results", UatController, :results
+    post "/uat/run", UatController, :run
+    get "/uat/summary", UatController, :summary
+    delete "/uat/results", UatController, :clear
 
   end
 

@@ -60,6 +60,7 @@ defmodule ApmV5Web.WorkflowLive do
           <.nav_item icon="hero-clock" label="Timeline" href="/timeline" />
           <.nav_item icon="hero-academic-cap" label="Skills" href="/skills" />
           <.nav_item icon="hero-server-stack" label="Ports" href="/ports" />
+          <.nav_item icon="hero-beaker" label="UAT" href="/uat" />
           <.nav_item icon="hero-book-open" label="Docs" href="/docs" />
           <div class="divider my-1 text-xs text-base-content/30">Workflows</div>
           <%= for wf <- @all_workflows do %>
