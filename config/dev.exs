@@ -6,7 +6,7 @@ import Config
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-config :apm_v4, ApmV4Web.Endpoint,
+config :apm_v5, ApmV5Web.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: 3032],
@@ -15,8 +15,8 @@ config :apm_v4, ApmV4Web.Endpoint,
   debug_errors: true,
   secret_key_base: "kY3MVboJ+Qr9zL8db1GpnTfcC1c2MrnokzTtXVfoauKI0hpUP55+TMtv8nGgo4hu",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:apm_v4, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:apm_v4, ~w(--watch)]}
+    esbuild: {Esbuild, :install_and_run, [:apm_v5, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:apm_v5, ~w(--watch)]}
   ]
 
 # ## SSL Support
@@ -43,7 +43,7 @@ config :apm_v4, ApmV4Web.Endpoint,
 # different ports.
 
 # Reload browser tabs when matching files change.
-config :apm_v4, ApmV4Web.Endpoint,
+config :apm_v5, ApmV5Web.Endpoint,
   live_reload: [
     web_console_logger: true,
     patterns: [
@@ -52,21 +52,21 @@ config :apm_v4, ApmV4Web.Endpoint,
       # Gettext translations
       ~r"priv/gettext/.*\.po$"E,
       # Router, Controllers, LiveViews and LiveComponents
-      ~r"lib/apm_v4_web/router\.ex$"E,
-      ~r"lib/apm_v4_web/(controllers|live|components)/.*\.(ex|heex)$"E
+      ~r"lib/apm_v5_web/router\.ex$"E,
+      ~r"lib/apm_v5_web/(controllers|live|components)/.*\.(ex|heex)$"E
     ]
   ]
 
 # Enable dev routes for dashboard and mailbox
-config :apm_v4, dev_routes: true
+config :apm_v5, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 
 # JSON formatter available for structured logging (opt-in via Logger backend config)
 # To use: config :logger, :default_formatter,
-#   format: {ApmV4.Logger.JsonFormatter, :format}, metadata: [:module, :function]
-config :apm_v4, :json_logger_enabled, false
+#   format: {ApmV5.Logger.JsonFormatter, :format}, metadata: [:module, :function]
+config :apm_v5, :json_logger_enabled, false
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.

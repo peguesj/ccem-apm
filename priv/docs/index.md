@@ -21,7 +21,7 @@ See the full [Changelog](changelog.md) for version history and release notes.
 
 > **Get running in under 2 minutes:**
 >
-> 1. Clone the repository: `git clone <repo-url> && cd apm-v4`
+> 1. Clone the repository: `git clone <repo-url> && cd apm-v5`
 > 2. Install dependencies: `mix deps.get`
 > 3. Start the server: `mix phx.server`
 > 4. Open the dashboard: `http://localhost:3032`

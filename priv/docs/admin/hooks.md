@@ -35,7 +35,7 @@ This is invoked as a Claude Code `SessionStart` hook, not sourced into the shell
 
 ```bash
 APM_DIR="$HOME/Developer/ccem/apm"           # APM shared directory (config, sessions, hooks)
-APM_V4_DIR="$HOME/Developer/ccem/apm-v4"     # Phoenix project root
+APM_V4_DIR="$HOME/Developer/ccem/apm-v5"     # Phoenix project root
 APM_PORT=3031                                 # HTTP listen port
 SESSIONS_DIR="$APM_DIR/sessions"             # Per-session JSON files
 LOG_FILE="$APM_DIR/hooks/apm_hook.log"       # Hook activity log
@@ -257,13 +257,13 @@ Log entries are prefixed with timestamps and `[APM-HOOK-v4]`:
 
 ```bash
 # Check if APM v4 directory exists
-ls -la ~/Developer/ccem/apm-v4/mix.exs
+ls -la ~/Developer/ccem/apm-v5/mix.exs
 
 # Check server log for errors
 tail -20 ~/Developer/ccem/apm/hooks/apm_server.log
 
 # Try starting manually
-cd ~/Developer/ccem/apm-v4 && mix phx.server
+cd ~/Developer/ccem/apm-v5 && mix phx.server
 ```
 
 ### Issue: Config Not Updating

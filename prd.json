@@ -1,6 +1,6 @@
 {
   "project": "CCEM APM v4",
-  "branchName": "ralph/apm-v4-multi-project",
+  "branchName": "ralph/apm-v5-multi-project",
   "baseBranch": "main",
   "description": "Collapsible hierarchical dependency graph, curved connectors, agent lifecycle toast notifications, CCEM Agent integration",
   "upm": {
@@ -38,7 +38,7 @@
       "title": "Create hierarchical graph data builder module",
       "description": "As a developer, I need a GraphBuilder module that transforms a flat agent list into a d3-hierarchy compatible tree structure, grouping agents by project > formation > squadron > agent, with collapse state tracking.",
       "acceptanceCriteria": [
-        "GraphBuilder module created at lib/apm_v4/graph_builder.ex",
+        "GraphBuilder module created at lib/apm_v5/graph_builder.ex",
         "build_hierarchy/2 accepts agent list and opts (scope: :all_projects | :single_project), returns %{name, children, data} tree",
         "All-projects scope: root > project nodes > formation/namespace nodes > individual agents",
         "Single-project scope: root > formation/namespace nodes > individual agents",

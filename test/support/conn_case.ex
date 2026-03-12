@@ -1,4 +1,4 @@
-defmodule ApmV4Web.ConnCase do
+defmodule ApmV5Web.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -11,7 +11,7 @@ defmodule ApmV4Web.ConnCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use ApmV4Web.ConnCase, async: true`, although
+  by setting `use ApmV5Web.ConnCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -20,14 +20,14 @@ defmodule ApmV4Web.ConnCase do
   using do
     quote do
       # The default endpoint for testing
-      @endpoint ApmV4Web.Endpoint
+      @endpoint ApmV5Web.Endpoint
 
-      use ApmV4Web, :verified_routes
+      use ApmV5Web, :verified_routes
 
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import ApmV4Web.ConnCase
+      import ApmV5Web.ConnCase
     end
   end
 
@@ -36,9 +36,9 @@ defmodule ApmV4Web.ConnCase do
     # They run under the supervision tree but may exceed restart intensity
     # under rapid concurrent test failures.
     for module <- [
-      ApmV4.AgentRegistry, ApmV4.AuditLog, ApmV4.AlertRulesEngine,
-      ApmV4.MetricsCollector, ApmV4.SloEngine, ApmV4.EventStream,
-      ApmV4.SkillTracker
+      ApmV5.AgentRegistry, ApmV5.AuditLog, ApmV5.AlertRulesEngine,
+      ApmV5.MetricsCollector, ApmV5.SloEngine, ApmV5.EventStream,
+      ApmV5.SkillTracker
     ] do
       case module.start_link([]) do
         {:ok, _} -> :ok

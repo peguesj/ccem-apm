@@ -9,7 +9,7 @@ Interactive management suite — contextual AG-UI chat, agent controls, getting 
 - **AgentControlPanel component** (`components/agent_control_panel.ex`) — Connect/Disconnect/Restart buttons per agent, formation-level controls, status indicator with pulse animation
 - **SSE LiveView hook** (`hooks/inspector_chat.js`) — EventSource to AG-UI SSE endpoint with streaming typewriter text, expandable tool cards, exponential backoff reconnection, 200 message buffer
 - **ScopeBreadcrumb component** (`components/scope_breadcrumb.ex`) — scope navigation breadcrumb (All > Project > Formation > Squadron > Agent), click to re-scope chat and controls
-- **ChatStore GenServer** (`apm_v4/chat_store.ex`) — ETS-backed message persistence per scope, 500 max FIFO, TEXT_MESSAGE subscription, REST endpoints at `/api/v2/chat/:scope`
+- **ChatStore GenServer** (`apm_v5/chat_store.ex`) — ETS-backed message persistence per scope, 500 max FIFO, TEXT_MESSAGE subscription, REST endpoints at `/api/v2/chat/:scope`
 - **Agent control REST endpoints** — `POST /api/v2/agents/:id/control`, `/formations/:id/control`, `/squadrons/:id/control`, `GET/POST /agents/:id/messages`
 - **GettingStartedWizard** (`components/getting_started_wizard.ex`) — 6-slide modal slideshow with progress dots, Skip button, LocalStorage flag, help menu re-trigger
 - **Showcase SVG diagrams** (`components/showcase_diagrams.ex`) — pure SVG C4 L2 Container diagram with IntersectionObserver animation, WCAG AA, prefers-reduced-motion support
@@ -31,9 +31,9 @@ Interactive management suite — contextual AG-UI chat, agent controls, getting 
 AG-UI protocol integration — backward-compatible event bridge for agentic monitoring.
 
 ### Added
-- **AG-UI EventRouter** (`lib/apm_v4/ag_ui/event_router.ex`) — GenServer that routes typed AG-UI events (RUN_STARTED, STEP_STARTED, STEP_FINISHED, TOOL_CALL_START, TOOL_CALL_END, CUSTOM, STATE_SNAPSHOT, STATE_DELTA) to AgentRegistry, FormationStore, Dashboard, and MetricsCollector
-- **AG-UI HookBridge** (`lib/apm_v4/ag_ui/hook_bridge.ex`) — translates legacy hook payloads (register, heartbeat, notify, tool-use) into typed AG-UI events; full backward compatibility with existing hooks
-- **AG-UI StateManager** (`lib/apm_v4/ag_ui/state_manager.ex`) — ETS-backed per-agent state with snapshot/delta pattern using RFC 6902 JSON Patch
+- **AG-UI EventRouter** (`lib/apm_v5/ag_ui/event_router.ex`) — GenServer that routes typed AG-UI events (RUN_STARTED, STEP_STARTED, STEP_FINISHED, TOOL_CALL_START, TOOL_CALL_END, CUSTOM, STATE_SNAPSHOT, STATE_DELTA) to AgentRegistry, FormationStore, Dashboard, and MetricsCollector
+- **AG-UI HookBridge** (`lib/apm_v5/ag_ui/hook_bridge.ex`) — translates legacy hook payloads (register, heartbeat, notify, tool-use) into typed AG-UI events; full backward compatibility with existing hooks
+- **AG-UI StateManager** (`lib/apm_v5/ag_ui/state_manager.ex`) — ETS-backed per-agent state with snapshot/delta pattern using RFC 6902 JSON Patch
 - **AG-UI v2 Controller** (`ag_ui_v2_controller.ex`) — REST endpoints: emit, stream (SSE), state snapshot/delta, router stats
 - **AG-UI SSE streams** — global (`/api/v2/ag-ui/events`) and per-agent (`/api/v2/ag-ui/events/:agent_id`) event streams
 - **Built-in documentation wiki** — 15+ markdown pages under `/docs` with sidebar navigation, search, and syntax highlighting

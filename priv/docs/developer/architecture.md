@@ -19,13 +19,13 @@ graph TD
 
 ## Application Supervision Tree
 
-The application uses a flat `one_for_one` supervision strategy defined in `lib/apm_v4/application.ex`. All children are direct descendants of the root supervisor -- there is no intermediate `GeneralSupervisor`.
+The application uses a flat `one_for_one` supervision strategy defined in `lib/apm_v5/application.ex`. All children are direct descendants of the root supervisor -- there is no intermediate `GeneralSupervisor`.
 
 The following diagram shows every supervised child process in start order.
 
 ```mermaid
 graph LR
-    Root["ApmV4.Supervisor<br/><small>:one_for_one</small>"]
+    Root["ApmV5.Supervisor<br/><small>:one_for_one</small>"]
 
     subgraph infra ["Infrastructure"]
         T["Telemetry"]
@@ -77,7 +77,7 @@ Loads and manages `apm_config.json`.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.ConfigLoader
+GenServer: ApmV5.ConfigLoader
 State:
   - config: %{project_name, project_root, active_project, projects, sessions}
   - file_path: /path/to/apm_config.json
@@ -99,7 +99,7 @@ Maintains aggregated dashboard metrics and state.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.DashboardStore
+GenServer: ApmV5.DashboardStore
 State:
   - stats: %{agent_count, session_count, project_count, skill_count}
   - agents_cache: list of agents
@@ -123,7 +123,7 @@ Central registry for all agents and fleet management.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.AgentRegistry
+GenServer: ApmV5.AgentRegistry
 State:
   - agents: %{agent_id => agent_data}
   - by_project: index agents by project
@@ -157,7 +157,7 @@ Manages multi-project tasks, commands, input requests, and Plane PM data.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.ProjectStore
+GenServer: ApmV5.ProjectStore
 State:
   - tasks: %{project_name => task_list}
   - commands: %{project_name => command_list}
@@ -189,7 +189,7 @@ Tracks UPM sessions, formations, agents, and events.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.UpmStore
+GenServer: ApmV5.UpmStore
 State:
   - sessions: %{session_id => session_data}
   - formations: formation hierarchy data
@@ -217,7 +217,7 @@ Tracks skill usage, co-occurrence, and patterns.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.SkillTracker
+GenServer: ApmV5.SkillTracker
 State:
   - skills: %{skill_name => usage_data}
   - co_occurrence: matrix of skill pairs
@@ -242,7 +242,7 @@ Collects and aggregates metrics from all sources.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.MetricsCollector
+GenServer: ApmV5.MetricsCollector
 State:
   - metrics: %{metric_name => values}
   - timeseries: metric history
@@ -268,7 +268,7 @@ Manages alert rules and evaluates conditions.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.AlertRulesEngine
+GenServer: ApmV5.AlertRulesEngine
 State:
   - rules: alert rule definitions
   - alerts: active alerts
@@ -290,7 +290,7 @@ Maintains immutable audit trail.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.AuditLog
+GenServer: ApmV5.AuditLog
 State:
   - entries: list of audit entries
   - index: by entity_id for fast lookup
@@ -312,7 +312,7 @@ Manages event queue and AG-UI SSE streaming.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.EventStream
+GenServer: ApmV5.EventStream
 State:
   - queue: FIFO event queue
   - subscribers: listening connections
@@ -334,7 +334,7 @@ Evaluates SLO (Service Level Objective) rules and targets.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.SloEngine
+GenServer: ApmV5.SloEngine
 State:
   - slos: %{sli_name => slo_definition}
   - statuses: current SLO statuses
@@ -350,7 +350,7 @@ Manages port assignments across CCEM projects.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.PortManager
+GenServer: ApmV5.PortManager
 State:
   - port_map: %{port => %{project, namespace, active, ownership}}
   - port_ranges: %{namespace => Range}
@@ -371,7 +371,7 @@ Caches and serves documentation from `priv/docs/`.
 GenServer state and API summary:
 
 ```elixir
-GenServer: ApmV4.DocsStore
+GenServer: ApmV5.DocsStore
 State:
   - pages: %{path => %{title, html, raw, meta}}
   - toc: table of contents tree
@@ -567,9 +567,9 @@ For larger deployments, consider:
 
 To understand the codebase:
 
-1. Start with `lib/apm_v4/application.ex` -- see the supervision tree
-2. Explore `lib/apm_v4/` -- understand GenServer modules
-3. Check `lib/apm_v4_web/` -- Phoenix routes and controllers
-4. Review `lib/apm_v4_web/live/` -- LiveView pages
+1. Start with `lib/apm_v5/application.ex` -- see the supervision tree
+2. Explore `lib/apm_v5/` -- understand GenServer modules
+3. Check `lib/apm_v5_web/` -- Phoenix routes and controllers
+4. Review `lib/apm_v5_web/live/` -- LiveView pages
 
 See [Extending CCEM](extending.md) for adding new features.

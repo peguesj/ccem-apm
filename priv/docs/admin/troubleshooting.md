@@ -79,7 +79,7 @@ brew install elixir
 curl http://localhost:3032/health
 
 # If no response, start the server
-cd /Users/jeremiah/Developer/ccem/apm-v4
+cd /Users/jeremiah/Developer/ccem/apm-v5
 mix phx.server
 ```
 
@@ -184,10 +184,10 @@ ls -la ~/Developer/ccem/apm/hooks/session_init.sh
 chmod +x ~/Developer/ccem/apm/hooks/session_init.sh
 
 # Check APM v4 path exists
-ls -la ~/Developer/ccem/apm-v4/mix.exs
+ls -la ~/Developer/ccem/apm-v5/mix.exs
 
 # Try starting manually
-cd ~/Developer/ccem/apm-v4
+cd ~/Developer/ccem/apm-v5
 mix deps.get
 mix phx.server
 ```
@@ -286,7 +286,7 @@ PORT=3032 mix phx.server
 
 ```bash
 # Monitor memory over time
-watch -n 5 'ps aux | grep apm_v4'
+watch -n 5 'ps aux | grep apm_v5'
 
 # Check agent count
 curl http://localhost:3032/api/agents | jq '.total'

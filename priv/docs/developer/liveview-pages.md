@@ -7,16 +7,16 @@ CCEM APM v4 uses Phoenix LiveView for real-time, interactive web pages. Each pag
 Every LiveView page follows the same mount-subscribe-handle pattern.
 
 ```elixir
-defmodule ApmV4Web.DashboardLive do
-  use ApmV4Web, :live_view
+defmodule ApmV5Web.DashboardLive do
+  use ApmV5Web, :live_view
 
   def render(assigns), do: ~H"""..."""
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
       # Subscribe to PubSub topics
-      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:agents")
-      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:notifications")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:agents")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:notifications")
     end
 
     # Load initial data
@@ -37,7 +37,7 @@ end
 ## DashboardLive
 
 **Route**: `/`
-**Module**: `ApmV4Web.DashboardLive`
+**Module**: `ApmV5Web.DashboardLive`
 
 The main dashboard showing all agents, metrics, and real-time data.
 
@@ -87,7 +87,7 @@ Hooks.DependencyGraph
 ## AllProjectsLive
 
 **Route**: `/apm-all`
-**Module**: `ApmV4Web.AllProjectsLive`
+**Module**: `ApmV5Web.AllProjectsLive`
 
 Multi-project overview and management page.
 
@@ -120,7 +120,7 @@ handle_info({:agent_registered, agent}, socket)
 ## SkillsLive
 
 **Route**: `/skills`
-**Module**: `ApmV4Web.SkillsLive`
+**Module**: `ApmV5Web.SkillsLive`
 
 Skill tracking, analytics, and methodology detection.
 
@@ -165,7 +165,7 @@ Hooks.TrendingChart
 ## RalphFlowchartLive
 
 **Route**: `/ralph`
-**Module**: `ApmV4Web.RalphFlowchartLive`
+**Module**: `ApmV5Web.RalphFlowchartLive`
 
 Ralph methodology flowchart and story tracking visualization.
 
@@ -212,7 +212,7 @@ Hooks.DependencyArrows
 ## SessionTimelineLive
 
 **Route**: `/timeline`
-**Module**: `ApmV4Web.SessionTimelineLive`
+**Module**: `ApmV5Web.SessionTimelineLive`
 
 Session execution timeline with event log.
 
@@ -260,7 +260,7 @@ Hooks.EventFilter
 ## FormationLive
 
 **Route**: `/formation`
-**Module**: `ApmV4Web.FormationLive`
+**Module**: `ApmV5Web.FormationLive`
 
 Formation hierarchy visualization using a D3.js tree layout. Displays the formation > squadron > agent hierarchy with real-time PubSub updates.
 
@@ -312,7 +312,7 @@ Hooks.FormationGraph
 ## PortsLive
 
 **Route**: `/ports`
-**Module**: `ApmV4Web.PortsLive`
+**Module**: `ApmV5Web.PortsLive`
 
 Port management dashboard for viewing and managing port assignments across all CCEM projects.
 
@@ -351,7 +351,7 @@ handle_info({:port_assigned, _, _}, socket)
 ## DocsLive
 
 **Route**: `/docs` and `/docs/*path`
-**Module**: `ApmV4Web.DocsLive`
+**Module**: `ApmV5Web.DocsLive`
 
 Industry-standard documentation viewer with search, navigation, and responsive layout.
 
@@ -455,14 +455,14 @@ test "agent list updates on registration" do
 end
 ```
 
-See `test/apm_v4_web/live/` for more examples.
+See `test/apm_v5_web/live/` for more examples.
 
 ## Extending with New LiveView Pages
 
 To add a new LiveView page:
 
-1. Create module in `lib/apm_v4_web/live/`
-2. Add route in `lib/apm_v4_web/router.ex`
+1. Create module in `lib/apm_v5_web/live/`
+2. Add route in `lib/apm_v5_web/router.ex`
 3. Add nav link in the `nav_item` section of your render function
 4. Subscribe to relevant PubSub topics
 

@@ -1,9 +1,9 @@
-defmodule ApmV4.MixProject do
+defmodule ApmV5.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :apm_v4,
+      app: :apm_v5,
       version: "5.1.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -20,7 +20,7 @@ defmodule ApmV4.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {ApmV4.Application, []},
+      mod: {ApmV5.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -75,10 +75,10 @@ defmodule ApmV4.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.build"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind apm_v4", "esbuild apm_v4"],
+      "assets.build": ["compile", "tailwind apm_v5", "esbuild apm_v5"],
       "assets.deploy": [
-        "tailwind apm_v4 --minify",
-        "esbuild apm_v4 --minify",
+        "tailwind apm_v5 --minify",
+        "esbuild apm_v5 --minify",
         "phx.digest"
       ],
       precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]

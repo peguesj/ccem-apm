@@ -1288,7 +1288,7 @@ Status codes:
 
 ## Authentication
 
-API endpoints are protected by the `ApiAuth` plug. API keys are configured via `ApmV4.ApiKeyStore`.
+API endpoints are protected by the `ApiAuth` plug. API keys are configured via `ApmV5.ApiKeyStore`.
 
 Include the API key in the Authorization header:
 
