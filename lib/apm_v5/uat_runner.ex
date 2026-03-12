@@ -264,9 +264,9 @@ defmodule ApmV5.UatRunner do
 
     %{
       total: length(results),
-      passed: Enum.count(results, &(&1[:status] == :passed)),
-      failed: Enum.count(results, &(&1[:status] == :failed)),
-      skipped: Enum.count(results, &(&1[:status] == :skipped)),
+      passed: Enum.count(results, &(&1[:status] in [:pass, :passed])),
+      failed: Enum.count(results, &(&1[:status] in [:fail, :failed])),
+      skipped: Enum.count(results, &(&1[:status] in [:skip, :skipped])),
       duration_ms: duration_ms,
       status: state.status,
       run_id: state.run_id
