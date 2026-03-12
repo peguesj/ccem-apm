@@ -40,9 +40,17 @@ defmodule ApmV5.AgUi.Topics do
     EventType.tool_call_start() => "tool:call_start",
     EventType.tool_call_args() => "tool:call_args",
     EventType.tool_call_end() => "tool:call_end",
+    "TOOL_CALL_RESULT" => "tool:call_result",
     # state
     EventType.state_snapshot() => "state:snapshot",
     EventType.state_delta() => "state:delta",
+    "MESSAGES_SNAPSHOT" => "state:messages_snapshot",
+    # activity
+    "ACTIVITY_SNAPSHOT" => "activity:snapshot",
+    "ACTIVITY_DELTA" => "activity:delta",
+    # thinking
+    "THINKING_START" => "thinking:start",
+    "THINKING_END" => "thinking:end",
     # special
     EventType.raw() => "special:raw",
     EventType.custom() => "special:custom"

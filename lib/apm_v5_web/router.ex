@@ -219,6 +219,14 @@ defmodule ApmV5Web.Router do
     put "/ag-ui/state/:agent_id", AgUiV2Controller, :set_state
     patch "/ag-ui/state/:agent_id", AgUiV2Controller, :patch_state
     get "/ag-ui/router/stats", AgUiV2Controller, :router_stats
+    get "/ag-ui/diagnostics", AgUiDiagnosticsController, :diagnostics
+
+    # Tool call endpoints (US-012, US-013)
+    get "/tool-calls", ToolCallController, :index
+    get "/tool-calls/stats", ToolCallController, :stats
+    get "/tool-calls/stream", ToolCallController, :stream
+    get "/tool-calls/agent/:agent_id", ToolCallController, :by_agent
+    get "/tool-calls/:id", ToolCallController, :show
 
     # Chat (ChatStore)
     get "/chat/:scope", ChatController, :index

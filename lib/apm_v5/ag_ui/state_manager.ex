@@ -14,6 +14,7 @@ defmodule ApmV5.AgUi.StateManager do
 
   @table :ag_ui_agent_state
   @pubsub ApmV5.PubSub
+  @snapshot_interval_ms Application.compile_env(:apm_v5, :snapshot_interval_ms, 30_000)
 
   # -- Client API -------------------------------------------------------------
 
@@ -70,11 +71,53 @@ defmodule ApmV5.AgUi.StateManager do
     GenServer.call(__MODULE__, {:remove_state, agent_id})
   end
 
+  @doc "Returns a map of all agent states for bulk snapshot."
+  @spec get_all_states() :: map()
+  def get_all_states do
+    :ets.tab2list(@table)
+    |> Enum.into(%{}, fn {agent_id, state, version} ->
+      {agent_id, %{state: state, version: version}}
+    end)
+  end
+
+  @doc "Computes minimal JSON Patch operations between two state maps."
+  @spec add_computed_delta(map(), map()) :: [map()]
+  def add_computed_delta(old_state, new_state) when is_map(old_state) and is_map(new_state) do
+    all_keys = MapSet.union(MapSet.new(Map.keys(old_state)), MapSet.new(Map.keys(new_state)))
+
+    Enum.flat_map(all_keys, fn key ->
+      old_val = Map.get(old_state, key)
+      new_val = Map.get(new_state, key)
+
+      cond do
+        is_nil(old_val) and not is_nil(new_val) ->
+          [%{"op" => "add", "path" => "/#{key}", "value" => new_val}]
+
+        not is_nil(old_val) and is_nil(new_val) ->
+          [%{"op" => "remove", "path" => "/#{key}"}]
+
+        old_val != new_val and is_map(old_val) and is_map(new_val) ->
+          # Nested diff with path prefix
+          add_computed_delta(old_val, new_val)
+          |> Enum.map(fn op ->
+            %{op | "path" => "/#{key}" <> op["path"]}
+          end)
+
+        old_val != new_val ->
+          [%{"op" => "replace", "path" => "/#{key}", "value" => new_val}]
+
+        true ->
+          []
+      end
+    end)
+  end
+
   # -- GenServer Callbacks ----------------------------------------------------
 
   @impl true
   def init(_opts) do
     table = :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
+    schedule_snapshot()
     {:ok, %{table: table}}
   end
 
@@ -131,6 +174,25 @@ defmodule ApmV5.AgUi.StateManager do
     {:reply, :ok, data}
   end
 
+  @impl true
+  def handle_info(:emit_snapshots, data) do
+    # US-014: Periodic STATE_SNAPSHOT emission for all tracked agents
+    :ets.tab2list(@table)
+    |> Enum.each(fn {agent_id, state, version} ->
+      EventStream.emit("STATE_SNAPSHOT", %{
+        agent_id: agent_id,
+        snapshot: state,
+        version: version,
+        periodic: true
+      })
+    end)
+
+    schedule_snapshot()
+    {:noreply, data}
+  end
+
+  def handle_info(_msg, data), do: {:noreply, data}
+
   # -- JSON Patch (simplified) ------------------------------------------------
 
   defp apply_patch(state, operations) do
@@ -165,5 +227,9 @@ defmodule ApmV5.AgUi.StateManager do
       [{^agent_id, _state, version}] -> version
       [] -> 0
     end
+  end
+
+  defp schedule_snapshot do
+    Process.send_after(self(), :emit_snapshots, @snapshot_interval_ms)
   end
 end

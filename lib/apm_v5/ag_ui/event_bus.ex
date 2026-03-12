@@ -26,6 +26,7 @@ defmodule ApmV5.AgUi.EventBus do
   alias ApmV5.EventStream
 
   @table :ag_ui_event_bus_subs
+  @replay_buffer_size 500
 
   # -- Client API -------------------------------------------------------------
 
@@ -58,10 +59,28 @@ defmodule ApmV5.AgUi.EventBus do
 
   Patterns support wildcards: "lifecycle:*" matches "lifecycle:run_started", etc.
   The subscribing process will receive {:event_bus, topic, event} messages.
+
+  Options:
+  - :persistent - persists the subscription for restoration after restart (US-045)
   """
-  @spec subscribe(String.t()) :: :ok
-  def subscribe(pattern) do
+  @spec subscribe(String.t(), keyword()) :: :ok
+  def subscribe(pattern, opts \\ []) do
+    if opts[:persistent] do
+      ApmV5.AgUi.SubscriptionStore.register(pattern, inspect(self()))
+    end
+
     GenServer.call(__MODULE__, {:subscribe, pattern, self()})
+  end
+
+  @doc """
+  Replays events after a given sequence number (US-046).
+
+  Returns events after `since_seq`, limited to the last #{@replay_buffer_size} events.
+  If the requested sequence is older than retained events, returns :gap.
+  """
+  @spec replay_since(non_neg_integer(), String.t() | nil) :: {:ok, [map()]} | :gap
+  def replay_since(since_seq, topic_filter \\ nil) do
+    GenServer.call(__MODULE__, {:replay_since, since_seq, topic_filter})
   end
 
   @doc """
@@ -89,24 +108,41 @@ defmodule ApmV5.AgUi.EventBus do
     table = :ets.new(@table, [:named_table, :bag, :protected, read_concurrency: true])
     Process.flag(:trap_exit, true)
 
+    # US-045: Initialize and restore persistent subscriptions
+    ApmV5.AgUi.SubscriptionStore.init()
+    ApmV5.AgUi.SubscriptionStore.restore()
+
     {:ok,
      %{
        table: table,
        published_count: 0,
-       by_topic: %{}
+       by_topic: %{},
+       replay_buffer: :queue.new(),
+       replay_count: 0,
+       sequence: 0
      }}
   end
 
   @impl true
   def handle_cast({:dispatch, type, event}, state) do
     topic = ApmV5.AgUi.Topics.topic_for(type)
-    deliver_to_subscribers(topic, event)
+    seq = state.sequence + 1
+
+    # Stamp the event with sequence number for replay (US-046)
+    stamped_event = Map.put(event, :_seq, seq)
+    deliver_to_subscribers(topic, stamped_event)
+
+    # Add to replay buffer (US-046)
+    {buffer, count} = buffer_event(state.replay_buffer, state.replay_count, {seq, topic, stamped_event})
 
     {:noreply,
      %{
        state
        | published_count: state.published_count + 1,
-         by_topic: Map.update(state.by_topic, topic, 1, &(&1 + 1))
+         by_topic: Map.update(state.by_topic, topic, 1, &(&1 + 1)),
+         replay_buffer: buffer,
+         replay_count: count,
+         sequence: seq
      }}
   end
 
@@ -140,8 +176,36 @@ defmodule ApmV5.AgUi.EventBus do
      %{
        published_count: state.published_count,
        subscribers_count: subscribers_count,
-       by_topic: state.by_topic
+       by_topic: state.by_topic,
+       sequence: state.sequence,
+       replay_buffer_size: state.replay_count
      }, state}
+  end
+
+  # US-046: Replay events since a given sequence number
+  def handle_call({:replay_since, since_seq, topic_filter}, _from, state) do
+    events = :queue.to_list(state.replay_buffer)
+
+    # Check if requested seq is older than our oldest retained event
+    oldest_seq =
+      case events do
+        [{seq, _topic, _event} | _] -> seq
+        [] -> 0
+      end
+
+    if since_seq > 0 and since_seq < oldest_seq do
+      {:reply, :gap, state}
+    else
+      filtered =
+        events
+        |> Enum.filter(fn {seq, topic, _event} ->
+          seq > since_seq and
+            (is_nil(topic_filter) or ApmV5.AgUi.Topics.matches?(topic_filter, topic))
+        end)
+        |> Enum.map(fn {_seq, _topic, event} -> event end)
+
+      {:reply, {:ok, filtered}, state}
+    end
   end
 
   @impl true
@@ -168,5 +232,17 @@ defmodule ApmV5.AgUi.EventBus do
         end
       end
     end)
+  end
+
+  # US-046: Bounded replay buffer
+  defp buffer_event(queue, count, entry) do
+    queue = :queue.in(entry, queue)
+
+    if count >= @replay_buffer_size do
+      {{:value, _}, queue} = :queue.out(queue)
+      {queue, count}
+    else
+      {queue, count + 1}
+    end
   end
 end

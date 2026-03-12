@@ -51,6 +51,18 @@ defmodule ApmV5.Application do
       ApmV5.AgUi.EventBus,
       ApmV5.AgUi.EventRouter,
       ApmV5.AgUi.V4Compat,
+      # Wave 2: Tool call lifecycle (US-010)
+      ApmV5.AgUi.ToolCallTracker,
+      # Wave 2: Dashboard state sync (US-015)
+      ApmV5.AgUi.DashboardStateSync,
+      # Wave 2: Activity tracking (US-016)
+      ApmV5.AgUi.ActivityTracker,
+      # Wave 2: Metrics bridge (US-039)
+      ApmV5.AgUi.MetricsBridge,
+      # Wave 2: Audit bridge (US-040)
+      ApmV5.AgUi.AuditBridge,
+      # Wave 2: EventBus health (US-041)
+      ApmV5.AgUi.EventBusHealth,
       ApmV5.ChatStore,
       {ApmV5.Intake.Store, []},
       # Start to serve requests, typically the last entry

@@ -72,26 +72,36 @@ defmodule ApmV5.AgUi.HookBridge do
   @doc """
   Translates a legacy tool-use payload to TOOL_CALL events.
 
-  Emits the full tool call lifecycle: START -> ARGS -> END.
+  US-011: Uses ToolCallTracker for lifecycle tracking and emits properly
+  sequenced events through EventBus instead of direct EventStream calls.
   """
   @spec translate_tool_use(map()) :: [map()]
   def translate_tool_use(payload) do
+    alias ApmV5.AgUi.ToolCallTracker
+
     agent_id = payload["agent_id"] || payload["session_id"]
-    run_id = payload["run_id"] || "run-#{agent_id}"
     tool_name = payload["tool_name"] || payload["tool"] || "unknown"
     tool_call_id = payload["tool_call_id"]
 
-    start_event = EventStream.emit_tool_call_start(agent_id, run_id, tool_name, tool_call_id)
-    tc_id = start_event.data[:tool_call_id]
+    # track_start publishes TOOL_CALL_START via EventBus
+    tc_id = ToolCallTracker.track_start(agent_id, tool_name, tool_call_id)
 
-    args_event =
-      if payload["args"] do
-        EventStream.emit_tool_call_args(agent_id, run_id, tc_id, payload["args"])
-      end
+    # track_args publishes TOOL_CALL_ARGS via EventBus
+    if payload["args"] do
+      ToolCallTracker.track_args(tc_id, payload["args"])
+    end
 
-    end_event = EventStream.emit_tool_call_end(agent_id, run_id, tc_id)
+    # If result data is present, track it (emits TOOL_CALL_RESULT)
+    if payload["result"] do
+      result_type = payload["result_type"] || "text"
+      ToolCallTracker.track_result(tc_id, result_type, payload["result"])
+    end
 
-    Enum.reject([start_event, args_event, end_event], &is_nil/1)
+    # track_end publishes TOOL_CALL_END via EventBus
+    ToolCallTracker.track_end(tc_id)
+
+    # Return the events for backward compatibility
+    [%{type: "TOOL_CALL_START", data: %{agent_id: agent_id, tool_call_id: tc_id, tool_name: tool_name}}]
   end
 
   @doc """

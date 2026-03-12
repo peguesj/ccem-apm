@@ -205,6 +205,8 @@ defmodule ApmV5.AgUi.LifecycleMapper do
   Maps thinking/reasoning output to THINKING events.
 
   ## US-044 DoD: Generates THINKING_START/THINKING_END + TEXT_MESSAGE_* events.
+  Thinking events published to EventBus 'thinking:*' topic.
+  Text message events published to EventBus 'text:*' topic.
   """
   @spec map_thinking(String.t(), map()) :: map()
   def map_thinking(agent_id, payload) do
@@ -218,9 +220,49 @@ defmodule ApmV5.AgUi.LifecycleMapper do
       "end" ->
         %{type: "THINKING_END", data: %{agent_id: agent_id, run_id: run_id}}
 
+      "content" ->
+        %{
+          type: EventType.text_message_content(),
+          data: %{
+            agent_id: agent_id,
+            run_id: run_id,
+            message_id: payload["message_id"] || "msg-#{agent_id}-#{System.unique_integer([:positive])}",
+            content: payload["content"] || ""
+          }
+        }
+
+      "text_start" ->
+        %{
+          type: EventType.text_message_start(),
+          data: %{
+            agent_id: agent_id,
+            run_id: run_id,
+            message_id: payload["message_id"] || "msg-#{agent_id}-#{System.unique_integer([:positive])}"
+          }
+        }
+
+      "text_end" ->
+        %{
+          type: EventType.text_message_end(),
+          data: %{
+            agent_id: agent_id,
+            run_id: run_id,
+            message_id: payload["message_id"]
+          }
+        }
+
       _ ->
         %{type: EventType.custom(), data: %{name: "thinking", agent_id: agent_id, value: payload}}
     end
+  end
+
+  @doc """
+  Publishes a thinking event through EventBus (US-044).
+  """
+  @spec publish_thinking(String.t(), map()) :: {:ok, map()} | {:error, term()}
+  def publish_thinking(agent_id, payload) do
+    mapped = map_thinking(agent_id, payload)
+    ApmV5.AgUi.EventBus.publish(mapped.type, mapped.data)
   end
 
   # -- Private ----------------------------------------------------------------
