@@ -11,6 +11,8 @@ defmodule ApmV5.EventStream do
 
   use GenServer
 
+  alias AgUi.Core.Events.EventType
+
   @pubsub ApmV5.PubSub
   @topic "ag_ui:events"
   @max_events 500
@@ -56,7 +58,7 @@ defmodule ApmV5.EventStream do
     run_id = generate_run_id()
     thread_id = Map.get(metadata, :thread_id, "thread-#{agent_id}")
 
-    emit("RUN_STARTED", %{
+    emit(EventType.run_started(), %{
       agent_id: agent_id,
       run_id: run_id,
       thread_id: thread_id,
@@ -66,7 +68,7 @@ defmodule ApmV5.EventStream do
 
   @doc "Emit RUN_FINISHED when an agent completes."
   def emit_run_finished(agent_id, run_id, metadata \\ %{}) do
-    emit("RUN_FINISHED", %{
+    emit(EventType.run_finished(), %{
       agent_id: agent_id,
       run_id: run_id,
       thread_id: Map.get(metadata, :thread_id, "thread-#{agent_id}"),
@@ -76,7 +78,7 @@ defmodule ApmV5.EventStream do
 
   @doc "Emit TEXT_MESSAGE_START."
   def emit_text_message_start(agent_id, run_id, message_id \\ nil) do
-    emit("TEXT_MESSAGE_START", %{
+    emit(EventType.text_message_start(), %{
       agent_id: agent_id,
       run_id: run_id,
       message_id: message_id || generate_message_id()
@@ -85,7 +87,7 @@ defmodule ApmV5.EventStream do
 
   @doc "Emit TEXT_MESSAGE_CONTENT with a text delta."
   def emit_text_message_content(agent_id, run_id, content) do
-    emit("TEXT_MESSAGE_CONTENT", %{
+    emit(EventType.text_message_content(), %{
       agent_id: agent_id,
       run_id: run_id,
       content: content
@@ -94,7 +96,7 @@ defmodule ApmV5.EventStream do
 
   @doc "Emit TEXT_MESSAGE_END."
   def emit_text_message_end(agent_id, run_id) do
-    emit("TEXT_MESSAGE_END", %{
+    emit(EventType.text_message_end(), %{
       agent_id: agent_id,
       run_id: run_id
     })
@@ -102,7 +104,7 @@ defmodule ApmV5.EventStream do
 
   @doc "Emit TOOL_CALL_START."
   def emit_tool_call_start(agent_id, run_id, tool_name, tool_call_id \\ nil) do
-    emit("TOOL_CALL_START", %{
+    emit(EventType.tool_call_start(), %{
       agent_id: agent_id,
       run_id: run_id,
       tool_name: tool_name,
@@ -112,7 +114,7 @@ defmodule ApmV5.EventStream do
 
   @doc "Emit TOOL_CALL_ARGS with argument data."
   def emit_tool_call_args(agent_id, run_id, tool_call_id, args) do
-    emit("TOOL_CALL_ARGS", %{
+    emit(EventType.tool_call_args(), %{
       agent_id: agent_id,
       run_id: run_id,
       tool_call_id: tool_call_id,
@@ -122,7 +124,7 @@ defmodule ApmV5.EventStream do
 
   @doc "Emit TOOL_CALL_END."
   def emit_tool_call_end(agent_id, run_id, tool_call_id) do
-    emit("TOOL_CALL_END", %{
+    emit(EventType.tool_call_end(), %{
       agent_id: agent_id,
       run_id: run_id,
       tool_call_id: tool_call_id
@@ -131,7 +133,7 @@ defmodule ApmV5.EventStream do
 
   @doc "Emit STATE_SNAPSHOT with full fleet state."
   def emit_state_snapshot(state_data) do
-    emit("STATE_SNAPSHOT", %{
+    emit(EventType.state_snapshot(), %{
       agents: Map.get(state_data, :agents, []),
       sessions: Map.get(state_data, :sessions, []),
       notifications: Map.get(state_data, :notifications, [])

@@ -10,6 +10,7 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
 
   alias ApmV5.AgUi.{EventRouter, StateManager, HookBridge}
   alias ApmV5.EventStream
+  alias AgUi.Core.Events.EventType
 
   @doc """
   POST /api/v2/ag-ui/emit
@@ -20,8 +21,14 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
   - `legacy_bridge` (optional): If true, translates as legacy hook payload
   """
   def emit(conn, %{"type" => type, "data" => data}) do
-    event = EventRouter.emit_and_route(type, atomize_keys(data))
-    json(conn, %{ok: true, event: event})
+    if EventType.valid?(type) do
+      event = EventRouter.emit_and_route(type, atomize_keys(data))
+      json(conn, %{ok: true, event: event})
+    else
+      conn
+      |> put_status(422)
+      |> json(%{error: "Invalid AG-UI event type: #{type}", valid_types: EventType.all()})
+    end
   end
 
   def emit(conn, %{"legacy_bridge" => bridge_type} = params) do

@@ -2,10 +2,26 @@
 
 The AG-UI (Agent-User Interaction) protocol provides a standardized, event-based communication layer between AI agents and the CCEM APM dashboard. It enables real-time streaming of agent lifecycle events, state management, and bidirectional control.
 
+## Canonical SDK
+
+As of v5.3.0, CCEM APM uses the [`ag_ui_ex`](https://hex.pm/packages/ag_ui_ex) Hex package as the canonical Elixir SDK for the AG-UI protocol. All event type constants are sourced from `AgUi.Core.Events.EventType` — no hardcoded strings.
+
+```elixir
+# In mix.exs
+{:ag_ui_ex, "~> 0.1.0"}
+
+# Usage
+alias AgUi.Core.Events.EventType
+EventType.run_started()      # => "RUN_STARTED"
+EventType.valid?("CUSTOM")   # => true
+EventType.all()              # => ["RUN_STARTED", "RUN_FINISHED", ...]
+```
+
 ## Overview
 
-AG-UI is an open protocol that defines 14 typed event categories for agent-user interaction. CCEM APM implements the full protocol via:
+AG-UI is an open protocol that defines 33+ typed event categories for agent-user interaction. CCEM APM implements the protocol via:
 
+- **ag_ui_ex** — Hex package providing typed event structs, SSE encoder, middleware, and state management ([GitHub](https://github.com/peguesj/ag_ui_ex))
 - **EventRouter** — GenServer that routes typed events to subscribers
 - **HookBridge** — Translates legacy hook payloads (register, heartbeat, notify) into AG-UI events
 - **StateManager** — ETS-backed per-agent state with snapshot/delta (RFC 6902 JSON Patch)

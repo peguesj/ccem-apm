@@ -18,6 +18,7 @@ defmodule ApmV5.AgUi.HookBridge do
   """
 
   alias ApmV5.EventStream
+  alias AgUi.Core.Events.EventType
 
   @doc """
   Translates a legacy registration payload to a RUN_STARTED event.
@@ -59,21 +60,21 @@ defmodule ApmV5.AgUi.HookBridge do
 
     case status do
       "active" ->
-        EventStream.emit("STEP_STARTED", %{
+        EventStream.emit(EventType.step_started(), %{
           agent_id: agent_id,
           step_name: payload["task_subject"] || "heartbeat",
           metadata: strip_nils(payload)
         })
 
       status when status in ["completed", "done", "finished"] ->
-        EventStream.emit("STEP_FINISHED", %{
+        EventStream.emit(EventType.step_finished(), %{
           agent_id: agent_id,
           step_name: payload["task_subject"] || "heartbeat",
           metadata: strip_nils(payload)
         })
 
       _ ->
-        EventStream.emit("CUSTOM", %{
+        EventStream.emit(EventType.custom(), %{
           name: "heartbeat",
           agent_id: agent_id,
           value: strip_nils(payload)
@@ -86,7 +87,7 @@ defmodule ApmV5.AgUi.HookBridge do
   """
   @spec translate_notification(map()) :: map()
   def translate_notification(payload) do
-    EventStream.emit("CUSTOM", %{
+    EventStream.emit(EventType.custom(), %{
       name: "notification",
       agent_id: payload["agent_id"] || payload["session_id"],
       value: %{
@@ -133,7 +134,7 @@ defmodule ApmV5.AgUi.HookBridge do
   def translate_config_change(old_config, new_config) do
     delta = compute_delta(old_config, new_config)
 
-    EventStream.emit("STATE_DELTA", %{
+    EventStream.emit(EventType.state_delta(), %{
       delta: delta,
       source: "config_reload"
     })

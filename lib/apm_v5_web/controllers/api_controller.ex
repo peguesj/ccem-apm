@@ -18,7 +18,7 @@ defmodule ApmV5Web.ApiController do
   alias ApmV5.CommandRunner
   alias ApmV5.AgUi.HookBridge
 
-  @server_version "5.2.0"
+  @server_version "5.3.0"
 
   # ============================
   # GET Endpoints

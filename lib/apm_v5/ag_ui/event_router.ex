@@ -20,6 +20,18 @@ defmodule ApmV5.AgUi.EventRouter do
 
   @pubsub ApmV5.PubSub
 
+  # AG-UI event type constants (compile-time via ag_ui_ex)
+  @type_run_started AgUi.Core.Events.EventType.run_started()
+  @type_run_finished AgUi.Core.Events.EventType.run_finished()
+  @type_run_error AgUi.Core.Events.EventType.run_error()
+  @type_step_started AgUi.Core.Events.EventType.step_started()
+  @type_step_finished AgUi.Core.Events.EventType.step_finished()
+  @type_tool_call_start AgUi.Core.Events.EventType.tool_call_start()
+  @type_tool_call_end AgUi.Core.Events.EventType.tool_call_end()
+  @type_state_snapshot AgUi.Core.Events.EventType.state_snapshot()
+  @type_state_delta AgUi.Core.Events.EventType.state_delta()
+  @type_custom AgUi.Core.Events.EventType.custom()
+
   # -- Client API -------------------------------------------------------------
 
   def start_link(opts \\ []) do
@@ -90,37 +102,37 @@ defmodule ApmV5.AgUi.EventRouter do
 
   defp do_route(%{type: type, data: data} = _event) do
     case type do
-      "RUN_STARTED" ->
+      @type_run_started ->
         route_to_agent_registry(:run_started, data)
         route_to_formation(data)
 
-      "RUN_FINISHED" ->
+      @type_run_finished ->
         route_to_agent_registry(:run_finished, data)
         route_to_formation(data)
 
-      "RUN_ERROR" ->
+      @type_run_error ->
         route_to_agent_registry(:run_error, data)
         route_to_formation(data)
 
-      "STEP_STARTED" ->
+      @type_step_started ->
         route_to_agent_registry(:step_started, data)
 
-      "STEP_FINISHED" ->
+      @type_step_finished ->
         route_to_agent_registry(:step_finished, data)
 
-      "TOOL_CALL_START" ->
+      @type_tool_call_start ->
         route_to_metrics(:tool_call, data)
 
-      "TOOL_CALL_END" ->
+      @type_tool_call_end ->
         route_to_metrics(:tool_call_end, data)
 
-      "STATE_SNAPSHOT" ->
+      @type_state_snapshot ->
         route_to_dashboard(:state_snapshot, data)
 
-      "STATE_DELTA" ->
+      @type_state_delta ->
         route_to_dashboard(:state_delta, data)
 
-      "CUSTOM" ->
+      @type_custom ->
         route_custom(data)
 
       _ ->

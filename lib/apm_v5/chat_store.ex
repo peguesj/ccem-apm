@@ -9,7 +9,14 @@ defmodule ApmV5.ChatStore do
 
   use GenServer
 
+  alias AgUi.Core.Events.EventType
+
   @pubsub ApmV5.PubSub
+
+  # AG-UI event type constants (compile-time via ag_ui_ex)
+  @type_text_message_start EventType.text_message_start()
+  @type_text_message_content EventType.text_message_content()
+  @type_text_message_end EventType.text_message_end()
   @ag_ui_topic "ag_ui:events"
   @chat_topic_prefix "apm:chat"
   @max_messages_per_scope 500
@@ -74,17 +81,17 @@ defmodule ApmV5.ChatStore do
 
     # Also emit as AG-UI TEXT_MESSAGE if EventStream is available
     try do
-      ApmV5.EventStream.emit("TEXT_MESSAGE_START", %{
+      ApmV5.EventStream.emit(EventType.text_message_start(), %{
         agent_id: Map.get(metadata, "agent_id", "user"),
         message_id: message["id"],
         role: "user"
       })
-      ApmV5.EventStream.emit("TEXT_MESSAGE_CONTENT", %{
+      ApmV5.EventStream.emit(EventType.text_message_content(), %{
         agent_id: Map.get(metadata, "agent_id", "user"),
         message_id: message["id"],
         content: content
       })
-      ApmV5.EventStream.emit("TEXT_MESSAGE_END", %{
+      ApmV5.EventStream.emit(EventType.text_message_end(), %{
         agent_id: Map.get(metadata, "agent_id", "user"),
         message_id: message["id"]
       })
@@ -116,7 +123,7 @@ defmodule ApmV5.ChatStore do
 
   # Handle AG-UI TEXT_MESSAGE events from PubSub
   @impl true
-  def handle_info({:ag_ui_event, %{type: "TEXT_MESSAGE_START"} = event}, state) do
+  def handle_info({:ag_ui_event, %{type: @type_text_message_start} = event}, state) do
     agent_id = event[:data][:agent_id] || event[:data]["agent_id"] || "unknown"
     message_id = event[:data][:message_id] || event[:data]["message_id"] || generate_id()
     role = event[:data][:role] || event[:data]["role"] || "assistant"
@@ -132,7 +139,7 @@ defmodule ApmV5.ChatStore do
     {:noreply, put_in(state, [:buffers, agent_id], buffer)}
   end
 
-  def handle_info({:ag_ui_event, %{type: "TEXT_MESSAGE_CONTENT"} = event}, state) do
+  def handle_info({:ag_ui_event, %{type: @type_text_message_content} = event}, state) do
     agent_id = event[:data][:agent_id] || event[:data]["agent_id"] || "unknown"
     content = event[:data][:content] || event[:data]["content"] || ""
 
@@ -147,7 +154,7 @@ defmodule ApmV5.ChatStore do
     {:noreply, state}
   end
 
-  def handle_info({:ag_ui_event, %{type: "TEXT_MESSAGE_END"} = event}, state) do
+  def handle_info({:ag_ui_event, %{type: @type_text_message_end} = event}, state) do
     agent_id = event[:data][:agent_id] || event[:data]["agent_id"] || "unknown"
 
     state =

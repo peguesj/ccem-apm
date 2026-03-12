@@ -10,16 +10,9 @@ defmodule ApmV5Web.AgUiLive do
   alias ApmV5.AgUi.StateManager
   alias ApmV5.AgentRegistry
   alias ApmV5.EventStream
+  alias AgUi.Core.Events.EventType
 
-  @event_types ~w(
-    RUN_STARTED RUN_FINISHED RUN_ERROR
-    STEP_STARTED STEP_FINISHED
-    TOOL_CALL_START TOOL_CALL_END
-    STATE_SNAPSHOT STATE_DELTA
-    TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END
-    MESSAGES_SNAPSHOT
-    CUSTOM
-  )
+  @event_types EventType.all()
 
   @impl true
   def mount(_params, _session, socket) do

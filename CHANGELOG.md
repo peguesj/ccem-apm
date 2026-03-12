@@ -1,5 +1,23 @@
 # Changelog
 
+## v5.3.0 (2026-03-12)
+
+Integrates the `ag_ui_ex` Hex package (v0.1.0) as the canonical AG-UI protocol SDK, replacing all hardcoded event type strings with library-provided constants.
+
+### Changed
+- **ag_ui_ex dependency** — Added `{:ag_ui_ex, "~> 0.1.0"}` to mix.exs; all AG-UI event types now sourced from `AgUi.Core.Events.EventType`
+- **EventStream** — All convenience emitters (`emit_run_started/2`, `emit_text_message_start/3`, etc.) use `EventType.xxx()` constants instead of string literals
+- **HookBridge** — Legacy-to-AG-UI translation uses `EventType` constants for all `EventStream.emit/2` calls
+- **EventRouter** — Case match routing uses compile-time module attributes derived from `EventType` constants
+- **ChatStore** — `handle_info` pattern matches and `EventStream.emit` calls use `EventType` module attributes
+- **AgUiV2Controller** — `POST /api/v2/ag-ui/emit` validates event types via `EventType.valid?/1`, returns 422 with valid type list on invalid input
+- **AgUiLive** — Event type filter list populated from `EventType.all/0` instead of hardcoded `~w()` sigil
+- **Tests** — All AG-UI test assertions use `EventType` constants; added integration tests for `EventType.all/0`, `EventType.valid?/1`, and constant value correctness
+- **Version** — Bumped to v5.3.0
+
+### Dependencies
+- Added: `ag_ui_ex ~> 0.1.0` (Elixir SDK for AG-UI protocol — [hex.pm/packages/ag_ui_ex](https://hex.pm/packages/ag_ui_ex))
+
 ## v5.2.0 (2026-03-12)
 
 E2E stabilization — unified sidebar, notification overhaul, AG-UI visualizer, version cleanup, docs refresh.
