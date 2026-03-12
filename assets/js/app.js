@@ -34,6 +34,8 @@ import Toast from "./hooks/toast"
 import DocContent from "./hooks/doc_content"
 import WorkflowGraph from "./hooks/workflow_graph"
 import ShiftSelect from "./hooks/shift_select"
+import TooltipOverlay from "./hooks/tooltip_overlay"
+import InspectorChat from "./hooks/inspector_chat"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -56,7 +58,9 @@ const Hooks = {
   Toast,
   WorkflowGraph,
   DocContent,
-  ShiftSelect
+  ShiftSelect,
+  TooltipOverlay,
+  InspectorChat
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

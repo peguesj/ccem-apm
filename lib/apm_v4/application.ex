@@ -46,6 +46,7 @@ defmodule ApmV4.Application do
       ApmV4.SkillsRegistryStore,
       ApmV4.AgUi.StateManager,
       ApmV4.AgUi.EventRouter,
+      ApmV4.ChatStore,
       {ApmV4.Intake.Store, []},
       # Start to serve requests, typically the last entry
       ApmV4Web.Endpoint

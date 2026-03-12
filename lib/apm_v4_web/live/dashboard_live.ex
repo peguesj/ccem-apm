@@ -19,6 +19,7 @@ defmodule ApmV4Web.DashboardLive do
   alias ApmV4.UpmStore
   alias ApmV4.PortManager
   alias ApmV4.GraphBuilder
+  alias ApmV4.ChatStore
 
   @impl true
   def mount(_params, _session, socket) do
@@ -78,6 +79,9 @@ defmodule ApmV4Web.DashboardLive do
       |> assign(:show_anon, false)
       |> assign(:list_expanded_nodes, MapSet.new(["root"]))
       |> assign(:hierarchy, nil)
+      |> assign(:chat_scope, "global")
+      |> assign(:chat_messages, [])
+      |> assign(:chat_input, "")
       |> assign(:saved_layouts, DashboardStore.list_layouts())
       |> assign(:saved_presets, DashboardStore.list_presets())
       # Global filter bar state (Splunk/ELK-style)
@@ -672,6 +676,15 @@ defmodule ApmV4Web.DashboardLive do
             <div class="flex-1 overflow-y-auto p-3">
               <%!-- Inspector tab --%>
               <div :if={@active_tab == :inspector}>
+                <%!-- Scope breadcrumb --%>
+                <ApmV4Web.Components.ScopeBreadcrumb.breadcrumb scope={@chat_scope} />
+
+                <%!-- Agent control panel --%>
+                <ApmV4Web.Components.AgentControlPanel.control_bar
+                  selected_agent={@selected_agent}
+                  agent_status={if @selected_agent, do: @selected_agent.status, else: "unknown"}
+                />
+
                 <div :if={@selected_agent == nil} class="text-center text-base-content/30 py-8 text-xs">
                   Click an agent or graph node to inspect
                 </div>
@@ -729,6 +742,16 @@ defmodule ApmV4Web.DashboardLive do
                       </div>
                     </div>
                   </div>
+                </div>
+
+                <%!-- Chat panel below agent details --%>
+                <div class="mt-3 border-t border-base-300 pt-2" style="height: 200px;">
+                  <ApmV4Web.Components.InspectorChat.chat_panel
+                    scope={@chat_scope}
+                    messages={@chat_messages}
+                    chat_input={@chat_input}
+                    selected_agent={@selected_agent}
+                  />
                 </div>
               </div>
 
@@ -958,6 +981,78 @@ defmodule ApmV4Web.DashboardLive do
     {:noreply, assign(socket, :active_tab, String.to_existing_atom(tab))}
   end
 
+  # Chat events
+  def handle_event("chat:send", %{"content" => content}, socket) when content != "" do
+    scope = socket.assigns.chat_scope
+    metadata = case socket.assigns.selected_agent do
+      nil -> %{}
+      agent -> %{"agent_id" => agent.id}
+    end
+
+    case ChatStore.send_message(scope, content, metadata) do
+      {:ok, _msg} ->
+        messages = ChatStore.list_messages(scope, 50)
+        {:noreply, socket |> assign(:chat_messages, messages) |> assign(:chat_input, "")}
+    end
+  end
+
+  def handle_event("chat:send", _params, socket), do: {:noreply, socket}
+  def handle_event("chat:input", %{"content" => val}, socket), do: {:noreply, assign(socket, :chat_input, val)}
+
+  # Scope navigation
+  def handle_event("scope:set", %{"scope" => scope}, socket) do
+    messages = ChatStore.list_messages(scope, 50)
+    {:noreply, socket |> assign(:chat_scope, scope) |> assign(:chat_messages, messages)}
+  end
+
+  # Agent control events — call registry directly (same server)
+  def handle_event("agent:control", %{"action" => action, "id" => id}, socket) do
+    new_status = case action do
+      "connect" -> "active"
+      "disconnect" -> "offline"
+      "restart" -> "active"
+      "stop" -> "offline"
+      "pause" -> "idle"
+      "resume" -> "active"
+      _ -> nil
+    end
+
+    if new_status do
+      AgentRegistry.update_agent(id, %{status: new_status})
+    end
+
+    {:noreply, socket}
+  rescue
+    _ -> {:noreply, socket}
+  end
+
+  def handle_event("formation:control", %{"action" => action, "id" => formation_id}, socket) do
+    agents = AgentRegistry.list_agents()
+    |> Enum.filter(fn a -> (a[:formation_id] || a["formation_id"]) == formation_id end)
+
+    new_status = case action do
+      "restart" -> "active"
+      "stop" -> "offline"
+      _ -> nil
+    end
+
+    if new_status do
+      Enum.each(agents, fn a ->
+        AgentRegistry.update_agent(a[:id] || a["id"], %{status: new_status})
+      end)
+    end
+
+    {:noreply, socket}
+  rescue
+    _ -> {:noreply, socket}
+  end
+
+  # Wizard events
+  def handle_event("wizard:dismiss", _params, socket), do: {:noreply, socket}
+  def handle_event("wizard:next", _params, socket), do: {:noreply, push_event(socket, "wizard:next", %{})}
+  def handle_event("wizard:prev", _params, socket), do: {:noreply, push_event(socket, "wizard:prev", %{})}
+  def handle_event("wizard:goto", %{"slide" => slide}, socket), do: {:noreply, push_event(socket, "wizard:goto", %{slide: slide})}
+
   def handle_event("set_graph_view", %{"view" => view}, socket) do
     socket = assign(socket, :graph_view, String.to_existing_atom(view))
 
@@ -1065,10 +1160,15 @@ defmodule ApmV4Web.DashboardLive do
             path -> Enum.reduce(path, expanded, &MapSet.put(&2, &1))
           end
 
+        scope = "agent:#{agent_id}"
+        messages = ChatStore.list_messages(scope, 50)
+
         socket
         |> assign(:active_tab, :inspector)
         |> assign(:selected_agent, agent)
         |> assign(:list_expanded_nodes, updated_expanded)
+        |> assign(:chat_scope, scope)
+        |> assign(:chat_messages, messages)
       else
         socket
       end

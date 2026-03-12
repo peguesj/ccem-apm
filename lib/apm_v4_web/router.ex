@@ -217,6 +217,18 @@ defmodule ApmV4Web.Router do
     put "/ag-ui/state/:agent_id", AgUiV2Controller, :set_state
     patch "/ag-ui/state/:agent_id", AgUiV2Controller, :patch_state
     get "/ag-ui/router/stats", AgUiV2Controller, :router_stats
+
+    # Chat (ChatStore)
+    get "/chat/:scope", ChatController, :index
+    post "/chat/:scope/send", ChatController, :send_message
+    delete "/chat/:scope", ChatController, :clear
+
+    # Agent control (US-012)
+    post "/agents/:id/control", AgentControlController, :control_agent
+    get "/agents/:id/messages", AgentControlController, :list_messages
+    post "/agents/:id/messages", AgentControlController, :send_message
+    post "/formations/:id/control", AgentControlController, :control_formation
+    post "/squadrons/:id/control", AgentControlController, :control_squadron
   end
 
   # A2UI flexible format endpoint

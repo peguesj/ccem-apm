@@ -1,5 +1,31 @@
 # Changelog
 
+## v5.1.0 (2026-03-11)
+
+Interactive management suite — contextual AG-UI chat, agent controls, getting started wizard, CCEMAgent v3.0.0.
+
+### Added
+- **InspectorChatLive component** (`components/inspector_chat.ex`) — contextual AG-UI chat panel in inspector column, scoped to selected resource, real-time message streaming via PubSub
+- **AgentControlPanel component** (`components/agent_control_panel.ex`) — Connect/Disconnect/Restart buttons per agent, formation-level controls, status indicator with pulse animation
+- **SSE LiveView hook** (`hooks/inspector_chat.js`) — EventSource to AG-UI SSE endpoint with streaming typewriter text, expandable tool cards, exponential backoff reconnection, 200 message buffer
+- **ScopeBreadcrumb component** (`components/scope_breadcrumb.ex`) — scope navigation breadcrumb (All > Project > Formation > Squadron > Agent), click to re-scope chat and controls
+- **ChatStore GenServer** (`apm_v4/chat_store.ex`) — ETS-backed message persistence per scope, 500 max FIFO, TEXT_MESSAGE subscription, REST endpoints at `/api/v2/chat/:scope`
+- **Agent control REST endpoints** — `POST /api/v2/agents/:id/control`, `/formations/:id/control`, `/squadrons/:id/control`, `GET/POST /agents/:id/messages`
+- **GettingStartedWizard** (`components/getting_started_wizard.ex`) — 6-slide modal slideshow with progress dots, Skip button, LocalStorage flag, help menu re-trigger
+- **Showcase SVG diagrams** (`components/showcase_diagrams.ex`) — pure SVG C4 L2 Container diagram with IntersectionObserver animation, WCAG AA, prefers-reduced-motion support
+- **TooltipOverlay hook** (`hooks/tooltip_overlay.js`) — guided tour system with backdrop dimming, arrows, Next/Prev/Skip/Done, `?` keyboard shortcut
+
+### Changed
+- **DashboardLive** — inspector panel now includes ScopeBreadcrumb, AgentControlPanel, InspectorChat; new event handlers for chat, scope, agent control, wizard
+- **CCEMAgent v3.0.0** — APMClient v2 with configurable port (UserDefaults), APMEventStream actor (SSE + Combine), agent management actions, mini-chat view, multi-server support with health checking
+
+### CCEMAgent v3.0.0
+- **APMEventStream** (`Services/APMEventStream.swift`) — Swift actor for SSE streaming with URLSession bytes, Combine PassthroughSubject, exponential backoff
+- **APMClient v2** — configurable port via UserDefaults, `controlAgent/controlFormation` REST methods, `fetchChatMessages/sendChatMessage` chat API
+- **AgentActionsManager** — per-agent Connect/Disconnect/Restart buttons, formation deploy/cancel controls
+- **Mini-chat view** — compact chat (last 5 messages) in menu bar popup with text input and Open Full Chat button
+- **MultiServerManager** — multi-server support with Add Server, port configuration, per-server health checking, UserDefaults persistence
+
 ## v5.0.0 (2026-03-11)
 
 AG-UI protocol integration — backward-compatible event bridge for agentic monitoring.
