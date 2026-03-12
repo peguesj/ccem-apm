@@ -50,7 +50,11 @@ defmodule ApmV5Web.Router do
     live "/plugins", PluginDashboardLive, :index
     live "/backfill", BackfillLive, :index
     live "/drtw", DrtwLive, :index
+    live "/ag-ui", AgUiLive, :index
     live "/intake", IntakeLive, :index
+
+    # /upm redirects to workflow UPM view
+    get "/upm", PageController, :upm_redirect
   end
 
   # v3-compatible health check (JSON) — served under /api scope instead

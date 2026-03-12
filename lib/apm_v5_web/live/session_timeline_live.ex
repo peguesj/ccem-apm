@@ -40,64 +40,7 @@ defmodule ApmV5Web.SessionTimelineLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <%!-- Sidebar --%>
-      <aside class="w-56 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
-        <div class="p-4 border-b border-base-300">
-          <h1 class="text-lg font-bold text-primary flex items-center gap-2">
-            <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
-            CCEM APM v4
-          </h1>
-          <p class="text-xs text-base-content/50 mt-1">Session Timeline</p>
-        </div>
-        <nav class="p-2 space-y-1">
-          <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
-          <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
-          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
-          <.nav_item icon="hero-clock" label="Timeline" active={true} href="/timeline" />
-          <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
-          <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
-          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
-          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
-          <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" badge={@active_skill_count} />
-          <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
-          <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
-          <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
-        </nav>
-
-        <%!-- Session list --%>
-        <div class="flex-1 overflow-y-auto p-2 border-t border-base-300">
-          <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2 px-1">
-            Sessions
-          </h3>
-          <button
-            class={[
-              "w-full text-left px-2 py-1.5 rounded text-xs transition-colors mb-1",
-              is_nil(@selected_session) && "bg-primary/10 text-primary font-medium",
-              !is_nil(@selected_session) && "text-base-content/60 hover:bg-base-300"
-            ]}
-            phx-click="select_session"
-            phx-value-session_id=""
-          >
-            All Sessions
-          </button>
-          <button
-            :for={session <- @sessions}
-            class={[
-              "w-full text-left px-2 py-1.5 rounded text-xs transition-colors mb-1 truncate",
-              @selected_session == session.session_id && "bg-primary/10 text-primary font-medium",
-              @selected_session != session.session_id && "text-base-content/60 hover:bg-base-300"
-            ]}
-            phx-click="select_session"
-            phx-value-session_id={session.session_id}
-          >
-            <div class="truncate">{session.session_id}</div>
-            <div class="text-[10px] text-base-content/30">{session.project}</div>
-          </button>
-          <p :if={@sessions == []} class="text-[10px] text-base-content/30 px-1">
-            No sessions registered
-          </p>
-        </div>
-      </aside>
+      <.sidebar_nav current_path="/timeline" skill_count={@active_skill_count} />
 
       <%!-- Main content --%>
       <div id="main-content" class="flex-1 flex flex-col overflow-hidden">
@@ -299,7 +242,7 @@ defmodule ApmV5Web.SessionTimelineLive do
   defp time_range_cutoff(now, "24h"), do: DateTime.add(now, -86400, :second)
   defp time_range_cutoff(now, _), do: DateTime.add(now, -3600, :second)
 
-  # --- Components ---
+  # --- Helpers ---
 
   defp skill_count do
     try do
@@ -307,28 +250,5 @@ defmodule ApmV5Web.SessionTimelineLive do
     catch
       :exit, _ -> 0
     end
-  end
-
-  attr :icon, :string, required: true
-  attr :label, :string, required: true
-  attr :active, :boolean, default: false
-  attr :href, :string, required: true
-  attr :badge, :any, default: nil
-
-  defp nav_item(assigns) do
-    ~H"""
-    <a
-      href={@href}
-      class={[
-        "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors",
-        @active && "bg-primary/10 text-primary font-medium",
-        !@active && "text-base-content/60 hover:text-base-content hover:bg-base-300"
-      ]}
-    >
-      <.icon name={@icon} class="size-4" />
-      {@label}
-      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
-    </a>
-    """
   end
 end

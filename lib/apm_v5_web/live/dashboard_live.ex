@@ -1,6 +1,6 @@
 defmodule ApmV5Web.DashboardLive do
   @moduledoc """
-  LiveView dashboard for CCEM APM v4.
+  LiveView dashboard for CCEM APM.
 
   Ported from the Python APM v3 embedded HTML dashboard to Phoenix LiveView
   with daisyUI components. Displays agent fleet status, stats cards, notification
@@ -124,57 +124,7 @@ defmodule ApmV5Web.DashboardLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <%!-- Sidebar --%>
-      <aside class="w-56 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
-        <div class="p-4 border-b border-base-300">
-          <h1 class="text-lg font-bold text-primary flex items-center gap-2">
-            <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
-            CCEM APM v4
-          </h1>
-          <p class="text-xs text-base-content/50 mt-1">
-            {length(@projects)} projects · {@active_count} active
-          </p>
-        </div>
-        <nav class="flex-1 p-2 space-y-1 overflow-y-auto">
-          <.nav_item icon="hero-squares-2x2" label="Dashboard" active={@active_nav == :dashboard} href="/" />
-          <.nav_item icon="hero-globe-alt" label="All Projects" active={@active_nav == :all} href="/apm-all" />
-          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
-          <.nav_item icon="hero-clock" label="Timeline" active={@active_nav == :timeline} href="/timeline" />
-          <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
-          <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
-          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
-          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
-          <.nav_item icon="hero-sparkles" label="Skills" active={@active_nav == :skills} href="/skills" badge={@active_skill_count} />
-          <.nav_item icon="hero-arrow-path" label="Ralph" active={@active_nav == :ralph} href="/ralph" />
-          <button
-            phx-click="switch_tab"
-            phx-value-tab="ports"
-            class={[
-              "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors w-full text-left",
-              @active_tab == :ports && "bg-primary/10 text-primary font-medium",
-              @active_tab != :ports && "text-base-content/60 hover:text-base-content hover:bg-base-300"
-            ]}
-          >
-            <.icon name="hero-signal" class="size-4" />
-            Ports
-            <span :if={length(@port_clashes) > 0} class="badge badge-xs badge-error ml-auto">{length(@port_clashes)}</span>
-          </button>
-          <.nav_item icon="hero-book-open" label="Docs" active={@active_nav == :docs} href="/docs" />
-        </nav>
-        <div class="p-3 border-t border-base-300 space-y-2">
-          <button
-            phx-click="showcase:show"
-            class="flex items-center gap-2 text-xs text-base-content/40 hover:text-primary transition-colors w-full"
-          >
-            <.icon name="hero-sparkles" class="size-3" />
-            Getting Started
-          </button>
-          <div class="text-xs text-base-content/40">
-            <div>Phoenix {Application.spec(:phoenix, :vsn)}</div>
-            <div>Uptime: {@uptime}</div>
-          </div>
-        </div>
-      </aside>
+      <.sidebar_nav current_path="/" notification_count={length(@notifications)} skill_count={@active_skill_count} />
 
       <%!-- Main content --%>
       <div id="main-content" class="flex-1 flex flex-col overflow-hidden">
@@ -1431,37 +1381,14 @@ defmodule ApmV5Web.DashboardLive do
 
   # --- Helper Components ---
 
-  attr :icon, :string, required: true
-  attr :label, :string, required: true
-  attr :active, :boolean, default: false
-  attr :href, :string, required: true
-  attr :badge, :any, default: nil
-
-  defp nav_item(assigns) do
-    ~H"""
-    <a
-      href={@href}
-      class={[
-        "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors",
-        @active && "bg-primary/10 text-primary font-medium",
-        !@active && "text-base-content/60 hover:text-base-content hover:bg-base-300"
-      ]}
-    >
-      <.icon name={@icon} class="size-4" />
-      {@label}
-      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
-    </a>
-    """
-  end
-
   attr :label, :string, required: true
   attr :value, :any, required: true
   attr :color, :string, default: "text-primary"
 
   defp stat_card(assigns) do
     ~H"""
-    <div class="card bg-base-200 border border-base-300">
-      <div class="card-body p-3 items-center text-center">
+    <div class="card bg-base-200 border border-base-300 min-h-[120px]">
+      <div class="card-body p-3 items-center text-center justify-center">
         <div class={["text-2xl font-bold tabular-nums", @color]}>{@value}</div>
         <div class="text-[10px] uppercase tracking-widest text-base-content/40">{@label}</div>
       </div>
@@ -1545,14 +1472,7 @@ defmodule ApmV5Web.DashboardLive do
     push_event(socket, "hierarchy_data", %{tree: hierarchy})
   end
 
-  defp calculate_uptime do
-    start_time = Application.get_env(:apm_v5, :server_start_time, System.system_time(:second))
-    seconds = System.system_time(:second) - start_time
-    hours = div(seconds, 3600)
-    minutes = div(rem(seconds, 3600), 60)
-    secs = rem(seconds, 60)
-    "#{String.pad_leading(to_string(hours), 2, "0")}:#{String.pad_leading(to_string(minutes), 2, "0")}:#{String.pad_leading(to_string(secs), 2, "0")}"
-  end
+  defp calculate_uptime, do: ApmV5.Uptime.formatted()
 
   defp format_last_seen(iso_string) when is_binary(iso_string) do
     case DateTime.from_iso8601(iso_string) do

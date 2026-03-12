@@ -147,8 +147,8 @@ defmodule ApmV5.ConfigLoader do
 
   defp default_config do
     %{
-      "version" => "4.0.0",
-      "port" => 3031,
+      "version" => "5.2.0",
+      "port" => 3032,
       "active_project" => nil,
       "projects" => []
     }

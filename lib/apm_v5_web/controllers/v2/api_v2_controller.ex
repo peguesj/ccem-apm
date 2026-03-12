@@ -223,8 +223,8 @@ defmodule ApmV5Web.V2.ApiV2Controller do
     %{
       "openapi" => "3.0.3",
       "info" => %{
-        "title" => "CCEM APM v4 API",
-        "version" => "5.0.0",
+        "title" => "CCEM APM API",
+        "version" => "5.2.0",
         "description" => "Complete REST API for CCEM Agent Performance Monitor. Also available at /api/openapi.json."
       },
       "servers" => [%{"url" => "http://localhost:3032", "description" => "Local APM server"}],

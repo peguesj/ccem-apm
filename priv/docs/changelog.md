@@ -6,6 +6,75 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [5.2.0] - 2026-03-12
+
+E2E stabilization — unified sidebar, notification overhaul, AG-UI visualizer, version cleanup, docs refresh.
+
+### Added
+- Shared `sidebar_nav` component replacing 20 inline sidebar duplicates
+- AG-UI LiveView at `/ag-ui` — real-time event feed with 14 type filters, pause/resume, router stats, agent state viewer
+- Notification formatting with type icons, category badges, deduplication with count badges
+- Notification showcase noise filter (default on) with batch dismiss
+- Skills AG-UI pill tab with hook repair button
+- Dependency graph formation/squadron/swarm hierarchy grouping
+- AG-UI Protocol documentation page
+
+### Changed
+- All 20 LiveViews use shared sidebar component
+- All version strings dynamic (no hardcoded v4 references)
+- Heartbeat auto-registers unknown agents (upsert, no more 404)
+- Health check port corrected (3031 to 3032)
+- Uptime uses monotonic time set at application startup
+- `/upm` route redirects to `/workflow/upm`
+
+### Fixed
+- Sidebar nav drift across 20 pages
+- Notification noise (19/22 showcase entries)
+- Getting Started modal re-showing on navigation
+- Uptime showing ~74 years
+- Dashboard agent count mismatch between views
+
+---
+
+## [5.1.0] - 2026-03-11
+
+Interactive management suite — contextual AG-UI chat, agent controls, getting started wizard, CCEMAgent v3.0.0.
+
+### Added
+- InspectorChatLive, AgentControlPanel, ScopeBreadcrumb components
+- SSE LiveView hook for streaming chat
+- ChatStore GenServer with ETS persistence
+- Agent control REST endpoints
+- GettingStartedWizard modal slideshow
+- Showcase SVG diagrams with IntersectionObserver animation
+- TooltipOverlay guided tour system
+
+---
+
+## [5.0.0] - 2026-03-11
+
+AG-UI protocol integration — backward-compatible event bridge for agentic monitoring.
+
+### Added
+- AG-UI EventRouter, HookBridge, StateManager, EventStream GenServers
+- AG-UI v2 REST controller with SSE streams
+- Built-in documentation wiki with 15+ pages
+- 60+ REST API endpoints with expanded OpenAPI spec
+
+---
+
+## [4.3.0] - 2026-03-02
+
+Cross-platform installer, Docker socket repair, session hardening.
+
+---
+
+## [4.2.0] - 2026-03-02
+
+Dynamic APM — skills registry, enhanced background tasks, project scanner Claude-native scan.
+
+---
+
 ## [4.0.0] - 2026-02-19
 
 Complete rewrite from Python to Phoenix/Elixir with multi-project support.
@@ -135,28 +204,19 @@ Internal research prototype. No longer supported.
 
 ## Future Roadmap
 
-### v4.1 (Q2 2026)
+### v5.3 (Q2 2026)
 
 - Database backend (PostgreSQL) option
 - Erlang clustering support
 - Advanced SLO engine
-- Custom skill definitions
 - Slack/Discord notifications
 - GraphQL API
 
-### v4.2 (Q3 2026)
-
-- Machine learning-based anomaly detection
-- Predictive resource allocation
-- Cross-project aggregate analytics
-- Advanced audit reporting
-- Webhook integrations
-
-### v5.0 (2027)
+### v6.0 (Q3 2026)
 
 - Full distributed architecture
 - Advanced federation for multi-org
-- Rich AI-powered recommendations
+- AI-powered recommendations
 - Custom dashboard builder
 - Embedded agent marketplace
 
@@ -177,8 +237,8 @@ CCEM APM follows semantic versioning:
 
 ## Credits
 
-CCEM APM v4 built with Elixir/Phoenix, LiveView, D3.js, daisyUI, and Swift. Designed for the Claude Code platform and AI agent workflows.
+CCEM APM built with Elixir/Phoenix, LiveView, D3.js, daisyUI, and Swift. Designed for the Claude Code platform and AI agent workflows.
 
 ---
 
-*Last Updated: 2026-02-19*
+*Last Updated: 2026-03-12*

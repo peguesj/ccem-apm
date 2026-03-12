@@ -370,12 +370,13 @@ const GettingStartedShowcase = {
     this.prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.eventsReady = false;
 
-    // Check if already completed
+    // Check if already completed — element starts hidden via style="display:none"
     if (localStorage.getItem(SHOWCASE_STORAGE_KEY) === "true") {
-      this.el.style.display = "none";
       return;
     }
 
+    // First visit — show the showcase
+    this.el.style.display = "";
     reportToAPM("showcase_opened", { slide: 0, slide_id: SLIDES[0].id });
 
     this.renderSlide(0);

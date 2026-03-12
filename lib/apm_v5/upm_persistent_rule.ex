@@ -1,19 +1,19 @@
 defmodule ApmV5.UpmPersistentRule do
   @moduledoc """
   Checks and inserts the UPM→Plane integration rule into ~/.claude/CLAUDE.md.
-  Ensures the APM v4 route table is present in the user's global CLAUDE.md.
+  Ensures the APM route table is present in the user's global CLAUDE.md.
   """
   require Logger
 
   @claude_md_path "~/.claude/CLAUDE.md"
-  @rule_marker "## UPM→Plane Integration (APM v4)"
+  @rule_marker "## UPM→Plane Integration (APM)"
 
   @rule_content """
 
-  ## UPM→Plane Integration (APM v4)
+  ## UPM→Plane Integration (APM)
 
-  When APM context is active (server running on port 3031), all UPM operations MUST emit
-  notifications to the following APM v4 endpoints:
+  When APM context is active (server running on port 3032), all UPM operations MUST emit
+  notifications to the following APM endpoints:
 
   | Endpoint | Purpose |
   |----------|---------|

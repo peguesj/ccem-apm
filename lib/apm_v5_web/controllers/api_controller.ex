@@ -1,6 +1,6 @@
 defmodule ApmV5Web.ApiController do
   @moduledoc """
-  JSON API endpoints for CCEM APM v4.
+  JSON API endpoints for CCEM APM.
 
   Provides full v3-compatible REST API plus v4 extensions.
   All 19 v3 endpoints + v4-only /api/projects endpoint.
@@ -18,7 +18,7 @@ defmodule ApmV5Web.ApiController do
   alias ApmV5.CommandRunner
   alias ApmV5.AgUi.HookBridge
 
-  @server_version "5.0.0"
+  @server_version "5.2.0"
 
   # ============================
   # GET Endpoints
@@ -26,8 +26,7 @@ defmodule ApmV5Web.ApiController do
 
   @doc "GET /health -- v3-compatible health check"
   def health(conn, _params) do
-    start_time = Application.get_env(:apm_v5, :server_start_time, System.monotonic_time(:second))
-    uptime = System.monotonic_time(:second) - start_time
+    uptime = ApmV5.Uptime.seconds()
     config = safe_get_config()
     projects = Map.get(config, "projects", [])
 
@@ -57,8 +56,7 @@ defmodule ApmV5Web.ApiController do
 
   @doc "GET /api/status -- existing v4 status endpoint"
   def status(conn, _params) do
-    start_time = Application.get_env(:apm_v5, :server_start_time, System.monotonic_time(:second))
-    uptime = System.monotonic_time(:second) - start_time
+    uptime = ApmV5.Uptime.seconds()
     agents = AgentRegistry.list_agents()
     sessions = AgentRegistry.list_sessions()
 
@@ -321,7 +319,7 @@ defmodule ApmV5Web.ApiController do
     end
   end
 
-  @doc "POST /api/heartbeat -- update agent status (existing v4 endpoint)"
+  @doc "POST /api/heartbeat -- update agent status (upsert: auto-registers unknown agents)"
   def heartbeat(conn, params) do
     agent_id = params["agent_id"] || params["id"]
 
@@ -334,15 +332,26 @@ defmodule ApmV5Web.ApiController do
 
       case AgentRegistry.update_status(agent_id, status) do
         :ok ->
-          # Emit AG-UI STEP event via HookBridge
-          Task.start(fn -> HookBridge.translate_heartbeat(params) end)
-          json(conn, %{ok: true, agent_id: agent_id})
+          :ok
 
         {:error, :not_found} ->
-          conn
-          |> put_status(404)
-          |> json(%{error: "Agent not found", agent_id: agent_id})
+          # Auto-register unknown agents on heartbeat (upsert pattern)
+          metadata = %{
+            status: status,
+            name: params["name"] || agent_id,
+            formation_id: params["formation_id"],
+            role: params["role"] || "individual",
+            project_name: params["project"],
+            wave_number: params["wave"],
+            metadata: Map.drop(params, ["agent_id", "id", "status", "name", "formation_id", "role", "project", "wave"])
+          }
+
+          AgentRegistry.register_agent(agent_id, metadata, params["project"])
       end
+
+      # Emit AG-UI STEP event via HookBridge
+      Task.start(fn -> HookBridge.translate_heartbeat(params) end)
+      json(conn, %{ok: true, agent_id: agent_id})
     end
   end
 

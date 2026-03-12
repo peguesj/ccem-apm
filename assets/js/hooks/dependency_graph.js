@@ -62,6 +62,8 @@ function nodeIcon(type) {
     case "project": return "\u25A3"
     case "formation": return "\u25C9"
     case "squadron": return "\u25A0"
+    case "swarm": return "\u25C6"
+    case "cluster": return "\u25B3"
     case "agent": return "\u25CB"
     default: return "\u25A1"
   }
@@ -76,10 +78,10 @@ function buildHierarchyFromFlat(agents, scope) {
   if (scope === "all_projects") {
     const byProject = d3.group(agents, d => d.project_name || d.projectName || "unknown")
     const projectNodes = Array.from(byProject, ([projectName, projectAgents]) => {
-      const byFormation = d3.group(projectAgents, d => d.formation_id || d.formationId || "ungrouped")
+      const byFormation = d3.group(projectAgents, d => d.formation_id || d.formationId || "unaffiliated")
       const formationNodes = Array.from(byFormation, ([fmtId, fmtAgents]) => ({
         id: `fmt-${projectName}-${fmtId}`,
-        name: fmtId === "ungrouped" ? "Ungrouped" : fmtId,
+        name: fmtId === "unaffiliated" ? "Unaffiliated" : fmtId,
         type: "formation",
         status: aggregateStatus(fmtAgents),
         agent_count: fmtAgents.length,
@@ -103,22 +105,59 @@ function buildHierarchyFromFlat(agents, scope) {
     return { id: "root", name: "All Projects", type: "root", children: projectNodes, status: "idle" }
   }
 
-  // Single project scope
-  const byFormation = d3.group(agents, d => d.formation_id || d.formationId || "ungrouped")
-  const formationNodes = Array.from(byFormation, ([fmtId, fmtAgents]) => ({
-    id: `fmt-${fmtId}`,
-    name: fmtId === "ungrouped" ? "Ungrouped" : fmtId,
-    type: "formation",
-    status: aggregateStatus(fmtAgents),
-    agent_count: fmtAgents.length,
-    children: fmtAgents.map(a => ({
-      id: a.id,
-      name: a.name || a.id,
-      type: "agent",
-      status: a.status || "idle",
-      data: a
-    }))
-  }))
+  // Single project scope — with squadron/swarm hierarchy
+  const byFormation = d3.group(agents, d => d.formation_id || d.formationId || "unaffiliated")
+  const formationNodes = Array.from(byFormation, ([fmtId, fmtAgents]) => {
+    // Group by squadron if metadata present
+    const bySquadron = d3.group(fmtAgents, d => d.squadron || "default")
+    const hasSquadrons = bySquadron.size > 1 || !bySquadron.has("default")
+
+    const children = hasSquadrons
+      ? Array.from(bySquadron, ([sqName, sqAgents]) => {
+          // Group by swarm within squadron
+          const bySwarm = d3.group(sqAgents, d => d.swarm || "default")
+          const hasSwarms = bySwarm.size > 1 || !bySwarm.has("default")
+
+          const sqChildren = hasSwarms
+            ? Array.from(bySwarm, ([swName, swAgents]) => ({
+                id: `swarm-${fmtId}-${sqName}-${swName}`,
+                name: swName,
+                type: "swarm",
+                status: aggregateStatus(swAgents),
+                agent_count: swAgents.length,
+                children: swAgents.map(a => ({
+                  id: a.id, name: a.name || a.id, type: "agent",
+                  status: a.status || "idle", data: a
+                }))
+              }))
+            : sqAgents.map(a => ({
+                id: a.id, name: a.name || a.id, type: "agent",
+                status: a.status || "idle", data: a
+              }))
+
+          return {
+            id: `sq-${fmtId}-${sqName}`,
+            name: sqName,
+            type: "squadron",
+            status: aggregateStatus(sqAgents),
+            agent_count: sqAgents.length,
+            children: sqChildren
+          }
+        })
+      : fmtAgents.map(a => ({
+          id: a.id, name: a.name || a.id, type: "agent",
+          status: a.status || "idle", data: a
+        }))
+
+    return {
+      id: `fmt-${fmtId}`,
+      name: fmtId === "unaffiliated" ? "Unaffiliated" : fmtId,
+      type: "formation",
+      status: aggregateStatus(fmtAgents),
+      agent_count: fmtAgents.length,
+      children
+    }
+  })
   return { id: "root", name: "Project", type: "root", children: formationNodes, status: "idle" }
 }
 
@@ -219,11 +258,15 @@ const DependencyGraph = {
 
     // Keyboard navigation
     this.el.setAttribute("tabindex", "0")
-    this.el.addEventListener("keydown", (e) => this._handleKey(e))
+    this._keyHandler = (e) => this._handleKey(e)
+    this.el.addEventListener("keydown", this._keyHandler)
   },
 
   destroyed() {
     this._tooltip?.remove()
+    if (this._keyHandler) {
+      this.el.removeEventListener("keydown", this._keyHandler)
+    }
   },
 
   // Recursively collapse children beyond depth 1

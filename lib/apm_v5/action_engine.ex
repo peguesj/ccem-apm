@@ -265,7 +265,7 @@ defmodule ApmV5.ActionEngine do
 
 - **APM Dashboard**: http://localhost:3032
 - **APM Config**: #{Path.join(project_path, "apm/apm_config.json")}
-- **APM Port**: 3031
+- **APM Port**: 3032
 - **Skills Path**: ~/.claude/skills/
 - **APM Log**: ~/Developer/ccem/apm/hooks/apm_server.log
 """
@@ -296,7 +296,7 @@ defmodule ApmV5.ActionEngine do
       project_name: project_name,
       project_root: project_path,
       apm_url: "http://localhost:3032",
-      apm_port: 3031,
+      apm_port: 3032,
       skills_path: "~/.claude/skills",
       session_id: ApmV5.Correlation.generate(),
       created_at: DateTime.utc_now() |> DateTime.to_iso8601()

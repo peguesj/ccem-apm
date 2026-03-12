@@ -31,6 +31,7 @@ defmodule ApmV5Web.NotificationLive do
       |> assign(:active_tab, "all")
       |> assign(:tab_counts, compute_tab_counts(notifications))
       |> assign(:expanded_ids, MapSet.new())
+      |> assign(:hide_showcase, true)
 
     {:ok, socket}
   end
@@ -39,39 +40,30 @@ defmodule ApmV5Web.NotificationLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <%!-- Sidebar --%>
-      <aside class="w-56 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
-        <div class="p-4 border-b border-base-300">
-          <h1 class="text-lg font-bold text-primary flex items-center gap-2">
-            <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
-            CCEM APM v4
-          </h1>
-          <p class="text-xs text-base-content/50 mt-1">Agent Performance Monitor</p>
-        </div>
-        <nav class="flex-1 p-2 space-y-1 overflow-y-auto">
-          <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
-          <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
-          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
-          <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
-          <.nav_item icon="hero-bell" label="Notifications" active={true} href="/notifications" badge={@tab_counts["all"]} />
-          <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
-          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
-          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
-          <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" />
-          <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
-          <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
-          <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
-        </nav>
-      </aside>
+      <.sidebar_nav current_path="/notifications" notification_count={@tab_counts["all"]} />
 
       <%!-- Main --%>
       <div class="flex-1 flex flex-col overflow-hidden">
         <%!-- Header --%>
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
           <h2 class="text-sm font-semibold">Notifications</h2>
-          <button phx-click="mark_all_read" class="btn btn-ghost btn-xs text-base-content/60">
-            Mark all read
-          </button>
+          <div class="flex items-center gap-2">
+            <label class="flex items-center gap-1.5 text-xs text-base-content/50 cursor-pointer">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-xs"
+                phx-click="toggle_showcase_filter"
+                checked={@hide_showcase}
+              />
+              Hide showcase
+            </label>
+            <button phx-click="dismiss_category" phx-value-category={@active_tab} class="btn btn-ghost btn-xs text-base-content/60" :if={@active_tab != "all"}>
+              Dismiss category
+            </button>
+            <button phx-click="mark_all_read" class="btn btn-ghost btn-xs text-base-content/60">
+              Mark all read
+            </button>
+          </div>
         </header>
 
         <%!-- Tabs --%>
@@ -85,41 +77,17 @@ defmodule ApmV5Web.NotificationLive do
 
         <%!-- Notification list --%>
         <div class="flex-1 overflow-y-auto p-4 space-y-2">
-          <div :if={filtered_notifications(@notifications, @active_tab) == []} class="text-center text-base-content/30 py-16 text-sm">
+          <div :if={visible_notifications(@notifications, @active_tab, @hide_showcase) == []} class="text-center text-base-content/30 py-16 text-sm">
             No notifications in this category
           </div>
           <.notif_card
-            :for={notif <- filtered_notifications(@notifications, @active_tab)}
+            :for={notif <- visible_notifications(@notifications, @active_tab, @hide_showcase)}
             notif={notif}
             expanded={MapSet.member?(@expanded_ids, notif.id)}
           />
         </div>
       </div>
     </div>
-    """
-  end
-
-  # --- Sidebar nav item ---
-  attr :icon, :string, required: true
-  attr :label, :string, required: true
-  attr :active, :boolean, default: false
-  attr :href, :string, required: true
-  attr :badge, :any, default: nil
-
-  defp nav_item(assigns) do
-    ~H"""
-    <a
-      href={@href}
-      class={[
-        "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors",
-        @active && "bg-primary/10 text-primary font-medium",
-        !@active && "text-base-content/60 hover:text-base-content hover:bg-base-300"
-      ]}
-    >
-      <.icon name={@icon} class="size-4" />
-      {@label}
-      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
-    </a>
     """
   end
 
@@ -167,16 +135,21 @@ defmodule ApmV5Web.NotificationLive do
         <div class="flex-1 min-w-0">
           <div class="flex items-start justify-between gap-2">
             <p class="text-sm font-medium text-base-content truncate">{@notif.title}</p>
-            <span class="text-[10px] text-base-content/40 flex-shrink-0 font-mono">
-              {relative_time(@notif.timestamp)}
-            </span>
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              <span :if={@notif[:dupe_count] && @notif[:dupe_count] > 1} class="badge badge-xs badge-warning font-mono">
+                x{@notif.dupe_count}
+              </span>
+              <span class="text-[10px] text-base-content/40 font-mono">
+                {relative_time(@notif.timestamp)}
+              </span>
+            </div>
           </div>
           <p :if={@notif.message && @notif.message != ""} class="text-xs text-base-content/60 mt-0.5 line-clamp-2">
-            {@notif.message}
+            {format_message(@notif.message)}
           </p>
           <%!-- Category chip --%>
           <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span :if={@notif.category} class="badge badge-xs badge-ghost font-mono">
+            <span :if={@notif.category} class={["badge badge-xs font-mono", category_badge_class(@notif.category)]}>
               {@notif.category}
             </span>
             <span :if={@notif[:formation_id]} class="badge badge-xs badge-outline badge-primary font-mono text-[9px]">
@@ -257,6 +230,23 @@ defmodule ApmV5Web.NotificationLive do
     {:noreply, assign(socket, :expanded_ids, new_expanded)}
   end
 
+  def handle_event("toggle_showcase_filter", _params, socket) do
+    {:noreply, assign(socket, :hide_showcase, !socket.assigns.hide_showcase)}
+  end
+
+  def handle_event("dismiss_category", %{"category" => cat}, socket) do
+    cats = @tab_categories[cat] || []
+    if cats != [] do
+      Enum.each(socket.assigns.notifications, fn n ->
+        if to_string(n[:category]) in cats, do: AgentRegistry.mark_read(n.id)
+      end)
+    end
+    notifications = load_notifications()
+    {:noreply, socket
+     |> assign(:notifications, notifications)
+     |> assign(:tab_counts, compute_tab_counts(notifications))}
+  end
+
   def handle_event("mark_all_read", _params, socket) do
     AgentRegistry.mark_all_read()
     notifications = load_notifications()
@@ -284,12 +274,44 @@ defmodule ApmV5Web.NotificationLive do
     |> Enum.sort_by(& &1.id, :desc)
   end
 
+  defp visible_notifications(notifications, tab, hide_showcase) do
+    notifications
+    |> filtered_notifications(tab)
+    |> maybe_hide_showcase(hide_showcase)
+    |> dedup_notifications()
+  end
+
   defp filtered_notifications(notifications, "all"), do: notifications
   defp filtered_notifications(notifications, tab) do
     cats = @tab_categories[tab] || []
     Enum.filter(notifications, fn n ->
       to_string(n[:category]) in cats
     end)
+  end
+
+  defp maybe_hide_showcase(notifications, false), do: notifications
+  defp maybe_hide_showcase(notifications, true) do
+    Enum.reject(notifications, fn n ->
+      cat = to_string(n[:category])
+      title = to_string(n[:title]) |> String.downcase()
+      cat == "showcase" or String.contains?(title, "showcase")
+    end)
+  end
+
+  defp dedup_notifications(notifications) do
+    # Group by title+type+category, keep the most recent, add dupe count
+    notifications
+    |> Enum.group_by(fn n -> {n[:title], n[:type], n[:category]} end)
+    |> Enum.map(fn {_key, group} ->
+      most_recent = hd(group)
+      count = length(group)
+      if count > 1 do
+        Map.put(most_recent, :dupe_count, count)
+      else
+        most_recent
+      end
+    end)
+    |> Enum.sort_by(& &1.id, :desc)
   end
 
   defp compute_tab_counts(notifications) do
@@ -322,6 +344,41 @@ defmodule ApmV5Web.NotificationLive do
     notif[:wave_number] || notif[:story_id] || notif[:squadron_id] ||
     notif[:namespace] || notif[:project_name] || notif[:action_url] || notif[:pr_url]
   end
+
+  defp format_message(msg) when is_binary(msg) do
+    trimmed = String.trim(msg)
+
+    if String.starts_with?(trimmed, "{") or String.starts_with?(trimmed, "[") do
+      case Jason.decode(trimmed) do
+        {:ok, decoded} when is_map(decoded) ->
+          decoded
+          |> Enum.map(fn {k, v} -> "#{k}: #{inspect(v)}" end)
+          |> Enum.join(" | ")
+
+        {:ok, decoded} when is_list(decoded) ->
+          Enum.map_join(decoded, ", ", &to_string/1)
+
+        _ ->
+          msg
+      end
+    else
+      msg
+    end
+  end
+
+  defp format_message(msg), do: to_string(msg)
+
+  defp category_badge_class("agent"), do: "badge-success badge-outline"
+  defp category_badge_class("deploy_agents"), do: "badge-success badge-outline"
+  defp category_badge_class("formation"), do: "badge-accent badge-outline"
+  defp category_badge_class("squadron"), do: "badge-info badge-outline"
+  defp category_badge_class("swarm"), do: "badge-warning badge-outline"
+  defp category_badge_class("skill"), do: "badge-secondary badge-outline"
+  defp category_badge_class("upm"), do: "badge-primary badge-outline"
+  defp category_badge_class("ralph"), do: "badge-primary badge-outline"
+  defp category_badge_class("ship"), do: "badge-info badge-outline"
+  defp category_badge_class("showcase"), do: "badge-ghost"
+  defp category_badge_class(_), do: "badge-ghost"
 
   defp relative_time(nil), do: ""
   defp relative_time(ts) when is_binary(ts) do

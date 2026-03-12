@@ -9,6 +9,10 @@ defmodule ApmV5Web.PageController do
   Serves the Scalar API Reference UI pointing at the OpenAPI spec.
   Self-contained HTML page — no template needed.
   """
+  def upm_redirect(conn, _params) do
+    redirect(conn, to: "/workflow/upm")
+  end
+
   def api_docs(conn, _params) do
     html(conn, """
     <!DOCTYPE html>
@@ -32,7 +36,7 @@ defmodule ApmV5Web.PageController do
           layout: 'modern',
           hideDownloadButton: false,
           metaData: {
-            title: 'CCEM APM v4 API Reference'
+            title: 'CCEM APM API Reference'
           }
         })
       </script>

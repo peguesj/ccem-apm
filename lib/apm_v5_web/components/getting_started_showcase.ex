@@ -39,6 +39,7 @@ defmodule ApmV5Web.Components.GettingStartedShowcase do
       role="dialog"
       aria-modal="true"
       aria-label="Getting Started with CCEM APM"
+      style="display:none;"
       class={[
         "fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-300",
         if(@show, do: "opacity-100", else: "opacity-0 pointer-events-none")
@@ -74,7 +75,7 @@ defmodule ApmV5Web.Components.GettingStartedShowcase do
             </div>
             <div>
               <h2 class="text-base font-semibold text-base-content">Getting Started</h2>
-              <p class="text-[10px] text-base-content/40">CCEM APM v5.1 Feature Showcase</p>
+              <p class="text-[10px] text-base-content/40">CCEM APM Feature Showcase</p>
             </div>
           </div>
           <div class="flex items-center gap-2">

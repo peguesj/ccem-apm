@@ -1,6 +1,6 @@
-# CCEM APM v4 Documentation
+# CCEM APM Documentation
 
-**Version 4.0.0** | Phoenix/Elixir Agentic Performance Monitor
+**Version 5.2.0** | Phoenix/Elixir Agentic Performance Monitor
 
 A real-time monitoring and orchestration platform for Claude Code AI agent sessions, providing fleet visualization, multi-project tracking, and autonomous workflow management.
 
@@ -8,6 +8,8 @@ A real-time monitoring and orchestration platform for Claude Code AI agent sessi
 
 ## What's New
 
+- **AG-UI Protocol** -- Standardized event-based agent-user interaction with SSE streaming, state management, and HookBridge translation
+- **User Acceptance Testing** -- UAT workflow integration with automated verification gates
 - **UPM Tracking** -- Unified Project Management integration for cross-tool task sync
 - **Formation System** -- Agent squadrons and swarm orchestration with tier-based classification
 - **Documentation Wiki** -- Embedded interactive docs with slash command reference
@@ -53,6 +55,7 @@ Architecture, API reference, and extending the platform.
 - [API Reference](developer/api-reference.md) -- Complete endpoint documentation
 - [LiveView Pages](developer/liveview-pages.md) -- Frontend components
 - [PubSub Events](developer/pubsub-events.md) -- Real-time event system
+- [AG-UI Protocol](developer/ag-ui-protocol.md) -- Event types, SSE streaming, and state management
 - [Extending CCEM](developer/extending.md) -- Adding new features
 - [Testing Guide](developer/testing.md) -- Test patterns and coverage
 
@@ -112,8 +115,8 @@ graph TD
 
 | Component | Technology | Version |
 |-----------|-----------|---------|
-| Backend | Phoenix Framework (Elixir) | Phoenix 1.7 / Elixir 1.16 |
-| Frontend | Phoenix LiveView | LiveView 0.20 |
+| Backend | Phoenix Framework (Elixir) | Phoenix 1.8 / Elixir 1.17 |
+| Frontend | Phoenix LiveView | LiveView 1.1 |
 | Styling | daisyUI + Tailwind CSS | daisyUI 4.x / Tailwind 3.x |
 | Visualization | D3.js | v7 |
 | Menubar Agent | Swift (AppKit, URLSession) | Swift 5.9 |

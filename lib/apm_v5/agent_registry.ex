@@ -152,6 +152,12 @@ defmodule ApmV5.AgentRegistry do
     GenServer.call(__MODULE__, {:update_agent, agent_id, fields})
   end
 
+  @doc "Mark a single notification as read by id."
+  @spec mark_read(integer()) :: :ok
+  def mark_read(id) do
+    GenServer.call(__MODULE__, {:mark_read, id})
+  end
+
   @doc "Mark all notifications as read (alias for mark_all_read/0)."
   @spec mark_all_notifications_read() :: :ok
   def mark_all_notifications_read, do: mark_all_read()
@@ -333,6 +339,16 @@ defmodule ApmV5.AgentRegistry do
 
   def handle_call({:dismiss_notification, id}, _from, state) do
     :ets.delete(@notifications_table, id)
+    {:reply, :ok, state}
+  end
+
+  def handle_call({:mark_read, id}, _from, state) do
+    case :ets.lookup(@notifications_table, id) do
+      [{^id, notif}] ->
+        :ets.insert(@notifications_table, {id, %{notif | read: true}})
+        Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:notifications", :notifications_read)
+      [] -> :ok
+    end
     {:reply, :ok, state}
   end
 

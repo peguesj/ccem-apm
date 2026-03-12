@@ -1,5 +1,41 @@
 # Changelog
 
+## v5.2.0 (2026-03-12)
+
+E2E stabilization — unified sidebar, notification overhaul, AG-UI visualizer, version cleanup, docs refresh.
+
+### Added
+- **Shared sidebar_nav component** (`components/sidebar_nav.ex`) — single canonical sidebar replacing 20 inline duplicates across all LiveViews; dynamic version from `Application.spec/2`, 19-item nav list with active state
+- **AG-UI LiveView** (`ag_ui_live.ex`) — real-time event feed at `/ag-ui` with 14 event type filter toggles, pause/resume, router stats panel, per-agent state viewer via StateManager
+- **Notification formatting** — structured rendering with type-specific colored icons, category badges, `format_message/1` JSON-to-readable parser, deduplication with count badges
+- **Notification grouping** — `hide_showcase` toggle (default on) to filter showcase noise, batch dismiss by category, `dedup_notifications/1` collapsing repeated entries
+- **Skills AG-UI tab** — pill tab switcher (Registry | Session | AG-UI) showing skills as event emitters with connection indicators and hook repair button
+- **Dependency graph hierarchy** — formation/squadron/swarm grouping in `buildHierarchyFromFlat`, swarm/cluster icons, "Unaffiliated" label replacing "Ungrouped"
+- **AG-UI Protocol documentation** (`priv/docs/developer/ag-ui-protocol.md`) — event types, architecture, REST endpoints, HookBridge translation, state management
+- **UAT nav item** — `/uat` route and sidebar entry
+
+### Changed
+- **All 20 LiveViews** migrated from inline sidebar to shared `<.sidebar_nav>` component
+- **Version strings** — all hardcoded "v4", "v4.0.0", "CCEM APM v4" replaced with dynamic version; zero matches for `APM v4` in `lib/`
+- **Dashboard scoping** — agent count label clarified to "Agents (All)" in All Projects view
+- **Getting Started modal** — starts hidden (`display:none`), JS reveals on first visit only; version text generalized
+- **Heartbeat endpoint** — auto-registers unknown agents (upsert) instead of returning 404
+- **Health check** — port reference fixed from 3031 to 3032
+- **Uptime display** — `Application.put_env(:server_start_time)` set at startup; monotonic time used consistently
+- **`/upm` route** — redirects to `/workflow/upm` via PageController
+- **Docs content** — all version references updated to v5.2.0; API reference expanded with v2 AG-UI endpoints
+
+### Fixed
+- Sidebar navigation inconsistencies across 20 pages (each had its own copy with drift)
+- Notification panel showing 19/22 raw JSON showcase entries as noise
+- Getting Started modal re-showing on every page navigation
+- Heartbeat 404 errors for agents not pre-registered
+- Health check testing APM on wrong port (3031 vs 3032)
+- Uptime showing ~74 years (server_start_time never set)
+- Dashboard agent count mismatch between views (84 in All Projects vs 4 in Dashboard)
+- Dependency graph labeling "ungrouped" agents inconsistently
+- `EventStream.recent/1` API mismatch in AG-UI LiveView (corrected to `get_events/2`)
+
 ## v5.1.0 (2026-03-11)
 
 Interactive management suite — contextual AG-UI chat, agent controls, getting started wizard, CCEMAgent v3.0.0.

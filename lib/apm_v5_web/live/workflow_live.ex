@@ -43,35 +43,7 @@ defmodule ApmV5Web.WorkflowLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <!-- Sidebar -->
-      <div class="w-56 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
-        <div class="p-4 border-b border-base-300">
-          <div class="flex items-center gap-2">
-            <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <.icon name="hero-cpu-chip" class="w-5 h-5 text-primary-content" />
-            </div>
-            <span class="font-bold text-lg">APM v4</span>
-          </div>
-        </div>
-        <nav class="flex-1 p-3 space-y-0.5">
-          <.nav_item icon="hero-chart-bar-square" label="Dashboard" href="/" />
-          <.nav_item icon="hero-squares-2x2" label="All Projects" href="/apm-all" />
-          <.nav_item icon="hero-cube-transparent" label="Formation" href="/formation" />
-          <.nav_item icon="hero-clock" label="Timeline" href="/timeline" />
-          <.nav_item icon="hero-academic-cap" label="Skills" href="/skills" />
-          <.nav_item icon="hero-server-stack" label="Ports" href="/ports" />
-          <.nav_item icon="hero-book-open" label="Docs" href="/docs" />
-          <div class="divider my-1 text-xs text-base-content/30">Workflows</div>
-          <%= for wf <- @all_workflows do %>
-            <.nav_item
-              icon={wf.icon}
-              label={wf.title}
-              href={"/workflow/#{wf.id}"}
-              active={wf.id == @workflow.id}
-            />
-          <% end %>
-        </nav>
-      </div>
+      <.sidebar_nav current_path="/workflow" />
 
       <!-- Main content -->
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -174,22 +146,4 @@ defmodule ApmV5Web.WorkflowLive do
     """
   end
 
-  defp nav_item(%{active: true} = assigns) do
-    ~H"""
-    <a href={@href} class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm bg-primary text-primary-content font-medium">
-      <.icon name={@icon} class="w-4 h-4 flex-shrink-0" />
-      <%= @label %>
-    </a>
-    """
-  end
-
-  defp nav_item(assigns) do
-    assigns = Map.put_new(assigns, :active, false)
-    ~H"""
-    <a href={@href} class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-base-content/70 hover:text-base-content hover:bg-base-200 transition-colors">
-      <.icon name={@icon} class="w-4 h-4 flex-shrink-0" />
-      <%= @label %>
-    </a>
-    """
-  end
 end

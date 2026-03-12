@@ -14,9 +14,12 @@ defmodule ApmV5Web.DrtwLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-6">
-      <h1 class="text-2xl font-bold mb-4">Don't Reinvent The Wheel</h1>
-      <p class="text-base-content/70">Discovery framework for finding existing solutions before writing custom code.</p>
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path="/drtw" />
+      <div class="flex-1 overflow-y-auto p-6">
+        <h1 class="text-2xl font-bold mb-4">Don't Reinvent The Wheel</h1>
+        <p class="text-base-content/70">Discovery framework for finding existing solutions before writing custom code.</p>
+      </div>
     </div>
     """
   end

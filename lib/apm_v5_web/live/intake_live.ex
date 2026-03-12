@@ -41,31 +41,6 @@ defmodule ApmV5Web.IntakeLive do
     {:noreply, socket |> assign(:filter_type, type) |> assign(:events, events)}
   end
 
-  # ── Components ───────────────────────────────────────────────────────────
-
-  attr :icon, :string, required: true
-  attr :label, :string, required: true
-  attr :active, :boolean, default: false
-  attr :href, :string, required: true
-  attr :badge, :any, default: nil
-
-  defp nav_item(assigns) do
-    ~H"""
-    <a
-      href={@href}
-      class={[
-        "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors",
-        @active && "bg-primary/10 text-primary font-medium",
-        !@active && "text-base-content/60 hover:text-base-content hover:bg-base-300"
-      ]}
-    >
-      <.icon name={@icon} class="size-4" />
-      {@label}
-      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
-    </a>
-    """
-  end
-
   # ── Helpers ──────────────────────────────────────────────────────────────
 
   defp severity_badge_class("critical"), do: "badge badge-xs badge-error"
@@ -88,31 +63,7 @@ defmodule ApmV5Web.IntakeLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <%!-- Sidebar --%>
-      <aside class="w-56 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
-        <div class="p-4 border-b border-base-300">
-          <h1 class="text-lg font-bold text-primary flex items-center gap-2">
-            <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
-            CCEM APM v4
-          </h1>
-          <p class="text-xs text-base-content/50 mt-1">Agent Performance Monitor</p>
-        </div>
-        <nav class="flex-1 p-2 space-y-1 overflow-y-auto">
-          <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
-          <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
-          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
-          <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
-          <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
-          <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
-          <.nav_item icon="hero-inbox-arrow-down" label="Intake" active={true} href="/intake" />
-          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
-          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
-          <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" />
-          <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
-          <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
-          <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
-        </nav>
-      </aside>
+      <.sidebar_nav current_path="/intake" />
 
       <%!-- Main content --%>
       <div class="flex-1 flex flex-col overflow-hidden">

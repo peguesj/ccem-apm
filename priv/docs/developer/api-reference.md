@@ -1,6 +1,6 @@
 # REST API Reference
 
-Complete API endpoint documentation for CCEM APM v4. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
+Complete API endpoint documentation for CCEM APM. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
 
 ## Health and Status Endpoints
 
@@ -1252,6 +1252,60 @@ data: {"type":"agent_updated","agent":"test-gen"}
 ```
 
 > **Pattern:** Use `EventSource` in JavaScript or `curl` for testing. The connection stays open and delivers events in real time.
+
+## AG-UI Protocol Endpoints (v2)
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| POST | `/api/v2/ag-ui/emit` | Emit an AG-UI typed event |
+| GET | `/api/v2/ag-ui/events` | Stream all AG-UI events (SSE) |
+| GET | `/api/v2/ag-ui/events/:agent_id` | Stream agent-specific events (SSE) |
+| GET | `/api/v2/ag-ui/state/:agent_id` | Get agent state snapshot |
+| PUT | `/api/v2/ag-ui/state/:agent_id` | Replace agent state |
+| PATCH | `/api/v2/ag-ui/state/:agent_id` | Apply JSON Patch delta to agent state |
+| GET | `/api/v2/ag-ui/router/stats` | Get EventRouter statistics |
+
+### POST /api/v2/ag-ui/emit
+
+Emit a typed AG-UI event into the event bus.
+
+```bash
+curl -X POST http://localhost:3032/api/v2/ag-ui/emit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "CUSTOM",
+    "agent_id": "agent-abc123",
+    "data": {"message": "Build complete", "status": "success"}
+  }'
+```
+
+Supported event types: `RUN_STARTED`, `RUN_FINISHED`, `RUN_ERROR`, `STEP_STARTED`, `STEP_FINISHED`, `TOOL_CALL_START`, `TOOL_CALL_END`, `STATE_SNAPSHOT`, `STATE_DELTA`, `TEXT_MESSAGE_START`, `TEXT_MESSAGE_CONTENT`, `TEXT_MESSAGE_END`, `MESSAGES_SNAPSHOT`, `CUSTOM`.
+
+### GET /api/v2/ag-ui/events
+
+Subscribe to all AG-UI events via Server-Sent Events.
+
+```bash
+curl http://localhost:3032/api/v2/ag-ui/events
+```
+
+### GET /api/v2/ag-ui/state/:agent_id
+
+Get the current state snapshot for an agent.
+
+```bash
+curl http://localhost:3032/api/v2/ag-ui/state/agent-abc123
+```
+
+### PATCH /api/v2/ag-ui/state/:agent_id
+
+Apply a JSON Patch (RFC 6902) delta to agent state.
+
+```bash
+curl -X PATCH http://localhost:3032/api/v2/ag-ui/state/agent-abc123 \
+  -H "Content-Type: application/json" \
+  -d '{"delta": [{"op": "replace", "path": "/status", "value": "complete"}]}'
+```
 
 ## UI Component Endpoints
 

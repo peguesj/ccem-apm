@@ -11,7 +11,7 @@ const ShiftSelect = {
     this._lastIdx = null;
 
     // Capture phase fires before Phoenix's bubble-phase handlers.
-    this.el.addEventListener("click", (e) => {
+    this._clickHandler = (e) => {
       const row = e.target.closest("[data-row-index]");
       if (!row) return;
 
@@ -33,11 +33,15 @@ const ShiftSelect = {
         // Normal click — just track the anchor index. Phoenix handles toggle_row.
         this._lastIdx = idx;
       }
-    }, true /* capture phase */);
+    };
+    this.el.addEventListener("click", this._clickHandler, true /* capture phase */);
   },
 
   destroyed() {
     this._lastIdx = null;
+    if (this._clickHandler) {
+      this.el.removeEventListener("click", this._clickHandler, true);
+    }
   }
 };
 

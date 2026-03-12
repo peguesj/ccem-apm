@@ -140,31 +140,7 @@ defmodule ApmV5Web.DocsLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <%!-- App Sidebar Nav --%>
-      <aside class="w-56 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0 hidden lg:flex">
-        <div class="p-4 border-b border-base-300">
-          <h1 class="text-lg font-bold text-primary flex items-center gap-2">
-            <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
-            CCEM APM v4
-          </h1>
-          <p class="text-xs text-base-content/50 mt-1">Agent Performance Monitor</p>
-        </div>
-        <nav class="flex-1 p-2 space-y-1">
-          <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
-          <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
-          <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" badge={@active_skill_count} />
-          <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
-          <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
-          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
-          <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
-          <.nav_item icon="hero-book-open" label="Docs" active={true} href="/docs" />
-        </nav>
-        <div class="p-3 border-t border-base-300">
-          <div class="text-xs text-base-content/40">
-            <div>Phoenix {Application.spec(:phoenix, :vsn)}</div>
-          </div>
-        </div>
-      </aside>
+      <.sidebar_nav current_path="/docs" skill_count={@active_skill_count} />
 
       <%!-- Main docs area --%>
       <div class="flex-1 flex overflow-hidden">
@@ -324,7 +300,7 @@ defmodule ApmV5Web.DocsLive do
               <%!-- Footer --%>
               <div class="mt-12 pt-6 border-t border-base-300 text-center">
                 <p class="text-xs text-base-content/30">
-                  CCEM APM v4 Documentation
+                  CCEM APM Documentation
                 </p>
               </div>
             </div>
@@ -467,31 +443,6 @@ defmodule ApmV5Web.DocsLive do
         </a>
       </div>
     </div>
-    """
-  end
-
-  # ---------- Nav Item Component ----------
-
-  attr :icon, :string, required: true
-  attr :label, :string, required: true
-  attr :active, :boolean, default: false
-  attr :href, :string, required: true
-  attr :badge, :any, default: nil
-
-  defp nav_item(assigns) do
-    ~H"""
-    <a
-      href={@href}
-      class={[
-        "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors",
-        @active && "bg-primary/10 text-primary font-medium",
-        !@active && "text-base-content/60 hover:text-base-content hover:bg-base-300"
-      ]}
-    >
-      <.icon name={@icon} class="size-4" />
-      {@label}
-      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
-    </a>
     """
   end
 

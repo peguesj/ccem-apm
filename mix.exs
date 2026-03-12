@@ -4,7 +4,7 @@ defmodule ApmV5.MixProject do
   def project do
     [
       app: :apm_v5,
-      version: "5.1.0",
+      version: "5.2.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -61,7 +61,8 @@ defmodule ApmV5.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
-      {:earmark, "~> 1.4"}
+      {:earmark, "~> 1.4"},
+      {:ag_ui_ex, "~> 0.1.0"}
     ]
   end
 

@@ -83,12 +83,13 @@ defmodule ApmV5.HealthCheckRunner do
   end
 
   defp check_apm_server do
-    result = case :gen_tcp.connect(~c"localhost", 3031, [:binary, active: false], 1000) do
+    port = Application.get_env(:apm_v5, :port, 3032)
+    result = case :gen_tcp.connect(~c"localhost", port, [:binary, active: false], 1000) do
       {:ok, sock} ->
         :gen_tcp.close(sock)
-        {:ok, "Listening on port 3031"}
+        {:ok, "Listening on port #{port}"}
       {:error, reason} ->
-        {:error, "Port 3031 unreachable: #{inspect(reason)}"}
+        {:error, "Port #{port} unreachable: #{inspect(reason)}"}
     end
     make_check("APM Server", "apm_server", result)
   end
@@ -129,7 +130,8 @@ defmodule ApmV5.HealthCheckRunner do
   end
 
   defp check_mix_lock do
-    lock_path = Path.expand("~/Developer/ccem/apm-v5/mix.lock")
+    lock_path = Path.join(Application.app_dir(:apm_v5, ".."), "mix.lock") |> Path.expand()
+    lock_path = if File.exists?(lock_path), do: lock_path, else: Path.join(File.cwd!(), "mix.lock")
     result = case File.stat(lock_path) do
       {:ok, stat} ->
         size = stat.size

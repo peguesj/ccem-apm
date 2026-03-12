@@ -51,29 +51,7 @@ defmodule ApmV5Web.SkillsLive do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
       <%!-- Sidebar --%>
-      <aside class="w-56 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
-        <div class="p-4 border-b border-base-300">
-          <h1 class="text-lg font-bold text-primary flex items-center gap-2">
-            <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
-            CCEM APM v4
-          </h1>
-          <p class="text-xs text-base-content/50 mt-1">Agent Performance Monitor</p>
-        </div>
-        <nav class="flex-1 p-2 space-y-1 overflow-y-auto">
-          <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
-          <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
-          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
-          <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
-          <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
-          <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
-          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
-          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
-          <.nav_item icon="hero-beaker" label="Skills" active={true} href="/skills" badge={length(@registry_skills)} />
-          <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
-          <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
-          <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
-        </nav>
-      </aside>
+      <.sidebar_nav current_path="/skills" skill_count={@active_skill_count} />
 
       <%!-- Main content --%>
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -87,6 +65,9 @@ defmodule ApmV5Web.SkillsLive do
               </button>
               <button class={["tab", @tab == :session && "tab-active"]} phx-click="set_tab" phx-value-tab="session">
                 Session
+              </button>
+              <button class={["tab", @tab == :ag_ui && "tab-active"]} phx-click="set_tab" phx-value-tab="ag_ui">
+                AG-UI
               </button>
             </div>
           </div>
@@ -260,6 +241,56 @@ defmodule ApmV5Web.SkillsLive do
               </div>
             </section>
           </div>
+
+          <%!-- AG-UI Tab --%>
+          <div :if={@tab == :ag_ui} class="space-y-6">
+            <section>
+              <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">
+                Skills as AG-UI Event Emitters
+              </h3>
+              <p class="text-sm text-base-content/60 mb-4">
+                Skills emit AG-UI events when invoked. Each skill connection shows event emission status.
+              </p>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div
+                  :for={skill <- @registry_skills}
+                  class="card bg-base-200 border border-base-300 p-3"
+                >
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-sm font-medium truncate">{skill.name}</span>
+                    <div class={["w-2 h-2 rounded-full", if(skill.health_score >= 80, do: "bg-success", else: "bg-base-content/20")]}></div>
+                  </div>
+                  <div class="text-[10px] text-base-content/40 mb-2">
+                    {if skill.health_score >= 80, do: "Connected", else: "Disconnected"}
+                  </div>
+                  <div class="flex gap-1 flex-wrap">
+                    <span class="badge badge-xs badge-ghost">CUSTOM</span>
+                    <span :if={skill.has_frontmatter} class="badge badge-xs badge-success badge-outline">valid</span>
+                  </div>
+                </div>
+                <div :if={@registry_skills == []} class="col-span-full text-center text-base-content/30 py-8">
+                  No skills registered. Run Audit All to scan.
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
+                  Hook Repair
+                </h3>
+                <button
+                  phx-click="repair_hooks"
+                  class="btn btn-xs btn-warning"
+                >
+                  <.icon name="hero-wrench-screwdriver" class="size-3" /> Repair Hooks
+                </button>
+              </div>
+              <p class="text-xs text-base-content/50">
+                Triggers restart-to-reload action to repair broken skill hooks and re-deploy AG-UI event bridge.
+              </p>
+            </section>
+          </div>
         </div>
       </div>
     </div>
@@ -269,7 +300,7 @@ defmodule ApmV5Web.SkillsLive do
   # --- Event handlers ---
 
   @impl true
-  def handle_event("set_tab", %{"tab" => tab}, socket) do
+  def handle_event("set_tab", %{"tab" => tab}, socket) when tab in ~w(registry session ag_ui) do
     {:noreply, assign(socket, :tab, String.to_existing_atom(tab))}
   end
 
@@ -294,6 +325,11 @@ defmodule ApmV5Web.SkillsLive do
 
   def handle_event("fix_frontmatter", %{"skill" => skill_name}, socket) do
     ActionEngine.run_action("fix_skill_frontmatter", "", %{"skill_name" => skill_name})
+    {:noreply, socket}
+  end
+
+  def handle_event("repair_hooks", _params, socket) do
+    ActionEngine.run_action("update_hooks", "", %{})
     {:noreply, socket}
   end
 
@@ -402,29 +438,6 @@ defmodule ApmV5Web.SkillsLive do
       </div>
       <div class="text-[10px] text-base-content/50 mt-1">{@value}/{@max}</div>
     </div>
-    """
-  end
-
-  attr :icon, :string, required: true
-  attr :label, :string, required: true
-  attr :active, :boolean, default: false
-  attr :href, :string, required: true
-  attr :badge, :any, default: nil
-
-  defp nav_item(assigns) do
-    ~H"""
-    <a
-      href={@href}
-      class={[
-        "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors",
-        @active && "bg-primary/10 text-primary font-medium",
-        !@active && "text-base-content/60 hover:text-base-content hover:bg-base-300"
-      ]}
-    >
-      <.icon name={@icon} class="size-4" />
-      {@label}
-      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
-    </a>
     """
   end
 

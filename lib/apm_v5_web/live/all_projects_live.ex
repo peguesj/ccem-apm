@@ -1,6 +1,6 @@
 defmodule ApmV5Web.AllProjectsLive do
   @moduledoc """
-  All-projects widget dashboard for CCEM APM v4.
+  All-projects widget dashboard for CCEM APM.
 
   Industry-standard widget dashboard with:
     - KPI summary cards at the top
@@ -70,33 +70,7 @@ defmodule ApmV5Web.AllProjectsLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <%!-- Sidebar --%>
-      <aside class="w-56 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
-        <div class="p-4 border-b border-base-300">
-          <h1 class="text-lg font-bold text-primary flex items-center gap-2">
-            <span class="inline-block w-2 h-2 rounded-full bg-success animate-pulse"></span>
-            CCEM APM v4
-          </h1>
-          <p class="text-xs text-base-content/50 mt-1">{length(@projects)} projects · {@active_count} active</p>
-        </div>
-        <nav class="flex-1 p-2 space-y-1 overflow-y-auto">
-          <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
-          <.nav_item icon="hero-globe-alt" label="All Projects" active={true} href="/apm-all" />
-          <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
-          <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
-          <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
-          <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
-          <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
-          <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
-          <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" />
-          <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
-          <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
-          <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
-        </nav>
-        <div class="p-3 border-t border-base-300">
-          <div class="text-xs text-base-content/40">{@uptime}</div>
-        </div>
-      </aside>
+      <.sidebar_nav current_path="/apm-all" />
 
       <%!-- Main --%>
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -162,7 +136,7 @@ defmodule ApmV5Web.AllProjectsLive do
             >
               <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <.kpi label="Projects" value={length(@projects)} color="text-primary" icon="hero-folder" />
-                <.kpi label="Agents" value={length(@agents)} color="text-info" icon="hero-cpu-chip" />
+                <.kpi label="Agents (All)" value={length(@agents)} color="text-info" icon="hero-cpu-chip" />
                 <.kpi label="Active" value={Enum.count(@agents, &(&1.status == "active"))} color="text-success" icon="hero-play" />
                 <.kpi label="Sessions" value={@session_count} color="text-secondary" icon="hero-clock" />
                 <.kpi label="Errors" value={Enum.count(@agents, &(&1.status == "error"))} color="text-error" icon="hero-exclamation-triangle" />
@@ -483,30 +457,6 @@ defmodule ApmV5Web.AllProjectsLive do
     """
   end
 
-  # --- Sidebar nav item ---
-  attr :icon, :string, required: true
-  attr :label, :string, required: true
-  attr :active, :boolean, default: false
-  attr :href, :string, required: true
-  attr :badge, :any, default: nil
-
-  defp nav_item(assigns) do
-    ~H"""
-    <a
-      href={@href}
-      class={[
-        "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors",
-        @active && "bg-primary/10 text-primary font-medium",
-        !@active && "text-base-content/60 hover:text-base-content hover:bg-base-300"
-      ]}
-    >
-      <.icon name={@icon} class="size-4" />
-      {@label}
-      <span :if={@badge && @badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
-    </a>
-    """
-  end
-
   # --- Widget Component ---
 
   attr :id, :string, required: true
@@ -808,13 +758,7 @@ defmodule ApmV5Web.AllProjectsLive do
     end
   end
 
-  defp uptime do
-    start = Application.get_env(:apm_v5, :server_start_time, System.system_time(:second))
-    diff = System.system_time(:second) - start
-    h = div(diff, 3600)
-    m = div(rem(diff, 3600), 60)
-    "#{String.pad_leading(to_string(h), 2, "0")}:#{String.pad_leading(to_string(m), 2, "0")}"
-  end
+  defp uptime, do: ApmV5.Uptime.formatted_short()
 
   defp status_class("active"),     do: "badge-success"
   defp status_class("idle"),       do: "badge-ghost"
