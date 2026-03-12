@@ -53,6 +53,8 @@ defmodule ApmV5Web.Router do
     live "/ag-ui", AgUiLive, :index
     live "/intake", IntakeLive, :index
     live "/uat", UatLive, :index
+    live "/tool-calls", ToolCallLive, :index
+    live "/generative-ui", GenerativeUILive, :index
 
     # /upm redirects to workflow UPM view
     get "/upm", PageController, :upm_redirect
@@ -227,6 +229,20 @@ defmodule ApmV5Web.Router do
     get "/tool-calls/stream", ToolCallController, :stream
     get "/tool-calls/agent/:agent_id", ToolCallController, :by_agent
     get "/tool-calls/:id", ToolCallController, :show
+
+    # Generative UI endpoints (US-023)
+    get "/generative-ui/components", GenerativeUIController, :index
+    post "/generative-ui/components", GenerativeUIController, :create
+    get "/generative-ui/components/:id", GenerativeUIController, :show
+    put "/generative-ui/components/:id", GenerativeUIController, :update
+    delete "/generative-ui/components/:id", GenerativeUIController, :delete
+
+    # Approval gate endpoints (US-027)
+    get "/approvals", ApprovalController, :index
+    get "/approvals/:id", ApprovalController, :show
+    post "/approvals/request", ApprovalController, :request
+    post "/approvals/:id/approve", ApprovalController, :approve
+    post "/approvals/:id/reject", ApprovalController, :reject
 
     # Chat (ChatStore)
     get "/chat/:scope", ChatController, :index

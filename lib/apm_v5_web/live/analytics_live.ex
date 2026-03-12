@@ -6,6 +6,9 @@ defmodule ApmV5Web.AnalyticsLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       :timer.send_interval(30_000, self(), :refresh)
+      # US-021: EventBus subscriptions for AG-UI analytics events
+      ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
+      ApmV5.AgUi.EventBus.subscribe("tool:*")
     end
     {:ok, assign_data(socket)}
   end

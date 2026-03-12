@@ -6,6 +6,8 @@ defmodule ApmV5Web.HealthCheckLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       :timer.send_interval(15_000, self(), :refresh)
+      # US-021: EventBus subscription for AG-UI health events
+      ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
     end
     {:ok, assign_data(socket)}
   end

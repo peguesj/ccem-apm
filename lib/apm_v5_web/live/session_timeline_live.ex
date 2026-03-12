@@ -16,6 +16,12 @@ defmodule ApmV5Web.SessionTimelineLive do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:agents")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:audit")
+      # US-020: EventBus subscriptions for AG-UI timeline events
+      ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
+      ApmV5.AgUi.EventBus.subscribe("tool:*")
+      ApmV5.AgUi.EventBus.subscribe("state:*")
+      ApmV5.AgUi.EventBus.subscribe("text:*")
+      ApmV5.AgUi.EventBus.subscribe("thinking:*")
     end
 
     sessions = AgentRegistry.list_sessions()

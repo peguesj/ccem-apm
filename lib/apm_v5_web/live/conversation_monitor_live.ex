@@ -8,6 +8,8 @@ defmodule ApmV5Web.ConversationMonitorLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic)
+      # US-021: EventBus subscription for AG-UI events
+      ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
     end
     {:ok, assign_data(socket)}
   end

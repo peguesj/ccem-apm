@@ -63,6 +63,10 @@ defmodule ApmV5.Application do
       ApmV5.AgUi.AuditBridge,
       # Wave 2: EventBus health (US-041)
       ApmV5.AgUi.EventBusHealth,
+      # Wave 3: Generative UI registry (US-022)
+      ApmV5.AgUi.GenerativeUI.Registry,
+      # Wave 3: Approval gate (US-026)
+      ApmV5.AgUi.ApprovalGate,
       ApmV5.ChatStore,
       {ApmV5.Intake.Store, []},
       # Start to serve requests, typically the last entry

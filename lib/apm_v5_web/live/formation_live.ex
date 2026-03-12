@@ -14,6 +14,8 @@ defmodule ApmV5Web.FormationLive do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:agents")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:upm")
+      # US-018: EventBus subscriptions for AG-UI formation events
+      ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
     end
 
     agents = AgentRegistry.list_agents()
