@@ -7,7 +7,7 @@ Built with Phoenix LiveView, daisyUI, D3.js, the AG-UI Elixir SDK, and a compani
 ## Quick Start
 
 ```bash
-cd apm-v4
+cd apm-v5
 mix deps.get
 mix phx.server
 ```
@@ -47,15 +47,15 @@ Phoenix/OTP application with 30+ GenServers managing state via ETS tables. PubSu
 
 ### AG-UI GenServers (v5)
 
-Three GenServers under `lib/apm_v4/ag_ui/`:
+Three GenServers under `lib/apm_v5/ag_ui/`:
 
-- `ApmV4.AgUi.EventRouter` -- routes AG-UI events to AgentRegistry, FormationStore, Dashboard, MetricsCollector
-- `ApmV4.AgUi.HookBridge` -- translates legacy hook payloads (register, heartbeat, notify, tool-use) to typed AG-UI events for backward compatibility
-- `ApmV4.AgUi.StateManager` -- ETS-backed per-agent state with snapshot/delta pattern using RFC 6902 JSON Patch
+- `ApmV5.AgUi.EventRouter` -- routes AG-UI events to AgentRegistry, FormationStore, Dashboard, MetricsCollector
+- `ApmV5.AgUi.HookBridge` -- translates legacy hook payloads (register, heartbeat, notify, tool-use) to typed AG-UI events for backward compatibility
+- `ApmV5.AgUi.StateManager` -- ETS-backed per-agent state with snapshot/delta pattern using RFC 6902 JSON Patch
 
 ### AG-UI v2 API Endpoints
 
-Served by `ApmV4Web.V2.AgUiV2Controller`:
+Served by `ApmV5Web.V2.AgUiV2Controller`:
 
 | Method | Path | Description |
 |--------|------|-------------|

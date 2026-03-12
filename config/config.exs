@@ -7,24 +7,24 @@
 # General application configuration
 import Config
 
-config :apm_v4,
+config :apm_v5,
   generators: [timestamp_type: :utc_datetime]
 
 # Configure the endpoint
-config :apm_v4, ApmV4Web.Endpoint,
+config :apm_v5, ApmV5Web.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: ApmV4Web.ErrorHTML, json: ApmV4Web.ErrorJSON],
+    formats: [html: ApmV5Web.ErrorHTML, json: ApmV5Web.ErrorJSON],
     layout: false
   ],
-  pubsub_server: ApmV4.PubSub,
+  pubsub_server: ApmV5.PubSub,
   live_view: [signing_salt: "b6BgEvJs"]
 
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
-  apm_v4: [
+  apm_v5: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
     cd: Path.expand("../assets", __DIR__),
@@ -34,7 +34,7 @@ config :esbuild,
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "4.1.12",
-  apm_v4: [
+  apm_v5: [
     args: ~w(
       --input=assets/css/app.css
       --output=priv/static/assets/css/app.css

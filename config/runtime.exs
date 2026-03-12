@@ -12,15 +12,15 @@ import Config
 # If you use `mix release`, you need to explicitly enable the server
 # by passing the PHX_SERVER=true when you start it:
 #
-#     PHX_SERVER=true bin/apm_v4 start
+#     PHX_SERVER=true bin/apm_v5 start
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
 if System.get_env("PHX_SERVER") do
-  config :apm_v4, ApmV4Web.Endpoint, server: true
+  config :apm_v5, ApmV5Web.Endpoint, server: true
 end
 
-config :apm_v4, ApmV4Web.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "3032"))]
+config :apm_v5, ApmV5Web.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "3032"))]
 
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
@@ -37,9 +37,9 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || "example.com"
 
-  config :apm_v4, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  config :apm_v5, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
-  config :apm_v4, ApmV4Web.Endpoint,
+  config :apm_v5, ApmV5Web.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
       # Enable IPv6 and bind on all interfaces.
@@ -55,7 +55,7 @@ if config_env() == :prod do
   # To get SSL working, you will need to add the `https` key
   # to your endpoint configuration:
   #
-  #     config :apm_v4, ApmV4Web.Endpoint,
+  #     config :apm_v5, ApmV5Web.Endpoint,
   #       https: [
   #         ...,
   #         port: 443,
@@ -77,7 +77,7 @@ if config_env() == :prod do
   # We also recommend setting `force_ssl` in your config/prod.exs,
   # ensuring no data is ever sent via http, always redirecting to https:
   #
-  #     config :apm_v4, ApmV4Web.Endpoint,
+  #     config :apm_v5, ApmV5Web.Endpoint,
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.

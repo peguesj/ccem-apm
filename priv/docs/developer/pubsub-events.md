@@ -32,8 +32,8 @@ apm:ports           - Port assignment events
 Subscribe in a LiveView mount or GenServer init.
 
 ```elixir
-Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:agents")
-Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:notifications")
+Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:agents")
+Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:notifications")
 ```
 
 > **Pattern:** Use `Phoenix.PubSub.subscribe/2` in `mount/3` guarded by `connected?(socket)` to receive real-time updates without double-subscribing during static render.
@@ -468,7 +468,7 @@ Fired for AG-UI compatible events streamed via SSE.
 Example of broadcasting from a GenServer:
 
 ```elixir
-defmodule ApmV4.AgentRegistry do
+defmodule ApmV5.AgentRegistry do
   def register_agent(agent_id, metadata, project_name) do
     GenServer.cast(__MODULE__, {:register_agent, agent_id, metadata, project_name})
   end
@@ -480,7 +480,7 @@ defmodule ApmV4.AgentRegistry do
     :ets.insert(:agents, {agent.id, agent})
 
     # Broadcast event
-    Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:agents", {:agent_registered, agent})
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:agents", {:agent_registered, agent})
 
     {:noreply, state}
   end
@@ -492,11 +492,11 @@ end
 Example of subscribing and handling events in a LiveView page:
 
 ```elixir
-defmodule ApmV4Web.DashboardLive do
+defmodule ApmV5Web.DashboardLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:agents")
-      Phoenix.PubSub.subscribe(ApmV4.PubSub, "apm:notifications")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:agents")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:notifications")
     end
 
     {:ok, socket}
@@ -535,7 +535,7 @@ end
 Broadcast directly in tests to simulate events:
 
 ```elixir
-Phoenix.PubSub.broadcast(ApmV4.PubSub, "apm:agents", {:agent_registered, agent})
+Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:agents", {:agent_registered, agent})
 ```
 
 In LiveView tests, send messages directly to the view process:

@@ -1,21 +1,21 @@
-defmodule ApmV4.Integration.FullStackTest do
+defmodule ApmV5.Integration.FullStackTest do
   @moduledoc """
   Integration tests verifying all ported components work together end-to-end.
   Covers HTTP API, LiveView mounting, D3.js rendering, AG-UI streaming,
   A2UI components, PubSub broadcasting, and session parsing.
   """
 
-  use ApmV4Web.ConnCase, async: false
+  use ApmV5Web.ConnCase, async: false
 
   import Phoenix.LiveViewTest
 
-  alias ApmV4.AgentRegistry
-  alias ApmV4.EventStream
-  alias ApmV4.SessionParser
-  alias ApmV4.A2ui.ComponentBuilder
+  alias ApmV5.AgentRegistry
+  alias ApmV5.EventStream
+  alias ApmV5.SessionParser
+  alias ApmV5.A2ui.ComponentBuilder
 
   setup do
-    ApmV4.GenServerHelpers.ensure_processes_alive()
+    ApmV5.GenServerHelpers.ensure_processes_alive()
     AgentRegistry.clear_all()
     EventStream.clear()
     :ok

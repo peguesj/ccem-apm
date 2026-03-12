@@ -1,12 +1,12 @@
-defmodule ApmV4Web.ChannelCase do
+defmodule ApmV5Web.ChannelCase do
   use ExUnit.CaseTemplate
 
   using do
     quote do
       import Phoenix.ChannelTest
-      import ApmV4Web.ChannelCase
+      import ApmV5Web.ChannelCase
 
-      @endpoint ApmV4Web.Endpoint
+      @endpoint ApmV5Web.Endpoint
     end
   end
 

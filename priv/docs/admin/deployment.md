@@ -35,11 +35,11 @@ Complete all items before deploying:
 Create a production release:
 
 ```bash
-cd /Users/jeremiah/Developer/ccem/apm-v4
+cd /Users/jeremiah/Developer/ccem/apm-v5
 MIX_ENV=prod mix release
 ```
 
-This generates a standalone release in `_build/prod/rel/apm_v4/`.
+This generates a standalone release in `_build/prod/rel/apm_v5/`.
 
 ### Environment Configuration
 
@@ -58,7 +58,7 @@ export SECRET_KEY_BASE=$(openssl rand -base64 32)
 ### Development (Testing/Staging)
 
 ```bash
-cd /Users/jeremiah/Developer/ccem/apm-v4
+cd /Users/jeremiah/Developer/ccem/apm-v5
 mix phx.server
 ```
 
@@ -67,13 +67,13 @@ mix phx.server
 Start the compiled release:
 
 ```bash
-/Users/jeremiah/Developer/ccem/apm-v4/_build/prod/rel/apm_v4/bin/apm_v4 start
+/Users/jeremiah/Developer/ccem/apm-v5/_build/prod/rel/apm_v5/bin/apm_v5 start
 ```
 
 Or run in foreground for debugging:
 
 ```bash
-/Users/jeremiah/Developer/ccem/apm-v4/_build/prod/rel/apm_v4/bin/apm_v4 foreground
+/Users/jeremiah/Developer/ccem/apm-v5/_build/prod/rel/apm_v5/bin/apm_v5 foreground
 ```
 
 ### Background Service (systemd)
@@ -88,10 +88,10 @@ After=network.target
 [Service]
 Type=simple
 User=apm
-WorkingDirectory=/Users/jeremiah/Developer/ccem/apm-v4
+WorkingDirectory=/Users/jeremiah/Developer/ccem/apm-v5
 Environment="MIX_ENV=prod"
 Environment="PORT=3031"
-ExecStart=/Users/jeremiah/Developer/ccem/apm-v4/_build/prod/rel/apm_v4/bin/apm_v4 start
+ExecStart=/Users/jeremiah/Developer/ccem/apm-v5/_build/prod/rel/apm_v5/bin/apm_v5 start
 Restart=on-failure
 RestartSec=10
 
@@ -120,11 +120,11 @@ Create `/Library/LaunchDaemons/com.ccem.apm.plist`:
     <string>com.ccem.apm</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/jeremiah/Developer/ccem/apm-v4/_build/prod/rel/apm_v4/bin/apm_v4</string>
+        <string>/Users/jeremiah/Developer/ccem/apm-v5/_build/prod/rel/apm_v5/bin/apm_v5</string>
         <string>start</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/jeremiah/Developer/ccem/apm-v4</string>
+    <string>/Users/jeremiah/Developer/ccem/apm-v5</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>MIX_ENV</key>
@@ -156,7 +156,7 @@ sudo launchctl unload /Library/LaunchDaemons/com.ccem.apm.plist
 The server writes its PID to `.apm.pid`:
 
 ```bash
-cat /Users/jeremiah/Developer/ccem/apm-v4/.apm.pid
+cat /Users/jeremiah/Developer/ccem/apm-v5/.apm.pid
 # Output: 12345
 ```
 
@@ -221,7 +221,7 @@ http://<server-ip>:3031
 Configure nginx to forward to local APM:
 
 ```nginx
-upstream apm_v4 {
+upstream apm_v5 {
   server localhost:3032;
 }
 
@@ -230,7 +230,7 @@ server {
   server_name apm.example.com;
 
   location / {
-    proxy_pass http://apm_v4;
+    proxy_pass http://apm_v5;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
@@ -262,7 +262,7 @@ Use a proper certificate from a CA (Let's Encrypt, etc.).
 In `config/prod.exs`:
 
 ```elixir
-config :apm_v4, ApmV4Web.Endpoint,
+config :apm_v5, ApmV5Web.Endpoint,
   url: [host: "apm.example.com", port: 443, scheme: "https"],
   https: [
     port: 443,
@@ -308,7 +308,7 @@ Script to monitor and auto-restart:
 
 ```bash
 #!/bin/bash
-PID_FILE="/Users/jeremiah/Developer/ccem/apm-v4/.apm.pid"
+PID_FILE="/Users/jeremiah/Developer/ccem/apm-v5/.apm.pid"
 CHECK_INTERVAL=30
 
 while true; do
@@ -316,7 +316,7 @@ while true; do
     PID=$(cat "$PID_FILE")
     if ! kill -0 $PID 2>/dev/null; then
       echo "APM died, restarting..."
-      /Users/jeremiah/Developer/ccem/apm-v4/_build/prod/rel/apm_v4/bin/apm_v4 start
+      /Users/jeremiah/Developer/ccem/apm-v5/_build/prod/rel/apm_v5/bin/apm_v5 start
     fi
   fi
   sleep $CHECK_INTERVAL
@@ -402,7 +402,7 @@ export ELIXIR_ERL_OPTIONS="+K true +A 256 +S 4:4"
 In `config/prod.exs`:
 
 ```elixir
-config :apm_v4, ApmV4Web.Endpoint,
+config :apm_v5, ApmV5Web.Endpoint,
   cache_static_manifest: "priv/static/cache_manifest.json",
   server: true,
   code_reloader: false,
@@ -424,7 +424,7 @@ lsof -ti:3031 | xargs kill -9
 Monitor memory over time:
 
 ```bash
-watch -n 5 'ps aux | grep apm_v4'
+watch -n 5 'ps aux | grep apm_v5'
 ```
 
 If memory grows unbounded, check for:
@@ -484,7 +484,7 @@ erl -name debug@localhost -setcookie secret -remsh apm1@localhost
 1. Stop server: `kill $(cat .apm.pid)`
 2. Check config validity: `jq empty apm_config.json`
 3. Restore from backup if needed
-4. Restart: `/path/to/apm_v4 start`
+4. Restart: `/path/to/apm_v5 start`
 5. Verify with health check: `curl http://localhost:3032/health`
 
 ### Session Recovery

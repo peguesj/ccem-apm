@@ -20,7 +20,7 @@ Clone the project into your development directory:
 ```bash
 cd /Users/jeremiah/Developer
 git clone <repository-url> ccem
-cd ccem/apm-v4
+cd ccem/apm-v5
 ```
 
 ### Install Elixir Dependencies
@@ -60,14 +60,14 @@ The APM server needs a configuration file. Check `/Users/jeremiah/Developer/ccem
 Start the Phoenix server directly:
 
 ```bash
-cd /Users/jeremiah/Developer/ccem/apm-v4
+cd /Users/jeremiah/Developer/ccem/apm-v5
 mix phx.server
 ```
 
 You should see output similar to:
 
 ```text
-[info] Running ApmV4Web.Endpoint with cowboy 2.x.x at http://localhost:3032
+[info] Running ApmV5Web.Endpoint with cowboy 2.x.x at http://localhost:3032
 [info] Access the web interface at http://localhost:3032
 ```
 
@@ -174,7 +174,7 @@ lsof -ti:3031 | xargs kill -9
 Or use the PID file:
 
 ```bash
-cat /Users/jeremiah/Developer/ccem/apm-v4/.apm.pid
+cat /Users/jeremiah/Developer/ccem/apm-v5/.apm.pid
 # Then: kill <pid>
 ```
 

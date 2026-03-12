@@ -117,7 +117,7 @@ Each object in a project's `sessions` array:
 
 ## ConfigLoader GenServer API
 
-The `ApmV4.ConfigLoader` module provides the runtime interface to the config:
+The `ApmV5.ConfigLoader` module provides the runtime interface to the config:
 
 | Function | Return | Description |
 |----------|--------|-------------|

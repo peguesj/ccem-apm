@@ -121,7 +121,7 @@ Internal research prototype. No longer supported.
 ## Migration Guide (v3 to v4)
 
 1. **Install Elixir** 1.14+ and Erlang/OTP 25+
-2. **Clone new v4 repo**: `git clone <url> apm-v4`
+2. **Clone new v4 repo**: `git clone <url> apm-v5`
 3. **Update config**: Map v3 projects to `apm_config.json` v4 schema
 4. **Export v3 data**: `curl http://old-server/api/v2/export > backup.json`
 5. **Import to v4**: `curl -X POST http://localhost:3032/api/v2/import -d @backup.json`

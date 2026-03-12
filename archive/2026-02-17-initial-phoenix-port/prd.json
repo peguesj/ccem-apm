@@ -1,14 +1,14 @@
 {
   "project": "CCEM APM v4",
-  "branchName": "ralph/apm-v4-phoenix",
+  "branchName": "ralph/apm-v5-phoenix",
   "description": "Port CCEM APM from Python to Phoenix/Elixir with AG-UI, A2UI, Swift WebKit, LiveView+D3.js Ralph flowchart",
   "userStories": [
     {
       "id": "US-001",
       "title": "Scaffold Phoenix project with deps and supervision tree",
-      "description": "As a developer, I need a Phoenix project scaffolded at ~/Developer/ccem/apm-v4 with all required dependencies so that subsequent user stories have a working foundation to build on. This includes mix phx.new, adding Phoenix, LiveView, Jason, and Bandit to mix.exs, configuring the supervision tree with Application module, and verifying the app compiles and boots cleanly.",
+      "description": "As a developer, I need a Phoenix project scaffolded at ~/Developer/ccem/apm-v5 with all required dependencies so that subsequent user stories have a working foundation to build on. This includes mix phx.new, adding Phoenix, LiveView, Jason, and Bandit to mix.exs, configuring the supervision tree with Application module, and verifying the app compiles and boots cleanly.",
       "acceptanceCriteria": [
-        "Phoenix project created at ~/Developer/ccem/apm-v4 via mix phx.new apm_v4 --no-ecto (Ecto added later if needed)",
+        "Phoenix project created at ~/Developer/ccem/apm-v5 via mix phx.new apm_v5 --no-ecto (Ecto added later if needed)",
         "mix.exs includes deps: {:phoenix, '~> 1.7'}, {:phoenix_live_view, '~> 1.0'}, {:jason, '~> 1.4'}, {:bandit, '~> 1.5'}",
         "Application module defines a supervision tree with Endpoint and PubSub children",
         "mix deps.get succeeds without errors",
@@ -25,7 +25,7 @@
       "title": "Port agent registry and session management to ETS/GenServer",
       "description": "As a developer, I need the Python dict-based AGENTS registry, notification system, and session state ported to Elixir using ETS tables and a GenServer so that agent fleet state is managed concurrently and survives process restarts. The Python source uses global dicts (AGENTS, TASKS, PLANE_PM, SLASH_COMMANDS) and threading locks which map naturally to ETS + GenServer.",
       "acceptanceCriteria": [
-        "ApmV4.AgentRegistry GenServer created with ETS-backed storage",
+        "ApmV5.AgentRegistry GenServer created with ETS-backed storage",
         "register_agent/2 accepts agent_id and metadata map, stores in ETS",
         "get_agent/1 retrieves agent by ID, list_agents/0 returns all agents",
         "update_status/2 updates agent status (idle, active, error, discovered)",
@@ -61,7 +61,7 @@
       "title": "Create LiveView dashboard layout with daisyUI/Tailwind",
       "description": "As a user, I need the embedded HTML/CSS dashboard from the Python APM ported to a Phoenix LiveView with daisyUI components so that I have a modern, responsive monitoring interface. The Python version embeds a full HTML dashboard with sidebar navigation, agent cards grid, notification area, and session info panel.",
       "acceptanceCriteria": [
-        "LiveView module ApmV4Web.DashboardLive mounted at root path /",
+        "LiveView module ApmV5Web.DashboardLive mounted at root path /",
         "daisyUI and Tailwind CSS installed and configured in assets pipeline",
         "Sidebar navigation with links: Dashboard, Agents, Ralph, Sessions, Settings",
         "Main content area with agent cards grid showing name, status badge, tier, last_seen",
@@ -110,7 +110,7 @@
       ],
       "priority": 6,
       "passes": true,
-      "notes": "ApmV4.EventStream GenServer with sequence counter, event storage (500 cap), and PubSub broadcasting. SSE controller at GET /api/ag-ui/events with text/event-stream Content-Type, chunked transfer encoding, keepalive comments every 30s. Initial STATE_SNAPSHOT on connect with full fleet state. Agent_id query param filtering. AgentRegistry emits RUN_STARTED on register_agent and RUN_FINISHED on completed/finished status transitions. All 9 AG-UI event types supported: TEXT_MESSAGE_START/CONTENT/END, TOOL_CALL_START/ARGS/END, STATE_SNAPSHOT, RUN_STARTED, RUN_FINISHED. Monotonically increasing sequence numbers. 28 new test cases (16 EventStream + 12 controller). 80/80 tests pass. Zero compiler warnings."
+      "notes": "ApmV5.EventStream GenServer with sequence counter, event storage (500 cap), and PubSub broadcasting. SSE controller at GET /api/ag-ui/events with text/event-stream Content-Type, chunked transfer encoding, keepalive comments every 30s. Initial STATE_SNAPSHOT on connect with full fleet state. Agent_id query param filtering. AgentRegistry emits RUN_STARTED on register_agent and RUN_FINISHED on completed/finished status transitions. All 9 AG-UI event types supported: TEXT_MESSAGE_START/CONTENT/END, TOOL_CALL_START/ARGS/END, STATE_SNAPSHOT, RUN_STARTED, RUN_FINISHED. Monotonically increasing sequence numbers. 28 new test cases (16 EventStream + 12 controller). 80/80 tests pass. Zero compiler warnings."
     },
     {
       "id": "US-007",
@@ -136,7 +136,7 @@
       "title": "Rebuild Ralph flowchart as LiveView + D3.js",
       "description": "As a user, I need the Ralph methodology flowchart rebuilt from the React/xyflow implementation at ~/Developer/ralph/flowchart/ into a LiveView page with D3.js so that the step-by-step Ralph progression is visible in the APM dashboard. The original uses ReactFlow with custom node components, animated edges, and step highlighting.",
       "acceptanceCriteria": [
-        "LiveView module ApmV4Web.RalphFlowchartLive mounted at /ralph",
+        "LiveView module ApmV5Web.RalphFlowchartLive mounted at /ralph",
         "D3.js renders Ralph methodology steps as custom-styled rectangular nodes",
         "Edges between steps rendered as animated SVG paths with directional arrows",
         "Node styles match original: distinct colors per phase (planning=blue, execution=green, review=orange)",
@@ -174,7 +174,7 @@
       "title": "Implement session JSONL parser for metrics extraction",
       "description": "As a developer, I need the Python session log parsing logic ported to Elixir so that the dashboard can display token usage, tool call counts, and session duration metrics. The Python version reads .jsonl files from ~/.claude/projects/ and extracts token counts, tool invocations, and conversation turns.",
       "acceptanceCriteria": [
-        "ApmV4.SessionParser module created with parse_jsonl/1 accepting a file path",
+        "ApmV5.SessionParser module created with parse_jsonl/1 accepting a file path",
         "Extracts total input_tokens and output_tokens from assistant messages",
         "Counts tool_use blocks by tool name (Read, Write, Bash, Edit, etc.)",
         "Calculates session duration from first to last message timestamp",
@@ -186,14 +186,14 @@
       ],
       "priority": 10,
       "passes": true,
-      "notes": "ApmV4.SessionParser module with parse_jsonl/1 accepting file path. Extracts input_tokens + output_tokens (including cache_creation and cache_read tokens) from assistant messages. Counts tool_use blocks by tool name (e.g. Read, Bash, Edit). Calculates duration_seconds from first to last timestamp via DateTime.from_iso8601. Counts conversation turns from user messages (excludes tool_result-only messages). Returns structured map %{tokens: %{input, output}, tools: %{}, duration_seconds, turns}. Handles missing files, empty files, and malformed JSONL lines gracefully with Logger.warning and zero-value defaults. 11 test cases covering: missing file, empty file, token extraction with cache tokens, tool counting by name, user turn counting, duration calculation, malformed lines, entries without message field, no-usage assistant messages, full realistic integration, non-message-only files. 155/155 tests pass. Zero compiler warnings."
+      "notes": "ApmV5.SessionParser module with parse_jsonl/1 accepting file path. Extracts input_tokens + output_tokens (including cache_creation and cache_read tokens) from assistant messages. Counts tool_use blocks by tool name (e.g. Read, Bash, Edit). Calculates duration_seconds from first to last timestamp via DateTime.from_iso8601. Counts conversation turns from user messages (excludes tool_result-only messages). Returns structured map %{tokens: %{input, output}, tools: %{}, duration_seconds, turns}. Handles missing files, empty files, and malformed JSONL lines gracefully with Logger.warning and zero-value defaults. 11 test cases covering: missing file, empty file, token extraction with cache tokens, tool counting by name, user turn counting, duration calculation, malformed lines, entries without message field, no-usage assistant messages, full realistic integration, non-message-only files. 155/155 tests pass. Zero compiler warnings."
     },
     {
       "id": "US-011",
       "title": "Build Swift WebKit wrapper app for macOS",
       "description": "As a macOS user, I need a native Swift/AppKit application that wraps the APM dashboard in a WKWebView window so that I can run the monitor as a standalone desktop app with proper window management, dock icon, and native feel instead of a browser tab.",
       "acceptanceCriteria": [
-        "Swift project created at ~/Developer/ccem/apm-v4/swift-wrapper/ with Package.swift or Xcode project",
+        "Swift project created at ~/Developer/ccem/apm-v5/swift-wrapper/ with Package.swift or Xcode project",
         "AppKit application with a single NSWindow containing a WKWebView",
         "WKWebView loads http://localhost:3031 on launch",
         "Window title set to 'CCEM APM v4' with appropriate size (1200x800 default)",

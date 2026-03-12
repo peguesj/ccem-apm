@@ -36,7 +36,7 @@ If ALL stories have `passes: true`, respond with ONLY:
 - Each story must compile and pass tests before marking as done.
 - If a story fails quality checks, fix the issues before committing.
 - Use `mix compile --warnings-as-errors` for typecheck.
-- This is a Phoenix/Elixir project at /Users/jeremiah/Developer/ccem/apm-v4
+- This is a Phoenix/Elixir project at /Users/jeremiah/Developer/ccem/apm-v5
 - The project uses: Phoenix LiveView, Jason, Bandit, daisyUI/Tailwind, D3.js v7
 
 ## AUTHORITATIVE: /elixir-architect

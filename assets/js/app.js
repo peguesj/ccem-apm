@@ -22,7 +22,7 @@ import "phoenix_html"
 // Establish Phoenix Socket and LiveView configuration.
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
-import {hooks as colocatedHooks} from "phoenix-colocated/apm_v4"
+import {hooks as colocatedHooks} from "phoenix-colocated/apm_v5"
 import topbar from "../vendor/topbar"
 
 import DependencyGraph from "./hooks/dependency_graph"
@@ -36,6 +36,7 @@ import WorkflowGraph from "./hooks/workflow_graph"
 import ShiftSelect from "./hooks/shift_select"
 import TooltipOverlay from "./hooks/tooltip_overlay"
 import InspectorChat from "./hooks/inspector_chat"
+import GettingStartedShowcase from "./hooks/getting_started_showcase"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -60,7 +61,8 @@ const Hooks = {
   DocContent,
   ShiftSelect,
   TooltipOverlay,
-  InspectorChat
+  InspectorChat,
+  GettingStartedShowcase
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

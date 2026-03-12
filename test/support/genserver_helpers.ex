@@ -1,4 +1,4 @@
-defmodule ApmV4.GenServerHelpers do
+defmodule ApmV5.GenServerHelpers do
   @moduledoc """
   Helpers for ensuring required GenServer processes are alive before each test.
   These processes run under the supervision tree but can exceed restart intensity
@@ -6,13 +6,13 @@ defmodule ApmV4.GenServerHelpers do
   """
 
   @supervised_processes [
-    ApmV4.AgentRegistry,
-    ApmV4.AuditLog,
-    ApmV4.AlertRulesEngine,
-    ApmV4.MetricsCollector,
-    ApmV4.SloEngine,
-    ApmV4.EventStream,
-    ApmV4.SkillTracker
+    ApmV5.AgentRegistry,
+    ApmV5.AuditLog,
+    ApmV5.AlertRulesEngine,
+    ApmV5.MetricsCollector,
+    ApmV5.SloEngine,
+    ApmV5.EventStream,
+    ApmV5.SkillTracker
   ]
 
   @doc """
