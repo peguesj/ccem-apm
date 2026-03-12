@@ -11,6 +11,9 @@ defmodule ApmV5.Application do
     :inets.start()
     :ssl.start()
 
+    # Initialize LifecycleMapper ETS tables before supervision tree starts
+    ApmV5.AgUi.LifecycleMapper.init_tables()
+
     children = [
       ApmV5Web.Telemetry,
       {DNSCluster, query: Application.get_env(:apm_v5, :dns_cluster_query) || :ignore},
@@ -45,7 +48,9 @@ defmodule ApmV5.Application do
       ApmV5.BackfillStore,
       ApmV5.SkillsRegistryStore,
       ApmV5.AgUi.StateManager,
+      ApmV5.AgUi.EventBus,
       ApmV5.AgUi.EventRouter,
+      ApmV5.AgUi.V4Compat,
       ApmV5.ChatStore,
       {ApmV5.Intake.Store, []},
       # Start to serve requests, typically the last entry

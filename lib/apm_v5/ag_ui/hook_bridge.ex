@@ -18,6 +18,7 @@ defmodule ApmV5.AgUi.HookBridge do
   """
 
   alias ApmV5.EventStream
+  alias ApmV5.AgUi.LifecycleMapper
   alias AgUi.Core.Events.EventType
 
   @doc """
@@ -27,24 +28,12 @@ defmodule ApmV5.AgUi.HookBridge do
   """
   @spec translate_register(map()) :: map()
   def translate_register(payload) do
-    agent_id = payload["agent_id"] || payload["session_id"] || "unknown"
-    project = payload["project"] || "unknown"
-
-    metadata = %{
-      project: project,
-      role: payload["role"],
-      formation_id: payload["formation_id"],
-      formation_role: payload["formation_role"],
-      parent_agent_id: payload["parent_agent_id"],
-      wave: payload["wave"],
-      task_subject: payload["task_subject"],
-      original_payload: payload
-    }
-
-    EventStream.emit_run_started(agent_id, %{
-      thread_id: "thread-#{project}",
-      metadata: metadata
-    })
+    # US-004/US-008 DoD: Delegates to LifecycleMapper.map_registration/1 for
+    # fully-compliant AG-UI RUN_STARTED events with deterministic run_id,
+    # thread_id from formation context, and full metadata extraction.
+    # Returns same JSON shape as v4 while routing through AG-UI event pipeline.
+    mapped = LifecycleMapper.map_registration(payload)
+    EventStream.emit(mapped.type, mapped.data)
   end
 
   @doc """
@@ -55,31 +44,11 @@ defmodule ApmV5.AgUi.HookBridge do
   """
   @spec translate_heartbeat(map()) :: map()
   def translate_heartbeat(payload) do
-    agent_id = payload["agent_id"] || payload["session_id"]
-    status = payload["status"]
-
-    case status do
-      "active" ->
-        EventStream.emit(EventType.step_started(), %{
-          agent_id: agent_id,
-          step_name: payload["task_subject"] || "heartbeat",
-          metadata: strip_nils(payload)
-        })
-
-      status when status in ["completed", "done", "finished"] ->
-        EventStream.emit(EventType.step_finished(), %{
-          agent_id: agent_id,
-          step_name: payload["task_subject"] || "heartbeat",
-          metadata: strip_nils(payload)
-        })
-
-      _ ->
-        EventStream.emit(EventType.custom(), %{
-          name: "heartbeat",
-          agent_id: agent_id,
-          value: strip_nils(payload)
-        })
-    end
+    # US-005/US-008 DoD: Delegates to LifecycleMapper.map_heartbeat/1 for
+    # proper step lifecycle tracking with step_id, duration_ms computation,
+    # and token usage extraction. Returns same JSON shape as v4.
+    mapped = LifecycleMapper.map_heartbeat(payload)
+    EventStream.emit(mapped.type, mapped.data)
   end
 
   @doc """
@@ -141,12 +110,6 @@ defmodule ApmV5.AgUi.HookBridge do
   end
 
   # -- Private ----------------------------------------------------------------
-
-  defp strip_nils(map) when is_map(map) do
-    map
-    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
-    |> Enum.into(%{})
-  end
 
   defp compute_delta(old_map, new_map) do
     all_keys = MapSet.union(MapSet.new(Map.keys(old_map)), MapSet.new(Map.keys(new_map)))
