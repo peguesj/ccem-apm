@@ -48,6 +48,7 @@ defmodule ApmV5.Application do
       ApmV5.AgUi.EventRouter,
       ApmV5.ChatStore,
       {ApmV5.Intake.Store, []},
+      ApmV5.UatRunner,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]
