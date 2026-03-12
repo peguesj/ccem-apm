@@ -159,6 +159,7 @@ defmodule ApmV5Web.DashboardLive do
             Ports
             <span :if={length(@port_clashes) > 0} class="badge badge-xs badge-error ml-auto">{length(@port_clashes)}</span>
           </button>
+          <.nav_item icon="hero-beaker" label="UAT" active={@active_nav == :uat} href="/uat" />
           <.nav_item icon="hero-book-open" label="Docs" active={@active_nav == :docs} href="/docs" />
         </nav>
         <div class="p-3 border-t border-base-300 space-y-2">

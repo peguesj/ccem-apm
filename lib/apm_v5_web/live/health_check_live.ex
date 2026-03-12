@@ -72,6 +72,7 @@ defmodule ApmV5Web.HealthCheckLive do
           <.nav_item icon="hero-signal" label="Ports" active="false" href="/ports" />
           <.nav_item icon="hero-chart-bar" label="Analytics" active="false" href="/analytics" />
           <.nav_item icon="hero-heart" label="Health" active="true" href="/health" />
+          <.nav_item icon="hero-beaker" label="UAT" active="false" href="/uat" />
           <.nav_item icon="hero-chat-bubble-left-right" label="Conversations" active="false" href="/conversations" />
           <.nav_item icon="hero-puzzle-piece" label="Plugins" active="false" href="/plugins" />
           <.nav_item icon="hero-book-open" label="Docs" active="false" href="/docs" />
