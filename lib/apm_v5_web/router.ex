@@ -37,6 +37,7 @@ defmodule ApmV5Web.Router do
     live "/skills", SkillsLive, :index
     live "/timeline", SessionTimelineLive, :index
     live "/docs", DocsLive, :index
+    get "/docs/upm/status", PageController, :upm_showcase
     live "/docs/*path", DocsLive, :show
     live "/formation", FormationLive, :index
     live "/notifications", NotificationLive, :index
