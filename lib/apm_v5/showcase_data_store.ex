@@ -15,7 +15,7 @@ defmodule ApmV5.ShowcaseDataStore do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @doc "Returns showcase data for a project. Falls back to default CCEM showcase data."
+  @doc "Returns showcase data for a project. Returns empty state when no showcase data found."
   @spec get_showcase_data(String.t() | nil) :: map()
   def get_showcase_data(project_name) do
     GenServer.call(__MODULE__, {:get_data, project_name || "ccem"})
@@ -39,8 +39,8 @@ defmodule ApmV5.ShowcaseDataStore do
   Checks (in order):
     1. project has `showcase_data_path` pointing to an existing directory
     2. project has `project_root` and `project_root/showcase/data/` exists
-    3. project has `project_root` and `project_root/showcase/client/showcase.js` exists (standalone)
-    4. project name is "ccem" or "CCEM APM" — always included, falls back to default path
+    3. project name is in the CCEM project list — uses default CCEM path
+    4. ~/Developer/{name}/showcase/data/ exists by convention
   """
   @spec has_showcase?(map()) :: boolean()
   def has_showcase?(%{"showcase_data_path" => path}) when is_binary(path) and path != "" do
@@ -49,42 +49,26 @@ defmodule ApmV5.ShowcaseDataStore do
 
   def has_showcase?(%{"project_root" => root}) when is_binary(root) and root != "" do
     expanded = Path.expand(root)
-    File.dir?(Path.join(expanded, "showcase/data")) or
-      File.exists?(Path.join(expanded, "showcase/client/showcase.js"))
+    File.dir?(Path.join(expanded, "showcase/data"))
   end
 
-  # Always include the ccem project — it has showcase data at the default path
-  def has_showcase?(%{"name" => name}) when name in ["ccem", "CCEM APM"] do
+  def has_showcase?(%{"name" => name}) when name in ["ccem", "CCEM APM", "apm-v4"] do
     File.dir?(@default_showcase_path)
+  end
+
+  def has_showcase?(%{"name" => name}) when is_binary(name) and name != "" do
+    File.dir?(Path.expand("~/Developer/#{name}/showcase/data"))
   end
 
   def has_showcase?(_), do: false
 
   @doc """
   Filters a list of project maps to only those that have showcase data.
-  Always includes the "ccem" project when present. If no projects pass
-  the filter, returns all projects as graceful degradation.
+  Only includes projects with their OWN showcase data directory.
   """
   @spec filter_showcase_projects(list()) :: list()
   def filter_showcase_projects(projects) when is_list(projects) do
-    # Always ensure ccem is present if it exists in the list
-    filtered = Enum.filter(projects, &has_showcase?/1)
-
-    ccem_included =
-      Enum.any?(filtered, fn p ->
-        Map.get(p, "name") in ["ccem", "CCEM APM"]
-      end)
-
-    filtered_with_ccem =
-      if not ccem_included do
-        ccem_project = Enum.find(projects, fn p -> Map.get(p, "name") in ["ccem", "CCEM APM"] end)
-        if ccem_project, do: [ccem_project | filtered], else: filtered
-      else
-        filtered
-      end
-
-    # Graceful degradation: if still empty, return all projects
-    if filtered_with_ccem == [], do: projects, else: filtered_with_ccem
+    Enum.filter(projects, &has_showcase?/1)
   end
 
   # --- GenServer Callbacks ---
