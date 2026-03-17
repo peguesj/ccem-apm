@@ -121,7 +121,7 @@
         "All tests pass",
         "mix compile --warnings-as-errors passes"
       ],
-      "estimatedPoints": 3, "dependencies": [], "status": "pending", "passes": false,
+      "estimatedPoints": 3, "dependencies": [], "status": "done", "passes": true,
       "planeIssueId": "08ac980b-9b2b-420c-82ab-b3c0086b989e", "checkpointId": "CP-126", "wave": 2
     },
     {

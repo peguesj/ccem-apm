@@ -189,4 +189,146 @@ defmodule ApmV5.ChatStoreTest do
       assert ChatStore.topic("agent:a1") == "apm:chat:agent:a1"
     end
   end
+
+  describe "scope variants — formation and project scoping" do
+    test "formation scope stores and retrieves messages independently" do
+      scope = "formation:fmt-test-001"
+      {:ok, _} = ChatStore.send_message(scope, "Formation message")
+      msgs = ChatStore.list_messages(scope)
+      assert length(msgs) == 1
+      assert hd(msgs)["scope"] == scope
+    end
+
+    test "project scope stores and retrieves messages independently" do
+      scope = "project:my-project"
+      {:ok, _} = ChatStore.send_message(scope, "Project message")
+      msgs = ChatStore.list_messages(scope)
+      assert length(msgs) >= 1
+      assert Enum.any?(msgs, &(&1["content"] == "Project message"))
+    end
+
+    test "agent scope stores and retrieves messages independently" do
+      scope = "agent:agent-xyz"
+      {:ok, _} = ChatStore.send_message(scope, "Agent message")
+      msgs = ChatStore.list_messages(scope)
+      assert Enum.any?(msgs, &(&1["content"] == "Agent message"))
+    end
+
+    test "global scope works as a valid scope key" do
+      {:ok, msg} = ChatStore.send_message("global", "Global broadcast")
+      assert msg["scope"] == "global"
+    end
+
+    test "formation and project scopes are fully isolated" do
+      formation_scope = "formation:fmt-isolation-01"
+      project_scope = "project:isolation-proj"
+
+      ChatStore.send_message(formation_scope, "formation only")
+      ChatStore.send_message(project_scope, "project only")
+
+      formation_msgs = ChatStore.list_messages(formation_scope)
+      project_msgs = ChatStore.list_messages(project_scope)
+
+      assert Enum.all?(formation_msgs, &(&1["scope"] == formation_scope))
+      assert Enum.all?(project_msgs, &(&1["scope"] == project_scope))
+    end
+  end
+
+  describe "500-msg FIFO enforcement (extended)" do
+    test "oldest messages are dropped when cap is exceeded" do
+      scope = "project:fifo-extended"
+
+      for i <- 1..505 do
+        ChatStore.send_message(scope, "msg-#{i}")
+      end
+
+      msgs = ChatStore.list_messages(scope, 600)
+      contents = Enum.map(msgs, & &1["content"])
+
+      # msg-1 through msg-5 should have been evicted
+      refute "msg-1" in contents
+      refute "msg-5" in contents
+      assert "msg-505" in contents
+    end
+
+    test "cap applies per scope — two scopes can each hold 500" do
+      scope_a = "project:cap-scope-a"
+      scope_b = "project:cap-scope-b"
+
+      for i <- 1..500 do
+        ChatStore.send_message(scope_a, "a-#{i}")
+        ChatStore.send_message(scope_b, "b-#{i}")
+      end
+
+      assert length(ChatStore.list_messages(scope_a, 600)) == 500
+      assert length(ChatStore.list_messages(scope_b, 600)) == 500
+    end
+  end
+
+  describe "send_message metadata — role and agent_id" do
+    test "assistant role stored correctly" do
+      {:ok, msg} = ChatStore.send_message("project:roles", "AI reply", %{"role" => "assistant"})
+      assert msg["role"] == "assistant"
+    end
+
+    test "agent_id stored in message metadata" do
+      {:ok, msg} = ChatStore.send_message("project:agent-meta", "Hello", %{"agent_id" => "agent-007"})
+      assert msg["agent_id"] == "agent-007"
+    end
+
+    test "source defaults to chat_input" do
+      {:ok, msg} = ChatStore.send_message("project:source-check", "Test")
+      assert msg["source"] == "chat_input"
+    end
+  end
+
+  describe "AG-UI TEXT_MESSAGE assembly via PubSub" do
+    alias AgUi.Core.Events.EventType
+
+    test "TEXT_MESSAGE_START initializes assembly buffer" do
+      agent_id = "test-agent-#{System.unique_integer([:positive])}"
+      Phoenix.PubSub.broadcast(ApmV5.PubSub, "ag_ui:events", {:ag_ui_event, %{
+        type: EventType.text_message_start(),
+        data: %{agent_id: agent_id, message_id: "msg-abc", role: "assistant"}
+      }})
+      # Give handle_info time to process
+      Process.sleep(50)
+      # No messages stored yet (buffer not flushed)
+      msgs = ChatStore.list_messages("agent:#{agent_id}")
+      refute Enum.any?(msgs, &(&1["source"] == "ag_ui"))
+    end
+
+    test "complete TEXT_MESSAGE sequence stores assembled message" do
+      agent_id = "asm-agent-#{System.unique_integer([:positive])}"
+      msg_id = "asm-msg-001"
+      topic = "ag_ui:events"
+
+      Phoenix.PubSub.broadcast(ApmV5.PubSub, topic, {:ag_ui_event, %{
+        type: EventType.text_message_start(),
+        data: %{agent_id: agent_id, message_id: msg_id, role: "assistant"}
+      }})
+      Phoenix.PubSub.broadcast(ApmV5.PubSub, topic, {:ag_ui_event, %{
+        type: EventType.text_message_content(),
+        data: %{agent_id: agent_id, message_id: msg_id, content: "Hello"}
+      }})
+      Phoenix.PubSub.broadcast(ApmV5.PubSub, topic, {:ag_ui_event, %{
+        type: EventType.text_message_content(),
+        data: %{agent_id: agent_id, message_id: msg_id, content: " world"}
+      }})
+      Phoenix.PubSub.broadcast(ApmV5.PubSub, topic, {:ag_ui_event, %{
+        type: EventType.text_message_end(),
+        data: %{agent_id: agent_id, message_id: msg_id}
+      }})
+
+      Process.sleep(100)
+
+      scope = "agent:#{agent_id}"
+      msgs = ChatStore.list_messages(scope, 10)
+      assembled = Enum.find(msgs, &(&1["source"] == "ag_ui"))
+
+      assert assembled != nil
+      assert assembled["content"] == "Hello world"
+      assert assembled["role"] == "assistant"
+    end
+  end
 end
