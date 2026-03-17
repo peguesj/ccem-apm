@@ -311,12 +311,14 @@ defmodule ApmV5Web.ShowcaseLive do
   defp build_orch_data(_project, active_count, total_count) do
     upm_status =
       try do
-        UpmStore.get_status()
+        result = UpmStore.get_status()
+        if is_map(result), do: result, else: %{}
       catch
         :exit, _ -> %{}
+        _, _ -> %{}
       end
 
-    session = Map.get(upm_status, :session, %{})
+    session = upm_status |> Map.get(:session) |> then(fn s -> if is_map(s), do: s, else: %{} end)
 
     %{
       phase: Map.get(session, :phase, "ship"),
