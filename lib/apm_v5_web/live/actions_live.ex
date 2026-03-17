@@ -1,6 +1,7 @@
 defmodule ApmV5Web.ActionsLive do
   use ApmV5Web, :live_view
 
+
   alias ApmV5.ActionEngine
   alias ApmV5.ProjectScanner
 
@@ -596,6 +597,7 @@ defmodule ApmV5Web.ActionsLive do
         </div>
       </div>
     </div>
+    <.wizard page="actions" />
     """
   end
 

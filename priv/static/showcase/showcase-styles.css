@@ -4,13 +4,478 @@
 /* Fonts are injected only when ShowcaseHook mounts (see showcase.js _loadFonts)
    to avoid CDN round-trip on every APM page. */
 
-/* Scrollbar within showcase */
-.showcase-scope ::-webkit-scrollbar { width: 4px; }
-.showcase-scope ::-webkit-scrollbar-track { background: transparent; }
-.showcase-scope ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 2px; }
-.showcase-scope ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+/* ─── Font Family Application ─────────────────────────────────────────────── */
 
-/* SVG animation keyframes */
+.showcase-scope,
+.showcase-scope * {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.showcase-scope .font-mono,
+.showcase-scope code,
+.showcase-scope pre,
+.showcase-scope .arch-svg {
+  font-family: 'Fira Code', ui-monospace, monospace;
+}
+
+/* ─── Container Base ──────────────────────────────────────────────────────── */
+
+.showcase-scope {
+  background: #09090b;
+  color: #a1a1aa;
+  overflow: hidden;
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────────────────────── */
+
+.showcase-scope ::-webkit-scrollbar { width: 4px; height: 4px; }
+.showcase-scope ::-webkit-scrollbar-track { background: #18181b; }
+.showcase-scope ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
+.showcase-scope ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+/* ─── Tailwind Zinc Palette — Critical for Engine HTML ───────────────────── */
+/* These classes are generated dynamically in showcase-engine.js and live in
+   priv/static/ which is outside Tailwind v4's @source scan paths. We define
+   them explicitly here so they are always available inside .showcase-scope. */
+
+/* Background colors */
+.showcase-scope .bg-zinc-950  { background-color: #09090b; }
+.showcase-scope .bg-zinc-900  { background-color: #18181b; }
+.showcase-scope .bg-zinc-800  { background-color: #27272a; }
+.showcase-scope .bg-zinc-700  { background-color: #3f3f46; }
+.showcase-scope .bg-zinc-600  { background-color: #52525b; }
+.showcase-scope .bg-zinc-500  { background-color: #71717a; }
+.showcase-scope .bg-zinc-400  { background-color: #a1a1aa; }
+.showcase-scope .bg-zinc-300  { background-color: #d4d4d8; }
+.showcase-scope .bg-zinc-200  { background-color: #e4e4e7; }
+.showcase-scope .bg-zinc-100  { background-color: #f4f4f5; }
+
+/* Text colors */
+.showcase-scope .text-zinc-100 { color: #f4f4f5; }
+.showcase-scope .text-zinc-200 { color: #e4e4e7; }
+.showcase-scope .text-zinc-300 { color: #d4d4d8; }
+.showcase-scope .text-zinc-400 { color: #a1a1aa; }
+.showcase-scope .text-zinc-500 { color: #71717a; }
+.showcase-scope .text-zinc-600 { color: #52525b; }
+.showcase-scope .text-zinc-700 { color: #3f3f46; }
+.showcase-scope .text-zinc-800 { color: #27272a; }
+.showcase-scope .text-zinc-900 { color: #18181b; }
+
+/* Border colors */
+.showcase-scope .border-zinc-800 { border-color: #27272a; }
+.showcase-scope .border-zinc-700 { border-color: #3f3f46; }
+.showcase-scope .border-zinc-600 { border-color: #52525b; }
+
+/* Divide colors */
+.showcase-scope .divide-zinc-800 > * + * { border-color: #27272a; }
+.showcase-scope .divide-zinc-700 > * + * { border-color: #3f3f46; }
+
+/* Opacity variants used in engine */
+.showcase-scope .bg-zinc-950\/95 { background-color: rgba(9,9,11,0.95); }
+.showcase-scope .bg-zinc-900\/80 { background-color: rgba(24,24,27,0.80); }
+.showcase-scope .bg-zinc-900\/60 { background-color: rgba(24,24,27,0.60); }
+.showcase-scope .bg-zinc-900\/50 { background-color: rgba(24,24,27,0.50); }
+.showcase-scope .bg-zinc-900\/30 { background-color: rgba(24,24,27,0.30); }
+.showcase-scope .bg-zinc-900\/20 { background-color: rgba(24,24,27,0.20); }
+.showcase-scope .bg-zinc-800\/60 { background-color: rgba(39,39,42,0.60); }
+.showcase-scope .bg-zinc-800\/50 { background-color: rgba(39,39,42,0.50); }
+.showcase-scope .bg-zinc-800\/40 { background-color: rgba(39,39,42,0.40); }
+.showcase-scope .bg-zinc-800\/40 { background-color: rgba(39,39,42,0.40); }
+.showcase-scope .bg-zinc-700\/60 { background-color: rgba(63,63,70,0.60); }
+
+.showcase-scope .border-zinc-800\/60 { border-color: rgba(39,39,42,0.60); }
+.showcase-scope .border-zinc-800\/50 { border-color: rgba(39,39,42,0.50); }
+.showcase-scope .border-zinc-800\/40 { border-color: rgba(39,39,42,0.40); }
+.showcase-scope .border-zinc-700\/60 { border-color: rgba(63,63,70,0.60); }
+.showcase-scope .border-zinc-700\/50 { border-color: rgba(63,63,70,0.50); }
+.showcase-scope .border-zinc-700\/30 { border-color: rgba(63,63,70,0.30); }
+
+.showcase-scope .divide-zinc-800\/60 > * + * { border-color: rgba(39,39,42,0.60); }
+
+/* Ring colors */
+.showcase-scope .ring-zinc-800 { --tw-ring-color: #27272a; }
+.showcase-scope .ring-zinc-700 { --tw-ring-color: #3f3f46; }
+.showcase-scope .ring-zinc-600 { --tw-ring-color: #52525b; }
+.showcase-scope .ring-zinc-700\/60 { --tw-ring-color: rgba(63,63,70,0.60); }
+.showcase-scope .ring-zinc-700\/30 { --tw-ring-color: rgba(63,63,70,0.30); }
+
+/* ─── Tailwind Color Palette — Semantic Colors ────────────────────────────── */
+
+/* Emerald */
+.showcase-scope .text-emerald-400 { color: #34d399; }
+.showcase-scope .text-emerald-500 { color: #10b981; }
+.showcase-scope .bg-emerald-400    { background-color: #34d399; }
+.showcase-scope .bg-emerald-500    { background-color: #10b981; }
+.showcase-scope .border-emerald-500 { border-color: #10b981; }
+.showcase-scope .bg-emerald-500\/10 { background-color: rgba(16,185,129,0.10); }
+.showcase-scope .bg-emerald-500\/20 { background-color: rgba(16,185,129,0.20); }
+.showcase-scope .bg-emerald-950\/50 { background-color: rgba(2,44,34,0.50); }
+.showcase-scope .border-emerald-800\/40 { border-color: rgba(6,95,70,0.40); }
+.showcase-scope .border-emerald-800\/50 { border-color: rgba(6,95,70,0.50); }
+.showcase-scope .border-emerald-500\/20 { border-color: rgba(16,185,129,0.20); }
+.showcase-scope .border-emerald-900\/50 { border-color: rgba(6,78,59,0.50); }
+.showcase-scope .ring-emerald-500\/20 { --tw-ring-color: rgba(16,185,129,0.20); }
+.showcase-scope .ring-emerald-500\/30 { --tw-ring-color: rgba(16,185,129,0.30); }
+.showcase-scope .shadow-emerald-500\/60 { --tw-shadow-color: rgba(16,185,129,0.60); }
+.showcase-scope .bg-emerald-900\/50 { background-color: rgba(6,78,59,0.50); }
+
+/* Blue */
+.showcase-scope .text-blue-400 { color: #60a5fa; }
+.showcase-scope .bg-blue-500    { background-color: #3b82f6; }
+.showcase-scope .bg-blue-500\/10 { background-color: rgba(59,130,246,0.10); }
+.showcase-scope .border-blue-500\/20 { border-color: rgba(59,130,246,0.20); }
+.showcase-scope .ring-blue-500\/20 { --tw-ring-color: rgba(59,130,246,0.20); }
+.showcase-scope .ring-blue-500\/30 { --tw-ring-color: rgba(59,130,246,0.30); }
+.showcase-scope .bg-blue-500\/10 { background-color: rgba(59,130,246,0.10); }
+
+/* Purple / Violet */
+.showcase-scope .text-purple-400 { color: #c084fc; }
+.showcase-scope .text-violet-400 { color: #a78bfa; }
+.showcase-scope .bg-purple-500   { background-color: #a855f7; }
+.showcase-scope .bg-purple-500\/10 { background-color: rgba(168,85,247,0.10); }
+.showcase-scope .border-purple-500\/20 { border-color: rgba(168,85,247,0.20); }
+.showcase-scope .ring-purple-500\/20 { --tw-ring-color: rgba(168,85,247,0.20); }
+.showcase-scope .ring-purple-500\/30 { --tw-ring-color: rgba(168,85,247,0.30); }
+
+/* Amber / Yellow */
+.showcase-scope .text-amber-400 { color: #fbbf24; }
+.showcase-scope .text-yellow-400 { color: #facc15; }
+.showcase-scope .text-yellow-500 { color: #eab308; }
+.showcase-scope .bg-amber-500   { background-color: #f59e0b; }
+.showcase-scope .bg-yellow-500  { background-color: #eab308; }
+.showcase-scope .bg-amber-500\/10 { background-color: rgba(245,158,11,0.10); }
+.showcase-scope .border-amber-500\/20 { border-color: rgba(245,158,11,0.20); }
+.showcase-scope .ring-amber-500\/20 { --tw-ring-color: rgba(245,158,11,0.20); }
+.showcase-scope .ring-amber-500\/30 { --tw-ring-color: rgba(245,158,11,0.30); }
+.showcase-scope .bg-yellow-500\/60 { background-color: rgba(234,179,8,0.60); }
+
+/* Rose / Red */
+.showcase-scope .text-rose-400  { color: #fb7185; }
+.showcase-scope .text-red-400   { color: #f87171; }
+.showcase-scope .bg-rose-500    { background-color: #f43f5e; }
+.showcase-scope .bg-red-500     { background-color: #ef4444; }
+.showcase-scope .bg-rose-500\/10 { background-color: rgba(244,63,94,0.10); }
+.showcase-scope .bg-red-500\/10 { background-color: rgba(239,68,68,0.10); }
+.showcase-scope .border-rose-500\/20 { border-color: rgba(244,63,94,0.20); }
+.showcase-scope .border-red-500\/20 { border-color: rgba(239,68,68,0.20); }
+.showcase-scope .ring-rose-500\/20 { --tw-ring-color: rgba(244,63,94,0.20); }
+.showcase-scope .ring-rose-500\/30 { --tw-ring-color: rgba(244,63,94,0.30); }
+.showcase-scope .ring-red-500\/20 { --tw-ring-color: rgba(239,68,68,0.20); }
+.showcase-scope .shadow-red-500\/60 { --tw-shadow-color: rgba(239,68,68,0.60); }
+
+/* Cyan */
+.showcase-scope .text-cyan-400  { color: #22d3ee; }
+
+/* Orange */
+.showcase-scope .text-orange-400 { color: #fb923c; }
+
+/* Indigo */
+.showcase-scope .text-indigo-400 { color: #818cf8; }
+.showcase-scope .text-indigo-500 { color: #6366f1; }
+.showcase-scope .bg-indigo-600   { background-color: #4f46e5; }
+
+/* Pink */
+.showcase-scope .text-pink-400  { color: #f472b6; }
+
+/* White */
+.showcase-scope .text-white  { color: #ffffff; }
+
+/* ─── Tailwind Layout Utilities ───────────────────────────────────────────── */
+
+.showcase-scope .flex { display: flex; }
+.showcase-scope .inline-flex { display: inline-flex; }
+.showcase-scope .grid { display: grid; }
+.showcase-scope .block { display: block; }
+.showcase-scope .inline-block { display: inline-block; }
+.showcase-scope .hidden { display: none; }
+
+.showcase-scope .flex-col { flex-direction: column; }
+.showcase-scope .flex-row { flex-direction: row; }
+.showcase-scope .flex-wrap { flex-wrap: wrap; }
+.showcase-scope .flex-1 { flex: 1 1 0%; }
+.showcase-scope .flex-shrink-0 { flex-shrink: 0; }
+.showcase-scope .flex-none { flex: none; }
+
+.showcase-scope .items-center { align-items: center; }
+.showcase-scope .items-start  { align-items: flex-start; }
+.showcase-scope .items-baseline { align-items: baseline; }
+.showcase-scope .justify-between { justify-content: space-between; }
+.showcase-scope .justify-center  { justify-content: center; }
+.showcase-scope .justify-end     { justify-content: flex-end; }
+
+.showcase-scope .gap-0   { gap: 0; }
+.showcase-scope .gap-0\.5 { gap: 0.125rem; }
+.showcase-scope .gap-1   { gap: 0.25rem; }
+.showcase-scope .gap-1\.5 { gap: 0.375rem; }
+.showcase-scope .gap-2   { gap: 0.5rem; }
+.showcase-scope .gap-2\.5 { gap: 0.625rem; }
+.showcase-scope .gap-3   { gap: 0.75rem; }
+.showcase-scope .gap-4   { gap: 1rem; }
+.showcase-scope .gap-x-3 { column-gap: 0.75rem; }
+.showcase-scope .gap-y-0\.5 { row-gap: 0.125rem; }
+.showcase-scope .gap-y-1 { row-gap: 0.25rem; }
+
+.showcase-scope .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.showcase-scope .grid-cols-\[320px_1fr_300px\] { grid-template-columns: 320px 1fr 300px; }
+
+.showcase-scope .h-full  { height: 100%; }
+.showcase-scope .h-px    { height: 1px; }
+.showcase-scope .h-1     { height: 0.25rem; }
+.showcase-scope .h-1\.5  { height: 0.375rem; }
+.showcase-scope .h-2     { height: 0.5rem; }
+.showcase-scope .h-4     { height: 1rem; }
+.showcase-scope .w-full  { width: 100%; }
+.showcase-scope .w-px    { width: 1px; }
+.showcase-scope .w-1\.5  { width: 0.375rem; }
+.showcase-scope .w-2     { width: 0.5rem; }
+.showcase-scope .w-4     { width: 1rem; }
+.showcase-scope .w-8     { width: 2rem; }
+.showcase-scope .w-12   { width: 3rem; }
+.showcase-scope .min-w-0 { min-width: 0; }
+.showcase-scope .max-w-lg { max-width: 32rem; }
+
+.showcase-scope .min-h-0    { min-height: 0; }
+.showcase-scope .max-h-\[70vh\] { max-height: 70vh; }
+
+.showcase-scope .p-0 { padding: 0; }
+.showcase-scope .p-1 { padding: 0.25rem; }
+.showcase-scope .p-3 { padding: 0.75rem; }
+.showcase-scope .p-4 { padding: 1rem; }
+.showcase-scope .p-5 { padding: 1.25rem; }
+.showcase-scope .px-1   { padding-left: 0.25rem; padding-right: 0.25rem; }
+.showcase-scope .px-1\.5 { padding-left: 0.375rem; padding-right: 0.375rem; }
+.showcase-scope .px-2   { padding-left: 0.5rem; padding-right: 0.5rem; }
+.showcase-scope .px-2\.5 { padding-left: 0.625rem; padding-right: 0.625rem; }
+.showcase-scope .px-3   { padding-left: 0.75rem; padding-right: 0.75rem; }
+.showcase-scope .px-4   { padding-left: 1rem; padding-right: 1rem; }
+.showcase-scope .px-5   { padding-left: 1.25rem; padding-right: 1.25rem; }
+.showcase-scope .py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+.showcase-scope .py-1   { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+.showcase-scope .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+.showcase-scope .py-2   { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.showcase-scope .py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+.showcase-scope .py-3   { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.showcase-scope .py-3\.5 { padding-top: 0.875rem; padding-bottom: 0.875rem; }
+.showcase-scope .py-4   { padding-top: 1rem; padding-bottom: 1rem; }
+.showcase-scope .pb-0   { padding-bottom: 0; }
+.showcase-scope .pb-2   { padding-bottom: 0.5rem; }
+.showcase-scope .pb-5   { padding-bottom: 1.25rem; }
+.showcase-scope .pt-3   { padding-top: 0.75rem; }
+.showcase-scope .pl-4   { padding-left: 1rem; }
+.showcase-scope .pr-3   { padding-right: 0.75rem; }
+.showcase-scope .mr-3   { margin-right: 0.75rem; }
+.showcase-scope .ml-1   { margin-left: 0.25rem; }
+.showcase-scope .ml-auto { margin-left: auto; }
+.showcase-scope .mt-0\.5 { margin-top: 0.125rem; }
+.showcase-scope .mb-1   { margin-bottom: 0.25rem; }
+.showcase-scope .mb-1\.5 { margin-bottom: 0.375rem; }
+.showcase-scope .mb-2   { margin-bottom: 0.5rem; }
+.showcase-scope .mx-0\.5 { margin-left: 0.125rem; margin-right: 0.125rem; }
+.showcase-scope .mx-2   { margin-left: 0.5rem; margin-right: 0.5rem; }
+.showcase-scope .mx-2\.5 { margin-left: 0.625rem; margin-right: 0.625rem; }
+.showcase-scope .mx-3   { margin-left: 0.75rem; margin-right: 0.75rem; }
+
+.showcase-scope .space-y-1 > * + * { margin-top: 0.25rem; }
+.showcase-scope .space-y-1\.5 > * + * { margin-top: 0.375rem; }
+.showcase-scope .space-y-2 > * + * { margin-top: 0.5rem; }
+.showcase-scope .space-y-2\.5 > * + * { margin-top: 0.625rem; }
+.showcase-scope .space-y-3 > * + * { margin-top: 0.75rem; }
+.showcase-scope .space-y-4 > * + * { margin-top: 1rem; }
+.showcase-scope .space-y-6 > * + * { margin-top: 1.5rem; }
+.showcase-scope .space-y-0\.5 > * + * { margin-top: 0.125rem; }
+
+.showcase-scope .overflow-hidden  { overflow: hidden; }
+.showcase-scope .overflow-y-auto  { overflow-y: auto; }
+.showcase-scope .overflow-x-auto  { overflow-x: auto; }
+.showcase-scope .overflow-x-hidden { overflow-x: hidden; }
+
+.showcase-scope .relative { position: relative; }
+.showcase-scope .absolute { position: absolute; }
+.showcase-scope .fixed    { position: fixed; }
+.showcase-scope .sticky   { position: sticky; }
+.showcase-scope .inset-0  { inset: 0; }
+.showcase-scope .top-0    { top: 0; }
+.showcase-scope .z-10     { z-index: 10; }
+.showcase-scope .z-\[60\] { z-index: 60; }
+
+.showcase-scope .rounded    { border-radius: 0.25rem; }
+.showcase-scope .rounded-md { border-radius: 0.375rem; }
+.showcase-scope .rounded-lg { border-radius: 0.5rem; }
+.showcase-scope .rounded-xl { border-radius: 0.75rem; }
+.showcase-scope .rounded-2xl { border-radius: 1rem; }
+.showcase-scope .rounded-full { border-radius: 9999px; }
+
+.showcase-scope .border  { border-width: 1px; }
+.showcase-scope .border-t { border-top-width: 1px; }
+.showcase-scope .border-b { border-bottom-width: 1px; }
+.showcase-scope .border-l { border-left-width: 1px; }
+.showcase-scope .border-r { border-right-width: 1px; }
+
+.showcase-scope .ring-1 {
+  --tw-ring-inset: ;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-offset-color: #fff;
+  --tw-ring-color: rgba(59,130,246,0.5);
+  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+}
+
+/* Shadow */
+.showcase-scope .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); }
+.showcase-scope .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+.showcase-scope .shadow-black\/80 { --tw-shadow-color: rgba(0,0,0,0.80); }
+
+/* Text sizing */
+.showcase-scope .text-xs  { font-size: 0.75rem;  line-height: 1rem; }
+.showcase-scope .text-sm  { font-size: 0.875rem; line-height: 1.25rem; }
+.showcase-scope .text-base { font-size: 1rem;    line-height: 1.5rem; }
+.showcase-scope .text-lg  { font-size: 1.125rem; line-height: 1.75rem; }
+
+/* Engine uses text-[10px], text-[11px], text-[9px], text-[8px] etc inline via class strings */
+.showcase-scope .text-\[8px\]  { font-size: 8px; }
+.showcase-scope .text-\[9px\]  { font-size: 9px; }
+.showcase-scope .text-\[10px\] { font-size: 10px; }
+.showcase-scope .text-\[11px\] { font-size: 11px; }
+
+/* Font weight */
+.showcase-scope .font-normal    { font-weight: 400; }
+.showcase-scope .font-medium    { font-weight: 500; }
+.showcase-scope .font-semibold  { font-weight: 600; }
+.showcase-scope .font-bold      { font-weight: 700; }
+
+/* Letter spacing */
+.showcase-scope .tracking-wider  { letter-spacing: 0.05em; }
+.showcase-scope .tracking-widest { letter-spacing: 0.1em; }
+
+/* Line height */
+.showcase-scope .leading-none    { line-height: 1; }
+.showcase-scope .leading-tight   { line-height: 1.25; }
+.showcase-scope .leading-relaxed { line-height: 1.625; }
+
+/* Text alignment */
+.showcase-scope .text-center { text-align: center; }
+.showcase-scope .text-left   { text-align: left; }
+.showcase-scope .text-right  { text-align: right; }
+
+/* Text decorations */
+.showcase-scope .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.showcase-scope .line-through { text-decoration-line: line-through; }
+.showcase-scope .decoration-zinc-600 { text-decoration-color: #52525b; }
+.showcase-scope .uppercase { text-transform: uppercase; }
+.showcase-scope .select-none { user-select: none; }
+.showcase-scope .antialiased { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+/* Cursor */
+.showcase-scope .cursor-pointer  { cursor: pointer; }
+.showcase-scope .cursor-not-allowed { cursor: not-allowed; }
+.showcase-scope button { cursor: pointer; }
+.showcase-scope button:disabled { cursor: not-allowed; }
+
+/* Opacity */
+.showcase-scope .opacity-50 { opacity: 0.5; }
+.showcase-scope .disabled\:opacity-40:disabled { opacity: 0.4; }
+.showcase-scope .disabled\:opacity-50:disabled { opacity: 0.5; }
+.showcase-scope .disabled\:cursor-not-allowed:disabled { cursor: not-allowed; }
+
+/* Backdrop blur */
+.showcase-scope .backdrop-blur-sm { backdrop-filter: blur(4px); }
+
+/* Transition */
+.showcase-scope .transition      { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; transition-timing-function: cubic-bezier(0.4,0,0.2,1); transition-duration: 150ms; }
+.showcase-scope .transition-all  { transition-property: all; transition-timing-function: cubic-bezier(0.4,0,0.2,1); transition-duration: 150ms; }
+.showcase-scope .duration-500 { transition-duration: 500ms; }
+.showcase-scope .duration-700 { transition-duration: 700ms; }
+
+/* Hover */
+.showcase-scope .hover\:bg-zinc-800\/40:hover { background-color: rgba(39,39,42,0.40); }
+.showcase-scope .hover\:bg-zinc-800\/50:hover { background-color: rgba(39,39,42,0.50); }
+.showcase-scope .hover\:bg-zinc-700\/60:hover { background-color: rgba(63,63,70,0.60); }
+.showcase-scope .hover\:bg-zinc-800:hover   { background-color: #27272a; }
+.showcase-scope .hover\:text-zinc-200:hover { color: #e4e4e7; }
+.showcase-scope .hover\:text-zinc-300:hover { color: #d4d4d8; }
+.showcase-scope .hover\:text-zinc-400:hover { color: #a1a1aa; }
+
+/* ─── Standalone showcase specific classes ────────────────────────────────── */
+/* From index.html inline <style> block */
+
+.showcase-scope .tab-btn.active {
+  background: #3f3f46;
+  color: #e4e4e7;
+}
+.showcase-scope .tab-btn {
+  transition: all 0.12s;
+}
+.showcase-scope .tab-content {
+  display: none;
+}
+.showcase-scope .tab-content.active {
+  display: block;
+}
+.showcase-scope .pulse-dot {
+  animation: showcase-pulse-anim 2s infinite;
+}
+.showcase-scope .col-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+.showcase-scope .fs-9  { font-size: 9px;  line-height: 13px; }
+.showcase-scope .fs-10 { font-size: 10px; line-height: 14px; }
+.showcase-scope .fs-11 { font-size: 11px; line-height: 15px; }
+.showcase-scope .metric-big {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.showcase-scope .grid-3col {
+  display: grid;
+  grid-template-columns: 310px 1fr 290px;
+  height: calc(100vh - 108px);
+}
+@media (max-width: 1400px) {
+  .showcase-scope .grid-3col {
+    grid-template-columns: 280px 1fr 270px;
+  }
+}
+.showcase-scope .arch-svg {
+  font-family: 'Fira Code', monospace;
+}
+.showcase-scope .no-scrollbar {
+  scrollbar-width: none;
+}
+.showcase-scope .no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── SVG animation keyframes (prefixed to avoid conflicts) ──────────────── */
+
+@keyframes showcase-pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes showcase-pulse-anim {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes showcase-dash-march {
+  to { stroke-dashoffset: -12; }
+}
+
+@keyframes showcase-node-appear {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes showcase-fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Keep legacy keyframe names for backward compat */
 @keyframes pulse-glow {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
@@ -30,25 +495,40 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* SVG specific — scoped */
-.showcase-scope .arch-node { animation: node-appear 0.4s ease-out both; }
-.showcase-scope .arch-edge { animation: dash-march 1.2s linear infinite; }
-.showcase-scope .arch-label { animation: fade-in-up 0.5s ease-out both; }
+/* ─── SVG Animation Classes ──────────────────────────────────────────────── */
 
-/* Stagger children */
-.showcase-scope .stagger-children > * { animation: fade-in-up 0.3s ease-out both; }
-.showcase-scope .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
-.showcase-scope .stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
-.showcase-scope .stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
-.showcase-scope .stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
-.showcase-scope .stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+.showcase-scope .arch-node { animation: showcase-node-appear 0.4s ease-out both; }
+.showcase-scope .arch-edge { animation: showcase-dash-march 1.2s linear infinite; }
+.showcase-scope .arch-label { animation: showcase-fade-in-up 0.5s ease-out both; }
 
-/* Status dot pulse */
+/* ─── Stagger Children ────────────────────────────────────────────────────── */
+
+.showcase-scope .stagger-children > * { animation: showcase-fade-in-up 0.3s ease-out both; }
+.showcase-scope .stagger-children > *:nth-child(1)  { animation-delay: 0.05s; }
+.showcase-scope .stagger-children > *:nth-child(2)  { animation-delay: 0.1s; }
+.showcase-scope .stagger-children > *:nth-child(3)  { animation-delay: 0.15s; }
+.showcase-scope .stagger-children > *:nth-child(4)  { animation-delay: 0.2s; }
+.showcase-scope .stagger-children > *:nth-child(5)  { animation-delay: 0.25s; }
+.showcase-scope .stagger-children > *:nth-child(6)  { animation-delay: 0.3s; }
+.showcase-scope .stagger-children > *:nth-child(7)  { animation-delay: 0.35s; }
+.showcase-scope .stagger-children > *:nth-child(8)  { animation-delay: 0.4s; }
+.showcase-scope .stagger-children > *:nth-child(9)  { animation-delay: 0.45s; }
+.showcase-scope .stagger-children > *:nth-child(10) { animation-delay: 0.5s; }
+
+/* ─── Status Dot Pulse ───────────────────────────────────────────────────── */
+
 .showcase-scope .dot-pulse {
-  animation: pulse-glow 2s ease-in-out infinite;
+  animation: showcase-pulse-glow 2s ease-in-out infinite;
 }
 
-/* Feature card hover */
+/* ─── Animate Pulse (Tailwind built-in used inline) ─────────────────────── */
+
+.showcase-scope .animate-pulse {
+  animation: showcase-pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ─── Feature Card Hover ─────────────────────────────────────────────────── */
+
 .showcase-scope .feature-card {
   transition: all 0.2s ease;
 }
@@ -57,7 +537,31 @@
   border-color: rgba(63, 63, 70, 0.8) !important;
 }
 
-/* Showcase fullscreen overlay */
+/* ─── Active Narrative Tab ───────────────────────────────────────────────── */
+
+.showcase-scope .narrative-tab.active {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+}
+
+/* ─── Section Toggle ─────────────────────────────────────────────────────── */
+
+.showcase-scope .section-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+.showcase-scope .section-toggle .chevron {
+  transition: transform 0.2s ease;
+}
+.showcase-scope .section-toggle.collapsed .chevron {
+  transform: rotate(-90deg);
+}
+.showcase-scope .section-toggle.collapsed + .section-body {
+  display: none;
+}
+
+/* ─── Showcase Fullscreen Overlay ────────────────────────────────────────── */
+
 #showcase-engine-root { position: relative; }
 
 #showcase-container.showcase-fullscreen {
@@ -66,7 +570,8 @@
   z-index: 9999 !important;
 }
 
-/* Sidebar collapse */
+/* ─── Sidebar Collapse (APM chrome — outside .showcase-scope) ────────────── */
+
 #apm-sidebar {
   transition: width 0.2s ease, min-width 0.2s ease;
   overflow: hidden;
@@ -88,9 +593,55 @@
 #apm-sidebar.sidebar-collapsed .sidebar-arrow-expand { display: inline-block !important; }
 .sidebar-arrow-expand { display: none; }
 
-/* Reduced motion */
+/* ─── Input / Button resets inside showcase ─────────────────────────────── */
+
+.showcase-scope input[type="text"],
+.showcase-scope textarea {
+  background: #18181b;
+  color: #e4e4e7;
+  border: 1px solid #3f3f46;
+  border-radius: 0.5rem;
+  padding: 0.375rem 1rem;
+  font-size: 0.875rem;
+  outline: none;
+  width: 100%;
+}
+.showcase-scope input[type="text"]::placeholder { color: #52525b; }
+.showcase-scope input:disabled, .showcase-scope button:disabled { opacity: 0.5; }
+
+/* ─── Gradient utilities used in engine ──────────────────────────────────── */
+
+.showcase-scope .bg-gradient-to-r {
+  background-image: linear-gradient(to right, var(--tw-gradient-stops));
+}
+.showcase-scope .from-emerald-500 { --tw-gradient-from: #10b981; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(16,185,129,0)); }
+.showcase-scope .to-emerald-400   { --tw-gradient-to: #34d399; }
+
+/* ─── Divide utilities ───────────────────────────────────────────────────── */
+
+.showcase-scope .divide-x > * + * { border-left-width: 1px; }
+.showcase-scope .divide-y > * + * { border-top-width: 1px; }
+.showcase-scope .divide-zinc-800 > * + * { border-color: #27272a; }
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 1200px) {
+  .showcase-scope { font-size: 13px; }
+}
+
+/* ─── Print ──────────────────────────────────────────────────────────────── */
+
+@media print {
+  .showcase-scope .sticky { position: relative !important; }
+  .showcase-scope aside { display: none !important; }
+}
+
+/* ─── Reduced Motion ─────────────────────────────────────────────────────── */
+
 @media (prefers-reduced-motion: reduce) {
-  .showcase-scope *, .showcase-scope *::before, .showcase-scope *::after {
+  .showcase-scope *,
+  .showcase-scope *::before,
+  .showcase-scope *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

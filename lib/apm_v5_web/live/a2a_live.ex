@@ -14,6 +14,8 @@ defmodule ApmV5Web.A2ALive do
 
   use ApmV5Web, :live_view
 
+  import ApmV5Web.Components.GettingStartedWizard
+
   alias ApmV5.AgUi.A2A.Router
   alias ApmV5.AgUi.EventBus
 
@@ -184,6 +186,7 @@ defmodule ApmV5Web.A2ALive do
         </div>
       </div>
     </div>
+    <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-a2a" />
     """
   end
 

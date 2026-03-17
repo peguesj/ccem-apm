@@ -176,6 +176,24 @@
           "icon": "hero-puzzle-piece",
           "order": 6,
           "tags": ["extending", "plugins", "customization"]
+        },
+        {
+          "slug": "developer/showcase",
+          "title": "Showcase — GIMME-Style Dashboard",
+          "file": "developer/showcase.md",
+          "description": "ShowcaseLive: project switching, ShowcaseDataStore resolution, IP-safe diagram engine, fullscreen mode",
+          "icon": "hero-presentation-chart-bar",
+          "order": 7,
+          "tags": ["showcase", "gimme", "diagrams", "project-switching"]
+        },
+        {
+          "slug": "developer/ccem-ui",
+          "title": "CCEM UI — Dual-Section Sidebar and Management Hub",
+          "file": "developer/ccem-ui.md",
+          "description": "CCEM Management section: CcemOverviewLive, dual-section sidebar nav, dynamic header branding, /ccem hub",
+          "icon": "hero-squares-2x2",
+          "order": 8,
+          "tags": ["ccem", "sidebar", "navigation", "ui", "management"]
         }
       ]
     },

@@ -1,5 +1,8 @@
 defmodule ApmV5Web.HealthCheckLive do
   use ApmV5Web, :live_view
+
+  import ApmV5Web.Components.GettingStartedWizard
+
   require Logger
 
   @impl true
@@ -65,6 +68,7 @@ defmodule ApmV5Web.HealthCheckLive do
         </div>
       </div>
     </div>
+    <.wizard page="welcome" dom_id="ccem-wizard-welcome-health" />
     """
   end
 

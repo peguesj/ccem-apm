@@ -378,11 +378,123 @@ Industry-standard documentation viewer with search, navigation, and responsive l
 
 None -- docs are static content served from the `DocsStore` cache.
 
+## ShowcaseLive
+
+**Route**: `/showcase` and `/showcase/:project`
+**Module**: `ApmV5Web.ShowcaseLive`
+
+GIMME-style project showcase dashboard integrated into the APM chrome. Displays IP-safe architecture diagrams, feature roadmaps, and live agent/UPM data for any CCEM-managed project that has showcase data.
+
+### ShowcaseLive Components
+
+- **Project Selector**: Dropdown listing all projects that have showcase data (detected via `ShowcaseDataStore.filter_showcase_projects/1`)
+- **Feature Grid**: Cards per story/feature grouped by wave, sourced from `showcase/data/features.json`
+- **Live Stats Bar**: Real-time agent count, session count, active UPM session indicator
+- **Fullscreen Toggle**: Covers APM chrome; press Esc to exit
+- **Iframe Mode**: Falls back to serving a standalone `showcase.js` when project has `showcase/client/showcase.js` but no full data directory
+
+### ShowcaseLive Features
+
+- **Project switching**: Navigate to `/showcase/:project` via `push_patch` — updates URL without full page reload
+- **Active project detection**: Defaults to the project set in `apm_config.json` `active_project` field
+- **Showcase data resolution**: `ShowcaseDataStore` checks (in order) `showcase_data_path`, `project_root/showcase/data/`, `project_root/showcase/client/showcase.js`
+- **Live heartbeat**: Pushes 5-second heartbeat events to JS hook for animated status indicators
+- **PubSub-driven updates**: Reacts to agent, config, UPM, AG-UI, and showcase data reload events
+
+### ShowcaseLive PubSub Subscriptions
+
+Topics subscribed to on mount:
+
+```elixir
+subscribe("apm:agents")     # Agent registration and fleet stats
+subscribe("apm:config")     # Config reload, active project change
+subscribe("apm:upm")        # UPM session events
+subscribe("ag_ui:events")   # AG-UI event stream integration
+subscribe("apm:showcase")   # Showcase data reload broadcasts
+```
+
+### ShowcaseLive Event Handlers
+
+Handlers for incoming PubSub messages:
+
+```elixir
+handle_info({:agent_registered, _agent}, socket)
+handle_info({:agent_updated, _agent}, socket)
+handle_info({:config_reloaded, _config}, socket)
+handle_info({:upm_session_registered, _}, socket)
+handle_info({:showcase_data_reloaded, project, data}, socket)
+handle_info(:heartbeat_push, socket)
+```
+
+### ShowcaseLive JS Hooks
+
+```javascript
+// Showcase hook - initialises GIMME-style diagram engine, handles heartbeat pulses
+Hooks.Showcase
+```
+
+### Project Switching
+
+Use the URL parameter to load a named project:
+
+```
+/showcase            # active project from apm_config.json
+/showcase/ccem       # CCEM APM project
+/showcase/my-app     # Any project with showcase data
+```
+
+Reload showcase data for a project without restarting the server:
+
+```elixir
+ApmV5.ShowcaseDataStore.reload("my-app")
+```
+
+## CcemOverviewLive
+
+**Route**: `/ccem`
+**Module**: `ApmV5Web.CcemOverviewLive`
+
+CCEM Management overview page — the entry point for the CCEM-specific section of the dual-section sidebar nav. Provides quick-access tiles to all CCEM management tools.
+
+### CcemOverviewLive Components
+
+- **Tool Grid**: Quick-access cards for Showcase, Ports, Actions, and Scanner
+- **Dynamic Header**: Branded "CCEM Management" header distinct from APM monitoring pages
+
+### CcemOverviewLive Features
+
+- **Dual-section sidebar**: The sidebar splits into two sections at runtime — **CCEM Management** (Showcase, Ports, Actions, Scanner, `/ccem`) and **APM Monitoring** (Dashboard, Agents, Skills, Ralph, Timeline, etc.)
+- **Active page highlighting**: `/ccem` is highlighted in the CCEM Management section of the sidebar
+- **Navigation hub**: Each tile links to a first-class CCEM management page rather than duplicating content inline
+
+### CcemOverviewLive Navigation Tiles
+
+| Tile | Route | Description |
+|------|-------|-------------|
+| Showcase | `/showcase` | Project showcase with live agent/UPM data |
+| Ports | `/ports` | Port registry and conflict detection |
+| Actions | `/actions` | ActionEngine catalog and run history |
+| Scanner | `/scanner` | Project auto-discovery scanner |
+
+### CcemOverviewLive PubSub Subscriptions
+
+None — the overview page is stateless and renders from static assigns.
+
 ## Sidebar Navigation
 
-All pages include a consistent sidebar with navigation links to all LiveView pages.
+All pages include a consistent sidebar with navigation links to all LiveView pages. The sidebar is split into two sections since v6.0.0.
 
-Navigation entries and their routes:
+### CCEM Management Section
+
+```text
+CCEM             /ccem        (overview hub)
+Showcase         /showcase
+Ports            /ports
+Actions          /actions
+Scanner          /scanner
+```
+
+### APM Monitoring Section
 
 ```text
 Dashboard        /
@@ -391,7 +503,6 @@ Skills           /skills      (with badge count)
 Ralph            /ralph
 Timeline         /timeline
 Formations       /formation
-Ports            /ports
 Docs             /docs
 ```
 

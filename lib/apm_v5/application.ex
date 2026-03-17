@@ -58,6 +58,8 @@ defmodule ApmV5.Application do
       ApmV5.AgUi.DashboardStateSync,
       # Wave 2: Activity tracking (US-016)
       ApmV5.AgUi.ActivityTracker,
+      # Activity log ring buffer (showcase Activity tab)
+      ApmV5.AgentActivityLog,
       # Wave 2: Metrics bridge (US-039)
       ApmV5.AgUi.MetricsBridge,
       # Wave 2: Audit bridge (US-040)

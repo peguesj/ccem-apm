@@ -1,5 +1,27 @@
 defmodule ApmV5Web.PortsLive do
+  @moduledoc """
+  LiveView for the Port Management Dashboard at `/ports`.
+
+  Displays all port assignments registered with `ApmV5.PortManager`, provides
+  conflict detection and one-click reassignment, and allows filtering by status
+  (all / active / clashes) and namespace (web / api / service / tool).
+
+  ## Features
+
+  - Real-time updates via the `apm:ports` PubSub topic
+  - Scan live ports on the host system to refresh active status
+  - Detect and surface port clashes between projects
+  - Assign the next available port in a namespace for a project
+  - Visual port-range utilization bars per namespace
+
+  ## PubSub
+
+  Subscribes to `"apm:ports"` on mount (connected sockets only).
+  Refreshes port map and clashes on `{:port_assigned, _, _}` messages.
+  """
+
   use ApmV5Web, :live_view
+
 
   @impl true
   def mount(_params, _session, socket) do
@@ -218,6 +240,7 @@ defmodule ApmV5Web.PortsLive do
         </div>
       </div>
     </div>
+    <.wizard page="ports" />
     """
   end
 end

@@ -24,6 +24,27 @@
 
   const WAVE_LABELS = { 1: 'Foundation', 2: 'Core', 3: 'Dashboard', 4: 'Tools', 5: 'Integration' };
 
+  // ─── Template Registry ───────────────────────────────────────────────────────
+
+  const TEMPLATES = {
+    "engine": {
+      id: "engine",
+      label: "Architecture View",
+      description: "SVG architecture diagram with feature roadmap",
+      leftContent: "features",
+      centerContent: "architecture",
+      rightContent: "inspector"
+    },
+    "formation": {
+      id: "formation",
+      label: "Formation View",
+      description: "Formation hierarchy with wave/story breakdown",
+      leftContent: "formation-tree",
+      centerContent: "narrative",
+      rightContent: "resource-inspector"
+    }
+  };
+
   const STATUS_COLORS = {
     green:   { dot: 'bg-emerald-500 shadow-emerald-500/60 shadow-sm', text: 'text-emerald-400' },
     amber:   { dot: 'bg-yellow-500 shadow-yellow-500/60 shadow-sm', text: 'text-yellow-400' },
@@ -50,6 +71,24 @@
       this.roadmapOpen = false;
       this.archTab = 'system';
       this.npmSvgCache = null;
+      this.selectedFeatureId = null;
+      this.activeTemplate = config.template || 'engine';
+      this.selectedNarrativeFeature = null;
+      this._templateDropdownOpen = false;
+
+      // Contextual inspector state — set when a feature card is clicked
+      this.selectedFeature = null;
+
+      // Activity tab state
+      this.activityData = { agents: {}, log: [] };
+      this._activityGraphInitialized = false;
+      this._activityLogExpanded = false;
+
+      // Unique instance ID for scoped element IDs
+      this._instanceId = Math.random().toString(36).slice(2, 8);
+
+      // pushEvent bridge — wired by the LiveView hook via setPushEventFn()
+      this.pushEventFn = null;
 
       // Dirty-check caches — prevents redundant innerHTML thrashing on 5s heartbeat
       this._lastApmHash = null;
@@ -75,6 +114,11 @@
         this._featureClickBound = false;
       }
 
+      if (this._activitySimulation) {
+        this._activitySimulation.stop();
+        this._activitySimulation = null;
+      }
+
       this.container.innerHTML = '';
       // Null out all references so closures captured in event listeners
       // (added via addEventListener inside innerHTML) don't hold this alive.
@@ -84,6 +128,9 @@
       this.orchState = null;
       this.liveMap = null;
       this.npmSvgCache = null;
+      this.selectedFeatureId = null;
+      this.selectedFeature = null;
+      this.pushEventFn = null;
     }
 
     // ─── Data Update Methods (called from LiveView hook) ────────────────────────
@@ -100,8 +147,8 @@
       if (data.projectConn) this.apmState.projectConn = data.projectConn;
       this.apmState.lastPoll = new Date();
       this._renderOrchestrationStatus();
-      this._renderInspector();
-      this._renderArchitecture();
+      this._renderRightColumn();
+      this._renderCenterColumn();
     }
 
     updateAgentState(agents) {
@@ -114,7 +161,7 @@
       this.orchState.agentsTotal = this.apmState.agents.length;
       this.orchState.agentsActive = this.apmState.agents.filter(a => a.status === 'active' || a.status === 'working').length;
       this._renderOrchestrationStatus();
-      this._renderInspector();
+      this._renderRightColumn();
     }
 
     updateOrchState(data) {
@@ -133,6 +180,14 @@
       this._renderOrchestrationStatus();
     }
 
+    updateActivityData(data) {
+      if (!this.container) return;
+      this.activityData = data;
+      if (this.archTab === 'activity') {
+        this._renderArchitecture();
+      }
+    }
+
     reinit(data) {
       if (data.features) this.features = data.features;
       if (data.version) this.version = data.version;
@@ -140,6 +195,51 @@
       this.orchState.storiesDone = this.features.length;
       this.orchState.storiesTotal = this.features.length;
       this._renderAll();
+    }
+
+    /**
+     * updateProject — in-place project switch, no DOM skeleton teardown.
+     *
+     * Updates config, features, version, and project, then surgically
+     * re-renders only the orchestration status bar and feature cards.
+     * The container skeleton, event listeners, and center/right panels
+     * are left untouched, eliminating the full-visual-flash on project switch.
+     */
+    updateProject(data) {
+      if (!this.container) return;
+      if (data.features) this.features = data.features;
+      if (data.version) this.version = data.version;
+      if (data.project) this.project = data.project;
+      if (data.config) this.config = Object.assign({}, this.config, data.config);
+      // Keep orchState story counters in sync with new feature set
+      this.orchState.storiesDone = this.features.length;
+      this.orchState.storiesTotal = this.features.length;
+      // Bust dirty-check caches so renders are not skipped
+      this._lastOrchHash = null;
+      this._lastAgentsHash = null;
+      // Surgical in-place update — only touch header bar and left column
+      this._renderOrchestrationStatus();
+      this._renderFeatureCards();
+    }
+
+    /**
+     * setPushEventFn — wire the LiveView pushEvent bridge.
+     * Called from the ShowcaseHook after engine init so the inspector
+     * can push events back to the LiveView (e.g. "inspector:view-formation").
+     */
+    setPushEventFn(fn) {
+      this.pushEventFn = fn;
+    }
+
+    /**
+     * setSelectedFeature — select a feature for contextual inspector display.
+     * Called by the LiveView hook when the server pushes "showcase:inspect-feature",
+     * or directly by the engine when a feature card is clicked.
+     */
+    setSelectedFeature(feature) {
+      if (!this.container) return;
+      this.selectedFeature = feature || null;
+      this._renderInspector();
     }
 
     // ─── Internal ───────────────────────────────────────────────────────────────
@@ -192,10 +292,46 @@
     _renderAll() {
       if (!this.container) return;
       this._renderOrchestrationStatus();
-      this._renderFeatureCards();
-      this._renderArchitecture();
-      this._renderInspector();
+      this._renderLeftColumn();
+      this._renderCenterColumn();
+      this._renderRightColumn();
       this._renderBottomBar();
+    }
+
+    // ─── Template System ─────────────────────────────────────────────────────────
+
+    applyTemplate(templateId) {
+      if (!TEMPLATES[templateId]) return;
+      this.activeTemplate = templateId;
+      this._templateDropdownOpen = false;
+      // Reset narrative selection when switching to formation template
+      if (templateId === 'formation') {
+        this.selectedNarrativeFeature = this.features[0] || null;
+      }
+      this._buildSkeleton();
+      this._renderAll();
+    }
+
+    _renderLeftColumn() {
+      const tmpl = TEMPLATES[this.activeTemplate] || TEMPLATES['engine'];
+      if (tmpl.leftContent === 'formation-tree') {
+        this._renderFormationTree();
+      } else {
+        this._renderFeatureCards();
+      }
+    }
+
+    _renderCenterColumn() {
+      const tmpl = TEMPLATES[this.activeTemplate] || TEMPLATES['engine'];
+      if (tmpl.centerContent === 'narrative') {
+        this._renderNarrative(this.selectedNarrativeFeature);
+      } else {
+        this._renderArchitecture();
+      }
+    }
+
+    _renderRightColumn() {
+      this._renderInspector();
     }
 
     // ─── Orchestration Status Bar ───────────────────────────────────────────────
@@ -265,6 +401,22 @@
           <span class="ml-auto flex-shrink-0 text-[9px] font-mono text-zinc-800 pl-4 mr-3">
             ${this.apmState.apmConn === 'live' ? 'SSE:APM' : this.apmState.apmConn === 'polling' ? 'REST:APM' : 'APM:offline'}
           </span>
+          <div class="relative flex-shrink-0 mr-2" data-sc="template-switcher">
+            <button type="button" data-sc-action="toggle-template-dropdown" class="rounded border border-zinc-700/60 bg-zinc-800/50 px-2.5 py-1 text-[10px] font-mono text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-200 transition flex items-center gap-1">
+              ${TEMPLATES[this.activeTemplate]?.label || 'Template'} &#x25BE;
+            </button>
+            ${this._templateDropdownOpen ? `
+              <div data-sc="template-dropdown" class="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
+                ${Object.values(TEMPLATES).map(t => `
+                  <button type="button" data-sc-action="select-template" data-sc-template="${t.id}"
+                    class="w-full text-left px-3 py-2 text-[10px] font-mono hover:bg-zinc-800 transition ${this.activeTemplate === t.id ? 'text-zinc-200 bg-zinc-800/60' : 'text-zinc-400'}">
+                    <span class="block font-semibold ${this.activeTemplate === t.id ? 'text-zinc-100' : ''}">${t.label}</span>
+                    <span class="block text-zinc-600 text-[9px]">${t.description}</span>
+                  </button>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
           <button type="button" data-sc-action="toggle-roadmap" class="flex-shrink-0 rounded border border-zinc-700/60 bg-zinc-800/50 px-2.5 py-1 text-[10px] font-mono text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-200 transition">
             Roadmap &#x2197;
           </button>
@@ -275,6 +427,31 @@
         this.roadmapOpen = !this.roadmapOpen;
         this._renderRoadmapModal();
       });
+
+      bar.querySelector('[data-sc-action="toggle-template-dropdown"]')?.addEventListener('click', () => {
+        this._templateDropdownOpen = !this._templateDropdownOpen;
+        this._renderOrchestrationStatus();
+      });
+
+      bar.querySelectorAll('[data-sc-action="select-template"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.scTemplate;
+          this.applyTemplate(id);
+        });
+      });
+
+      // Close dropdown on outside click
+      if (this._templateDropdownOpen) {
+        const closeHandler = (e) => {
+          if (!bar.querySelector('[data-sc="template-switcher"]')?.contains(e.target)) {
+            this._templateDropdownOpen = false;
+            this._renderOrchestrationStatus();
+            document.removeEventListener('click', closeHandler, true);
+          }
+        };
+        // Use capture + setTimeout so the button click itself doesn't immediately close
+        setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+      }
     }
 
     // ─── Roadmap Modal ──────────────────────────────────────────────────────────
@@ -431,8 +608,9 @@
         filtered.forEach(f => {
           const c = WAVE_COLORS[f.wave];
           const pkgs = (f.packages || []).map(pkg => `<span class="inline-flex items-center gap-1 rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-400">${pkg.name || pkg}${pkg.stars ? ` <span class="text-zinc-600">${pkg.stars}</span>` : ''}</span>`).join('');
+          const isSelected = this.selectedFeature && this.selectedFeature.id === f.id;
           html += `
-            <div class="rounded-lg border ${f.liveStatus === 'done' ? c.border : 'border-zinc-800'} bg-zinc-900/60 p-3 space-y-2">
+            <div data-sc-feature-id="${f.id}" class="rounded-lg border ${isSelected ? c.border + ' ring-1 ' + c.ring : f.liveStatus === 'done' ? c.border : 'border-zinc-800'} bg-zinc-900/60 p-3 space-y-2 cursor-pointer hover:border-zinc-700 transition-colors">
               <div class="flex items-center gap-2">
                 <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ring-1 ${c.pill}">W${f.wave}</span>
                 <span class="text-[9px] font-mono text-zinc-600">${f.id}</span>
@@ -457,8 +635,9 @@
 
           const storyRows = wFeatures.map(f => {
             const dotColor = statusColor[f.liveStatus].split(' ')[0];
+            const isRowSelected = this.selectedFeature && this.selectedFeature.id === f.id;
             return `
-              <div class="w-full flex items-start gap-2 py-1 px-1.5 rounded hover:bg-zinc-800/50 transition text-left">
+              <div data-sc-feature-id="${f.id}" class="w-full flex items-start gap-2 py-1 px-1.5 rounded hover:bg-zinc-800/50 transition text-left cursor-pointer${isRowSelected ? ' bg-zinc-800/70' : ''}">
                 <span class="flex-shrink-0 text-[9px] font-mono ${dotColor} mt-0.5">${statusDot[f.liveStatus]}</span>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-baseline gap-1.5 flex-wrap">
@@ -517,11 +696,166 @@
           const collapse = e.target.closest('[data-sc-collapse]');
           if (collapse && collapse.nextElementSibling) {
             collapse.nextElementSibling.classList.toggle('hidden');
+            return;
+          }
+
+          // Feature card / hierarchy row selection — drives contextual inspector + center tab
+          const featureCard = e.target.closest('[data-sc-feature-id]');
+          if (featureCard) {
+            const featureId = featureCard.dataset.scFeatureId;
+            const feature = (this.features || []).find(f => f.id === featureId) || null;
+            // Toggle: click the same card again to deselect
+            if (this.selectedFeature && this.selectedFeature.id === featureId) {
+              this.selectedFeature = null;
+              this.selectedFeatureId = null;
+            } else {
+              this.selectedFeature = feature;
+              this.selectedFeatureId = featureId;
+            }
+            if (feature && this.selectedFeatureId) {
+              this._updateCenterForFeature(feature);
+              this._updateInspectorForFeature(feature);
+            } else {
+              this._renderInspector();
+            }
+            // Re-render cards to update selected highlight
+            this._renderFeatureCards();
           }
         };
         container.addEventListener('click', this._featureClickHandler);
         this._featureClickBound = true;
       }
+    }
+
+    // ─── Formation Tree (Left column — "formation" template) ────────────────────
+
+    _renderFormationTree() {
+      const container = this._q('[data-sc="features-container"]');
+      if (!container) return;
+
+      const byWave = {};
+      this.features.forEach(f => { byWave[f.wave] = [...(byWave[f.wave] || []), f]; });
+      const waves = Object.keys(byWave).map(Number).sort((a, b) => a - b);
+
+      const statusDotClass = (f) => {
+        const s = this._resolveStatus(f.id);
+        if (s === 'done') return 'bg-emerald-500';
+        if (s === 'in-progress') return 'bg-blue-500 animate-pulse';
+        return 'bg-zinc-600';
+      };
+
+      let html = '<div class="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur-sm pb-2 border-b border-zinc-800/60 mb-3">'
+        + '<h2 class="text-[11px] font-bold text-zinc-300">Formation Tree</h2>'
+        + '<p class="text-[9px] text-zinc-600 font-mono">' + this.features.length + ' stories \u00b7 ' + waves.length + ' waves</p>'
+        + '</div><div class="space-y-1">';
+
+      waves.forEach(w => {
+        const stories = byWave[w];
+        const c = WAVE_COLORS[w] || WAVE_COLORS[1];
+        const doneCt = stories.filter(s => this._resolveStatus(s.id) === 'done').length;
+        const allDone = doneCt === stories.length;
+        const waveLabel = WAVE_LABELS[w] || ('Wave ' + w);
+
+        const storyItems = stories.map(f => {
+          const isSelected = this.selectedNarrativeFeature && this.selectedNarrativeFeature.id === f.id;
+          const s = this._resolveStatus(f.id);
+          return '<button type="button" data-sc-formation-story="' + f.id + '" class="w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left transition text-[10px] '
+            + (isSelected ? 'bg-zinc-800 text-zinc-200' : 'text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300') + '">'
+            + '<span class="flex-shrink-0 inline-block h-1.5 w-1.5 rounded-full ' + statusDotClass(f) + '"></span>'
+            + '<span class="font-mono text-zinc-700 flex-shrink-0 text-[9px]">' + f.id + '</span>'
+            + '<span class="truncate' + (s === 'done' ? ' line-through decoration-zinc-600' : '') + '">' + f.title + '</span>'
+            + '</button>';
+        }).join('');
+
+        html += '<div class="rounded-lg border border-zinc-800/60 bg-zinc-900/30 overflow-hidden mb-1">'
+          + '<button type="button" data-sc-formation-wave="' + w + '" class="w-full flex items-center gap-2 px-3 py-2 hover:bg-zinc-800/40 transition text-left cursor-pointer">'
+          + '<span class="text-[10px] font-bold ' + c.text + '">W' + w + '</span>'
+          + '<span class="text-[10px] font-medium text-zinc-400">' + waveLabel + '</span>'
+          + '<span class="ml-auto text-[9px] font-mono text-zinc-600">' + doneCt + '/' + stories.length + '</span>'
+          + (allDone ? '<span class="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded ring-1 ' + c.pill + '">DONE</span>' : '')
+          + '</button>'
+          + '<div class="pb-1 border-t border-zinc-800/60" data-sc-wave-stories="' + w + '">' + storyItems + '</div>'
+          + '</div>';
+      });
+
+      html += '</div>';
+      container.innerHTML = html;
+
+      container.querySelectorAll('[data-sc-formation-wave]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const w = btn.dataset.scFormationWave;
+          const storiesEl = container.querySelector('[data-sc-wave-stories="' + w + '"]');
+          if (storiesEl) storiesEl.classList.toggle('hidden');
+        });
+      });
+
+      container.querySelectorAll('[data-sc-formation-story]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.scFormationStory;
+          this.selectedNarrativeFeature = this.features.find(f => f.id === id) || null;
+          this._renderFormationTree();
+          this._renderNarrative(this.selectedNarrativeFeature);
+        });
+      });
+    }
+
+    // ─── Narrative Center Column ("formation" template) ──────────────────────────
+
+    _renderNarrative(feature) {
+      const container = this._q('[data-sc="architecture-container"]');
+      if (!container) return;
+
+      if (!feature) {
+        container.innerHTML = '<div class="flex items-center justify-center h-40 text-zinc-700 text-[11px] font-mono">Select a story from the formation tree</div>';
+        return;
+      }
+
+      const c = WAVE_COLORS[feature.wave] || WAVE_COLORS[1];
+      const status = this._resolveStatus(feature.id);
+      const statusColors = {
+        done: 'text-emerald-400 bg-emerald-500/10 ring-emerald-500/20',
+        'in-progress': 'text-blue-400 bg-blue-500/10 ring-blue-500/20',
+        planned: 'text-zinc-600 bg-zinc-800/40 ring-zinc-700/30'
+      };
+      const statusLabel = { done: 'DONE', 'in-progress': 'IN PROGRESS', planned: 'PLANNED' };
+
+      const pkgs = (feature.packages || []).map(pkg =>
+        '<span class="inline-flex items-center gap-1 rounded bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-400 font-mono">' + (pkg.name || pkg) + '</span>'
+      ).join('');
+
+      const rawCriteria = feature.acceptance_criteria || feature.acceptanceCriteria || [];
+      const criteria = rawCriteria.map(item =>
+        '<li class="flex items-start gap-2 text-[11px] text-zinc-400"><span class="flex-shrink-0 text-emerald-500 mt-0.5">&#x2713;</span><span>' + item + '</span></li>'
+      ).join('');
+
+      const placeholderSvg = '<svg viewBox="0 0 400 80" xmlns="http://www.w3.org/2000/svg" class="w-full opacity-40">'
+        + '<defs><marker id="arr-n" viewBox="0 0 8 6" refX="8" refY="3" markerWidth="6" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L8,3 L0,6" fill="#52525b"/></marker></defs>'
+        + '<rect x="10" y="15" width="100" height="40" rx="6" fill="none" stroke="' + c.stroke + '" stroke-width="1.5" stroke-dasharray="4 3"/>'
+        + '<text x="60" y="39" text-anchor="middle" fill="' + c.stroke + '" font-size="9" font-family="monospace">' + feature.id + '</text>'
+        + '<line x1="110" y1="35" x2="150" y2="35" stroke="#52525b" stroke-width="1" marker-end="url(#arr-n)"/>'
+        + '<rect x="150" y="15" width="100" height="40" rx="6" fill="' + c.hex + '15" stroke="' + c.stroke + '" stroke-width="1.5"/>'
+        + '<text x="200" y="33" text-anchor="middle" fill="' + c.stroke + '" font-size="8" font-family="monospace">Implementation</text>'
+        + '<text x="200" y="47" text-anchor="middle" fill="#a1a1aa" font-size="7" font-family="monospace">W' + feature.wave + '</text>'
+        + '<line x1="250" y1="35" x2="290" y2="35" stroke="#52525b" stroke-width="1" marker-end="url(#arr-n)"/>'
+        + '<rect x="290" y="15" width="100" height="40" rx="6" fill="none" stroke="' + (status === 'done' ? '#10b981' : '#3f3f46') + '" stroke-width="1.5"/>'
+        + '<text x="340" y="39" text-anchor="middle" fill="' + (status === 'done' ? '#10b981' : '#71717a') + '" font-size="9" font-family="monospace">' + statusLabel[status] + '</text>'
+        + '</svg>';
+
+      container.innerHTML = '<div class="space-y-5">'
+        + '<div class="flex items-start justify-between gap-3"><div>'
+        + '<div class="flex items-center gap-2 mb-1">'
+        + '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ring-1 ' + c.pill + '">W' + feature.wave + '</span>'
+        + '<span class="text-[9px] font-mono text-zinc-600">' + feature.id + '</span>'
+        + '<span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ring-1 ' + statusColors[status] + '">' + statusLabel[status] + '</span>'
+        + '</div>'
+        + '<h2 class="text-base font-bold text-zinc-100">' + feature.title + '</h2>'
+        + '</div></div>'
+        + '<p class="text-[12px] text-zinc-400 leading-relaxed">' + (feature.description || 'No description available.') + '</p>'
+        + (criteria ? '<div class="space-y-2"><h3 class="text-[10px] font-bold uppercase tracking-wider text-zinc-600">Acceptance Criteria</h3><ul class="space-y-1.5 pl-1">' + criteria + '</ul></div>' : '')
+        + (pkgs ? '<div class="space-y-2"><h3 class="text-[10px] font-bold uppercase tracking-wider text-zinc-600">DRTW Packages</h3><div class="flex flex-wrap gap-1.5">' + pkgs + '</div></div>' : '')
+        + '<div class="space-y-2"><h3 class="text-[10px] font-bold uppercase tracking-wider text-zinc-600">Story Diagram</h3>'
+        + '<div class="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 overflow-hidden">' + placeholderSvg + '</div>'
+        + '</div></div>';
     }
 
     // ─── Architecture SVG ───────────────────────────────────────────────────────
@@ -565,16 +899,46 @@
               <span class="text-[10px] font-mono text-zinc-600">${agentCount} agents registered</span>
             </div>
           </div>
-          <div class="flex items-center gap-1 rounded-lg bg-zinc-900/80 p-1 ring-1 ring-zinc-800">
+          <div class="flex flex-wrap items-center gap-1 rounded-lg bg-zinc-900/80 p-1 ring-1 ring-zinc-800">
             <button data-sc-arch-tab="system" class="${tabClass('system')}">System</button>
             <button data-sc-arch-tab="npm" class="${tabClass('npm')}">npm Packages</button>
+            <button data-sc-arch-tab="formation-flow" class="${tabClass('formation-flow')}">Formation Flow</button>
+            <button data-sc-arch-tab="upm-flow" class="${tabClass('upm-flow')}">UPM Flow</button>
+            <button data-sc-arch-tab="ralph-flow" class="${tabClass('ralph-flow')}">Ralph Flow</button>
+            <button data-sc-arch-tab="activity" class="${tabClass('activity')}">Activity</button>
           </div>
+          ${(() => {
+            const feat = this.selectedFeature || (this.selectedFeatureId ? (this.features || []).find(f => f.id === this.selectedFeatureId) : null);
+            if (!feat) return '';
+            const fc = WAVE_COLORS[feat.wave] || WAVE_COLORS[1];
+            return `<div class="rounded-lg border ${fc.border} bg-zinc-900/40 px-4 py-3 space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ring-1 ${fc.pill}">W${feat.wave}</span>
+                <span class="text-[9px] font-mono text-zinc-600">${feat.id}</span>
+                ${feat.wave ? '<span class="text-[9px] font-mono text-zinc-600">&middot; ' + (WAVE_LABELS[feat.wave] || '') + '</span>' : ''}
+              </div>
+              <p class="text-[11px] font-semibold text-zinc-200">${feat.title}</p>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">${feat.description}</p>
+            </div>`;
+          })()}
           <div class="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 overflow-hidden">
             <div data-sc-arch="system" style="display:${this.archTab === 'system' ? 'block' : 'none'}">
               ${systemSvg}
             </div>
             <div data-sc-arch="npm" style="display:${this.archTab === 'npm' ? 'block' : 'none'}">
               <div data-sc="npm-svg-host"></div>
+            </div>
+            <div data-sc-arch="formation-flow" style="display:${this.archTab === 'formation-flow' ? 'block' : 'none'}">
+              ${this.archTab === 'formation-flow' ? this._renderFormationFlowTab() : ''}
+            </div>
+            <div data-sc-arch="upm-flow" style="display:${this.archTab === 'upm-flow' ? 'block' : 'none'}">
+              ${this.archTab === 'upm-flow' ? this._renderUpmFlowTab() : ''}
+            </div>
+            <div data-sc-arch="ralph-flow" style="display:${this.archTab === 'ralph-flow' ? 'block' : 'none'}">
+              ${this.archTab === 'ralph-flow' ? this._renderRalphFlowTab() : ''}
+            </div>
+            <div data-sc-arch="activity" style="display:${this.archTab === 'activity' ? 'block' : 'none'}">
+              ${this.archTab === 'activity' ? this._renderActivityTabHtml() : ''}
             </div>
           </div>
         </div>
@@ -587,6 +951,14 @@
           this._renderArchitecture();
         });
       });
+
+      // Activity log toggle
+      if (this.archTab === 'activity') {
+        this._bindActivityLogToggle(container);
+        if (Object.keys(this.activityData.agents || {}).length > 0) {
+          this._renderActivityGraph(container);
+        }
+      }
 
       // Load npm SVG
       if (this.archTab === 'npm') {
@@ -610,20 +982,243 @@
       }
     }
 
+    // ─── Feature Selection Helpers ─────────────────────────────────────────────
+
+    /**
+     * _updateCenterForFeature — switches the center tab to the most relevant view
+     * for the selected feature and re-renders the architecture panel.
+     */
+    _updateCenterForFeature(feature) {
+      const wave = feature.wave || 0;
+      // Wave 1-2 → formation context; US- stories → UPM flow; others → Ralph loop
+      if (wave <= 2) {
+        this.archTab = 'formation-flow';
+      } else if (feature.id && feature.id.toUpperCase().includes('US-')) {
+        this.archTab = 'upm-flow';
+      } else {
+        this.archTab = 'ralph-flow';
+      }
+      this._renderArchitecture();
+    }
+
+    /**
+     * _updateInspectorForFeature — triggers inspector re-render to show feature context.
+     * The inspector reads this.selectedFeature / this.selectedFeatureId.
+     */
+    _updateInspectorForFeature(_feature) {
+      this._renderInspector();
+    }
+
+    // ─── Center Tab Renderers ───────────────────────────────────────────────────
+
+    _renderFormationFlowTab() {
+      const fmtId = this.orchState.formationId
+        ? (this.orchState.formationId.length > 22 ? '…' + this.orchState.formationId.slice(-18) : this.orchState.formationId)
+        : 'fmt-ccem-v6-20260317';
+      const wave = this.orchState.wave || 1;
+      const agentsActive = this.orchState.agentsActive || 0;
+      const waveColor = (WAVE_COLORS[wave] || WAVE_COLORS[1]).hex;
+
+      const nodeW = 110, nodeH = 34, gap = 50, startX = 20, startY = 20;
+      const levels = [
+        { label: 'Session',   color: '#6366f1', stroke: '#818cf8' },
+        { label: 'Formation', color: '#a855f7', stroke: '#c084fc', sub: fmtId },
+        { label: 'Wave ' + wave, color: waveColor, stroke: waveColor + 'cc' },
+        { label: 'Squadron',  color: '#3b82f6', stroke: '#60a5fa' },
+        { label: 'Swarm',     color: '#10b981', stroke: '#34d399', sub: agentsActive > 0 ? agentsActive + ' active' : null },
+        { label: 'Agent',     color: '#f59e0b', stroke: '#fbbf24' },
+        { label: 'Task',      color: '#ef4444', stroke: '#f87171' },
+      ];
+      const svgH = levels.length * (nodeH + gap) - gap + 40;
+      const svgW = nodeW + startX * 2;
+
+      const nodes = levels.map((l, i) => {
+        const y = startY + i * (nodeH + gap);
+        const cx = startX + nodeW / 2;
+        const connector = i < levels.length - 1
+          ? '<line x1="' + cx + '" y1="' + (y + nodeH) + '" x2="' + cx + '" y2="' + (y + nodeH + gap) + '" stroke="#3f3f46" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#fmt-arrow)"/>'
+          : '';
+        const subText = l.sub
+          ? '<text x="' + cx + '" y="' + (y + nodeH + 14) + '" text-anchor="middle" fill="#71717a" font-size="7" font-family="&#39;Fira Code&#39;,monospace">' + l.sub + '</text>'
+          : '';
+        return '<rect x="' + startX + '" y="' + y + '" width="' + nodeW + '" height="' + nodeH + '" rx="6" fill="' + l.color + '18" stroke="' + l.stroke + '" stroke-width="1.5"/>'
+          + '<text x="' + cx + '" y="' + (y + nodeH / 2 + 4) + '" text-anchor="middle" fill="' + l.stroke + '" font-size="10" font-weight="600" font-family="Inter,sans-serif">' + l.label + '</text>'
+          + connector + subText;
+      }).join('');
+
+      return '<svg viewBox="0 0 ' + svgW + ' ' + (svgH + 20) + '" xmlns="http://www.w3.org/2000/svg" class="w-full max-w-xs mx-auto" role="img" aria-label="Formation Hierarchy">'
+        + '<defs><marker id="fmt-arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="7" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,3.5 L0,7" fill="#52525b"/></marker></defs>'
+        + nodes + '</svg>';
+    }
+
+    _renderUpmFlowTab() {
+      const phase = this.orchState.phase || 'build';
+      const wave  = this.orchState.wave || 1;
+      const tsc   = this.orchState.tsc || 'PASS';
+
+      const stages = [
+        { id: 'plan',   label: 'Plan',     color: '#3b82f6', stroke: '#60a5fa' },
+        { id: 'w1',     label: 'Wave 1',   color: '#10b981', stroke: '#34d399' },
+        { id: 'tsc1',   label: 'TSC',      color: '#a855f7', stroke: '#c084fc', gate: true },
+        { id: 'w2',     label: 'Wave 2',   color: '#10b981', stroke: '#34d399' },
+        { id: 'tsc2',   label: 'TSC',      color: '#a855f7', stroke: '#c084fc', gate: true },
+        { id: 'verify', label: 'Verify',   color: '#f59e0b', stroke: '#fbbf24' },
+        { id: 'ship',   label: 'Ship',     color: '#ef4444', stroke: '#f87171' },
+      ];
+
+      let activeIdx = 0;
+      if (phase === 'plan') activeIdx = 0;
+      else if (phase === 'build' && wave <= 1) activeIdx = 1;
+      else if (phase === 'build' && wave >= 2) activeIdx = 3;
+      else if (phase === 'verify') activeIdx = 5;
+      else if (phase === 'ship') activeIdx = 6;
+
+      const boxW = 66, boxH = 38, gap = 18, startY = 30, radius = 6;
+      const totalW = stages.length * (boxW + gap) - gap + 40;
+      const arrowY = startY + boxH / 2;
+
+      const boxes = stages.map((s, i) => {
+        const x = 20 + i * (boxW + gap);
+        const isActive = i === activeIdx;
+        const isDone   = i < activeIdx;
+        const fill     = isActive ? s.color + '30' : isDone ? s.color + '18' : '#18181b';
+        const stroke   = isActive ? s.stroke : isDone ? s.stroke + '80' : '#3f3f46';
+        const textFill = isActive ? s.stroke : isDone ? s.stroke + '99' : '#52525b';
+        const arrow = i < stages.length - 1
+          ? '<line x1="' + (x + boxW) + '" y1="' + arrowY + '" x2="' + (x + boxW + gap) + '" y2="' + arrowY + '" stroke="' + (isDone ? s.stroke + '60' : '#3f3f46') + '" stroke-width="1.5" marker-end="url(#upm-arrow)"/>'
+          : '';
+        const pulse = isActive
+          ? '<circle cx="' + (x + boxW - 7) + '" cy="' + (startY + 7) + '" r="3" fill="' + s.stroke + '"><animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/></circle>'
+          : '';
+        const shape = s.gate
+          ? '<polygon points="' + (x + boxW / 2) + ',' + startY + ' ' + (x + boxW) + ',' + (startY + boxH / 2) + ' ' + (x + boxW / 2) + ',' + (startY + boxH) + ' ' + x + ',' + (startY + boxH / 2) + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>'
+          : '<rect x="' + x + '" y="' + startY + '" width="' + boxW + '" height="' + boxH + '" rx="' + radius + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>';
+        return shape
+          + '<text x="' + (x + boxW / 2) + '" y="' + (startY + boxH / 2 + 4) + '" text-anchor="middle" fill="' + textFill + '" font-size="9" font-weight="' + (isActive ? '700' : '500') + '" font-family="Inter,sans-serif">' + s.label + '</text>'
+          + pulse + arrow;
+      }).join('');
+
+      const tscBadge = '<text x="' + (totalW / 2) + '" y="' + (startY + boxH + 24) + '" text-anchor="middle" fill="' + (tsc === 'PASS' ? '#10b981' : '#ef4444') + '" font-size="9" font-family="&#39;Fira Code&#39;,monospace">tsc: ' + tsc + '</text>';
+
+      return '<svg viewBox="0 0 ' + totalW + ' ' + (startY + boxH + 40) + '" xmlns="http://www.w3.org/2000/svg" class="w-full" role="img" aria-label="UPM Workflow Pipeline">'
+        + '<defs><marker id="upm-arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="7" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,3.5 L0,7" fill="#52525b"/></marker></defs>'
+        + boxes + tscBadge + '</svg>';
+    }
+
+    _renderRalphFlowTab() {
+      const phase = this.orchState.phase || 'build';
+
+      const steps = [
+        { label: 'Read PRD',   color: '#6366f1', stroke: '#818cf8' },
+        { label: 'Find Story', color: '#3b82f6', stroke: '#60a5fa' },
+        { label: 'Implement',  color: '#10b981', stroke: '#34d399' },
+        { label: 'Compile',    color: '#a855f7', stroke: '#c084fc' },
+        { label: 'Test',       color: '#f59e0b', stroke: '#fbbf24' },
+        { label: 'Commit',     color: '#ef4444', stroke: '#f87171' },
+        { label: 'Update PRD', color: '#6366f1', stroke: '#818cf8' },
+      ];
+
+      const phaseMap = { plan: 0, build: 2, verify: 4, ship: 6 };
+      const activeIdx = phaseMap[phase] !== undefined ? phaseMap[phase] : 2;
+
+      const cx = 200, cy = 150, rx = 140, ry = 110, n = steps.length, boxW = 80, boxH = 28;
+
+      const nodes = steps.map((s, i) => {
+        const angle  = (2 * Math.PI * i / n) - Math.PI / 2;
+        const nx = cx + rx * Math.cos(angle);
+        const ny = cy + ry * Math.sin(angle);
+        const isActive = i === activeIdx;
+        const fill     = isActive ? s.color + '30' : '#18181b';
+        const stroke   = isActive ? s.stroke : '#3f3f46';
+        const textFill = isActive ? s.stroke : '#52525b';
+        const pulse = isActive
+          ? '<circle cx="' + nx.toFixed(1) + '" cy="' + ny.toFixed(1) + '" r="' + (boxW / 2 + 4) + '" fill="none" stroke="' + s.stroke + '" stroke-width="1" opacity="0.4"><animate attributeName="r" from="' + (boxW / 2) + '" to="' + (boxW / 2 + 8) + '" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" from="0.4" to="0" dur="2s" repeatCount="indefinite"/></circle>'
+          : '';
+        const nextAngle = (2 * Math.PI * ((i + 1) % n) / n) - Math.PI / 2;
+        const nx2 = cx + rx * Math.cos(nextAngle);
+        const ny2 = cy + ry * Math.sin(nextAngle);
+        const connector = '<path d="M' + nx.toFixed(1) + ',' + ny.toFixed(1) + ' Q' + cx + ',' + cy + ' ' + nx2.toFixed(1) + ',' + ny2.toFixed(1) + '" fill="none" stroke="' + (isActive ? s.stroke + '60' : '#27272a') + '" stroke-width="1.5" marker-end="url(#ralph-arrow)"/>';
+        return pulse
+          + '<rect x="' + (nx - boxW / 2).toFixed(1) + '" y="' + (ny - boxH / 2).toFixed(1) + '" width="' + boxW + '" height="' + boxH + '" rx="5" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>'
+          + '<text x="' + nx.toFixed(1) + '" y="' + (ny + 5).toFixed(1) + '" text-anchor="middle" fill="' + textFill + '" font-size="9" font-weight="' + (isActive ? '700' : '500') + '" font-family="Inter,sans-serif">' + s.label + '</text>'
+          + connector;
+      }).join('');
+
+      return '<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" class="w-full" role="img" aria-label="Ralph Autonomous Agent Loop">'
+        + '<defs><marker id="ralph-arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="7" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,3.5 L0,7" fill="#52525b"/></marker></defs>'
+        + '<circle cx="' + cx + '" cy="' + cy + '" r="55" fill="none" stroke="#27272a" stroke-width="1" stroke-dasharray="6 4"/>'
+        + '<text x="' + cx + '" y="' + (cy - 8) + '" text-anchor="middle" fill="#52525b" font-size="8" font-family="&#39;Fira Code&#39;,monospace">ralph</text>'
+        + '<text x="' + cx + '" y="' + (cy + 8) + '" text-anchor="middle" fill="#3f3f46" font-size="8" font-family="Inter,sans-serif">autonomous loop</text>'
+        + nodes + '</svg>';
+    }
+
+    // ─── Lottie Loader ─────────────────────────────────────────────────────────
+
+    _loadLottie(host) {
+      if (window.lottie) { this._attachLottieAnimation(host); return; }
+      if (this._lottieLoading) return;
+      this._lottieLoading = true;
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js';
+      script.crossOrigin = 'anonymous';
+      script.onload = () => {
+        this._lottieLoading = false;
+        const liveHost = host.isConnected ? host : (this.container && this.container.querySelector('[id^="sc-lottie-host-"]'));
+        if (liveHost) this._attachLottieAnimation(liveHost);
+      };
+      script.onerror = () => { this._lottieLoading = false; };
+      document.head.appendChild(script);
+    }
+
+    _attachLottieAnimation(host) {
+      if (!window.lottie || !host) return;
+      host.innerHTML = '';
+      const animData = {
+        v: '5.7.4', fr: 30, ip: 0, op: 60, w: 32, h: 32, nm: 'pulse', ddd: 0, assets: [],
+        layers: [0, 1, 2].map((i) => ({
+          ddd: 0, ind: i + 1, ty: 4, nm: 'dot' + i,
+          ks: {
+            o: { a: 1, k: [{ t: i * 10, s: [20], e: [80] }, { t: i * 10 + 20, s: [80], e: [20] }, { t: 60, s: [20] }] },
+            r: { a: 0, k: 0 }, p: { a: 0, k: [8 + i * 8, 16, 0] },
+            a: { a: 0, k: [0, 0, 0] }, s: { a: 0, k: [100, 100, 100] }
+          },
+          shapes: [
+            { ty: 'el', nm: 'Ellipse', p: { a: 0, k: [0, 0] }, s: { a: 0, k: [6, 6] } },
+            { ty: 'fl', nm: 'Fill', c: { a: 0, k: [0.063, 0.725, 0.506, 1] }, o: { a: 0, k: 100 } }
+          ],
+          ip: 0, op: 60, st: 0
+        }))
+      };
+      try { window.lottie.loadAnimation({ container: host, renderer: 'svg', loop: true, autoplay: true, animationData: animData }); }
+      catch (_e) { /* CSS fallback remains */ }
+    }
+
     // ─── Inspector Panel (Right) ────────────────────────────────────────────────
+
+    // Shared helpers — used by both default and feature inspector views.
+    _inspectorSection(title, content) {
+      return `<div class="space-y-1"><h3 class="text-[10px] font-bold uppercase tracking-wider text-zinc-600">${title}</h3><div class="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 divide-y divide-zinc-800/60">${content}</div></div>`;
+    }
+
+    _inspectorRow(label, value, dot) {
+      const dotHtml = dot ? `<span class="inline-block h-2 w-2 flex-shrink-0 rounded-full ${STATUS_COLORS[dot]?.dot || ''}"></span>` : '';
+      return `<div class="flex items-center justify-between py-1.5"><div class="flex items-center gap-2">${dotHtml}<span class="text-xs text-zinc-400">${label}</span></div><span class="font-mono text-[10px] text-zinc-300 truncate max-w-[140px]" title="${value}">${value}</span></div>`;
+    }
 
     _renderInspector() {
       const container = this._q('[data-sc="inspector-container"]');
       if (!container) return;
 
+      // Route to contextual feature inspector when a feature is selected
+      const selectedFeat = this.selectedFeature || (this.selectedFeatureId ? (this.features || []).find(f => f.id === this.selectedFeatureId) : null);
+      if (selectedFeat) {
+        this._renderInspectorForFeature(selectedFeat, container);
+        return;
+      }
+
+      // Default inspector — APM health, services, stack info
       const now = this.apmState.lastPoll ? this.apmState.lastPoll.toLocaleTimeString() : 'waiting...';
       const overall = this.apmState.connected ? 'green' : 'red';
-
-      const inspectorSection = (title, content) =>
-        `<div class="space-y-1"><h3 class="text-[10px] font-bold uppercase tracking-wider text-zinc-600">${title}</h3><div class="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 divide-y divide-zinc-800/60">${content}</div></div>`;
-
-      const inspectorRow = (label, value, dot) =>
-        `<div class="flex items-center justify-between py-1.5"><div class="flex items-center gap-2">${dot ? `<span class="inline-block h-2 w-2 flex-shrink-0 rounded-full ${STATUS_COLORS[dot]?.dot || ''}"></span>` : ''}<span class="text-xs text-zinc-400">${label}</span></div><span class="font-mono text-[10px] text-zinc-300 truncate max-w-[140px]" title="${value}">${value}</span></div>`;
 
       let html = `
         <div class="flex items-center justify-between">
@@ -633,7 +1228,10 @@
             <span class="text-[10px] text-zinc-600">${now}</span>
           </div>
         </div>
-        <p class="text-[10px] text-zinc-600">Real-time via PubSub</p>
+        <p class="text-[10px] text-zinc-600 flex items-center gap-1.5">
+          <span class="text-zinc-700">&#x2190;</span>
+          <span>Select an item to inspect</span>
+        </p>
       `;
 
       const services = [
@@ -641,28 +1239,362 @@
         { label: 'AG-UI EventRouter', status: this.apmState.connected ? 'green' : 'unknown', detail: this.apmState.connected ? 'routing' : 'unknown' },
         { label: 'CCEMAgent', status: 'amber', detail: 'menubar app' },
       ];
-      html += inspectorSection('Services', services.map(s => `<div class="flex items-center justify-between py-1.5"><div class="flex items-center gap-2 min-w-0"><span class="inline-block h-2 w-2 flex-shrink-0 rounded-full ${STATUS_COLORS[s.status].dot}"></span><span class="text-xs text-zinc-300 truncate">${s.label}</span></div><span class="text-[10px] font-mono ${STATUS_COLORS[s.status].text} truncate max-w-[140px]">${s.detail}</span></div>`).join(''));
+      html += this._inspectorSection('Services', services.map(s => `<div class="flex items-center justify-between py-1.5"><div class="flex items-center gap-2 min-w-0"><span class="inline-block h-2 w-2 flex-shrink-0 rounded-full ${STATUS_COLORS[s.status].dot}"></span><span class="text-xs text-zinc-300 truncate">${s.label}</span></div><span class="text-[10px] font-mono ${STATUS_COLORS[s.status].text} truncate max-w-[140px]">${s.detail}</span></div>`).join(''));
 
       if (this.apmState.status) {
         const st = this.apmState.status;
-        html += inspectorSection('APM Status', [
-          inspectorRow('Server', st.server || 'APM v5', 'green'),
-          inspectorRow('Uptime', st.uptime || 'unknown'),
-          inspectorRow('Agents', String(this.apmState.agents?.length || 0)),
-          inspectorRow('Version', st.version || this.version),
+        html += this._inspectorSection('APM Status', [
+          this._inspectorRow('Server', st.server || 'APM v5', 'green'),
+          this._inspectorRow('Uptime', st.uptime || 'unknown'),
+          this._inspectorRow('Agents', String(this.apmState.agents?.length || 0)),
+          this._inspectorRow('Version', st.version || this.version),
         ].join(''));
       }
 
       if (this.apmState.agents && this.apmState.agents.length > 0) {
-        html += inspectorSection(`Agents (${this.apmState.agents.length})`, this.apmState.agents.slice(0, 8).map(a => `<div class="flex items-center justify-between py-1.5"><div class="flex items-center gap-2 min-w-0"><span class="inline-block h-2 w-2 flex-shrink-0 rounded-full ${a.status === 'active' ? STATUS_COLORS.green.dot : STATUS_COLORS.unknown.dot}"></span><span class="text-[10px] text-zinc-400 truncate font-mono">${a.agent_id || a.id || 'unknown'}</span></div><span class="text-[9px] font-mono text-zinc-600">${a.status || 'idle'}</span></div>`).join(''));
+        html += this._inspectorSection(`Agents (${this.apmState.agents.length})`, this.apmState.agents.slice(0, 8).map(a => `<div class="flex items-center justify-between py-1.5"><div class="flex items-center gap-2 min-w-0"><span class="inline-block h-2 w-2 flex-shrink-0 rounded-full ${a.status === 'active' ? STATUS_COLORS.green.dot : STATUS_COLORS.unknown.dot}"></span><span class="text-[10px] text-zinc-400 truncate font-mono">${a.agent_id || a.id || 'unknown'}</span></div><span class="text-[9px] font-mono text-zinc-600">${a.status || 'idle'}</span></div>`).join(''));
       }
 
-      html += inspectorSection('Git', [inspectorRow('Branch', 'main'), inspectorRow('Version', this.version), inspectorRow('Repo', 'peguesj/ccem-apm')].join(''));
-      html += inspectorSection('Stack', [inspectorRow('Runtime', 'Elixir/OTP 27'), inspectorRow('Framework', 'Phoenix 1.7'), inspectorRow('UI', 'LiveView + daisyUI'), inspectorRow('Protocol', 'AG-UI (ag_ui_ex)'), inspectorRow('Agent', 'Swift/AppKit'), inspectorRow('Installer', 'Bash modular')].join(''));
-      html += inspectorSection('DRTW Libraries', [inspectorRow('ag_ui_ex', 'v0.1.0 (Hex)'), inspectorRow('Phoenix', 'v1.7.x'), inspectorRow('LiveView', 'v1.0.x'), inspectorRow('Jason', 'JSON codec'), inspectorRow('Bandit', 'HTTP server'), inspectorRow('Tailwind', 'v3.x')].join(''));
-      html += inspectorSection('Key Endpoints', [inspectorRow('/api/status', 'GET', 'green'), inspectorRow('/api/agents', 'GET', 'green'), inspectorRow('/api/register', 'POST', 'green'), inspectorRow('/api/heartbeat', 'POST', 'green'), inspectorRow('/api/ag-ui/events', 'SSE', 'green'), inspectorRow('/api/v2/openapi.json', 'GET', 'green'), inspectorRow('/uat', 'LiveView', 'green')].join(''));
+      html += this._inspectorSection('Git', [this._inspectorRow('Branch', 'main'), this._inspectorRow('Version', this.version), this._inspectorRow('Repo', 'peguesj/ccem-apm')].join(''));
+      html += this._inspectorSection('Stack', [this._inspectorRow('Runtime', 'Elixir/OTP 27'), this._inspectorRow('Framework', 'Phoenix 1.7'), this._inspectorRow('UI', 'LiveView + daisyUI'), this._inspectorRow('Protocol', 'AG-UI (ag_ui_ex)'), this._inspectorRow('Agent', 'Swift/AppKit'), this._inspectorRow('Installer', 'Bash modular')].join(''));
+      html += this._inspectorSection('DRTW Libraries', [this._inspectorRow('ag_ui_ex', 'v0.1.0 (Hex)'), this._inspectorRow('Phoenix', 'v1.7.x'), this._inspectorRow('LiveView', 'v1.0.x'), this._inspectorRow('Jason', 'JSON codec'), this._inspectorRow('Bandit', 'HTTP server'), this._inspectorRow('Tailwind', 'v3.x')].join(''));
+      html += this._inspectorSection('Key Endpoints', [this._inspectorRow('/api/status', 'GET', 'green'), this._inspectorRow('/api/agents', 'GET', 'green'), this._inspectorRow('/api/register', 'POST', 'green'), this._inspectorRow('/api/heartbeat', 'POST', 'green'), this._inspectorRow('/api/ag-ui/events', 'SSE', 'green'), this._inspectorRow('/api/v2/openapi.json', 'GET', 'green'), this._inspectorRow('/uat', 'LiveView', 'green')].join(''));
+
+      // CSS-only pulsing active status (no Lottie dependency)
+      const showActive = this.apmState.connected && (this.orchState.wave > 0);
+      if (showActive) {
+        html += '<div class="space-y-1">'
+          + '<h3 class="text-[10px] font-bold uppercase tracking-wider text-zinc-600">Active Status</h3>'
+          + '<div class="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 flex items-center gap-3">'
+          + '<span class="sc-status-pulse flex-shrink-0"></span>'
+          + '<div><div class="text-[10px] font-semibold text-emerald-400">Active</div>'
+          + '<div class="text-[9px] text-zinc-600 font-mono">W' + this.orchState.wave + '/' + this.orchState.totalWaves + ' &middot; ' + this.orchState.agentsActive + ' agents</div>'
+          + '</div></div></div>';
+      }
 
       container.innerHTML = html;
+    }
+
+    /**
+     * _renderInspectorForFeature — contextual right-panel inspector for a selected feature.
+     *
+     * Renders: feature header (ID badge, title, status dot, wave badge), full description,
+     * acceptance criteria checklist, related agents (filtered by story_id), timing rows,
+     * status history mini-timeline (CSS-only pulsing dot for active status),
+     * and action buttons: "View Formation" (pushes event to LiveView) + "Copy ID".
+     *
+     * Called by _renderInspector() when this.selectedFeature is set.
+     * Deselect via the × button restores the default inspector.
+     */
+    _renderInspectorForFeature(feature, container) {
+      const c = WAVE_COLORS[feature.wave] || WAVE_COLORS[1];
+      const status = this._resolveStatus(feature.id);
+      const statusLabel = { done: 'DONE', 'in-progress': 'IN PROGRESS', planned: 'PLANNED' };
+      const statusColor = {
+        done: 'text-emerald-400 bg-emerald-500/10 ring-emerald-500/20',
+        'in-progress': 'text-blue-400 bg-blue-500/10 ring-blue-500/20',
+        planned: 'text-zinc-500 bg-zinc-800/40 ring-zinc-700/30'
+      };
+      const isActive = status === 'in-progress';
+
+      // Related agents — filtered by story_id matching feature.id
+      const relatedAgents = (this.apmState.agents || []).filter(a => a.story_id === feature.id);
+
+      // Acceptance criteria
+      const criteria = feature.acceptance_criteria || feature.criteria || [];
+
+      // Relative time helper
+      function relTime(iso) {
+        if (!iso) return null;
+        const diff = Date.now() - new Date(iso).getTime();
+        const sec = Math.floor(diff / 1000);
+        if (sec < 60) return sec + 's ago';
+        const min = Math.floor(sec / 60);
+        if (min < 60) return min + 'm ago';
+        const hr = Math.floor(min / 60);
+        if (hr < 24) return hr + 'h ago';
+        return Math.floor(hr / 24) + 'd ago';
+      }
+
+      // Status history mini-timeline — up to 5 entries; CSS-only animation
+      const history = feature.status_history || [];
+      const activeDotClass = 'h-2 w-2 rounded-full bg-blue-400 animate-pulse shadow-sm shadow-blue-400/60 flex-shrink-0';
+      const doneDotClass = 'h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0';
+      const idleDotClass = 'h-2 w-2 rounded-full bg-zinc-600 flex-shrink-0';
+
+      let timelineItems;
+      if (history.length > 0) {
+        timelineItems = history.slice(-5).map((h, i, arr) => {
+          const isLast = i === arr.length - 1;
+          const dotClass = isLast && isActive ? activeDotClass : isLast && status === 'done' ? doneDotClass : idleDotClass;
+          const label = typeof h === 'object' ? (h.status || h.label || JSON.stringify(h)) : String(h);
+          const ts = h.at ? relTime(h.at) : null;
+          return '<div class="flex items-center gap-1.5 min-w-0">'
+            + '<span class="' + dotClass + '"></span>'
+            + '<span class="text-[9px] font-mono text-zinc-500 truncate">' + label + '</span>'
+            + (ts ? '<span class="text-[8px] text-zinc-700 ml-auto flex-shrink-0">' + ts + '</span>' : '')
+            + '</div>';
+        }).join('');
+      } else {
+        const currentDotClass = isActive ? activeDotClass : status === 'done' ? doneDotClass : idleDotClass;
+        timelineItems = '<div class="flex items-center gap-1.5">'
+          + '<span class="' + currentDotClass + '"></span>'
+          + '<span class="text-[9px] font-mono text-zinc-500">Current: ' + (statusLabel[status] || status) + '</span>'
+          + '</div>';
+      }
+
+      // Feature header card
+      let html = `
+        <div class="flex items-start justify-between gap-2 mb-1">
+          <h2 class="text-sm font-bold text-zinc-300 leading-tight">Feature Inspector</h2>
+          <button type="button" data-sc-inspector-deselect
+            class="flex-shrink-0 text-zinc-600 hover:text-zinc-400 transition text-sm leading-none mt-0.5"
+            title="Back to default inspector">&times;</button>
+        </div>
+
+        <div class="rounded-lg border ${c.border} bg-zinc-900/60 p-3 space-y-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ring-1 ${c.pill}">W${feature.wave}</span>
+            <span class="text-[9px] font-mono text-zinc-500">${feature.id}</span>
+            <span class="ml-auto text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ring-1 ${statusColor[status] || ''}">${statusLabel[status] || status}</span>
+          </div>
+          <h3 class="text-[12px] font-semibold text-zinc-200 leading-snug">${feature.title}</h3>
+          ${feature.description ? `<p class="text-[10px] text-zinc-500 leading-relaxed">${feature.description}</p>` : ''}
+        </div>
+      `;
+
+      // Acceptance criteria checklist
+      if (criteria.length > 0) {
+        const rows = criteria.map(item => {
+          const text = typeof item === 'object' ? (item.text || item.description || JSON.stringify(item)) : String(item);
+          const done = typeof item === 'object' && item.done;
+          return '<div class="flex items-start gap-2 py-1.5">'
+            + '<span class="flex-shrink-0 mt-0.5 text-[10px] ' + (done ? 'text-emerald-500' : 'text-zinc-600') + '">' + (done ? '&#x2713;' : '&#x25CB;') + '</span>'
+            + '<span class="text-[10px] ' + (done ? 'text-zinc-500 line-through decoration-zinc-600' : 'text-zinc-400') + ' leading-relaxed">' + text + '</span>'
+            + '</div>';
+        }).join('');
+        html += this._inspectorSection('Acceptance Criteria (' + criteria.length + ')', rows);
+      }
+
+      // Related agents
+      if (relatedAgents.length > 0) {
+        const agentRows = relatedAgents.slice(0, 6).map(a => {
+          const dotCls = (a.status === 'active' || a.status === 'working') ? STATUS_COLORS.green.dot : STATUS_COLORS.unknown.dot;
+          return '<div class="flex items-center justify-between py-1.5"><div class="flex items-center gap-2 min-w-0">'
+            + '<span class="inline-block h-2 w-2 flex-shrink-0 rounded-full ' + dotCls + '"></span>'
+            + '<span class="text-[10px] text-zinc-400 truncate font-mono">' + (a.agent_id || a.id || 'unknown') + '</span>'
+            + '</div><span class="text-[9px] font-mono text-zinc-600">' + (a.status || 'idle') + '</span></div>';
+        }).join('');
+        html += this._inspectorSection('Related Agents (' + relatedAgents.length + ')', agentRows);
+      } else {
+        html += this._inspectorSection('Related Agents', '<div class="py-2 text-[10px] text-zinc-700 font-mono">No agents assigned</div>');
+      }
+
+      // Timing (only if timestamps present on the feature)
+      const timingRows = [];
+      if (feature.started_at) timingRows.push(this._inspectorRow('Started', relTime(feature.started_at) || feature.started_at));
+      if (feature.completed_at) timingRows.push(this._inspectorRow('Completed', relTime(feature.completed_at) || feature.completed_at));
+      if (feature.due_at) timingRows.push(this._inspectorRow('Due', relTime(feature.due_at) || feature.due_at));
+      if (timingRows.length > 0) {
+        html += this._inspectorSection('Timing', timingRows.join(''));
+      }
+
+      // Status history mini-timeline (CSS-only, no Lottie)
+      html += '<div class="space-y-1">'
+        + '<h3 class="text-[10px] font-bold uppercase tracking-wider text-zinc-600">Status History</h3>'
+        + '<div class="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 space-y-1.5">'
+        + timelineItems
+        + '</div></div>';
+
+      // Action buttons
+      html += '<div class="space-y-1">'
+        + '<h3 class="text-[10px] font-bold uppercase tracking-wider text-zinc-600">Actions</h3>'
+        + '<div class="flex flex-col gap-1.5">'
+        + '<button type="button" data-sc-inspector-action="view-formation"'
+        + ' class="w-full text-left rounded-lg border border-zinc-700/60 bg-zinc-800/50 px-3 py-2 text-[10px] font-mono text-zinc-300 hover:bg-zinc-700/60 hover:text-zinc-100 transition flex items-center justify-between">'
+        + 'View Formation<span class="text-zinc-600">&#x2197;</span></button>'
+        + '<button type="button" data-sc-inspector-action="copy-id"'
+        + ' class="w-full text-left rounded-lg border border-zinc-700/60 bg-zinc-800/50 px-3 py-2 text-[10px] font-mono text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-200 transition flex items-center justify-between gap-2">'
+        + '<span>Copy ID</span><span class="text-zinc-600 truncate">' + feature.id + '</span><span class="text-zinc-600 flex-shrink-0">&#x2398;</span>'
+        + '</button></div></div>';
+
+      container.innerHTML = html;
+
+      // × deselect — restore default inspector
+      container.querySelector('[data-sc-inspector-deselect]')?.addEventListener('click', () => {
+        this.selectedFeature = null;
+        this.selectedFeatureId = null;
+        this._renderInspector();
+        this._renderFeatureCards();
+      });
+
+      // View Formation — push event to LiveView via bridge
+      container.querySelector('[data-sc-inspector-action="view-formation"]')?.addEventListener('click', () => {
+        if (this.pushEventFn) {
+          this.pushEventFn('inspector:view-formation', { id: feature.id });
+        }
+      });
+
+      // Copy ID — clipboard with brief confirmation
+      container.querySelector('[data-sc-inspector-action="copy-id"]')?.addEventListener('click', (e) => {
+        const btn = e.currentTarget;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(feature.id).then(() => {
+            const prev = btn.innerHTML;
+            btn.innerHTML = '<span class="text-emerald-400">Copied!</span>';
+            setTimeout(() => { btn.innerHTML = prev; }, 1400);
+          }).catch(() => {});
+        }
+      });
+    }
+
+    // ─── Activity Tab ───────────────────────────────────────────────────────────
+
+    _renderActivityTabHtml() {
+      return `
+        <div class="activity-panel" style="display:flex;flex-direction:column;height:100%;gap:0;min-height:260px;">
+          <div class="activity-graph-container" id="activity-graph-${this._instanceId}"
+               style="flex:1;min-height:200px;position:relative;background:#0f172a;border-radius:6px;">
+            <div class="activity-graph-empty" style="display:flex;align-items:center;justify-content:center;height:100%;min-height:200px;color:rgba(148,163,184,0.4);font-size:12px;">
+              No active agents
+            </div>
+          </div>
+          <div class="activity-log-toggle" id="activity-log-toggle-${this._instanceId}"
+               style="border-top:1px solid rgba(100,116,139,0.3);padding:6px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:#1e293b;font-size:11px;color:#94a3b8;margin-top:4px;border-radius:0 0 4px 4px;">
+            <span>Action Log (${this.activityData.log?.length || 0} recent)</span>
+            <span class="log-chevron">${this._activityLogExpanded ? '▲' : '▼'}</span>
+          </div>
+          <div class="activity-log-panel" id="activity-log-${this._instanceId}"
+               style="height:${this._activityLogExpanded ? '180px' : '0'};overflow:hidden;transition:height 0.2s ease;background:#0f172a;border-radius:0 0 6px 6px;">
+            ${this._renderLogEntries()}
+          </div>
+        </div>
+      `;
+    }
+
+    _bindActivityLogToggle(container) {
+      const toggle = container.querySelector(`#activity-log-toggle-${this._instanceId}`);
+      if (!toggle) return;
+      toggle.addEventListener('click', () => {
+        this._activityLogExpanded = !this._activityLogExpanded;
+        const panel = container.querySelector(`#activity-log-${this._instanceId}`);
+        const chevron = toggle.querySelector('.log-chevron');
+        if (panel) panel.style.height = this._activityLogExpanded ? '180px' : '0';
+        if (chevron) chevron.textContent = this._activityLogExpanded ? '▲' : '▼';
+        const header = toggle.querySelector('span');
+        if (header) header.textContent = `Action Log (${this.activityData.log?.length || 0} recent)`;
+      });
+    }
+
+    _renderLogEntries() {
+      const entries = (this.activityData.log || []).slice(0, 30);
+      if (entries.length === 0) return '<div style="padding:8px 12px;font-size:11px;color:rgba(148,163,184,0.4);">No recent activity</div>';
+
+      const statusColors = {
+        'TOOL_CALL_START': '#6366f1', 'TOOL_CALL_END': '#22d3ee',
+        'THINKING_START': '#f59e0b', 'THINKING_END': '#f59e0b',
+        'TEXT_MESSAGE_START': '#10b981', 'TEXT_MESSAGE_END': '#10b981',
+        'STEP_STARTED': '#8b5cf6', 'STEP_FINISHED': '#8b5cf6',
+        'RUN_STARTED': '#34d399', 'RUN_FINISHED': '#64748b', 'RUN_ERROR': '#ef4444'
+      };
+
+      return `<div style="overflow-y:auto;height:100%;padding:4px 0;">${entries.map(e => `
+        <div style="padding:3px 12px;display:flex;align-items:center;gap:8px;font-size:10px;border-bottom:1px solid rgba(100,116,139,0.1);">
+          <span style="background:${statusColors[e.event_type] || '#475569'};color:#fff;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:9px;white-space:nowrap;flex-shrink:0;">${(e.event_type || 'EVENT').replace('_', ' ')}</span>
+          <span style="color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.description || ''}</span>
+          <span style="color:#475569;margin-left:auto;white-space:nowrap;flex-shrink:0;">${(e.agent_id || '').slice(0, 8)}</span>
+        </div>
+      `).join('')}</div>`;
+    }
+
+    _renderActivityGraph(container) {
+      const containerId = `activity-graph-${this._instanceId}`;
+      const graphEl = (container || this._q('[data-sc="architecture-container"]'))?.querySelector('#' + containerId);
+      if (!graphEl) return;
+
+      const agents = Object.entries(this.activityData.agents || {}).map(([id, activity]) => ({
+        id,
+        shortId: id.slice(0, 8),
+        status: activity.status || 'idle',
+        description: activity.tool_name || activity.step_name || activity.status || 'idle'
+      }));
+
+      if (agents.length === 0) return;
+
+      const empty = graphEl.querySelector('.activity-graph-empty');
+      if (empty) empty.style.display = 'none';
+
+      const rect = graphEl.getBoundingClientRect();
+      const W = rect.width || 400, H = rect.height || 200;
+
+      const d3 = window.d3;
+      if (!d3) {
+        graphEl.innerHTML = agents.map(a => `<div style="padding:4px 8px;font-size:10px;color:#94a3b8;">${a.shortId} — ${a.status}</div>`).join('');
+        return;
+      }
+
+      const existingSvg = graphEl.querySelector('svg.activity-svg');
+      if (existingSvg) existingSvg.remove();
+
+      const svg = d3.select(graphEl).append('svg')
+        .attr('class', 'activity-svg')
+        .attr('width', W).attr('height', H)
+        .style('position', 'absolute').style('top', 0).style('left', 0);
+
+      const statusColor = (s) => ({
+        idle: '#475569', thinking: '#f59e0b', executing_tool: '#6366f1',
+        starting: '#34d399', working: '#8b5cf6', responding: '#10b981',
+        completed: '#64748b', error: '#ef4444'
+      }[s] || '#475569');
+
+      const simulation = d3.forceSimulation(agents)
+        .force('charge', d3.forceManyBody().strength(-80))
+        .force('center', d3.forceCenter(W / 2, H / 2))
+        .force('collision', d3.forceCollide().radius(28))
+        .on('tick', ticked);
+
+      const node = svg.selectAll('g.agent-node')
+        .data(agents).join('g').attr('class', 'agent-node');
+
+      node.filter(d => d.status !== 'idle' && d.status !== 'completed')
+        .append('circle')
+        .attr('r', 22).attr('fill', 'none')
+        .attr('stroke', d => statusColor(d.status)).attr('stroke-width', 1.5)
+        .attr('opacity', 0.3)
+        .attr('class', 'pulse-ring');
+
+      node.append('circle')
+        .attr('r', 16)
+        .attr('fill', d => statusColor(d.status))
+        .attr('opacity', 0.85);
+
+      node.append('text')
+        .attr('text-anchor', 'middle').attr('dy', '0.35em')
+        .attr('fill', '#e2e8f0').attr('font-size', '8px').attr('font-family', 'monospace')
+        .text(d => d.shortId);
+
+      node.append('text')
+        .attr('text-anchor', 'middle').attr('dy', '28px')
+        .attr('fill', '#94a3b8').attr('font-size', '9px')
+        .text(d => d.status);
+
+      function ticked() {
+        node.attr('transform', d => `translate(${Math.max(20, Math.min(W - 20, d.x))},${Math.max(20, Math.min(H - 20, d.y))})`);
+      }
+
+      if (window.anime) {
+        const pulseRings = graphEl.querySelectorAll('.pulse-ring');
+        if (pulseRings.length > 0) {
+          window.anime({
+            targets: pulseRings,
+            r: [16, 26], opacity: [0.5, 0],
+            duration: 1500, loop: true, easing: 'easeOutQuad',
+            delay: window.anime.stagger(200)
+          });
+        }
+      }
+
+      this._activitySimulation = simulation;
     }
 
     // ─── Bottom Bar ─────────────────────────────────────────────────────────────

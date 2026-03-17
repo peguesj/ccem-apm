@@ -1,5 +1,8 @@
 defmodule ApmV5Web.ConversationMonitorLive do
   use ApmV5Web, :live_view
+
+  import ApmV5Web.Components.GettingStartedWizard
+
   require Logger
 
   @pubsub_topic "apm:conversations"
@@ -85,6 +88,7 @@ defmodule ApmV5Web.ConversationMonitorLive do
         </div>
       </div>
     </div>
+    <.wizard page="agents" dom_id="ccem-wizard-agents-convmon" />
     """
   end
 

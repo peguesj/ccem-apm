@@ -171,6 +171,21 @@ defmodule ApmV5Web.ApiController do
     json(conn, cmds)
   end
 
+  @doc "GET /api/agents/activity-log -- recent agent activity log entries"
+  def activity_log(conn, params) do
+    limit = Map.get(params, "limit", "50") |> String.to_integer() |> min(200)
+    agent_id = Map.get(params, "agent_id")
+
+    entries =
+      if agent_id do
+        ApmV5.AgentActivityLog.get_agent_log(agent_id, limit)
+      else
+        ApmV5.AgentActivityLog.list_recent(limit)
+      end
+
+    json(conn, %{entries: entries, total: length(entries)})
+  end
+
   @doc "GET /api/agents/discover -- trigger discovery scan"
   def discover_agents(conn, _params) do
     discovered = AgentDiscovery.discover_now()

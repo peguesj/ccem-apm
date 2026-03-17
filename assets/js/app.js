@@ -38,6 +38,7 @@ import TooltipOverlay from "./hooks/tooltip_overlay"
 import InspectorChat from "./hooks/inspector_chat"
 import GettingStartedShowcase from "./hooks/getting_started_showcase"
 import ShowcaseHook from "./hooks/showcase"
+import LoadContext from "./hooks/load_context"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -64,7 +65,8 @@ const Hooks = {
   TooltipOverlay,
   InspectorChat,
   GettingStartedShowcase,
-  ShowcaseHook
+  ShowcaseHook,
+  LoadContext
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

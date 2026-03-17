@@ -1,5 +1,25 @@
 defmodule ApmV5Web.CcemOverviewLive do
+  @moduledoc """
+  LiveView for the CCEM Management overview hub at `/ccem`.
+
+  Entry point for the CCEM Management section of the dual-section sidebar
+  (introduced in v6.0.0). Provides quick-access navigation tiles to all
+  CCEM management tools: Showcase, Ports, Actions, and Scanner.
+
+  This page is intentionally stateless — it has no PubSub subscriptions
+  and renders from static assigns only. All dynamic content lives in the
+  individual management pages it links to.
+
+  ## Navigation Tiles
+
+  - `/showcase` — Project showcase with live agent and UPM data
+  - `/ports` — Port registry and conflict detection
+  - `/actions` — ActionEngine catalog and run history
+  - `/scanner` — Project auto-discovery scanner
+  """
+
   use ApmV5Web, :live_view
+
 
   @impl true
   def mount(_params, _session, socket) do
@@ -37,6 +57,7 @@ defmodule ApmV5Web.CcemOverviewLive do
         </div>
       </div>
     </div>
+    <.wizard page="welcome" dom_id="ccem-wizard-welcome-ccem" />
     """
   end
 end

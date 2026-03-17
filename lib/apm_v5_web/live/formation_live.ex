@@ -6,6 +6,7 @@ defmodule ApmV5Web.FormationLive do
 
   use ApmV5Web, :live_view
 
+
   alias ApmV5.AgentRegistry
   alias ApmV5.UpmStore
 
@@ -205,6 +206,7 @@ defmodule ApmV5Web.FormationLive do
         </div>
       </div>
     </div>
+    <.wizard page="formation" />
     """
   end
 

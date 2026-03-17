@@ -1,6 +1,8 @@
 defmodule ApmV5Web.WorkflowLive do
   use ApmV5Web, :live_view
 
+  import ApmV5Web.Components.GettingStartedWizard
+
   alias ApmV5.WorkflowRegistry
 
   def mount(%{"type" => type}, _session, socket) do
@@ -143,6 +145,7 @@ defmodule ApmV5Web.WorkflowLive do
         </div>
       </div>
     </div>
+    <.wizard page="upm" dom_id="ccem-wizard-upm-workflow" />
     """
   end
 

@@ -62,20 +62,35 @@ const ShowcaseHook = {
       if (this.engine) this.engine.updateOrchState(data);
     });
 
+    // LiveView pushes activity data (agents at work + action log)
+    this.handleEvent("showcase:activity", (data) => {
+      if (this.engine) this.engine.updateActivityData(data);
+    });
+
+    // Template changed via LiveView push_event
+    this.handleEvent("showcase:template-changed", ({ template }) => {
+      if (this.engine) this.engine.applyTemplate(template);
+    });
+
     // Project changed via push_patch — switch mode and reinit
     this.handleEvent("showcase:project-changed", (data) => {
       this.project = data.project || this.project;
       this.version = data.version || this.version;
       if (data.features) this.features = data.features;
 
-      // Tear down current display
-      this._teardown();
-
       // data-static-path is updated by morphdom before push_event is delivered
       const staticPath = this.el.dataset.staticPath || data.staticPath || "";
+
       if (staticPath) {
+        // Iframe mode — teardown engine and load iframe
+        this._teardown();
         this._loadIframe(staticPath);
+      } else if (this.engine && typeof this.engine.updateProject === "function") {
+        // Engine already mounted — update in-place to avoid full DOM teardown flash
+        this.engine.updateProject(data);
       } else {
+        // Engine not yet mounted (e.g. switching away from iframe mode) — full init
+        this._teardown();
         this._initEngine();
       }
     });
@@ -129,6 +144,14 @@ const ShowcaseHook = {
     });
 
     this.engine.init();
+
+    // Wire pushEvent bridge so the inspector can push events back to LiveView
+    this.engine.setPushEventFn((event, payload) => this.pushEvent(event, payload));
+
+    // Handle server-pushed feature inspection (e.g. from notifications or deep-links)
+    this.handleEvent("showcase:inspect-feature", ({ feature }) => {
+      if (this.engine) this.engine.setSelectedFeature(feature);
+    });
   },
 
   _loadFonts() {
@@ -139,6 +162,16 @@ const ShowcaseHook = {
     link.rel = "stylesheet";
     link.href = "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap";
     document.head.appendChild(link);
+
+    // Load showcase-specific scoped styles (Tailwind utility overrides, animations, etc.)
+    const cssId = "showcase-scoped-styles";
+    if (!document.getElementById(cssId)) {
+      const styleLink = document.createElement("link");
+      styleLink.id = cssId;
+      styleLink.rel = "stylesheet";
+      styleLink.href = "/showcase/showcase-styles.css";
+      document.head.appendChild(styleLink);
+    }
   },
 
   _loadIframe(src) {

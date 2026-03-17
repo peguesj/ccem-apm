@@ -1,6 +1,7 @@
 defmodule ApmV5Web.TasksLive do
   use ApmV5Web, :live_view
 
+
   alias ApmV5.BackgroundTasksStore
 
   @refresh_interval 5_000
@@ -200,6 +201,7 @@ defmodule ApmV5Web.TasksLive do
         </div>
       </div>
     <% end %>
+    <.wizard page="tasks" />
     """
   end
 end

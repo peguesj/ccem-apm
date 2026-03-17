@@ -9,6 +9,7 @@ defmodule ApmV5Web.SkillsLive do
 
   use ApmV5Web, :live_view
 
+
   alias ApmV5.SkillTracker
   alias ApmV5.SkillsRegistryStore
   alias ApmV5.ActionEngine
@@ -296,6 +297,7 @@ defmodule ApmV5Web.SkillsLive do
         </div>
       </div>
     </div>
+    <.wizard page="skills" />
     """
   end
 

@@ -6,6 +6,7 @@ defmodule ApmV5Web.AgUiLive do
 
   use ApmV5Web, :live_view
 
+
   alias ApmV5.AgUi.EventRouter
   alias ApmV5.AgUi.StateManager
   alias ApmV5.AgentRegistry
@@ -169,6 +170,7 @@ defmodule ApmV5Web.AgUiLive do
         </div>
       </div>
     </div>
+    <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-agui" />
     """
   end
 

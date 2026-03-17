@@ -37,7 +37,7 @@ defmodule ApmV5Web.Router do
     live "/skills", SkillsLive, :index
     live "/timeline", SessionTimelineLive, :index
     live "/docs", DocsLive, :index
-    get "/docs/upm/status", PageController, :upm_showcase
+    get "/docs/upm/status", PageController, :redirect_to_showcase
     live "/docs/*path", DocsLive, :show
     live "/formation", FormationLive, :index
     live "/notifications", NotificationLive, :index
@@ -91,6 +91,7 @@ defmodule ApmV5Web.Router do
     get "/ralph/flowchart", ApiController, :ralph_flowchart
     get "/commands", ApiController, :commands
     post "/commands", ApiController, :register_commands
+    get "/agents/activity-log", ApiController, :activity_log
     get "/agents/discover", ApiController, :discover_agents
     post "/agents/register", ApiController, :register
     post "/agents/update", ApiController, :update_agent

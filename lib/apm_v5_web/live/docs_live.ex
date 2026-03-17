@@ -7,6 +7,8 @@ defmodule ApmV5Web.DocsLive do
 
   use ApmV5Web, :live_view
 
+  import ApmV5Web.Components.GettingStartedWizard
+
   alias ApmV5.DocsStore
 
   @category_icons %{
@@ -345,6 +347,7 @@ defmodule ApmV5Web.DocsLive do
         </div>
       </div>
     </div>
+    <.wizard page="welcome" dom_id="ccem-wizard-welcome-docs" />
     """
   end
 

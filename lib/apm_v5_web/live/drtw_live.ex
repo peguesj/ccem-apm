@@ -6,6 +6,8 @@ defmodule ApmV5Web.DrtwLive do
 
   use ApmV5Web, :live_view
 
+  import ApmV5Web.Components.GettingStartedWizard
+
   @impl true
   def mount(_params, _session, socket) do
     {:ok, assign(socket, page_title: "DRTW - Don't Reinvent The Wheel")}
@@ -21,6 +23,7 @@ defmodule ApmV5Web.DrtwLive do
         <p class="text-base-content/70">Discovery framework for finding existing solutions before writing custom code.</p>
       </div>
     </div>
+    <.wizard page="welcome" dom_id="ccem-wizard-welcome-drtw" />
     """
   end
 end

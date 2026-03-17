@@ -1,6 +1,7 @@
 defmodule ApmV5Web.ScannerLive do
   use ApmV5Web, :live_view
 
+
   alias ApmV5.ProjectScanner
 
   @refresh_interval 3_000
@@ -194,6 +195,7 @@ defmodule ApmV5Web.ScannerLive do
         </div>
       </div>
     </div>
+    <.wizard page="scanner" />
     """
   end
 end

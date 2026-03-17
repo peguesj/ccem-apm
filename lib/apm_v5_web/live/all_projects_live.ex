@@ -12,6 +12,8 @@ defmodule ApmV5Web.AllProjectsLive do
 
   use ApmV5Web, :live_view
 
+  import ApmV5Web.Components.GettingStartedWizard
+
   alias ApmV5.AgentRegistry
   alias ApmV5.ConfigLoader
   alias ApmV5.GraphBuilder
@@ -454,6 +456,7 @@ defmodule ApmV5Web.AllProjectsLive do
         </div>
       </div>
     </div>
+    <.wizard page="dashboard" dom_id="ccem-wizard-dashboard-allprojects" />
     """
   end
 

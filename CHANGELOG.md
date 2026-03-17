@@ -1,5 +1,22 @@
 # Changelog
 
+## v6.1.0 (2026-03-17)
+
+CCEM APM v6.1 — Agentic activity visualization, showcase inspector, project dropdown UX, and infrastructure telemetry.
+
+### Added
+- **AgentActivityLog** (`lib/apm_v5/agent_activity_log.ex`) — GenServer ring buffer (200 events) that subscribes to `lifecycle:*`, `tool:*`, `thinking:*`, `text:*` EventBus topics; PubSub broadcast on `"apm:activity_log"`; REST at `GET /api/agents/activity-log?limit=N&agent_id=X`
+- **ShowcaseEngine — Activity tab** — D3.js force-directed graph showing live agent status-colored nodes with anime.js pulse rings for active agents; collapsible action log pull-down (30 most recent events with type badges); data fed via `showcase:activity` push_event on every heartbeat + per-entry
+- **ShowcaseEngine — Feature Inspector** — Right-column contextual panel activated by clicking any feature card; shows description, acceptance criteria checklist, related agents filtered by story_id, timing rows, status mini-timeline, "View Formation" and "Copy ID" action buttons; `setPushEventFn` bridge for LiveView event propagation
+- **ShowcaseEngine — Template system** — `TEMPLATES` registry with `engine` (default 3-col) and `formation` layouts; `applyTemplate(id)` dispatch; switchable via `showcase:template-changed` AG-UI event
+- **ShowcaseEngine — In-place project update** — `updateProject(data)` surgically re-renders orchestration bar and feature cards only, eliminating full destroy+rebuild flash on project switch
+
+### Changed
+- **Project dropdown** (`dashboard_live.ex`) — Sectioned into Active (check-circle), Recently Active (clock, 30-day window), and "Show N other" collapsible toggle; `categorize_projects/2` helper recomputes on config reload
+- **Getting Started wizard** — Added `phx-update="ignore"` to wrapper div; eliminates 1s flash caused by morphdom resetting client-side `style="display:flex"` to `"display:none"` after `handle_params/3` completes
+- **ShowcaseLive** — Subscribes to `"apm:activity_log"` PubSub; pushes `showcase:activity` on entry + heartbeat; `updateProject` path avoids full reinit on project switch
+- **Version** — Bumped to v6.1.0
+
 ## v6.0.0 (2026-03-16)
 
 CCEM APM v6 — CCEM UI, port management, agentic hierarchy graph, and showcase integration complete.

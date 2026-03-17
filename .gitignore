@@ -42,3 +42,4 @@ npm-debug.log
 archive/
 .worktrees/
 assets/.claude/
+.claude/worktrees/

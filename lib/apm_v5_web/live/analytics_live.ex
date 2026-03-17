@@ -1,5 +1,8 @@
 defmodule ApmV5Web.AnalyticsLive do
   use ApmV5Web, :live_view
+
+  import ApmV5Web.Components.GettingStartedWizard
+
   require Logger
 
   @impl true
@@ -122,6 +125,7 @@ defmodule ApmV5Web.AnalyticsLive do
         </div>
       </div>
     </div>
+    <.wizard page="agents" dom_id="ccem-wizard-agents-analytics" />
     """
   end
 

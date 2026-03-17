@@ -11,7 +11,9 @@ defmodule ApmV5Web.ShowcaseLive do
 
   use ApmV5Web, :live_view
 
+
   alias ApmV5.AgentRegistry
+  alias ApmV5.AgUi.ActivityTracker
   alias ApmV5.ConfigLoader
   alias ApmV5.ShowcaseDataStore
   alias ApmV5.UpmStore
@@ -24,6 +26,7 @@ defmodule ApmV5Web.ShowcaseLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:upm")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "ag_ui:events")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:showcase")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:activity_log")
 
       :timer.send_interval(5_000, self(), :heartbeat_push)
     end
@@ -42,6 +45,7 @@ defmodule ApmV5Web.ShowcaseLive do
       |> assign(:features, [])
       |> assign(:version, "5.5.0")
       |> assign(:showcase_initialized, false)
+      |> assign(:activity_log, [])
 
     {:ok, socket}
   end
@@ -137,6 +141,7 @@ defmodule ApmV5Web.ShowcaseLive do
         </div>
       </div>
     </div>
+    <.wizard page="showcase" />
     """
   end
 
@@ -145,6 +150,10 @@ defmodule ApmV5Web.ShowcaseLive do
   @impl true
   def handle_event("switch_project", %{"project" => name}, socket) do
     {:noreply, push_patch(socket, to: ~p"/showcase/#{name}")}
+  end
+
+  def handle_event("switch_template", %{"template" => template}, socket) do
+    {:noreply, push_event(socket, "showcase:template-changed", %{template: template})}
   end
 
   # --- PubSub Handlers ---
@@ -157,6 +166,18 @@ defmodule ApmV5Web.ShowcaseLive do
   def handle_info({:agent_registered, _}, socket), do: push_agents(socket)
   def handle_info({:agent_updated, _}, socket), do: push_agents(socket)
   def handle_info({:upm_event, _data}, socket), do: push_orch(socket)
+
+  def handle_info({:activity_log_entry, entry}, socket) do
+    log = [entry | (socket.assigns[:activity_log] || [])] |> Enum.take(99)
+    activities = safe_list_activities()
+
+    socket =
+      socket
+      |> assign(:activity_log, log)
+      |> push_event("showcase:activity", %{agents: activities, log: log})
+
+    {:noreply, socket}
+  end
 
   def handle_info({:config_reloaded, config}, socket) do
     all_projects = Map.get(config, "projects", [])
@@ -260,10 +281,14 @@ defmodule ApmV5Web.ShowcaseLive do
       }
     }
 
+    activities = safe_list_activities()
+    log = socket.assigns[:activity_log] || []
+
     socket =
       socket
       |> push_event("showcase:data", apm_data)
       |> push_event("showcase:agents", %{agents: serialize_agents(agents)})
+      |> push_event("showcase:activity", %{agents: activities, log: log})
 
     orch_data = build_orch_data(socket.assigns.active_project, active_count, length(agents))
     {:noreply, push_event(socket, "showcase:orch", orch_data)}
@@ -323,6 +348,14 @@ defmodule ApmV5Web.ShowcaseLive do
       ConfigLoader.get_config()
     catch
       :exit, _ -> %{"projects" => [], "active_project" => nil}
+    end
+  end
+
+  defp safe_list_activities do
+    try do
+      ActivityTracker.list_activities()
+    catch
+      :exit, _ -> %{}
     end
   end
 end

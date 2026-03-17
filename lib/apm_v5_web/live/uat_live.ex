@@ -14,6 +14,9 @@ defmodule ApmV5Web.UatLive do
   """
 
   use ApmV5Web, :live_view
+
+  import ApmV5Web.Components.GettingStartedWizard
+
   require Logger
 
   alias AgUi.Core.Events.EventType
@@ -762,6 +765,7 @@ defmodule ApmV5Web.UatLive do
         </div>
       </div>
     </div>
+    <.wizard page="welcome" dom_id="ccem-wizard-welcome-uat" />
     """
   end
 

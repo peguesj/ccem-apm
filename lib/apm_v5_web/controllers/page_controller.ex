@@ -14,6 +14,17 @@ defmodule ApmV5Web.PageController do
   end
 
   @doc """
+  Redirects /docs/upm/status to the proper /showcase LiveView.
+
+  The old `upm_showcase/2` action (which served the standalone static HTML with
+  asset-path rewriting) is kept for backward-compatibility but is no longer
+  routed.
+  """
+  def redirect_to_showcase(conn, _params) do
+    redirect(conn, to: ~p"/showcase")
+  end
+
+  @doc """
   Serves the CCEM Showcase at /docs/upm/status.
 
   Reads priv/static/showcase/index.html, injects window.CCEM_APM_BASE_URL

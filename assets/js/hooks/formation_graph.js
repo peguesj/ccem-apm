@@ -2,9 +2,14 @@
  * FormationGraph LiveView JS Hook
  *
  * D3.js tree layout for formation hierarchy visualization.
- * Renders formation > squadron > agent as a top-down tree with
- * status-colored nodes and animated connections.
+ * Renders session > formation > squadron > swarm > agent > task as a
+ * top-down tree with status-colored nodes and animated connections.
+ *
+ * Colors are sourced from design_tokens.js to stay in sync with the
+ * daisyUI dark theme used across the CCEM APM dashboard.
  */
+import { TOKENS, nodeColors as tokenNodeColors } from "../design_tokens.js"
+
 // D3 lazy loading — only fetched on routes that render this hook
 let d3 = null
 let _d3LoadPromise = null
@@ -22,19 +27,19 @@ function ensureD3() {
   return _d3LoadPromise
 }
 
+// Derived from TOKENS for backward-compatibility with inline references below
 const COLORS = {
-  bg: "#151b28",
-  formation: { fill: "#6366f1", stroke: "#818cf8", text: "#e0e7ff" },
-  squadron: { fill: "#0ea5e9", stroke: "#38bdf8", text: "#e0f2fe" },
-  agent: {
-    active: { fill: "#22c55e", stroke: "#4ade80" },
-    idle: { fill: "#64748b", stroke: "#94a3b8" },
-    error: { fill: "#ef4444", stroke: "#f87171" },
-    default: { fill: "#475569", stroke: "#64748b" }
-  },
-  link: "#334155",
-  text: "#e2e8f0",
-  textDim: "#94a3b8"
+  bg:        TOKENS.bg.canvas,
+  formation: TOKENS.formation.formation,
+  squadron:  TOKENS.formation.squadron,
+  swarm:     TOKENS.formation.swarm,
+  session:   TOKENS.formation.session,
+  task:      TOKENS.formation.task,
+  fleet:     TOKENS.formation.fleet,
+  agent:     TOKENS.formation.agent,
+  link:      TOKENS.edge.default,
+  text:      TOKENS.text.primary,
+  textDim:   TOKENS.text.secondary,
 }
 
 const NODE_SIZES = {
@@ -76,7 +81,7 @@ export default {
       .attr("patternUnits", "userSpaceOnUse")
     pattern.append("circle")
       .attr("cx", 10).attr("cy", 10).attr("r", 0.8)
-      .attr("fill", "#1e293b")
+      .attr("fill", TOKENS.dotGrid.dot)
 
     this.svg.append("rect")
       .attr("width", "100%").attr("height", "100%")
@@ -257,15 +262,7 @@ export default {
 }
 
 function getNodeColors(data) {
-  switch (data.level) {
-    case "formation": return COLORS.formation
-    case "squadron": return COLORS.squadron
-    case "fleet": return { fill: "#1e1b4b", stroke: "#4338ca", text: "#c7d2fe" }
-    default:
-      const status = data.status || "default"
-      const c = COLORS.agent[status] || COLORS.agent.default
-      return { fill: c.fill, stroke: c.stroke, text: COLORS.text }
-  }
+  return tokenNodeColors(data.level, data.status)
 }
 
 function truncate(str, max) {

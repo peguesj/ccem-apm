@@ -40,6 +40,7 @@ defmodule ApmV5.ShowcaseDataStore do
     1. project has `showcase_data_path` pointing to an existing directory
     2. project has `project_root` and `project_root/showcase/data/` exists
     3. project has `project_root` and `project_root/showcase/client/showcase.js` exists (standalone)
+    4. project name is "ccem" or "CCEM APM" — always included, falls back to default path
   """
   @spec has_showcase?(map()) :: boolean()
   def has_showcase?(%{"showcase_data_path" => path}) when is_binary(path) and path != "" do
@@ -52,12 +53,38 @@ defmodule ApmV5.ShowcaseDataStore do
       File.exists?(Path.join(expanded, "showcase/client/showcase.js"))
   end
 
+  # Always include the ccem project — it has showcase data at the default path
+  def has_showcase?(%{"name" => name}) when name in ["ccem", "CCEM APM"] do
+    File.dir?(@default_showcase_path)
+  end
+
   def has_showcase?(_), do: false
 
-  @doc "Filters a list of project maps to only those that have showcase data."
+  @doc """
+  Filters a list of project maps to only those that have showcase data.
+  Always includes the "ccem" project when present. If no projects pass
+  the filter, returns all projects as graceful degradation.
+  """
   @spec filter_showcase_projects(list()) :: list()
   def filter_showcase_projects(projects) when is_list(projects) do
-    Enum.filter(projects, &has_showcase?/1)
+    # Always ensure ccem is present if it exists in the list
+    filtered = Enum.filter(projects, &has_showcase?/1)
+
+    ccem_included =
+      Enum.any?(filtered, fn p ->
+        Map.get(p, "name") in ["ccem", "CCEM APM"]
+      end)
+
+    filtered_with_ccem =
+      if not ccem_included do
+        ccem_project = Enum.find(projects, fn p -> Map.get(p, "name") in ["ccem", "CCEM APM"] end)
+        if ccem_project, do: [ccem_project | filtered], else: filtered
+      else
+        filtered
+      end
+
+    # Graceful degradation: if still empty, return all projects
+    if filtered_with_ccem == [], do: projects, else: filtered_with_ccem
   end
 
   # --- GenServer Callbacks ---
