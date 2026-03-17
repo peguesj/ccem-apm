@@ -20,18 +20,16 @@ defmodule ApmV5.Application do
       {Phoenix.PubSub, name: ApmV5.PubSub},
       ApmV5.ConfigLoader,
       ApmV5.DashboardStore,
-      ApmV5.ApiKeyStore,
       ApmV5.AuditLog,
       ApmV5.ProjectStore,
       ApmV5.AgentRegistry,
       ApmV5.UpmStore,
       ApmV5.SkillTracker,
-      ApmV5.AlertRulesEngine,
       ApmV5.MetricsCollector,
       ApmV5.SloEngine,
       ApmV5.AgentDiscovery,
       ApmV5.EnvironmentScanner,
-      ApmV5.CommandRunner,
+      ApmV5.IntakeSupervisor,
       ApmV5.DocsStore,
       ApmV5.PortManager,
       ApmV5.WorkflowSchemaStore,
@@ -70,7 +68,6 @@ defmodule ApmV5.Application do
       # Wave 4: A2A messaging router (US-031)
       ApmV5.AgUi.A2A.Router,
       ApmV5.ChatStore,
-      {ApmV5.Intake.Store, []},
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]

@@ -75,7 +75,7 @@
         "All existing tests still pass",
         "mix compile --warnings-as-errors passes"
       ],
-      "estimatedPoints": 2, "dependencies": ["US-R04"], "status": "pending", "passes": false,
+      "estimatedPoints": 2, "dependencies": ["US-R04"], "status": "done", "passes": true,
       "planeIssueId": "29022a21-4a15-4222-8100-76f3a5600972", "checkpointId": "CP-122", "wave": 1
     },
     {
