@@ -110,9 +110,16 @@ defmodule ApmV5.ConfigLoader do
 
     case Jason.encode(new_config, pretty: true) do
       {:ok, json} ->
-        File.write(state.config_path, json)
-        Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:config", {:config_reloaded, new_config})
-        {:reply, {:ok, new_config}, %{state | config: new_config}}
+        case File.write(state.config_path, json) do
+          :ok ->
+            Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:config", {:config_reloaded, new_config})
+            {:reply, {:ok, new_config}, %{state | config: new_config}}
+
+          {:error, reason} ->
+            require Logger
+            Logger.error("[ConfigLoader] Failed to persist config: #{inspect(reason)}")
+            {:reply, {:error, "disk write failed: #{reason}"}, state}
+        end
 
       {:error, reason} ->
         {:reply, {:error, "JSON encode failed: #{inspect(reason)}"}, state}

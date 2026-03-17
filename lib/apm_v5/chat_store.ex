@@ -215,13 +215,18 @@ defmodule ApmV5.ChatStore do
   defp determine_scope(agent_id) do
     # Try to find the agent in the registry and derive scope
     case ApmV5.AgentRegistry.get_agent(agent_id) do
-      {:ok, agent} ->
+      nil ->
+        "agent:#{agent_id}"
+
+      agent when is_map(agent) ->
         cond do
           agent[:formation_id] -> "formation:#{agent[:formation_id]}"
           agent[:project] -> "project:#{agent[:project]}"
           true -> "agent:#{agent_id}"
         end
-      _ -> "agent:#{agent_id}"
+
+      _ ->
+        "agent:#{agent_id}"
     end
   rescue
     _ -> "agent:#{agent_id}"

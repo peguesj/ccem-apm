@@ -20,11 +20,13 @@ defmodule ApmV5Web.HealthCheckLive do
     {:noreply, assign_data(socket)}
   end
 
+  def handle_info(:post_check_refresh, socket), do: {:noreply, assign_data(socket)}
+
   @impl true
   def handle_event("run_checks", _params, socket) do
     ApmV5.HealthCheckRunner.run_now()
-    Process.sleep(300)
-    {:noreply, assign_data(socket)}
+    Process.send_after(self(), :post_check_refresh, 300)
+    {:noreply, socket}
   end
 
   defp assign_data(socket) do
