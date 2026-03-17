@@ -158,7 +158,7 @@ defmodule ApmV5.ShowcaseDataStore do
 
   defp load_showcase_data(path) do
     %{
-      "features" => load_json(Path.join(path, "features.json"), default_features()),
+      "features" => load_json(Path.join(path, "features.json"), []),
       "narratives" => load_json(Path.join(path, "narrative-content.json"), %{}),
       "design_system" => load_json(Path.join(path, "diagram-design-system.json"), %{}),
       "redaction_rules" => load_json(Path.join(path, "redaction-rules.json"), %{}),
@@ -182,34 +182,4 @@ defmodule ApmV5.ShowcaseDataStore do
     end
   end
 
-  defp default_features do
-    # Inline default features matching showcase.js FEATURES constant
-    [
-      %{"id" => "US-001", "wave" => 1, "title" => "AG-UI Protocol", "description" => "30 typed event categories via ag_ui_ex Hex package. SSE transport, compile-time constants."},
-      %{"id" => "US-002", "wave" => 1, "title" => "Event Router", "description" => "Central dispatch: routes AG-UI events to AgentRegistry, FormationStore, Dashboard, Metrics."},
-      %{"id" => "US-003", "wave" => 1, "title" => "Event Stream", "description" => "Emit and retrieve events. PubSub broadcast to all subscribers. Time-ordered ETS storage."},
-      %{"id" => "US-004", "wave" => 1, "title" => "Hook Bridge", "description" => "Translates legacy register/heartbeat/notify into AG-UI event types. Zero-config backward compat."},
-      %{"id" => "US-005", "wave" => 1, "title" => "State Manager", "description" => "Per-agent state with versioning. Simplified JSON Patch. ETS-backed."},
-      %{"id" => "US-006", "wave" => 2, "title" => "Agent Registry", "description" => "Lifecycle tracking for all agents. Squadron/swarm/cluster hierarchy. Fire-and-forget registration."},
-      %{"id" => "US-007", "wave" => 2, "title" => "Formation Model", "description" => "Hierarchical agent coordination. Squadrons > Swarms > Clusters > Agents."},
-      %{"id" => "US-008", "wave" => 2, "title" => "Metrics Collector", "description" => "Per-agent, per-project token economics. 12 x 5-min buckets, time-series."},
-      %{"id" => "US-009", "wave" => 2, "title" => "Chat Store", "description" => "Scoped message persistence. AG-UI TEXT_MESSAGE integration. PubSub real-time."},
-      %{"id" => "US-010", "wave" => 3, "title" => "19+ LiveView Dashboards", "description" => "Real-time Phoenix LiveView pages: agents, formations, analytics, health, tasks, scanner, actions, skills, notifications."},
-      %{"id" => "US-011", "wave" => 3, "title" => "Sidebar Navigation", "description" => "Unified sidebar across all views. Active page highlighting, icon labels."},
-      %{"id" => "US-012", "wave" => 3, "title" => "Notification Panel", "description" => "Tabbed categories with toast overlays. Read/unread."},
-      %{"id" => "US-013", "wave" => 3, "title" => "Health Check System", "description" => "HealthCheckRunner with 15-second refresh. Overall status badge."},
-      %{"id" => "US-014", "wave" => 3, "title" => "AG-UI Dashboard", "description" => "Live AG-UI event viewer. State inspector. Protocol stats. SSE streaming."},
-      %{"id" => "US-015", "wave" => 3, "title" => "Conversation Monitor", "description" => "Real-time conversation tracking across scopes. Message history viewer."},
-      %{"id" => "US-016", "wave" => 4, "title" => "CCEMAgent", "description" => "Native macOS menubar companion. Swift/AppKit. Telemetry charts, task management, start/stop APM."},
-      %{"id" => "US-017", "wave" => 4, "title" => "Skill Health Monitor", "description" => "SkillsRegistryStore with health scoring. Audit engine."},
-      %{"id" => "US-018", "wave" => 4, "title" => "Project Scanner", "description" => "Auto-discovery of projects, stacks, ports, hooks, MCPs, CLAUDE.md sections."},
-      %{"id" => "US-019", "wave" => 4, "title" => "Background Task Manager", "description" => "Track Claude Code background tasks. Logs, stop, delete. 5s auto-refresh."},
-      %{"id" => "US-020", "wave" => 4, "title" => "Action Engine", "description" => "4-action catalog: update_hooks, add_memory_pointer, backfill_apm_config, analyze_project."},
-      %{"id" => "US-021", "wave" => 5, "title" => "UAT Testing Panel", "description" => "14 test cases across 6 categories. Live in-browser AG-UI subsystem exerciser."},
-      %{"id" => "US-022", "wave" => 5, "title" => "Showcase Generator", "description" => "IP-safe architecture diagrams. C4 abstraction. GIMME-style live dashboard with roadmap."},
-      %{"id" => "US-023", "wave" => 5, "title" => "Cross-Platform Installer", "description" => "Modular install.sh with libs: ui, detect, deps, build, hooks, service."},
-      %{"id" => "US-024", "wave" => 5, "title" => "UPM Orchestration", "description" => "End-to-end: plan > build > verify > ship. Formation deployment. Plane PM sync."},
-      %{"id" => "US-025", "wave" => 5, "title" => "OpenAPI 3.0.3 Spec", "description" => "56 endpoints across 21 categories. Scalar interactive docs at /api/docs."}
-    ]
-  end
 end
