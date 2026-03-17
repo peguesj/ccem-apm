@@ -66,10 +66,15 @@ defmodule ApmV5.ShowcaseDataStore do
   @doc """
   Filters a list of project maps to only those that have showcase data.
   Only includes projects with their OWN showcase data directory.
+  If no projects have showcase data, returns all projects as graceful degradation
+  to avoid empty UI states.
   """
   @spec filter_showcase_projects(list()) :: list()
   def filter_showcase_projects(projects) when is_list(projects) do
-    Enum.filter(projects, &has_showcase?/1)
+    case Enum.filter(projects, &has_showcase?/1) do
+      [] -> projects
+      filtered -> filtered
+    end
   end
 
   # --- GenServer Callbacks ---
