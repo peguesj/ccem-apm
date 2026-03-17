@@ -159,7 +159,7 @@
         "All existing controller tests pass",
         "mix compile --warnings-as-errors passes"
       ],
-      "estimatedPoints": 5, "dependencies": [], "status": "pending", "passes": false,
+      "estimatedPoints": 5, "dependencies": [], "status": "done", "passes": true,
       "planeIssueId": "c8f0fa16-ca09-4a42-a320-5cca94d0930a", "checkpointId": "CP-129", "wave": 2
     },
     {
@@ -172,7 +172,7 @@
         "Dashboard / still renders correctly in tests",
         "mix compile --warnings-as-errors passes"
       ],
-      "estimatedPoints": 3, "dependencies": [], "status": "pending", "passes": false,
+      "estimatedPoints": 3, "dependencies": [], "status": "done", "passes": true,
       "planeIssueId": "f0c0f839-868d-405a-9b88-3cd21ce3ff58", "checkpointId": "CP-130", "wave": 2
     },
     {
@@ -184,7 +184,7 @@
         "DashboardLive further reduced by 150+ lines",
         "mix compile --warnings-as-errors passes"
       ],
-      "estimatedPoints": 3, "dependencies": ["US-R13"], "status": "pending", "passes": false,
+      "estimatedPoints": 3, "dependencies": ["US-R13"], "status": "done", "passes": true,
       "planeIssueId": "f0c0f839-868d-405a-9b88-3cd21ce3ff58", "checkpointId": "CP-131", "wave": 3
     },
     {
@@ -197,7 +197,7 @@
         "All tests pass",
         "mix compile --warnings-as-errors passes"
       ],
-      "estimatedPoints": 3, "dependencies": ["US-R13"], "status": "pending", "passes": false,
+      "estimatedPoints": 3, "dependencies": ["US-R13"], "status": "done", "passes": true,
       "planeIssueId": "4bf2bf79-f065-4011-a305-ad06a2252f3e", "checkpointId": "CP-132", "wave": 3
     },
     {
@@ -209,7 +209,7 @@
         "GET /api/v2/openapi.json returns updated spec",
         "mix compile --warnings-as-errors passes"
       ],
-      "estimatedPoints": 2, "dependencies": [], "status": "pending", "passes": false,
+      "estimatedPoints": 2, "dependencies": [], "status": "done", "passes": true,
       "planeIssueId": null, "checkpointId": "CP-133", "wave": 3
     },
     {
@@ -221,7 +221,7 @@
         "mix.exs version is 6.2.0",
         "mix compile --warnings-as-errors passes"
       ],
-      "estimatedPoints": 1, "dependencies": ["US-R14", "US-R15", "US-R16"], "status": "pending", "passes": false,
+      "estimatedPoints": 1, "dependencies": ["US-R14", "US-R15", "US-R16"], "status": "done", "passes": true,
       "planeIssueId": null, "checkpointId": "CP-134", "wave": 4
     }
   ]
