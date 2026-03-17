@@ -8,6 +8,7 @@ defmodule ApmV5.ShowcaseDataStore do
   use GenServer
 
   @default_showcase_path Path.expand("~/Developer/ccem/showcase/data")
+  @ccem_project_names ["ccem", "CCEM APM", "apm-v4"]
 
   # --- Client API ---
 
@@ -52,7 +53,7 @@ defmodule ApmV5.ShowcaseDataStore do
     File.dir?(Path.join(expanded, "showcase/data"))
   end
 
-  def has_showcase?(%{"name" => name}) when name in ["ccem", "CCEM APM", "apm-v4"] do
+  def has_showcase?(%{"name" => name}) when name in @ccem_project_names do
     File.dir?(@default_showcase_path)
   end
 
@@ -102,7 +103,7 @@ defmodule ApmV5.ShowcaseDataStore do
 
   def handle_call({:reload, project_name}, _from, state) do
     showcase_path =
-      if project_name == "ccem",
+      if project_name in @ccem_project_names,
         do: @default_showcase_path,
         else: resolve_showcase_path(project_name)
 
@@ -120,18 +121,39 @@ defmodule ApmV5.ShowcaseDataStore do
 
   # --- Private ---
 
+  defp resolve_showcase_path(project_name) when project_name in @ccem_project_names do
+    @default_showcase_path
+  end
+
   defp resolve_showcase_path(project_name) do
     # Check if the project config specifies a showcase_data_path
     case ApmV5.ConfigLoader.get_project(project_name) do
       %{"showcase_data_path" => path} when is_binary(path) and path != "" ->
-        Path.expand(path)
+        expanded = Path.expand(path)
+        if File.dir?(expanded), do: expanded, else: nil
 
       %{"project_root" => root} when is_binary(root) and root != "" ->
-        Path.join(Path.expand(root), "showcase/data")
+        candidate = Path.join(Path.expand(root), "showcase/data")
+        if File.dir?(candidate), do: candidate, else: nil
 
       _ ->
-        @default_showcase_path
+        # Convention-based: ~/Developer/{project_name}/showcase/data
+        conventional = Path.expand("~/Developer/#{project_name}/showcase/data")
+        if File.dir?(conventional), do: conventional, else: nil
     end
+  end
+
+  defp load_showcase_data(nil) do
+    %{
+      "features" => [],
+      "narratives" => %{},
+      "design_system" => %{},
+      "redaction_rules" => %{},
+      "speaker_notes" => %{},
+      "slides" => %{},
+      "version" => nil,
+      "path" => nil
+    }
   end
 
   defp load_showcase_data(path) do

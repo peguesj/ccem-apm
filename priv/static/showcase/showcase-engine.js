@@ -57,6 +57,9 @@
       this.container = container;
       this.config = config || {};
       this.features = config.features || [];
+      this.narratives = config.narratives || {};
+      this.slides = config.slides || {};
+      this.designSystem = config.designSystem || {};
       this.version = config.version || 'v5.5.0';
       this.project = config.project || 'ccem';
       this.basePath = config.basePath || '/showcase';
@@ -190,6 +193,9 @@
 
     reinit(data) {
       if (data.features) this.features = data.features;
+      if (data.narratives) this.narratives = data.narratives;
+      if (data.slides) this.slides = data.slides;
+      if (data.designSystem) this.designSystem = data.designSystem;
       if (data.version) this.version = data.version;
       if (data.project) this.project = data.project;
       this.orchState.storiesDone = this.features.length;
@@ -208,6 +214,9 @@
     updateProject(data) {
       if (!this.container) return;
       if (data.features) this.features = data.features;
+      if (data.narratives) this.narratives = data.narratives;
+      if (data.slides) this.slides = data.slides;
+      if (data.designSystem) this.designSystem = data.designSystem;
       if (data.version) this.version = data.version;
       if (data.project) this.project = data.project;
       if (data.config) this.config = Object.assign({}, this.config, data.config);
@@ -871,7 +880,21 @@
         ? 'px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all bg-zinc-800 text-zinc-200 ring-1 ring-zinc-700'
         : 'px-3 py-1.5 text-[11px] font-medium rounded-md transition-all text-zinc-500 hover:text-zinc-400 hover:bg-zinc-800/40';
 
-      const systemSvg = `<svg viewBox="0 0 800 420" xmlns="http://www.w3.org/2000/svg" class="w-full" role="img" aria-label="CCEM System Architecture">
+      // Use project-specific architecture SVG from design system if provided,
+      // otherwise fall back to the embedded CCEM architecture diagram.
+      if (this.archTab === 'system' && this.designSystem && this.designSystem.architecture_svg) {
+        container.innerHTML = `
+          <div class="space-y-3">
+            <h2 class="text-sm font-bold text-zinc-300">Architecture</h2>
+            <div class="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 overflow-auto">
+              ${this.designSystem.architecture_svg}
+            </div>
+          </div>`;
+        return;
+      }
+
+      const archLabel = this.project ? `${this.project} System Architecture` : 'System Architecture';
+      const systemSvg = `<svg viewBox="0 0 800 420" xmlns="http://www.w3.org/2000/svg" class="w-full" role="img" aria-label="${archLabel}">
         <defs>
           <filter id="glow-green" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
           <marker id="arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,3.5 L0,7" fill="#52525b"/></marker>

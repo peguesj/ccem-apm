@@ -43,6 +43,9 @@ defmodule ApmV5Web.ShowcaseLive do
       |> assign(:active_project, nil)
       |> assign(:showcase_data, %{})
       |> assign(:features, [])
+      |> assign(:narratives, %{})
+      |> assign(:slides, %{})
+      |> assign(:design_system, %{})
       |> assign(:version, "5.5.0")
       |> assign(:showcase_initialized, false)
       |> assign(:activity_log, [])
@@ -129,6 +132,9 @@ defmodule ApmV5Web.ShowcaseLive do
           data-project={@active_project || "ccem"}
           data-version={@version}
           data-features={Jason.encode!(@features)}
+          data-narratives={Jason.encode!(@narratives)}
+          data-slides={Jason.encode!(@slides)}
+          data-design-system={Jason.encode!(@design_system)}
           data-static-path={static_showcase_path(@active_project)}
           class="flex-1 overflow-hidden showcase-scope"
         >
@@ -192,17 +198,26 @@ defmodule ApmV5Web.ShowcaseLive do
   def handle_info({:showcase_data_reloaded, project, data}, socket) do
     if project == (socket.assigns.active_project || "ccem") do
       features = Map.get(data, "features", [])
-      version = Map.get(data, "version", "5.5.0")
+      narratives = Map.get(data, "narratives", %{})
+      slides = Map.get(data, "slides", %{})
+      design_system = Map.get(data, "design_system", %{})
+      version = Map.get(data, "version", "5.5.0") || "5.5.0"
 
       {:noreply,
        socket
        |> assign(:showcase_data, data)
        |> assign(:features, features)
+       |> assign(:narratives, narratives)
+       |> assign(:slides, slides)
+       |> assign(:design_system, design_system)
        |> assign(:version, version)
        |> push_event("showcase:project-changed", %{
          project: project,
          version: version,
          features: features,
+         narratives: narratives,
+         slides: slides,
+         designSystem: design_system,
          staticPath: static_showcase_path(project)
        })}
     else
@@ -218,7 +233,10 @@ defmodule ApmV5Web.ShowcaseLive do
     was_initialized = socket.assigns.showcase_initialized
     showcase_data = ShowcaseDataStore.get_showcase_data(project)
     features = Map.get(showcase_data, "features", [])
-    version = Map.get(showcase_data, "version", "5.5.0")
+    narratives = Map.get(showcase_data, "narratives", %{})
+    slides = Map.get(showcase_data, "slides", %{})
+    design_system = Map.get(showcase_data, "design_system", %{})
+    version = Map.get(showcase_data, "version", "5.5.0") || "5.5.0"
     static_path = static_showcase_path(project)
 
     socket =
@@ -226,6 +244,9 @@ defmodule ApmV5Web.ShowcaseLive do
       |> assign(:active_project, project)
       |> assign(:showcase_data, showcase_data)
       |> assign(:features, features)
+      |> assign(:narratives, narratives)
+      |> assign(:slides, slides)
+      |> assign(:design_system, design_system)
       |> assign(:version, version)
       |> assign(:showcase_initialized, true)
 
@@ -237,6 +258,9 @@ defmodule ApmV5Web.ShowcaseLive do
           project: project,
           version: version,
           features: features,
+          narratives: narratives,
+          slides: slides,
+          designSystem: design_system,
           staticPath: static_path
         })
       else

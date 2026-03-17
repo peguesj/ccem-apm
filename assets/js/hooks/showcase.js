@@ -22,6 +22,9 @@ const ShowcaseHook = {
     this.project = this.el.dataset.project || "ccem";
     this.version = this.el.dataset.version || "5.5.0";
     this.features = [];
+    this.narratives = {};
+    this.slides = {};
+    this.designSystem = {};
 
     // Target the phx-update="ignore" inner div so LiveView morphdom
     // never patches the engine-owned DOM on re-renders.
@@ -31,6 +34,21 @@ const ShowcaseHook = {
       this.features = JSON.parse(this.el.dataset.features || "[]");
     } catch (e) {
       console.warn("[ShowcaseHook] Failed to parse features:", e);
+    }
+    try {
+      this.narratives = JSON.parse(this.el.dataset.narratives || "{}");
+    } catch (e) {
+      console.warn("[ShowcaseHook] Failed to parse narratives:", e);
+    }
+    try {
+      this.slides = JSON.parse(this.el.dataset.slides || "{}");
+    } catch (e) {
+      console.warn("[ShowcaseHook] Failed to parse slides:", e);
+    }
+    try {
+      this.designSystem = JSON.parse(this.el.dataset.designSystem || "{}");
+    } catch (e) {
+      console.warn("[ShowcaseHook] Failed to parse designSystem:", e);
     }
 
     // Fullscreen toggle — fired by the fullscreen button via JS.dispatch
@@ -77,6 +95,9 @@ const ShowcaseHook = {
       this.project = data.project || this.project;
       this.version = data.version || this.version;
       if (data.features) this.features = data.features;
+      if (data.narratives) this.narratives = data.narratives;
+      if (data.slides) this.slides = data.slides;
+      if (data.designSystem) this.designSystem = data.designSystem;
 
       // data-static-path is updated by morphdom before push_event is delivered
       const staticPath = this.el.dataset.staticPath || data.staticPath || "";
@@ -87,7 +108,12 @@ const ShowcaseHook = {
         this._loadIframe(staticPath);
       } else if (this.engine && typeof this.engine.updateProject === "function") {
         // Engine already mounted — update in-place to avoid full DOM teardown flash
-        this.engine.updateProject(data);
+        this.engine.updateProject({
+          ...data,
+          narratives: this.narratives,
+          slides: this.slides,
+          designSystem: this.designSystem
+        });
       } else {
         // Engine not yet mounted (e.g. switching away from iframe mode) — full init
         this._teardown();
@@ -138,6 +164,9 @@ const ShowcaseHook = {
 
     this.engine = new window.ShowcaseEngine(this.engineContainer, {
       features: this.features,
+      narratives: this.narratives,
+      slides: this.slides,
+      designSystem: this.designSystem,
       version: this.version,
       project: this.project,
       basePath: "/showcase"
