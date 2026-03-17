@@ -691,46 +691,6 @@ defmodule ApmV5Web.ApiController do
   defp parse_limit(_, default), do: default
 
   # ============================
-  # UPM Endpoints
-  # ============================
-
-  alias ApmV5.UpmStore
-
-  @doc "POST /api/upm/register -- register a UPM execution session"
-  def upm_register(conn, params) do
-    {:ok, session_id} = UpmStore.register_session(params)
-
-    conn
-    |> put_status(201)
-    |> json(%{ok: true, upm_session_id: session_id})
-  end
-
-  @doc "POST /api/upm/agent -- register an agent with work-item binding"
-  def upm_agent(conn, params) do
-    case UpmStore.register_agent(params) do
-      :ok ->
-        json(conn, %{ok: true})
-
-      {:error, :session_not_found} ->
-        conn
-        |> put_status(404)
-        |> json(%{error: "UPM session not found", upm_session_id: params["upm_session_id"]})
-    end
-  end
-
-  @doc "POST /api/upm/event -- report a UPM lifecycle event"
-  def upm_event(conn, params) do
-    :ok = UpmStore.record_event(params)
-    json(conn, %{ok: true})
-  end
-
-  @doc "GET /api/upm/status -- current UPM execution state"
-  def upm_status(conn, _params) do
-    status = UpmStore.get_status()
-    json(conn, status)
-  end
-
-  # ============================
   # Export / Import Endpoints
   # ============================
 

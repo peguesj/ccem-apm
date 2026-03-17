@@ -606,66 +606,14 @@ defmodule ApmV5Web.DashboardLive do
               </div>
             </div>
 
-            <%!-- Agent Fleet --%>
-            <div>
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">
-                Agent Fleet
-              </h3>
-              <%!-- Column headers --%>
-              <div class="grid grid-cols-[24px_1fr_80px_60px_80px] gap-2 px-3 mb-1 text-[10px] uppercase tracking-wider text-base-content/30">
-                <span></span>
-                <span>Agent</span>
-                <span class="text-right">Last Seen</span>
-                <span class="text-center">Type</span>
-                <span class="text-center">Status</span>
-              </div>
-              <%!-- Agent rows --%>
-              <div class="space-y-1">
-                <div
-                  :for={agent <- filtered_agents(assigns)}
-                  class="card bg-base-200 border border-base-300 hover:border-primary/50 transition-colors cursor-pointer"
-                  phx-click="select_agent"
-                  phx-value-agent_id={agent.id}
-                >
-                  <div class="grid grid-cols-[24px_1fr_80px_60px_80px] gap-2 items-center px-3 py-2">
-                    <div class={["badge badge-xs", tier_badge_class(agent.tier)]}>
-                      {agent.tier}
-                    </div>
-                    <div>
-                      <div class="text-sm font-medium truncate flex items-center gap-1.5">
-                        {agent.name}
-                        <span :if={agent[:member_count] && agent[:member_count] > 1} class="badge badge-xs badge-info">
-                          {agent[:member_count]}
-                        </span>
-                        <span :if={agent[:story_id]} class="badge badge-xs badge-primary badge-outline font-mono">
-                          {agent[:story_id]}
-                        </span>
-                      </div>
-                      <div class="text-[10px] text-base-content/30 flex items-center gap-1">
-                        <span class="font-mono">{agent.id}</span>
-                        <span :if={agent[:namespace]} class="text-primary/60">/ {agent[:namespace]}</span>
-                      </div>
-                    </div>
-                    <div class="text-right text-xs text-base-content/40">
-                      {format_last_seen(agent.last_seen)}
-                    </div>
-                    <div class="text-center">
-                      <span class={["badge badge-xs", agent_type_badge_class(agent[:agent_type])]}>
-                        {agent[:agent_type] || "individual"}
-                      </span>
-                    </div>
-                    <div class="text-center">
-                      <span class={["badge badge-sm", status_badge_class(agent.status)]}>
-                        {agent.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div :if={@agents == []} class="text-center text-base-content/30 py-8 text-sm">
-                  No agents registered. POST to /api/register to add agents.
-                </div>
-              </div>
-            </div>
+            <%!-- Agent Fleet — extracted to AgentPanel component (US-R13) --%>
+            <ApmV5Web.Components.AgentPanel.agent_fleet
+              agents={@agents}
+              filter_status={@filter_status}
+              filter_namespace={@filter_namespace}
+              filter_agent_type={@filter_agent_type}
+              filter_query={@filter_query}
+            />
           </div>
 
           <%!-- Right panel: tabs --%>
@@ -1580,11 +1528,6 @@ defmodule ApmV5Web.DashboardLive do
   defp agent_type_badge_class("swarm"), do: "badge-warning"
   defp agent_type_badge_class("orchestrator"), do: "badge-accent"
   defp agent_type_badge_class(_), do: "badge-ghost"
-
-  defp tier_badge_class(1), do: "badge-primary"
-  defp tier_badge_class(2), do: "badge-secondary"
-  defp tier_badge_class(3), do: "badge-warning"
-  defp tier_badge_class(_), do: "badge-ghost"
 
   defp notif_badge_class("error"), do: "badge-error"
   defp notif_badge_class("warning"), do: "badge-warning"

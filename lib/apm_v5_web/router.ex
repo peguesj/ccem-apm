@@ -128,11 +128,23 @@ defmodule ApmV5Web.Router do
     get "/v2/export", ApiController, :export
     post "/v2/import", ApiController, :import_data
 
-    # UPM execution tracking
-    post "/upm/register", ApiController, :upm_register
-    post "/upm/agent", ApiController, :upm_agent
-    post "/upm/event", ApiController, :upm_event
-    get "/upm/status", ApiController, :upm_status
+    # UPM execution tracking — routed to domain controller (US-R12)
+    post "/upm/register", UpmApiController, :upm_register
+    post "/upm/agent", UpmApiController, :upm_agent
+    post "/upm/event", UpmApiController, :upm_event
+    get "/upm/status", UpmApiController, :upm_status
+
+    # Formation domain controller (US-R12)
+    get "/formations", FormationApiController, :list_formations
+    post "/formations", FormationApiController, :create_formation
+    get "/formations/:id", FormationApiController, :get_formation
+    patch "/formations/:id", FormationApiController, :update_formation
+    get "/formations/:id/agents", FormationApiController, :get_formation_agents
+
+    # Showcase domain controller (US-R12)
+    get "/showcase", ShowcaseApiController, :index
+    get "/showcase/:project", ShowcaseApiController, :show
+    post "/showcase/:project/reload", ShowcaseApiController, :reload
 
     # Port management
     get "/ports", ApiController, :ports
