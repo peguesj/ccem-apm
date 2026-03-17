@@ -183,6 +183,12 @@ defmodule ApmV5.ChatStore do
   def handle_info({:ag_ui_event, _event}, state), do: {:noreply, state}
   def handle_info(_msg, state), do: {:noreply, state}
 
+  @impl true
+  def terminate(_reason, state) do
+    :ets.delete(state.table)
+    :ok
+  end
+
   # --- Private ---
 
   defp build_message(content, metadata) do

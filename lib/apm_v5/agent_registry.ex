@@ -413,6 +413,14 @@ defmodule ApmV5.AgentRegistry do
     {:reply, :ok, %{notification_counter: 0}}
   end
 
+  @impl true
+  def terminate(_reason, _state) do
+    :ets.delete(@agents_table)
+    :ets.delete(@sessions_table)
+    :ets.delete(@notifications_table)
+    :ok
+  end
+
   @doc "List agents belonging to a formation."
   @spec list_formation(String.t()) :: [map()]
   def list_formation(formation_id) do

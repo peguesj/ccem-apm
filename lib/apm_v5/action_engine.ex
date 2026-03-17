@@ -173,12 +173,14 @@ defmodule ApmV5.ActionEngine do
 
   # --- GenServer callbacks ---
 
+  @doc false
   @impl true
   def init(_) do
     schedule_prune()
     {:ok, %{runs: %{}}}
   end
 
+  @doc false
   @impl true
   def handle_call({:run_action, action_type, project_path, params}, _from, state) do
     unless Enum.any?(@catalog, &(&1.id == action_type)) do
@@ -209,6 +211,8 @@ defmodule ApmV5.ActionEngine do
     end
   end
 
+  @doc false
+  @impl true
   def handle_call(:list_runs, _from, state) do
     runs =
       state.runs
@@ -217,6 +221,8 @@ defmodule ApmV5.ActionEngine do
     {:reply, runs, state}
   end
 
+  @doc false
+  @impl true
   def handle_call({:get_run, run_id}, _from, state) do
     case Map.get(state.runs, run_id) do
       nil -> {:reply, {:error, :not_found}, state}
@@ -224,6 +230,7 @@ defmodule ApmV5.ActionEngine do
     end
   end
 
+  @doc false
   @impl true
   def handle_cast({:action_done, run_id, result}, state) do
     case Map.get(state.runs, run_id) do
@@ -251,6 +258,7 @@ defmodule ApmV5.ActionEngine do
     end
   end
 
+  @doc false
   @impl true
   def handle_info(:prune_runs, state) do
     cutoff = DateTime.utc_now() |> DateTime.add(-@run_ttl_seconds, :second)
@@ -275,6 +283,12 @@ defmodule ApmV5.ActionEngine do
 
     schedule_prune()
     {:noreply, %{state | runs: pruned}}
+  end
+
+  @doc false
+  @impl true
+  def terminate(_reason, _state) do
+    :ok
   end
 
   defp schedule_prune do
@@ -782,39 +796,7 @@ defmodule ApmV5.ActionEngine do
     clashes = ApmV5.PortManager.detect_clashes()
     ranges = ApmV5.PortManager.get_port_ranges()
 
-    total = map_size(port_map)
-    clash_count = length(clashes)
-
-    by_namespace =
-      Enum.reduce(port_map, %{web: 0, api: 0, service: 0, tool: 0, other: 0}, fn {_port, info}, acc ->
-        ns = Map.get(info, :namespace, :other)
-        Map.update(acc, ns, 1, &(&1 + 1))
-      end)
-
-    namespace_capacity =
-      Enum.map(ranges, fn {ns, range} ->
-        {ns, Enum.count(range)}
-      end)
-      |> Enum.into(%{})
-
-    utilization =
-      if total == 0 do
-        0.0
-      else
-        total_capacity = Enum.sum(Map.values(namespace_capacity))
-        Float.round(total / total_capacity * 100, 2)
-      end
-
-    {:ok, %{
-      total: total,
-      clashes: clash_count,
-      utilization_percent: utilization,
-      by_namespace: by_namespace,
-      namespace_capacity: namespace_capacity,
-      clash_details: Enum.map(clashes, fn c ->
-        %{port: c.port, projects: c.projects, owner: c.owner}
-      end)
-    }}
+    {:ok, build_port_analysis_result(port_map, clashes, ranges)}
   rescue
     e -> {:error, Exception.message(e)}
   end
@@ -999,6 +981,42 @@ defmodule ApmV5.ActionEngine do
         \\"message\\": \\"Tool done: $TOOL_NAME\\"
       }" >/dev/null 2>&1 &
     """
+  end
+
+  defp build_port_analysis_result(port_map, clashes, ranges) do
+    total = map_size(port_map)
+    clash_count = length(clashes)
+
+    by_namespace =
+      Enum.reduce(port_map, %{web: 0, api: 0, service: 0, tool: 0, other: 0}, fn {_port, info}, acc ->
+        ns = Map.get(info, :namespace, :other)
+        Map.update(acc, ns, 1, &(&1 + 1))
+      end)
+
+    namespace_capacity =
+      ranges
+      |> Enum.map(fn {ns, range} -> {ns, Enum.count(range)} end)
+      |> Enum.into(%{})
+
+    utilization = compute_port_utilization(total, namespace_capacity)
+
+    %{
+      total: total,
+      clashes: clash_count,
+      utilization_percent: utilization,
+      by_namespace: by_namespace,
+      namespace_capacity: namespace_capacity,
+      clash_details: Enum.map(clashes, fn c ->
+        %{port: c.port, projects: c.projects, owner: c.owner}
+      end)
+    }
+  end
+
+  defp compute_port_utilization(0, _namespace_capacity), do: 0.0
+
+  defp compute_port_utilization(total, namespace_capacity) do
+    total_capacity = Enum.sum(Map.values(namespace_capacity))
+    Float.round(total / total_capacity * 100, 2)
   end
 
   defp copy_showcase_assets(src_dir, dest_dir) do

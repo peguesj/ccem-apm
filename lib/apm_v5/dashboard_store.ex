@@ -21,6 +21,7 @@ defmodule ApmV5.DashboardStore do
 
   # --- Public API ---
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)
@@ -28,70 +29,85 @@ defmodule ApmV5.DashboardStore do
 
   # Layouts
 
+  @spec save_layout(String.t(), list()) :: {:ok, map()}
   def save_layout(name, panels) do
     GenServer.call(__MODULE__, {:save_layout, name, panels})
   end
 
+  @spec load_layout(String.t()) :: map() | nil
   def load_layout(id) do
     GenServer.call(__MODULE__, {:load_layout, id})
   end
 
+  @spec list_layouts() :: [map()]
   def list_layouts do
     GenServer.call(__MODULE__, :list_layouts)
   end
 
+  @spec delete_layout(String.t()) :: :ok
   def delete_layout(id) do
     GenServer.call(__MODULE__, {:delete_layout, id})
   end
 
   # Filter Presets
 
+  @spec save_preset(String.t(), map()) :: {:ok, map()}
   def save_preset(name, filters) do
     GenServer.call(__MODULE__, {:save_preset, name, filters})
   end
 
+  @spec load_preset(String.t()) :: map() | nil
   def load_preset(id) do
     GenServer.call(__MODULE__, {:load_preset, id})
   end
 
+  @spec list_presets() :: [map()]
   def list_presets do
     GenServer.call(__MODULE__, :list_presets)
   end
 
+  @spec delete_preset(String.t()) :: :ok
   def delete_preset(id) do
     GenServer.call(__MODULE__, {:delete_preset, id})
   end
 
   # Custom Views
 
+  @spec save_view(String.t(), map()) :: {:ok, map()}
   def save_view(name, config) do
     GenServer.call(__MODULE__, {:save_view, name, config})
   end
 
+  @spec load_view(String.t()) :: map() | nil
   def load_view(id) do
     GenServer.call(__MODULE__, {:load_view, id})
   end
 
+  @spec list_views() :: [map()]
   def list_views do
     GenServer.call(__MODULE__, :list_views)
   end
 
+  @spec delete_view(String.t()) :: :ok
   def delete_view(id) do
     GenServer.call(__MODULE__, {:delete_view, id})
   end
 
   # Layout History
 
+  @spec push_history(String.t(), list()) :: :ok
   def push_history(layout_id, panels) do
     GenServer.call(__MODULE__, {:push_history, layout_id, panels})
   end
 
+  @spec undo_layout(String.t()) :: {:ok, list()} | :empty
   def undo_layout(layout_id) do
     GenServer.call(__MODULE__, {:undo_layout, layout_id})
   end
 
   # Reload from disk
 
+  @spec reload() :: :ok
   def reload do
     GenServer.call(__MODULE__, :reload)
   end

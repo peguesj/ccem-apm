@@ -76,7 +76,12 @@ defmodule ApmV5.WorkflowRegistry do
     }
   }
 
+  @spec list_workflows() :: [map()]
   def list_workflows, do: Map.values(@workflows)
+
+  @spec get_workflow(String.t()) :: map() | nil
   def get_workflow(id), do: Map.get(@workflows, id)
+
+  @spec workflow_ids() :: [String.t()]
   def workflow_ids, do: Map.keys(@workflows)
 end
