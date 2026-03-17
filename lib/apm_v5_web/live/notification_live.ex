@@ -261,24 +261,50 @@ defmodule ApmV5Web.NotificationLive do
               Loading...
               <span phx-hook="LoadContext" id={"ctx-#{@notif.id}"} phx-value-id={@notif.id} phx-value-type="formation" style="display:none" />
             </div>
-            <div :if={@lazy_context != nil} class="space-y-1 font-mono text-xs text-base-content/70">
-              <div :if={@lazy_context[:formation_id]} class="flex items-center gap-1.5">
-                <.icon name="hero-rectangle-group" class="size-3 text-accent" />
-                <span class="text-accent">{@lazy_context[:formation_id]}</span>
+            <div :if={@lazy_context != nil} class="font-mono text-xs">
+              <%!-- Session row --%>
+              <div :if={@lazy_context[:session_id]} class="flex items-center gap-1.5 text-base-content/50">
+                <span class="text-base-content/30">├─</span>
+                <.icon name="hero-circle-stack" class="size-3 text-base-content/40" />
+                <span class="text-base-content/50">session:</span>
+                <span class="text-base-content/60">{@lazy_context[:session_id]}</span>
               </div>
-              <div :if={@lazy_context[:squadrons]} class="pl-4 space-y-0.5">
-                <div :for={sq <- @lazy_context[:squadrons]} class="flex items-center gap-1.5">
+              <%!-- Formation row --%>
+              <div :if={@lazy_context[:formation_id]} class="flex items-center gap-1.5 pl-3 text-accent">
+                <span class="text-base-content/30">├─</span>
+                <.icon name="hero-rectangle-group" class="size-3 text-accent" />
+                <span class="text-accent/70">formation:</span>
+                <span class="text-accent font-semibold">{@lazy_context[:formation_id]}</span>
+              </div>
+              <%!-- Squadron rows --%>
+              <div :if={@lazy_context[:squadrons] && @lazy_context[:squadrons] != []} class="pl-6 space-y-0.5">
+                <div :for={sq <- @lazy_context[:squadrons]} class="flex items-center gap-1.5 text-info">
+                  <span class="text-base-content/30">├─</span>
                   <.icon name="hero-user-group" class="size-3 text-info" />
+                  <span class="text-info/70">squadron:</span>
                   <span class="text-info">{sq}</span>
                 </div>
               </div>
-              <div :if={@lazy_context[:agents]} class="pl-8 space-y-0.5">
-                <div :for={ag <- @lazy_context[:agents]} class="flex items-center gap-1.5">
-                  <.icon name="hero-cpu-chip" class="size-3 text-base-content/50" />
-                  <span>{ag}</span>
+              <%!-- Swarm rows --%>
+              <div :if={@lazy_context[:swarms] && @lazy_context[:swarms] != []} class="pl-9 space-y-0.5">
+                <div :for={sw <- @lazy_context[:swarms]} class="flex items-center gap-1.5 text-warning">
+                  <span class="text-base-content/30">├─</span>
+                  <.icon name="hero-squares-plus" class="size-3 text-warning" />
+                  <span class="text-warning/70">swarm:</span>
+                  <span class="text-warning">{sw}</span>
                 </div>
               </div>
-              <div :if={@lazy_context == %{}} class="text-base-content/30 italic">
+              <%!-- Agent rows --%>
+              <div :if={@lazy_context[:agents] && @lazy_context[:agents] != []} class="pl-12 space-y-0.5">
+                <div :for={ag <- @lazy_context[:agents]} class="flex items-center gap-1.5 text-base-content/60">
+                  <span class="text-base-content/30">└─</span>
+                  <.icon name="hero-cpu-chip" class="size-3 text-base-content/50" />
+                  <span class="text-base-content/40">agent:</span>
+                  <span class="text-base-content/70">{ag}</span>
+                </div>
+              </div>
+              <%!-- Empty state --%>
+              <div :if={@lazy_context == %{} || (@lazy_context[:formation_id] == nil && @lazy_context[:squadrons] == [] && @lazy_context[:agents] == [])} class="text-base-content/30 italic">
                 No hierarchy data available
               </div>
             </div>
@@ -293,15 +319,13 @@ defmodule ApmV5Web.NotificationLive do
             <div :if={@lazy_context != nil} class="space-y-1 font-mono text-xs text-base-content/70">
               <.meta_row :if={@lazy_context[:story_id]} label="Story" value={to_string(@lazy_context[:story_id])} />
               <.meta_row :if={@lazy_context[:story_title]} label="Title" value={to_string(@lazy_context[:story_title])} />
+              <.meta_row :if={@lazy_context[:feature_name]} label="Feature" value={to_string(@lazy_context[:feature_name])} />
               <.meta_row :if={@lazy_context[:status]} label="Status" value={to_string(@lazy_context[:status])} />
               <.meta_row :if={@lazy_context[:wave]} label="Wave" value={to_string(@lazy_context[:wave])} />
               <.meta_row :if={@lazy_context[:project_name]} label="Project" value={to_string(@lazy_context[:project_name])} />
-              <div :if={@notif[:upm_context]} class="mt-1 pt-1 border-t border-base-300">
-                <p class="text-[10px] text-base-content/40 mb-0.5">Raw UPM Context</p>
-                <pre class="text-[10px] text-base-content/50 whitespace-pre-wrap break-all">{inspect(@notif[:upm_context], pretty: true, limit: 200)}</pre>
-              </div>
-              <div :if={@lazy_context == %{}} class="text-base-content/30 italic">
-                No story data available
+              <.meta_row :if={@lazy_context[:upm_session_id]} label="Session" value={to_string(@lazy_context[:upm_session_id])} />
+              <div :if={@lazy_context[:story_id] == nil && @lazy_context[:feature_name] == nil} class="text-base-content/30 italic">
+                No story data available — ensure upm_context is included in POST /api/notify payload
               </div>
             </div>
           </div>
@@ -555,28 +579,42 @@ defmodule ApmV5Web.NotificationLive do
     notif = Enum.find(notifications, fn n -> n.id == id end)
     formation_id = notif[:formation_id]
 
-    {squadrons, agents} =
+    {session_id, squadrons, swarms, agents} =
       if formation_id do
         members = AgentRegistry.list_formation(formation_id)
+        session =
+          members
+          |> Enum.map(& &1[:session_id])
+          |> Enum.reject(&is_nil/1)
+          |> List.first()
         sq_list =
           members
           |> Enum.map(& &1[:squadron])
+          |> Enum.reject(&is_nil/1)
+          |> Enum.uniq()
+        sw_list =
+          members
+          |> Enum.map(& &1[:swarm_id])
           |> Enum.reject(&is_nil/1)
           |> Enum.uniq()
         ag_list =
           members
           |> Enum.map(& &1[:agent_id])
           |> Enum.reject(&is_nil/1)
-        {sq_list, ag_list}
+        {session, sq_list, sw_list, ag_list}
       else
+        session = notif[:session_id]
         fallback_sq = if notif[:squadron_id], do: [notif[:squadron_id]], else: []
+        fallback_sw = if notif[:swarm_id], do: [notif[:swarm_id]], else: []
         fallback_ag = if notif[:agent_id], do: [notif[:agent_id]], else: []
-        {fallback_sq, fallback_ag}
+        {session, fallback_sq, fallback_sw, fallback_ag}
       end
 
     %{
+      session_id: session_id,
       formation_id: formation_id,
       squadrons: squadrons,
+      swarms: swarms,
       agents: agents
     }
   end
@@ -585,12 +623,17 @@ defmodule ApmV5Web.NotificationLive do
     notif = Enum.find(notifications, fn n -> n.id == id end)
     upm_ctx = notif[:upm_context] || %{}
 
+    # upm_context may have string keys (decoded JSON) or atom keys
+    get_ctx = fn keys -> Enum.find_value(keys, fn k -> upm_ctx[k] end) end
+
     %{
-      story_id: upm_ctx[:story_id] || notif[:story_id],
-      story_title: upm_ctx[:story_title],
-      status: upm_ctx[:status],
-      wave: upm_ctx[:wave] || notif[:wave_number],
-      project_name: upm_ctx[:project_name] || notif[:project_name]
+      story_id: get_ctx.([:story_id, "story_id"]) || notif[:story_id],
+      story_title: get_ctx.([:story_title, "story_title"]),
+      status: get_ctx.([:status, "status"]),
+      wave: get_ctx.([:wave, "wave", :wave_number, "wave_number"]) || notif[:wave_number],
+      project_name: get_ctx.([:project_name, "project_name"]) || notif[:project_name],
+      feature_name: get_ctx.([:feature_name, "feature_name"]),
+      upm_session_id: get_ctx.([:upm_session_id, "upm_session_id"])
     }
   end
 

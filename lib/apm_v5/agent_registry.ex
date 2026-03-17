@@ -307,8 +307,13 @@ defmodule ApmV5.AgentRegistry do
         namespace: get_any(notification, [:namespace, "namespace"]),
         formation_id: get_any(notification, [:formation_id, "formation_id"]),
         squadron_id: get_any(notification, [:squadron_id, "squadron_id"]),
+        swarm_id: get_any(notification, [:swarm_id, "swarm_id"]),
+        session_id: get_any(notification, [:session_id, "session_id"]),
         agent_id: get_any(notification, [:agent_id, "agent_id"]),
         story_id: get_any(notification, [:story_id, "story_id"]),
+        wave_number: get_any(notification, [:wave_number, "wave_number", :wave, "wave"]),
+        wave_total: get_any(notification, [:wave_total, "wave_total"]),
+        upm_context: get_any(notification, [:upm_context, "upm_context"]),
         timestamp: now,
         read: false
       }

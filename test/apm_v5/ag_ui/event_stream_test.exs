@@ -1,4 +1,4 @@
-defmodule ApmV5.EventStreamTest do
+defmodule ApmV5.AgUi.EventStreamTest do
   use ExUnit.Case, async: false
 
   alias ApmV5.EventStream

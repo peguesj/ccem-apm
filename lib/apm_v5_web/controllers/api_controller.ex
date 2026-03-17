@@ -372,16 +372,17 @@ defmodule ApmV5Web.ApiController do
 
   @doc "POST /api/notify -- add notification with optional scoped fields"
   def notify(conn, params) do
-    # deploy_agents category carries wave-specific metadata
-    wave_fields =
-      if params["category"] == "deploy_agents" do
-        %{
-          wave_number: params["wave_number"],
-          wave_total: params["wave_total"],
-          wave_status: params["wave_status"]
-        }
-      else
-        %{}
+    # Parse upm_context — may arrive as JSON string or already-decoded map
+    upm_context =
+      case params["upm_context"] do
+        nil -> nil
+        ctx when is_map(ctx) -> ctx
+        ctx when is_binary(ctx) ->
+          case Jason.decode(ctx) do
+            {:ok, decoded} -> decoded
+            _ -> nil
+          end
+        _ -> nil
       end
 
     notification =
@@ -394,10 +395,14 @@ defmodule ApmV5Web.ApiController do
         namespace: params["namespace"],
         formation_id: params["formation_id"],
         squadron_id: params["squadron_id"],
+        swarm_id: params["swarm_id"],
+        session_id: params["session_id"],
         agent_id: params["agent_id"],
-        story_id: params["story_id"]
+        story_id: params["story_id"],
+        wave_number: params["wave_number"] || params["wave"],
+        wave_total: params["wave_total"],
+        upm_context: upm_context
       }
-      |> Map.merge(wave_fields)
 
     id = AgentRegistry.add_notification(notification)
 
