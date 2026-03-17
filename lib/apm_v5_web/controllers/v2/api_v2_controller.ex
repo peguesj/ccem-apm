@@ -224,8 +224,8 @@ defmodule ApmV5Web.V2.ApiV2Controller do
       "openapi" => "3.0.3",
       "info" => %{
         "title" => "CCEM APM API",
-        "version" => "6.0.0",
-        "description" => "Complete REST API for CCEM Agent Performance Monitor. Also available at /api/openapi.json."
+        "version" => "6.1.0",
+        "description" => "Complete REST API for CCEM Agent Performance Monitor v6.1.0. Adds domain-split controllers: UpmApiController, FormationApiController, ShowcaseApiController. Also available at /api/openapi.json."
       },
       "servers" => [%{"url" => "http://localhost:3032", "description" => "Local APM server"}],
       "tags" => [
@@ -239,6 +239,7 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         %{"name" => "Tasks", "description" => "Task synchronization and input"},
         %{"name" => "Skills", "description" => "Skill invocation tracking"},
         %{"name" => "UPM", "description" => "Unified Project Management execution"},
+        %{"name" => "Formations", "description" => "Formation management (domain split from UPM)"},
         %{"name" => "Ports", "description" => "Port registry and clash detection"},
         %{"name" => "Environments", "description" => "CCEM environment management"},
         %{"name" => "Config", "description" => "Server configuration"},
@@ -405,6 +406,41 @@ defmodule ApmV5Web.V2.ApiV2Controller do
       "/api/upm/status" => %{
         "get" => %{"operationId" => "upmStatus", "summary" => "Current UPM execution state", "tags" => ["UPM"],
           "responses" => %{"200" => %{"description" => "UPM state"}}}
+      },
+      "/api/formations" => %{
+        "get" => %{"operationId" => "listFormations", "summary" => "List all formations", "tags" => ["UPM"],
+          "responses" => %{"200" => %{"description" => "Formation list"}}},
+        "post" => %{"operationId" => "createFormation", "summary" => "Create a formation", "tags" => ["UPM"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"201" => %{"description" => "Created formation"}}}
+      },
+      "/api/formations/{id}" => %{
+        "get" => %{"operationId" => "getFormation", "summary" => "Get a formation by ID", "tags" => ["UPM"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Formation detail"}, "404" => %{"description" => "Not found"}}},
+        "patch" => %{"operationId" => "updateFormation", "summary" => "Update a formation", "tags" => ["UPM"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Updated formation"}, "404" => %{"description" => "Not found"}}}
+      },
+      "/api/formations/{id}/agents" => %{
+        "get" => %{"operationId" => "getFormationAgents", "summary" => "List agents in a formation", "tags" => ["UPM"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Agents list"}}}
+      },
+      "/api/showcase" => %{
+        "get" => %{"operationId" => "listShowcaseProjects", "summary" => "List showcase-eligible projects", "tags" => ["CCEM Management"],
+          "responses" => %{"200" => %{"description" => "Showcase project list"}}}
+      },
+      "/api/showcase/{project}" => %{
+        "get" => %{"operationId" => "getShowcaseData", "summary" => "Get showcase data for a project", "tags" => ["CCEM Management"],
+          "parameters" => [%{"name" => "project", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Showcase data"}, "404" => %{"description" => "Not found"}}}
+      },
+      "/api/showcase/{project}/reload" => %{
+        "post" => %{"operationId" => "reloadShowcaseData", "summary" => "Reload showcase data for a project", "tags" => ["CCEM Management"],
+          "parameters" => [%{"name" => "project", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Reloaded"}}}
       },
       "/api/ports" => %{
         "get" => %{"operationId" => "listPorts", "summary" => "List registered ports", "tags" => ["Ports"],
