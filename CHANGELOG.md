@@ -1,5 +1,27 @@
 # Changelog
 
+## v6.2.0 (2026-03-17)
+
+CCEM APM v6.2 — refactor-max: ApiController domain split, DashboardLive decomposition, LiveView integration tests, and OpenAPI v6.1.0.
+
+### Added
+- **UpmApiController** (`controllers/upm_api_controller.ex`) — Domain controller for UPM execution tracking: `upm_register`, `upm_agent`, `upm_event`, `upm_status` extracted from ApiController
+- **FormationApiController** (`controllers/formation_api_controller.ex`) — Domain controller for formation CRUD: list, get, create, update, agents via `UpmStore` + `AgentRegistry`
+- **ShowcaseApiController** (`controllers/showcase_api_controller.ex`) — Domain controller for showcase data REST API: index, show, reload via `ShowcaseDataStore`
+- **AgentPanel component** (`components/agent_panel.ex`) — Functional component extracted from DashboardLive Agent Fleet section; includes tier/status/agent_type badges and filter support
+- **PortPanel component** (`components/port_panel.ex`) — Functional component extracted from DashboardLive Ports tab; includes clash alerts, remediation display, project port configs, and badge helpers
+- **DashboardLive integration tests** (`test/apm_v5_web/live/dashboard_live_test.exs`) — 8 tests verifying AgentPanel and PortPanel component integration within DashboardLive
+- **ShowcaseLive integration tests** (`test/apm_v5_web/live/showcase_live_test.exs`) — 6 tests including nil-session regression: ShowcaseLive must not crash when UpmStore has no active sessions
+
+### Changed
+- **Router** — `/api/upm/*` routes now delegated to `UpmApiController`; `/api/formations/*` and `/api/showcase/*` routes added for domain controllers
+- **ApiController** — UPM functions (`upm_register/agent/event/status`) removed; responsibility moved to `UpmApiController`
+- **DashboardLive** — Agent Fleet section replaced by `AgentPanel.agent_fleet/1` component call; Ports tab replaced by `PortPanel.port_manager/1` component call; unused badge helpers (`tier_badge_class`, `stack_badge`, `ns_badge`, `server_type_badge`) removed; line count reduced from 1,923 to 1,765 (158 lines)
+- **OpenAPI spec** — Version bumped to 6.1.0; added `/api/formations`, `/api/formations/{id}`, `/api/formations/{id}/agents`, `/api/showcase`, `/api/showcase/{project}`, `/api/showcase/{project}/reload` endpoint definitions; added Formations tag
+
+### Version
+- Bumped to v6.2.0
+
 ## v6.1.0 (2026-03-17)
 
 CCEM APM v6.1 — Agentic activity visualization, showcase inspector, project dropdown UX, and infrastructure telemetry.
