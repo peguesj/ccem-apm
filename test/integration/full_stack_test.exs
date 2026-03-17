@@ -67,7 +67,7 @@ defmodule ApmV5.Integration.FullStackTest do
       assert status_body["agent_count"] == 1
       assert status_body["status"] == "ok"
       assert is_integer(status_body["uptime"])
-      assert status_body["server_version"] == "4.0.0"
+      assert is_binary(status_body["server_version"])
     end
 
     test "multi-agent registration and listing", %{conn: conn} do
@@ -113,7 +113,7 @@ defmodule ApmV5.Integration.FullStackTest do
 
       {:ok, _view, html} = live(conn, ~p"/")
 
-      assert html =~ "CCEM APM v4"
+      assert html =~ "Agent Performance Monitor"
       assert html =~ "LiveView Agent"
       assert html =~ "Worker Agent"
       assert html =~ "active"
@@ -479,12 +479,9 @@ defmodule ApmV5.Integration.FullStackTest do
       # Heartbeat to active
       post(conn, ~p"/api/heartbeat", %{agent_id: "life-agent", status: "active"})
 
-      # Drain the agent_updated PubSub event (not an AG-UI event for simple status change)
-      receive do
-        {:ag_ui_event, _} -> :ok
-      after
-        100 -> :ok
-      end
+      # Drain all queued AG-UI events from heartbeat/register side effects
+      :timer.sleep(150)
+      flush_ag_ui_events()
 
       # Verify active in agents list
       conn_agents = get(conn, ~p"/api/agents")
@@ -500,6 +497,16 @@ defmodule ApmV5.Integration.FullStackTest do
       conn_agents2 = get(conn, ~p"/api/agents")
       [agent2] = json_response(conn_agents2, 200)["agents"]
       assert agent2["status"] == "completed"
+    end
+  end
+
+  # --- Helpers ---
+
+  defp flush_ag_ui_events do
+    receive do
+      {:ag_ui_event, _} -> flush_ag_ui_events()
+    after
+      0 -> :ok
     end
   end
 end

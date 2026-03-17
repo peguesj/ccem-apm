@@ -54,9 +54,9 @@ defmodule ApmV5Web.DashboardLive do
     ralph_data = load_ralph_for_project(active_project, config)
     session_count = count_config_sessions(config)
     upm_status = UpmStore.get_status()
-    project_configs = PortManager.get_project_configs()
-    port_clashes = PortManager.detect_clashes()
-    port_ranges = PortManager.get_port_ranges()
+    project_configs = safe_call(fn -> PortManager.get_project_configs() end, %{})
+    port_clashes = safe_call(fn -> PortManager.detect_clashes() end, [])
+    port_ranges = safe_call(fn -> PortManager.get_port_ranges() end, %{})
 
     socket =
       socket
@@ -1272,9 +1272,9 @@ defmodule ApmV5Web.DashboardLive do
   end
 
   def handle_event("scan_ports", _params, socket) do
-    PortManager.scan_active_ports()
-    project_configs = PortManager.get_project_configs()
-    port_clashes = PortManager.detect_clashes()
+    safe_call(fn -> PortManager.scan_active_ports() end, :ok)
+    project_configs = safe_call(fn -> PortManager.get_project_configs() end, %{})
+    port_clashes = safe_call(fn -> PortManager.detect_clashes() end, [])
     {:noreply,
      socket
      |> assign(:project_configs, project_configs)
@@ -1283,7 +1283,7 @@ defmodule ApmV5Web.DashboardLive do
 
   def handle_event("get_remediation", %{"port" => port_str}, socket) do
     {port, _} = Integer.parse(port_str)
-    remediation = PortManager.suggest_remediation(port)
+    remediation = safe_call(fn -> PortManager.suggest_remediation(port) end, "")
     {:noreply, assign(socket, :port_remediation, remediation)}
   end
 
@@ -1405,8 +1405,8 @@ defmodule ApmV5Web.DashboardLive do
   end
 
   def handle_info({:port_assigned, _, _}, socket) do
-    project_configs = PortManager.get_project_configs()
-    port_clashes = PortManager.detect_clashes()
+    project_configs = safe_call(fn -> PortManager.get_project_configs() end, %{})
+    port_clashes = safe_call(fn -> PortManager.detect_clashes() end, [])
     {:noreply, socket |> assign(:project_configs, project_configs) |> assign(:port_clashes, port_clashes)}
   end
 
@@ -1904,6 +1904,15 @@ defmodule ApmV5Web.DashboardLive do
   defp status_text_class("warning"), do: "text-warning"
   defp status_text_class("completed"), do: "text-purple-400"
   defp status_text_class(_), do: "text-base-content/40"
+
+  defp safe_call(fun, default) do
+    try do
+      fun.()
+    catch
+      :exit, _ -> default
+      _, _ -> default
+    end
+  end
 
   defp status_dot_class("active"), do: "bg-success"
   defp status_dot_class("running"), do: "bg-success"

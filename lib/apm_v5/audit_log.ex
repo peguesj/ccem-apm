@@ -19,6 +19,11 @@ defmodule ApmV5.AuditLog do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @doc "Clear all in-memory audit log entries. Used in tests."
+  def clear_all do
+    GenServer.call(__MODULE__, :clear_all)
+  end
+
   @doc "Async log - fire and forget, zero latency."
   def log(event_type, actor, resource, details \\ %{}) do
     GenServer.cast(__MODULE__, {:log, event_type, actor, resource, details, nil})
@@ -99,6 +104,12 @@ defmodule ApmV5.AuditLog do
       |> Enum.take(n)
 
     {:reply, events, state}
+  end
+
+  def handle_call(:clear_all, _from, state) do
+    :ets.delete_all_objects(@ets_table)
+    :ets.delete_all_objects(@ring_table)
+    {:reply, :ok, %{state | counter: 0}}
   end
 
   def handle_call(:stats, _from, state) do
