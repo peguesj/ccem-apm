@@ -1,19 +1,20 @@
 # CCEM APM Documentation
 
-**Version 5.2.0** | Phoenix/Elixir Agentic Performance Monitor
+**Version 6.0.0** | Phoenix/Elixir Agentic Performance Monitor
 
 A real-time monitoring and orchestration platform for Claude Code AI agent sessions, providing fleet visualization, multi-project tracking, and autonomous workflow management.
 
 ---
 
-## What's New
+## What's New in v6.0.0
 
+- **Showcase** -- Project-scoped GIMME-style dashboard with per-project feature roadmaps, architecture diagrams, and live APM data; data isolated per project namespace
+- **Port Intelligence** -- Port registry with conflict detection, utilization heatmaps, and smart reassignment via ActionEngine
+- **CCEM UI** -- Dual-section sidebar (CCEM Management / APM Monitoring) with dynamic header branding
+- **Performance** -- Code-split app.js bundle (D3 lazy-loaded per route), scoped showcase CSS, WebSocket-only LiveView transport
 - **AG-UI Protocol** -- Standardized event-based agent-user interaction with SSE streaming, state management, and HookBridge translation
-- **User Acceptance Testing** -- UAT workflow integration with automated verification gates
-- **UPM Tracking** -- Unified Project Management integration for cross-tool task sync
 - **Formation System** -- Agent squadrons and swarm orchestration with tier-based classification
 - **Documentation Wiki** -- Embedded interactive docs with slash command reference
-- **Port Management** -- Automatic port 3032 lifecycle with conflict detection
 
 See the full [Changelog](changelog.md) for version history and release notes.
 
@@ -47,7 +48,7 @@ Learn to use the dashboard, manage projects, and monitor agents.
 - [Skills Analytics](user/skills.md) -- Skill usage and co-occurrence
 - [Notifications](user/notifications.md) -- Alert system overview
 
-### Developer (6 pages)
+### Developer (8 pages)
 
 Architecture, API reference, and extending the platform.
 
@@ -56,8 +57,9 @@ Architecture, API reference, and extending the platform.
 - [LiveView Pages](developer/liveview-pages.md) -- Frontend components
 - [PubSub Events](developer/pubsub-events.md) -- Real-time event system
 - [AG-UI Protocol](developer/ag-ui-protocol.md) -- Event types, SSE streaming, and state management
+- [Showcase](developer/showcase.md) -- Project-scoped dashboard, ShowcaseDataStore, and IP-safe presentation
+- [CCEM UI](developer/ccem-ui.md) -- Dual-section sidebar, port management dashboard, and CCEM branding
 - [Extending CCEM](developer/extending.md) -- Adding new features
-- [Testing Guide](developer/testing.md) -- Test patterns and coverage
 
 ### Administration (4 pages)
 

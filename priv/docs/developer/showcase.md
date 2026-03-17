@@ -26,8 +26,10 @@ ShowcaseLive
 The `ShowcaseDataStore` is an ETS-backed GenServer that caches showcase data per project. It resolves the data path in this priority order:
 
 1. `project.showcase_data_path` — explicit override in `apm_config.json`
-2. `project.project_root/showcase/data/` — conventional data directory
-3. Default CCEM showcase at `~/Developer/ccem/showcase/data/`
+2. `project.project_root/showcase/data/` — conventional relative path
+3. `~/Developer/{project_name}/showcase/data/` — convention-based discovery
+
+CCEM projects (`"ccem"`, `"CCEM APM"`, `"apm-v4"`) always use `~/Developer/ccem/showcase/data/`. All other projects resolve independently — if no data directory is found, an empty showcase state is returned with zero features.
 
 ## Project Switching
 
