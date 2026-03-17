@@ -29,7 +29,6 @@ defmodule ApmV5.Application do
       ApmV5.AlertRulesEngine,
       ApmV5.MetricsCollector,
       ApmV5.SloEngine,
-      ApmV5.EventStream,
       ApmV5.AgentDiscovery,
       ApmV5.EnvironmentScanner,
       ApmV5.CommandRunner,
@@ -48,10 +47,8 @@ defmodule ApmV5.Application do
       ApmV5.BackfillStore,
       ApmV5.SkillsRegistryStore,
       ApmV5.ShowcaseDataStore,
+      ApmV5.AgUiSupervisor,
       ApmV5.AgUi.StateManager,
-      ApmV5.AgUi.EventBus,
-      ApmV5.AgUi.EventRouter,
-      ApmV5.AgUi.V4Compat,
       # Wave 2: Tool call lifecycle (US-010)
       ApmV5.AgUi.ToolCallTracker,
       # Wave 2: Dashboard state sync (US-015)

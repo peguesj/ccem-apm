@@ -62,7 +62,7 @@
         "All AG-UI tests still pass",
         "mix compile --warnings-as-errors passes"
       ],
-      "estimatedPoints": 3, "dependencies": [], "status": "pending", "passes": false,
+      "estimatedPoints": 3, "dependencies": [], "status": "done", "passes": true,
       "planeIssueId": "29022a21-4a15-4222-8100-76f3a5600972", "checkpointId": "CP-121", "wave": 1
     },
     {
