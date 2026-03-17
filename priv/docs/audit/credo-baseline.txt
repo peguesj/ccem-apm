@@ -1,0 +1,276 @@
+Checking 187 source files (this might take a while) ...
+
+  Code Readability                                                              
+┃ 
+┃ [R] ↗ Numbers larger than 9999 should be written with underscores: 86_400
+┃       lib/apm_v5_web/live/skills_live.ex:527:18 #(ApmV5Web.SkillsLive.format_modified)
+┃ [R] ↗ Numbers larger than 9999 should be written with underscores: 86_400
+┃       lib/apm_v5_web/live/session_timeline_live.ex:250:62 #(ApmV5Web.SessionTimelineLive.time_range_cutoff)
+┃ [R] ↗ Numbers larger than 9999 should be written with underscores: 21_600
+┃       lib/apm_v5_web/live/session_timeline_live.ex:249:61 #(ApmV5Web.SessionTimelineLive.time_range_cutoff)
+┃ [R] ↗ Numbers larger than 9999 should be written with underscores: 86_400
+┃       lib/apm_v5_web/live/notification_live.ex:543:18 #(ApmV5Web.NotificationLive.relative_time)
+┃ [R] ↗ Numbers larger than 9999 should be written with underscores: 96_500
+┃       test/apm_v5/session_parser_test.exs:257:37 #(ApmV5.SessionParserTest)
+┃ [R] ↗ Numbers larger than 9999 should be written with underscores: 30_000
+┃       test/apm_v5/session_parser_test.exs:241:42 #(ApmV5.SessionParserTest)
+┃ [R] ↗ Numbers larger than 9999 should be written with underscores: 30_000
+┃       test/apm_v5/session_parser_test.exs:227:42 #(ApmV5.SessionParserTest)
+┃ [R] ↗ Numbers larger than 9999 should be written with underscores: 30_000
+┃       test/apm_v5/session_parser_test.exs:211:46 #(ApmV5.SessionParserTest)
+┃ [R] → `with` contains only one <- clause and an `else` branch, consider using 
+┃       `case` instead
+┃       lib/apm_v5/port_manager.ex:310:5 #(ApmV5.PortManager.detect_pkg_json_detailed)
+┃ [R] → Modules should have a @moduledoc tag.
+┃       lib/apm_v5_web/channels/metrics_channel.ex:1:11 #(ApmV5Web.MetricsChannel)
+┃ [R] → Modules should have a @moduledoc tag.
+┃       lib/apm_v5_web/channels/alerts_channel.ex:1:11 #(ApmV5Web.AlertsChannel)
+┃ [R] → Modules should have a @moduledoc tag.
+┃       lib/apm_v5_web/channels/agent_channel.ex:1:11 #(ApmV5Web.AgentChannel)
+┃ [R] → Modules should have a @moduledoc tag.
+┃       test/support/channel_case.ex:1:11 #(ApmV5Web.ChannelCase)
+
+  Refactoring opportunities                                                     
+┃ 
+┃ [F] ↗ Unless conditions should avoid having an `else` block.
+┃       lib/apm_v5/agent_registry.ex:271:5 #(ApmV5.AgentRegistry.handle_call)
+┃ [F] ↗ Unless conditions should avoid having an `else` block.
+┃       lib/apm_v5/action_engine.ex:706:5 #(ApmV5.ActionEngine.execute_action)
+┃ [F] ↗ Unless conditions should avoid having an `else` block.
+┃       lib/apm_v5/action_engine.ex:470:9 #(ApmV5.ActionEngine.execute_action)
+┃ [F] ↗ Unless conditions should avoid having an `else` block.
+┃       lib/apm_v5/action_engine.ex:387:5 #(ApmV5.ActionEngine.execute_action)
+┃ [F] ↗ `Enum.map_join/3` is more efficient than `Enum.map/2 |> Enum.join/2`.
+┃       lib/apm_v5/action_engine.ex:294:62 #(ApmV5.ActionEngine.execute_action)
+┃ [F] ↗ Unless conditions should avoid having an `else` block.
+┃       lib/apm_v5/action_engine.ex:173:5 #(ApmV5.ActionEngine.handle_call)
+┃ [F] ↗ `Enum.map_join/3` is more efficient than `Enum.map/2 |> Enum.join/2`.
+┃       lib/apm_v5_web/live/uat_live.ex:401:52 #(ApmV5Web.UatLive.run_test_case)
+┃ [F] ↗ `Enum.map_join/3` is more efficient than `Enum.map/2 |> Enum.join/2`.
+┃       lib/apm_v5_web/live/notification_live.ex:508:11 #(ApmV5Web.NotificationLive.format_message)
+┃ [F] ↗ Avoid negated conditions in if-else blocks.
+┃       lib/apm_v5_web/controllers/page_controller.ex:49:54 #(ApmV5Web.PageController.upm_showcase)
+┃ [F] ↗ Avoid negated conditions in if-else blocks.
+┃       lib/apm_v5_web/controllers/api_controller.ex:840:18 #(ApmV5Web.ApiController.set_primary_port)
+┃ [F] ↗ Avoid negated conditions in if-else blocks.
+┃       lib/apm_v5/showcase_data_store.ex:79:10 #(ApmV5.ShowcaseDataStore.filter_showcase_projects)
+┃ [F] ↗ Unless conditions should avoid having an `else` block.
+┃       lib/apm_v5/ag_ui/v4_compat.ex:69:5 #(ApmV5.AgUi.V4Compat.handle_info)
+┃ [F] → Function body is nested too deep (max depth is 2, was 4).
+┃       lib/apm_v5/upm_store.ex:304:17 #(ApmV5.UpmStore.handle_call)
+┃ [F] → Function body is nested too deep (max depth is 2, was 4).
+┃       lib/apm_v5/action_engine.ex:632:17 #(ApmV5.ActionEngine.execute_action)
+┃ [F] → Function is too complex (cyclomatic complexity is 15, max is 9).
+┃       lib/apm_v5_web/controllers/v2/agent_control_controller.ex:88:8 #(ApmV5Web.V2.AgentControlController.execute_control)
+┃ [F] → Function is too complex (cyclomatic complexity is 15, max is 9).
+┃       lib/apm_v5/upm_store.ex:265:7 #(ApmV5.UpmStore.handle_call)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5_web/live/notification_live.ex:352:9 #(ApmV5Web.NotificationLive.handle_event)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/workflow_schema_store.ex:149:13 #(ApmV5.WorkflowSchemaStore.handle_call)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/upm_store.ex:226:13 #(ApmV5.UpmStore.handle_call)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/skill_hook_deployer.ex:69:13 #(ApmV5.SkillHookDeployer.handle_call)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/port_manager.ex:92:38 #(ApmV5.PortManager.handle_call)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/graph_builder.ex:143:11 #(ApmV5.GraphBuilder.build_squadron_nodes)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/alert_rules_engine.ex:142:9 #(ApmV5.AlertRulesEngine.handle_call)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/agent_registry.ex:252:11 #(ApmV5.AgentRegistry.handle_call)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/agent_discovery.ex:125:11 #(ApmV5.AgentDiscovery.process_output_file)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/action_engine.ex:711:11 #(ApmV5.ActionEngine.execute_action)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/action_engine.ex:679:11 #(ApmV5.ActionEngine.execute_action)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/action_engine.ex:471:11 #(ApmV5.ActionEngine.execute_action)
+┃ [F] → Function is too complex (cyclomatic complexity is 13, max is 9).
+┃       lib/apm_v5/agent_discovery.ex:93:8 #(ApmV5.AgentDiscovery.process_output_file)
+┃ [F] → Function is too complex (cyclomatic complexity is 10, max is 9).
+┃       lib/apm_v5/ag_ui/event_bus_health.ex:85:7 #(ApmV5.AgUi.EventBusHealth.handle_call)
+┃ [F] → One `Enum.filter/2` is more efficient than `Enum.filter/2 |> 
+┃       Enum.filter/2`
+┃       lib/apm_v5_web/controllers/v2/ag_ui_v2_controller.ex:224:5 #(ApmV5Web.V2.AgUiV2Controller.replay_events)
+┃ [F] → One `Enum.reject/2` is more efficient than `Enum.reject/2 |> 
+┃       Enum.reject/2`
+┃       lib/apm_v5/port_manager.ex:133:7 #(ApmV5.PortManager.handle_call)
+┃ [F] → Function is too complex (cyclomatic complexity is 28, max is 9).
+┃       lib/apm_v5/port_manager.ex:466:8 #(ApmV5.PortManager.identify_server_type)
+┃ [F] → Function is too complex (cyclomatic complexity is 26, max is 9).
+┃       lib/apm_v5_web/live/formation_live.ex:302:8 #(ApmV5Web.FormationLive.build_formation_tree)
+┃ [F] → Function body is nested too deep (max depth is 2, was 4).
+┃       lib/apm_v5_web/controllers/api_controller.ex:1074:19 #(ApmV5Web.ApiController.telemetry)
+┃ [F] → Function body is nested too deep (max depth is 2, was 4).
+┃       lib/apm_v5/project_scanner.ex:175:11 #(ApmV5.ProjectScanner.detect_stack)
+┃ [F] → Function body is nested too deep (max depth is 2, was 4).
+┃       lib/apm_v5/plugin_scanner.ex:121:15 #(ApmV5.PluginScanner.list_plugins_in_dir)
+┃ [F] → Function body is nested too deep (max depth is 2, was 4).
+┃       lib/apm_v5/environment_scanner.ex:208:15 #(ApmV5.EnvironmentScanner.find_sessions)
+┃ [F] → Function body is nested too deep (max depth is 2, was 4).
+┃       lib/apm_v5/backfill_runner.ex:79:13 #(ApmV5.BackfillRunner.sync_stories)
+┃ [F] → Function body is nested too deep (max depth is 2, was 4).
+┃       lib/apm_v5/ag_ui/dashboard_state_sync.ex:184:15 #(ApmV5.AgUi.DashboardStateSync.compute_state_delta)
+┃ [F] → Function body is nested too deep (max depth is 2, was 4).
+┃       lib/apm_v5/action_engine.ex:983:17 #(ApmV5.ActionEngine.copy_showcase_assets)
+┃ [F] → Function is too complex (cyclomatic complexity is 17, max is 9).
+┃       lib/apm_v5/intake/intake_store.ex:123:8 #(ApmV5.Intake.Store.normalize)
+┃ [F] → Function is too complex (cyclomatic complexity is 15, max is 9).
+┃       lib/apm_v5/ag_ui/activity_tracker.ex:103:8 #(ApmV5.AgUi.ActivityTracker.infer_activity)
+┃ [F] → Function is too complex (cyclomatic complexity is 14, max is 9).
+┃       lib/apm_v5_web/live/dashboard_live.ex:1807:8 #(ApmV5Web.DashboardLive.tree_node)
+┃ [F] → Function is too complex (cyclomatic complexity is 14, max is 9).
+┃       lib/apm_v5_web/controllers/api_controller.ex:1059:7 #(ApmV5Web.ApiController.telemetry)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5_web/live/notification_live.ex:507:23 #(ApmV5Web.NotificationLive.format_message)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5_web/live/formation_live.ex:408:50 #(ApmV5Web.FormationLive.push_formation_graph)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5_web/live/formation_live.ex:348:27 #(ApmV5Web.FormationLive.build_formation_tree)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5_web/live/dashboard_live.ex:1793:9 #(ApmV5Web.DashboardLive.find_ancestor_path)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5_web/live/dashboard_live.ex:1704:11 #(ApmV5Web.DashboardLive.categorize_projects)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5_web/controllers/api_controller.ex:601:17 #(ApmV5Web.ApiController.start_session)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/skills_registry_store.ex:179:11 #(ApmV5.SkillsRegistryStore.parse_frontmatter)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/skill_hook_deployer.ex:143:9 #(ApmV5.SkillHookDeployer.parse_template_name)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/project_scanner.ex:197:23 #(ApmV5.ProjectScanner.detect_ports)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/port_manager.ex:451:11 #(ApmV5.PortManager.get_process_cwd)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/docs_store.ex:131:11 #(ApmV5.DocsStore.load_from_manifest)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/config_loader.ex:176:18 #(ApmV5.ConfigLoader.sync_sessions_to_registry)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/agent_discovery.ex:177:11 #(ApmV5.AgentDiscovery.extract_agent_name)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/ag_ui/state_manager.ex:102:23 #(ApmV5.AgUi.StateManager.add_computed_delta)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/ag_ui/event_bus.ex:226:9 #(ApmV5.AgUi.EventBus.deliver_to_subscribers)
+┃ [F] → Function is too complex (cyclomatic complexity is 13, max is 9).
+┃       lib/apm_v5/ag_ui/metrics_bridge.ex:47:8 #(ApmV5.AgUi.MetricsBridge.record_metric)
+┃ [F] → Function is too complex (cyclomatic complexity is 13, max is 9).
+┃       lib/apm_v5/ag_ui/a2a/envelope.ex:44:7 #(ApmV5.AgUi.A2A.Envelope.new)
+┃ [F] → Function is too complex (cyclomatic complexity is 12, max is 9).
+┃       lib/apm_v5/ag_ui/event_router.ex:105:8 #(ApmV5.AgUi.EventRouter.do_route)
+┃ [F] → Function is too complex (cyclomatic complexity is 11, max is 9).
+┃       lib/apm_v5_web/controllers/api_controller.ex:767:8 #(ApmV5Web.ApiController.build_export_opts)
+┃ [F] → Function is too complex (cyclomatic complexity is 11, max is 9).
+┃       lib/apm_v5_web/controllers/api_controller.ex:289:7 #(ApmV5Web.ApiController.register)
+┃ [F] → Function is too complex (cyclomatic complexity is 11, max is 9).
+┃       lib/apm_v5/port_manager.ex:357:8 #(ApmV5.PortManager.detect_stack)
+┃ [F] → Function is too complex (cyclomatic complexity is 11, max is 9).
+┃       lib/apm_v5/ag_ui/state_manager.ex:85:7 #(ApmV5.AgUi.StateManager.add_computed_delta)
+┃ [F] → Function is too complex (cyclomatic complexity is 11, max is 9).
+┃       lib/apm_v5/ag_ui/lifecycle_mapper.ex:212:7 #(ApmV5.AgUi.LifecycleMapper.map_thinking)
+┃ [F] → Function is too complex (cyclomatic complexity is 10, max is 9).
+┃       lib/apm_v5/project_scanner.ex:42:7 #(ApmV5.ProjectScanner.scan_claude_native)
+┃ [F] → Function is too complex (cyclomatic complexity is 10, max is 9).
+┃       lib/apm_v5/backfill_runner.ex:55:8 #(ApmV5.BackfillRunner.sync_stories)
+┃ [F] → Function is too complex (cyclomatic complexity is 10, max is 9).
+┃       lib/apm_v5/action_engine.ex:963:8 #(ApmV5.ActionEngine.copy_showcase_assets)
+┃ [F] → One `Enum.filter/2` is more efficient than `Enum.filter/2 |> 
+┃       Enum.filter/2`
+┃       lib/apm_v5/environment_scanner.ex:97:9 #(ApmV5.EnvironmentScanner.find_claude_projects)
+┃ [F] → Cond statements should contain at least two conditions besides `true`, 
+┃       consider using `if` instead.
+┃       lib/apm_v5/backfill_runner.ex:94:5 #(ApmV5.BackfillRunner.find_matching_issue)
+┃ [F] → One `Enum.filter/2` is more efficient than `Enum.filter/2 |> 
+┃       Enum.filter/2`
+┃       lib/apm_v5/analytics_store.ex:124:9 #(ApmV5.AnalyticsStore.parse_session_file)
+┃ [F] → Function body is nested too deep (max depth is 2, was 4).
+┃       lib/apm_v5/project_scanner.ex:272:15 #(ApmV5.ProjectScanner.list_active_ports)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5_web/live/ralph_flowchart_live.ex:339:15 #(ApmV5Web.RalphFlowchartLive.load_ralph_data)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5_web/controllers/a2ui_controller.ex:44:9 #(ApmV5Web.A2uiController.components)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/skill_tracker.ex:197:32 #(ApmV5.SkillTracker.load_persisted)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/skill_hook_deployer.ex:107:11 #(ApmV5.SkillHookDeployer.load_templates)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/port_manager.ex:411:13 #(ApmV5.PortManager.do_scan_active_ports)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/health_check_runner.ex:117:13 #(ApmV5.HealthCheckRunner.check_disk_space)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/ag_ui/subscription_store.ex:69:32 #(ApmV5.AgUi.SubscriptionStore.restore)
+┃ [F] → Function is too complex (cyclomatic complexity is 10, max is 9).
+┃       lib/apm_v5_web/live/ralph_flowchart_live.ex:321:8 #(ApmV5Web.RalphFlowchartLive.load_ralph_data)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       test/support/genserver_helpers.ex:26:11 #(ApmV5.GenServerHelpers.ensure_processes_alive)
+┃ [F] → Function body is nested too deep (max depth is 2, was 3).
+┃       lib/apm_v5/upm_persistent_rule.ex:62:11 #(ApmV5.UpmPersistentRule.insert_rule)
+
+  Warnings - please take a look                                                 
+┃ 
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       lib/apm_v5/action_engine.ex:674:21 #(ApmV5.ActionEngine.execute_action)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       lib/apm_v5_web/live/uat_live.ex:555:10 #(ApmV5Web.UatLive.run_test_case)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       lib/apm_v5_web/live/uat_live.ex:537:10 #(ApmV5Web.UatLive.run_test_case)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       lib/apm_v5_web/live/uat_live.ex:400:10 #(ApmV5Web.UatLive.run_test_case)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       lib/apm_v5_web/live/uat_live.ex:280:10 #(ApmV5Web.UatLive.run_test_case)
+┃ [W] ↗ Logger metadata key id, project, environment, severity not found in 
+┃       Logger config.
+┃       lib/apm_v5/intake/watchers/log_watcher.ex:21 #(ApmV5.Intake.Watchers.LogWatcher.handle)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/integration/full_stack_test.exs:327:14 #(ApmV5.Integration.FullStackTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/integration/full_stack_test.exs:308:14 #(ApmV5.Integration.FullStackTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/integration/full_stack_test.exs:239:14 #(ApmV5.Integration.FullStackTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5_web/controllers/api_controller_v3_compat_test.exs:95:14 #(ApmV5Web.ApiControllerV3CompatTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5_web/controllers/api_controller_v3_compat_test.exs:58:14 #(ApmV5Web.ApiControllerV3CompatTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5_web/controllers/a2ui_controller_test.exs:159:14 #(ApmV5Web.A2uiControllerTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5_web/controllers/a2ui_controller_test.exs:139:14 #(ApmV5Web.A2uiControllerTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5_web/controllers/a2ui_controller_test.exs:101:14 #(ApmV5Web.A2uiControllerTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5_web/controllers/a2ui_controller_test.exs:80:14 #(ApmV5Web.A2uiControllerTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5_web/controllers/a2ui_controller_test.exs:28:14 #(ApmV5Web.A2uiControllerTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/slo_engine_test.exs:100:14 #(ApmV5.SloEngineTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/showcase_data_store_test.exs:85:14 #(ApmV5.ShowcaseDataStoreTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/showcase_data_store_test.exs:53:14 #(ApmV5.ShowcaseDataStoreTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/project_store_test.exs:93:14 #(ApmV5.ProjectStoreTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/metrics_collector_test.exs:131:14 #(ApmV5.MetricsCollectorTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/metrics_collector_test.exs:45:14 #(ApmV5.MetricsCollectorTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/export_manager_test.exs:100:14 #(ApmV5.ExportManagerTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/environment_scanner_test.exs:46:8 #(ApmV5.EnvironmentScannerTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/environment_scanner_test.exs:39:12 #(ApmV5.EnvironmentScannerTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/config_loader_test.exs:33:10 #(ApmV5.ConfigLoaderTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/audit_log_test.exs:155:12 #(ApmV5.AuditLogTest)
+┃ [W] ↗ Using `length/1` is expensive, prefer comparing against an empty list.
+┃       test/apm_v5/a2ui/component_builder_test.exs:18:14 #(ApmV5.A2ui.ComponentBuilderTest)
+
+Please report incorrect results: https://github.com/rrrene/credo/issues
+
+Analysis took 1.2 seconds (0.1s to load, 1.0s running 57 checks on 187 files)
+2443 mods/funs, found 28 warnings, 85 refactoring opportunities, 13 code readability issues.
+
+Showing priority issues: ↑ ↗ →  (use `mix credo explain` to explain issues, `mix credo --help` for options).

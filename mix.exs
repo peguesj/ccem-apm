@@ -62,7 +62,9 @@ defmodule ApmV5.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:earmark, "~> 1.4"},
-      {:ag_ui_ex, "~> 0.1.0"}
+      {:ag_ui_ex, "~> 0.1.0"},
+      {:credo, "~> 1.7", only: [:dev], runtime: false},
+      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false}
     ]
   end
 

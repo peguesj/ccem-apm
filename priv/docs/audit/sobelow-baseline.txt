@@ -1,0 +1,665 @@
+Checking Sobelow version...
+
+##############################################
+#                                            #
+#          Running Sobelow - v0.14.1         #
+#  Created by Griffin Byatt - @griffinbyatt  #
+#     NCC Group - https://nccgroup.trust     #
+#                                            #
+##############################################
+
+[31mConfig.CSP: Missing Content-Security-Policy - High Confidence[0m
+File: lib/apm_v5_web/router.ex
+Pipeline: browser
+Line: 11
+
+-----------------------------------------------
+
+[31mConfig.CSWH: Cross-Site Websocket Hijacking - High Confidence[0m
+File: lib/apm_v5_web/endpoint.ex
+Line: 18
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 976
+Function: copy_showcase_assets:963
+Variable: dst
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.copy` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 983
+Function: copy_showcase_assets:963
+Variable: src
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.copy` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 983
+Function: copy_showcase_assets:963
+Variable: dst
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 630
+Function: execute_action:593
+Variable: dest
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 601
+Function: execute_action:593
+Variable: static_base
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 546
+Function: execute_action:542
+Variable: settings_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 577
+Function: execute_action:542
+Variable: settings_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 575
+Function: execute_action:542
+Variable: Elixir.Path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 514
+Function: execute_action:494
+Variable: claude_md
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 526
+Function: execute_action:494
+Variable: claude_md
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 496
+Function: execute_action:494
+Variable: claude_dir
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 459
+Function: execute_action:456
+Variable: skill_md
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 471
+Function: execute_action:456
+Variable: skill_md
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 429
+Function: execute_action:426
+Variable: skill_md
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 436
+Function: execute_action:426
+Variable: skill_md
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read!` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 390
+Function: execute_action:383
+Variable: skill_md
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 409
+Function: execute_action:383
+Variable: skill_md
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 348
+Function: execute_action:333
+Variable: config_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 336
+Function: execute_action:333
+Variable: Elixir.Path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 316
+Function: execute_action:300
+Variable: claude_md
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 324
+Function: execute_action:300
+Variable: claude_md
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 302
+Function: execute_action:300
+Variable: claude_dir
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 279
+Function: execute_action:266
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.chmod` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 281
+Function: execute_action:266
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 268
+Function: execute_action:266
+Variable: hooks_dir
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/action_engine.ex
+Line: 253
+Function: check_memory_pointer_present:252
+Variable: Elixir.Path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write!` - Low Confidence[0m
+File: lib/apm_v5/ag_ui/subscription_store.ex
+Line: 106
+Function: persist_to_file:91
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p!` - Low Confidence[0m
+File: lib/apm_v5/ag_ui/subscription_store.ex
+Line: 94
+Function: persist_to_file:91
+Variable: dir
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/ag_ui/subscription_store.ex
+Line: 65
+Function: restore:62
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/agent_discovery.ex
+Line: 155
+Function: parse_output_file:153
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/analytics_store.ex
+Line: 99
+Function: parse_session_file:98
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/api_key_store.ex
+Line: 100
+Function: persist_keys:96
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/api_key_store.ex
+Line: 119
+Function: persist_keys:96
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write!` - Low Confidence[0m
+File: lib/apm_v5/audit_log.ex
+Line: 164
+Function: append_to_file:161
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p!` - Low Confidence[0m
+File: lib/apm_v5/audit_log.ex
+Line: 64
+Function: handle_continue:63
+Variable: state
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/backfill_runner.ex
+Line: 49
+Function: read_stories:48
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/background_tasks_store.ex
+Line: 50
+Function: get_task_logs:47
+Variable: log_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/config_loader.ex
+Line: 143
+Function: load_config:142
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/config_loader.ex
+Line: 113
+Function: handle_call:96
+Variable: state
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write!` - Low Confidence[0m
+File: lib/apm_v5/dashboard_store.ex
+Line: 287
+Function: write_file:283
+Variable: tmp_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/dashboard_store.ex
+Line: 263
+Function: read_file:260
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p!` - Low Confidence[0m
+File: lib/apm_v5/dashboard_store.ex
+Line: 111
+Function: handle_continue:110
+Variable: state
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read!` - Low Confidence[0m
+File: lib/apm_v5/docs_store.ex
+Line: 185
+Function: load_legacy:172
+Variable: file
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/docs_store.ex
+Line: 131
+Function: load_from_manifest:107
+Variable: file_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read!` - Low Confidence[0m
+File: lib/apm_v5/docs_store.ex
+Line: 108
+Function: load_from_manifest:107
+Variable: manifest_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/environment_scanner.ex
+Line: 206
+Function: find_sessions:196
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/environment_scanner.ex
+Line: 184
+Function: read_settings:181
+Variable: settings_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/environment_scanner.ex
+Line: 116
+Function: build_environment:106
+Variable: claude_md_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/health_check_runner.ex
+Line: 147
+Function: check_settings_json:145
+Variable: settings_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/plane_client.ex
+Line: 101
+Function: get_api_key:99
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/plugin_scanner.ex
+Line: 119
+Function: list_plugins_in_dir:111
+Variable: manifest_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/plugin_scanner.ex
+Line: 82
+Function: scan_mcp_servers:79
+Variable: settings_path
+
+-----------------------------------------------
+
+[32mCI.System: Command Injection via `System` function - Low Confidence[0m
+File: lib/apm_v5/port_manager.ex
+Line: 446
+Function: get_process_cwd:443
+Variable: lsof
+
+-----------------------------------------------
+
+[32mCI.System: Command Injection via `System` function - Low Confidence[0m
+File: lib/apm_v5/port_manager.ex
+Line: 403
+Function: do_scan_active_ports:400
+Variable: lsof
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/port_manager.ex
+Line: 335
+Function: detect_dev_exs_detailed:334
+Variable: Elixir.Path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/port_manager.ex
+Line: 324
+Function: detect_next_config_detailed:321
+Variable: Elixir.Path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/port_manager.ex
+Line: 310
+Function: detect_pkg_json_detailed:308
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/port_manager.ex
+Line: 299
+Function: detect_env_detailed:297
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/port_manager.ex
+Line: 265
+Function: extract_project_config:264
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/prd_scanner.ex
+Line: 64
+Function: parse_prd:63
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/prd_scanner.ex
+Line: 24
+Function: find_primary:22
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/project_scanner.ex
+Line: 194
+Function: detect_ports:187
+Variable: file_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/project_scanner.ex
+Line: 60
+Function: scan_claude_native:42
+Variable: claude_md_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/project_scanner.ex
+Line: 46
+Function: scan_claude_native:42
+Variable: settings_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/ralph.ex
+Line: 16
+Function: load:15
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/session_parser.ex
+Line: 46
+Function: parse_jsonl:40
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/showcase_data_store.ex
+Line: 167
+Function: load_json:166
+Variable: file_path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read!` - Low Confidence[0m
+File: lib/apm_v5/skill_hook_deployer.ex
+Line: 109
+Function: load_templates:99
+Variable: Elixir.Path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/skill_hook_deployer.ex
+Line: 69
+Function: handle_call:58
+Variable: dest
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.chmod` - Low Confidence[0m
+File: lib/apm_v5/skill_hook_deployer.ex
+Line: 71
+Function: handle_call:58
+Variable: dest
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.mkdir_p` - Low Confidence[0m
+File: lib/apm_v5/skill_hook_deployer.ex
+Line: 61
+Function: handle_call:58
+Variable: hooks_dir
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/skill_tracker.ex
+Line: 193
+Function: load_persisted:190
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write!` - Low Confidence[0m
+File: lib/apm_v5/skill_tracker.ex
+Line: 182
+Function: persist:160
+Variable: tmp
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read!` - Low Confidence[0m
+File: lib/apm_v5/skills_registry_store.ex
+Line: 129
+Function: analyze_skill:126
+Variable: skill_md
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/upm_persistent_rule.ex
+Line: 56
+Function: insert_rule:54
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/upm_persistent_rule.ex
+Line: 68
+Function: insert_rule:54
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.write` - Low Confidence[0m
+File: lib/apm_v5/upm_persistent_rule.ex
+Line: 62
+Function: insert_rule:54
+Variable: path
+
+-----------------------------------------------
+
+[32mTraversal.FileModule: Directory Traversal in `File.read` - Low Confidence[0m
+File: lib/apm_v5/upm_persistent_rule.ex
+Line: 39
+Function: check_rule:37
+Variable: path
+
+-----------------------------------------------
+
+[33mXSS.SendResp: XSS in `send_resp` - Medium Confidence[0m
+File: lib/apm_v5_web/controllers/page_controller.ex
+Line: 69
+Function: upm_showcase:37
+Variable: patched_html
+
+-----------------------------------------------
+
+[33mTraversal.FileModule: Directory Traversal in `File.read` - Medium Confidence[0m
+File: lib/apm_v5_web/controllers/page_controller.ex
+Line: 41
+Function: upm_showcase:37
+Variable: showcase_path
+
+-----------------------------------------------
+
+... SCAN COMPLETE ...
+

@@ -63,9 +63,14 @@ defmodule ApmV5.PortManager do
   def handle_continue(:initial_scan, state) do
     project_configs = build_project_configs()
     port_map = port_map_from_configs(project_configs)
-    active = do_scan_active_ports()
-    Logger.info("PortManager: #{map_size(port_map)} configured, #{map_size(active)} active")
-    {:noreply, %{state | port_map: port_map, active_ports: active, project_configs: project_configs, last_scan: DateTime.utc_now()}}
+    Logger.info("PortManager: #{map_size(port_map)} configured ports loaded")
+    # Kick off async port scan — do not block init
+    Task.start(fn ->
+      active = do_scan_active_ports()
+      GenServer.cast(@server, {:scan_result, active})
+    end)
+
+    {:noreply, %{state | port_map: port_map, project_configs: project_configs}}
   end
 
   @impl true
@@ -152,8 +157,13 @@ defmodule ApmV5.PortManager do
 
   @impl true
   def handle_call(:scan_active_ports, _from, state) do
-    active = do_scan_active_ports()
-    {:reply, active, %{state | active_ports: active, last_scan: DateTime.utc_now()}}
+    # Trigger async scan via Task; reply immediately with cached data (non-blocking)
+    Task.start(fn ->
+      active = do_scan_active_ports()
+      GenServer.cast(@server, {:scan_result, active})
+    end)
+
+    {:reply, state.active_ports, state}
   end
 
   @impl true
@@ -209,6 +219,17 @@ defmodule ApmV5.PortManager do
       end
 
     {:reply, result, state}
+  end
+
+  @impl true
+  def handle_cast({:scan_result, active}, state) do
+    try do
+      Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:ports", {:ports_updated, active})
+    rescue
+      _ -> :ok
+    end
+
+    {:noreply, %{state | active_ports: active, last_scan: DateTime.utc_now()}}
   end
 
   # Private
