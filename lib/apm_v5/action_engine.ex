@@ -6,8 +6,12 @@ defmodule ApmV5.ActionEngine do
            backfill_project_memory, update_hooks.
   """
   use GenServer
+  require Logger
 
   @skills_dir Path.expand("~/.claude/skills")
+  @prune_interval_ms 3_600_000
+  @max_runs 1000
+  @run_ttl_seconds 86_400
 
   @catalog [
     %{
@@ -165,6 +169,7 @@ defmodule ApmV5.ActionEngine do
 
   @impl true
   def init(_) do
+    schedule_prune()
     {:ok, %{runs: %{}}}
   end
 
@@ -238,6 +243,36 @@ defmodule ApmV5.ActionEngine do
         new_state = put_in(state, [:runs, run_id], updated)
         {:noreply, new_state}
     end
+  end
+
+  @impl true
+  def handle_info(:prune_runs, state) do
+    cutoff = DateTime.utc_now() |> DateTime.add(-@run_ttl_seconds, :second)
+
+    pruned =
+      state.runs
+      |> Enum.reject(fn {_id, run} ->
+        case DateTime.from_iso8601(run.started_at) do
+          {:ok, dt, _} -> DateTime.compare(dt, cutoff) == :lt
+          _ -> false
+        end
+      end)
+      |> Enum.sort_by(fn {_id, run} -> run.started_at end, :desc)
+      |> Enum.take(@max_runs)
+      |> Map.new()
+
+    dropped = map_size(state.runs) - map_size(pruned)
+
+    if dropped > 0 do
+      Logger.info("ActionEngine: pruned #{dropped} runs (older than 24h or over #{@max_runs} limit)")
+    end
+
+    schedule_prune()
+    {:noreply, %{state | runs: pruned}}
+  end
+
+  defp schedule_prune do
+    Process.send_after(self(), :prune_runs, @prune_interval_ms)
   end
 
   # --- Status check helpers (used by project_status/1) ---

@@ -49,7 +49,7 @@
         "ETS capped at 1000 entries",
         "mix compile --warnings-as-errors passes"
       ],
-      "estimatedPoints": 2, "dependencies": [], "status": "pending", "passes": false,
+      "estimatedPoints": 2, "dependencies": [], "status": "done", "passes": true,
       "planeIssueId": "b78058f8-1f98-4d01-941b-37abf9176fa8", "checkpointId": "CP-120", "wave": 1
     },
     {
