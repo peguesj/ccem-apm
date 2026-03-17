@@ -81,6 +81,49 @@ defmodule ApmV5.ActionEngine do
       category: "skill_audit",
       icon: "cog",
       params: []
+    },
+    %{
+      id: "discover_migrate_showcases",
+      name: "Discover & Migrate Showcases",
+      description: "Scan registered projects for standalone showcase directories (showcase/client/showcase.js). Copies assets to APM static paths and registers showcase_data_path in project config. Reports per-project outcome.",
+      category: "showcase",
+      icon: "presentation-chart-bar",
+      params: []
+    },
+    %{
+      id: "register_all_ports",
+      name: "Register All Ports",
+      description: "Scan all configured projects and register/assign ports for any missing port assignments. Uses PortManager to detect and fill gaps.",
+      category: "ports",
+      icon: "server",
+      params: []
+    },
+    %{
+      id: "update_port_namespace",
+      name: "Update Port Namespace",
+      description: "Update port namespace assignment for a project. Moves the project's port to a different namespace range.",
+      category: "ports",
+      icon: "arrows-right-left",
+      params: [
+        %{name: "project", type: "string", required: true},
+        %{name: "namespace", type: "string", required: true, options: ["web", "api", "service", "tool"]}
+      ]
+    },
+    %{
+      id: "analyze_port_assignment",
+      name: "Analyze Port Assignment",
+      description: "Analyze port utilization across all projects. Returns namespace distribution, active vs inactive counts, clash summary, and utilization percentage.",
+      category: "ports",
+      icon: "chart-bar",
+      params: []
+    },
+    %{
+      id: "smart_reassign_ports",
+      name: "Smart Reassign Ports",
+      description: "Intelligently reassign conflicting ports using AG-UI event flow. Analyzes clashes, proposes resolutions, and confirms via chat before applying.",
+      category: "ports",
+      icon: "bolt",
+      params: []
     }
   ]
 
@@ -547,6 +590,222 @@ defmodule ApmV5.ActionEngine do
     e -> {:error, Exception.message(e)}
   end
 
+  defp execute_action("discover_migrate_showcases", _project_path, _params) do
+    config = ApmV5.ConfigLoader.get_config()
+    projects = Map.get(config, "projects", [])
+
+    static_base =
+      :code.priv_dir(:apm_v5)
+      |> Path.join("static/showcase/projects")
+
+    File.mkdir_p(static_base)
+
+    results =
+      Enum.map(projects, fn project ->
+        name = Map.get(project, "name", "unknown")
+        root = Map.get(project, "project_root", "")
+
+        cond do
+          root == "" ->
+            %{project: name, status: :skipped, reason: "no project_root configured"}
+
+          not File.dir?(Path.expand(root)) ->
+            %{project: name, status: :skipped, reason: "project_root does not exist"}
+
+          true ->
+            expanded = Path.expand(root)
+            client_dir = Path.join(expanded, "showcase/client")
+            data_dir = Path.join(expanded, "showcase/data")
+            standalone_js = Path.join(client_dir, "showcase.js")
+
+            cond do
+              not File.exists?(standalone_js) ->
+                %{project: name, status: :skipped, reason: "no showcase/client/showcase.js found"}
+
+              Map.get(project, "showcase_data_path") != nil ->
+                %{project: name, status: :skipped, reason: "already migrated (showcase_data_path set)"}
+
+              true ->
+                dest = Path.join(static_base, name)
+                File.mkdir_p(dest)
+
+                case copy_showcase_assets(client_dir, dest) do
+                  {:ok, copied} ->
+                    updated_project = Map.put(project, "showcase_data_path", data_dir)
+                    ApmV5.ConfigLoader.update_project(updated_project)
+                    ApmV5.ShowcaseDataStore.reload(name)
+
+                    %{
+                      project: name,
+                      status: :migrated,
+                      files_copied: copied,
+                      dest: dest,
+                      showcase_data_path: data_dir
+                    }
+
+                  {:error, reason} ->
+                    %{project: name, status: :failed, reason: inspect(reason)}
+                end
+            end
+        end
+      end)
+
+    migrated = Enum.count(results, &(&1.status == :migrated))
+    skipped = Enum.count(results, &(&1.status == :skipped))
+    failed = Enum.count(results, &(&1.status == :failed))
+
+    {:ok,
+     %{
+       found: length(projects),
+       migrated: migrated,
+       skipped: skipped,
+       failed: failed,
+       results: results
+     }}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("register_all_ports", _project_path, _params) do
+    project_configs = ApmV5.PortManager.get_project_configs()
+
+    results =
+      Enum.map(project_configs, fn {project_name, config} ->
+        has_ports = length(config.ports) > 0
+
+        if has_ports do
+          {:already_assigned, project_name}
+        else
+          case ApmV5.PortManager.assign_port(project_name) do
+            {:ok, port} -> {:assigned, project_name, port}
+            {:error, reason} -> {:failed, project_name, reason}
+          end
+        end
+      end)
+
+    assigned = Enum.filter(results, &match?({:already_assigned, _}, &1))
+    newly_assigned = Enum.filter(results, &match?({:assigned, _, _}, &1))
+    failed = Enum.filter(results, &match?({:failed, _, _}, &1))
+
+    {:ok, %{
+      total_projects: length(results),
+      already_assigned: length(assigned),
+      newly_assigned: length(newly_assigned),
+      failed: length(failed),
+      assignments: Enum.map(newly_assigned, fn {:assigned, name, port} -> %{project: name, port: port} end),
+      errors: Enum.map(failed, fn {:failed, name, reason} -> %{project: name, reason: inspect(reason)} end)
+    }}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("update_port_namespace", _project_path, %{"project" => project_name, "namespace" => namespace_str}) do
+    namespace = String.to_existing_atom(namespace_str)
+    ranges = ApmV5.PortManager.get_port_ranges()
+
+    unless Map.has_key?(ranges, namespace) do
+      {:error, "Invalid namespace: #{namespace_str}. Must be one of: web, api, service, tool"}
+    else
+      case ApmV5.PortManager.assign_port(namespace) do
+        {:ok, new_port} ->
+          case ApmV5.PortManager.reassign_port(project_name, new_port) do
+            {:ok, assigned_port} ->
+              {:ok, %{
+                project: project_name,
+                namespace: namespace_str,
+                new_port: assigned_port,
+                message: "Port reassigned to #{namespace_str} namespace (port #{assigned_port})"
+              }}
+
+            {:error, reason} ->
+              {:error, "Failed to reassign port for #{project_name}: #{inspect(reason)}"}
+          end
+
+        {:error, :no_available_port} ->
+          {:error, "No available port in #{namespace_str} namespace"}
+
+        {:error, reason} ->
+          {:error, "Failed to find available port: #{inspect(reason)}"}
+      end
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("update_port_namespace", _project_path, params) do
+    {:error, "Missing required params: project and namespace (got: #{inspect(params)})"}
+  end
+
+  defp execute_action("analyze_port_assignment", _project_path, _params) do
+    port_map = ApmV5.PortManager.get_port_map()
+    clashes = ApmV5.PortManager.detect_clashes()
+    ranges = ApmV5.PortManager.get_port_ranges()
+
+    total = map_size(port_map)
+    clash_count = length(clashes)
+
+    by_namespace =
+      Enum.reduce(port_map, %{web: 0, api: 0, service: 0, tool: 0, other: 0}, fn {_port, info}, acc ->
+        ns = Map.get(info, :namespace, :other)
+        Map.update(acc, ns, 1, &(&1 + 1))
+      end)
+
+    namespace_capacity =
+      Enum.map(ranges, fn {ns, range} ->
+        {ns, Enum.count(range)}
+      end)
+      |> Enum.into(%{})
+
+    utilization =
+      if total == 0 do
+        0.0
+      else
+        total_capacity = Enum.sum(Map.values(namespace_capacity))
+        Float.round(total / total_capacity * 100, 2)
+      end
+
+    {:ok, %{
+      total: total,
+      clashes: clash_count,
+      utilization_percent: utilization,
+      by_namespace: by_namespace,
+      namespace_capacity: namespace_capacity,
+      clash_details: Enum.map(clashes, fn c ->
+        %{port: c.port, projects: c.projects, owner: c.owner}
+      end)
+    }}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("smart_reassign_ports", _project_path, _params) do
+    clashes = ApmV5.PortManager.detect_clashes()
+
+    if clashes == [] do
+      {:ok, %{message: "No port clashes detected", changes: []}}
+    else
+      suggestions =
+        Enum.map(clashes, fn clash ->
+          port = clash.port
+          projects = clash.projects
+          primary = List.first(projects)
+          %{
+            port: port,
+            projects: projects,
+            suggestion: "Keep #{primary} on port #{port}, reassign others"
+          }
+        end)
+
+      {:ok, %{
+        clashes: length(clashes),
+        suggestions: suggestions,
+        message: "Review suggestions and use update_port_namespace to apply"
+      }}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
   defp detect_project_stack(path) do
     stack_files = %{
       "package.json" => "node",
@@ -699,5 +958,39 @@ defmodule ApmV5.ActionEngine do
         \\"message\\": \\"Tool done: $TOOL_NAME\\"
       }" >/dev/null 2>&1 &
     """
+  end
+
+  defp copy_showcase_assets(src_dir, dest_dir) do
+    case File.ls(src_dir) do
+      {:error, reason} ->
+        {:error, reason}
+
+      {:ok, entries} ->
+        copied =
+          Enum.reduce(entries, 0, fn entry, acc ->
+            src = Path.join(src_dir, entry)
+            dst = Path.join(dest_dir, entry)
+
+            cond do
+              File.dir?(src) ->
+                File.mkdir_p(dst)
+                case copy_showcase_assets(src, dst) do
+                  {:ok, n} -> acc + n
+                  _ -> acc
+                end
+
+              File.regular?(src) ->
+                case File.copy(src, dst) do
+                  {:ok, _} -> acc + 1
+                  _ -> acc
+                end
+
+              true ->
+                acc
+            end
+          end)
+
+        {:ok, copied}
+    end
   end
 end

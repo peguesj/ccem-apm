@@ -57,6 +57,9 @@ defmodule ApmV5Web.Router do
     live "/tool-calls", ToolCallLive, :index
     live "/generative-ui", GenerativeUILive, :index
     live "/a2a", A2ALive, :index
+    live "/showcase", ShowcaseLive, :index
+    live "/showcase/:project", ShowcaseLive, :project
+    live "/ccem", CcemOverviewLive, :index
 
     # /upm redirects to workflow UPM view
     get "/upm", PageController, :upm_redirect

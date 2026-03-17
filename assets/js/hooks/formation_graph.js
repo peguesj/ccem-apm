@@ -5,7 +5,22 @@
  * Renders formation > squadron > agent as a top-down tree with
  * status-colored nodes and animated connections.
  */
-import * as d3 from "../../vendor/d3.min.js"
+// D3 lazy loading — only fetched on routes that render this hook
+let d3 = null
+let _d3LoadPromise = null
+function ensureD3() {
+  if (d3) return Promise.resolve(d3)
+  if (window.d3) { d3 = window.d3; return Promise.resolve(d3) }
+  if (_d3LoadPromise) return _d3LoadPromise
+  _d3LoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script")
+    script.src = "https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"
+    script.onload = () => { d3 = window.d3; resolve(d3) }
+    script.onerror = () => reject(new Error("Failed to load D3 from CDN"))
+    document.head.appendChild(script)
+  })
+  return _d3LoadPromise
+}
 
 const COLORS = {
   bg: "#151b28",
@@ -29,14 +44,15 @@ const NODE_SIZES = {
 }
 
 export default {
-  mounted() {
+  async mounted() {
+    await ensureD3()
     this.svg = null
     this.g = null
     this.initGraph()
     this.handleEvent("formation_data", (data) => this.render(data))
   },
 
-  updated() {},
+  async updated() {},
 
   destroyed() {
     if (this._resizeObs) this._resizeObs.disconnect()

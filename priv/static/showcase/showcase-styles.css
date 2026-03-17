@@ -1,0 +1,98 @@
+/* CCEM Showcase — Scoped Styles for APM Integration */
+/* All styles scoped under .showcase-scope to avoid leaking into APM daisyUI */
+
+/* Fonts are injected only when ShowcaseHook mounts (see showcase.js _loadFonts)
+   to avoid CDN round-trip on every APM page. */
+
+/* Scrollbar within showcase */
+.showcase-scope ::-webkit-scrollbar { width: 4px; }
+.showcase-scope ::-webkit-scrollbar-track { background: transparent; }
+.showcase-scope ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 2px; }
+.showcase-scope ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+/* SVG animation keyframes */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes dash-march {
+  to { stroke-dashoffset: -12; }
+}
+
+@keyframes node-appear {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* SVG specific — scoped */
+.showcase-scope .arch-node { animation: node-appear 0.4s ease-out both; }
+.showcase-scope .arch-edge { animation: dash-march 1.2s linear infinite; }
+.showcase-scope .arch-label { animation: fade-in-up 0.5s ease-out both; }
+
+/* Stagger children */
+.showcase-scope .stagger-children > * { animation: fade-in-up 0.3s ease-out both; }
+.showcase-scope .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+.showcase-scope .stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+.showcase-scope .stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+.showcase-scope .stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+.showcase-scope .stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+
+/* Status dot pulse */
+.showcase-scope .dot-pulse {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Feature card hover */
+.showcase-scope .feature-card {
+  transition: all 0.2s ease;
+}
+.showcase-scope .feature-card:hover {
+  background: rgba(39, 39, 42, 0.8) !important;
+  border-color: rgba(63, 63, 70, 0.8) !important;
+}
+
+/* Showcase fullscreen overlay */
+#showcase-engine-root { position: relative; }
+
+#showcase-container.showcase-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+}
+
+/* Sidebar collapse */
+#apm-sidebar {
+  transition: width 0.2s ease, min-width 0.2s ease;
+  overflow: hidden;
+}
+#apm-sidebar.sidebar-collapsed {
+  width: 3rem !important;
+  min-width: 3rem !important;
+}
+#apm-sidebar.sidebar-collapsed .sidebar-label { display: none !important; }
+#apm-sidebar.sidebar-collapsed .sidebar-version { display: none !important; }
+#apm-sidebar.sidebar-collapsed .sidebar-brand { justify-content: center !important; }
+#apm-sidebar.sidebar-collapsed nav a {
+  justify-content: center !important;
+  padding-left: 0.25rem !important;
+  padding-right: 0.25rem !important;
+}
+#apm-sidebar.sidebar-collapsed .sidebar-badge { display: none !important; }
+#apm-sidebar.sidebar-collapsed .sidebar-arrow-collapse { display: none !important; }
+#apm-sidebar.sidebar-collapsed .sidebar-arrow-expand { display: inline-block !important; }
+.sidebar-arrow-expand { display: none; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .showcase-scope *, .showcase-scope *::before, .showcase-scope *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

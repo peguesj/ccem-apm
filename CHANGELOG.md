@@ -1,5 +1,48 @@
 # Changelog
 
+## v6.0.0 (2026-03-16)
+
+CCEM APM v6 — CCEM UI, port management, agentic hierarchy graph, and showcase integration complete.
+
+### Added
+- **PortsLive** (`live/ports_live.ex`) — `/ports` dashboard with utilization heatmap, conflict detection, project accordion, and add-port form using `PortManager` GenServer
+- **CCEM sidebar sections** — Dual-section sidebar nav: CCEM MANAGEMENT (Showcase, Projects, Ports, Actions, Scanner) and APM MONITORING (Dashboard, Agents, Formations, AG-UI, Conversations, Skills, Tasks, Health, Notifications); collapsible section headers with icon-only mode support
+- **Agentic hierarchy graph** (`assets/js/hooks/dependency_graph.js`) — D3 v7 top-down tree rendering live formation data: Session → Formation → Squadron → Swarm → Agent → Task; level-based colors (purple/blue/cyan/green/orange/yellow); status dots; hover tooltips; auto-fit zoom; fetches `/api/v2/formations` + `/api/agents` on mount; live-updates via `hierarchy_data` and `agents_updated` push_events
+- **ActionEngine port actions** — 4 catalog entries: `register_all_ports`, `update_port_namespace`, `analyze_port_assignment`, `smart_reassign_ports`
+- **ShowcaseLive** — `/showcase` LiveView with full APM chrome, project dropdown, PubSub real-time data (merged from v5.5.0 milestone)
+- **ShowcaseDataStore** — Per-project data GenServer with 3-tier path resolution and ETS cache
+- **ShowcaseHook** + **ShowcaseEngine** — JS hook bridging LiveView push_event to containerized rendering engine
+
+### Changed
+- **Dependency graph** — Replaced static Phoenix module DAG with live agentic hierarchy tree (Session → Formation → Squadron → Swarm → Agent → Task); D3 loaded lazily from CDN
+- **WebSocket config** — `check_origin: false, timeout: 60_000` on `/live` socket for reliable LiveView connections
+- **Showcase CSS** — Injected/removed by `ShowcaseHook._loadStyles()` only (no global root layout link)
+- **Version** — Bumped to v6.0.0
+
+## v5.5.0 (2026-03-16)
+
+Integrates the standalone Showcase dashboard into the APM server as a project-scoped LiveView at `/showcase`, replacing the separate `python3 -m http.server 8080` workflow with real-time PubSub-driven data delivery.
+
+### Added
+- **ShowcaseLive** (`live/showcase_live.ex`) — LiveView at `/showcase` with APM chrome (sidebar nav, header, project dropdown), PubSub subscriptions for agent/UPM/config/AG-UI events, 5s heartbeat data push
+- **ShowcaseDataStore** (`showcase_data_store.ex`) — GenServer loading per-project showcase data from disk (features, narratives, design system, redaction rules); ETS-cached, per-project keyed with reload support
+- **ShowcaseHook** (`assets/js/hooks/showcase.js`) — JS hook bridging LiveView push_event to ShowcaseEngine; handles `showcase:data`, `showcase:agents`, `showcase:orch`, `showcase:project-changed`
+- **ShowcaseEngine** (`priv/static/showcase/showcase-engine.js`) — Containerized refactor of showcase.js as `window.ShowcaseEngine` class; all DOM queries scoped to container, no polling, data via hook methods
+- **Showcase CSS** (`priv/static/showcase/showcase-styles.css`) — Scoped under `.showcase-scope` to prevent leaking into APM daisyUI theme
+- **Sidebar nav** — "Showcase" item with `hero-presentation-chart-bar` icon added before Docs
+- **Route** — `live "/showcase", ShowcaseLive, :index` in browser scope
+
+### Changed
+- **Version** — Bumped to v5.5.0
+- **Supervision tree** — Added `ShowcaseDataStore` to `application.ex` children
+- **Root layout** — Added showcase-styles.css stylesheet link
+- **app.js** — Registered `ShowcaseHook` in LiveView hooks
+
+### Architecture
+- Hybrid LiveView shell + JS hook (Option D): LiveView provides APM chrome and PubSub subscriptions, JS hook bridges events to the existing 682-line rendering engine
+- Project switching propagates via `push_event("showcase:project-changed")` — no iframe postMessage fragility
+- 3-column layout (features/architecture/inspector) renders identically to standalone
+
 ## v5.3.0 (2026-03-12)
 
 Integrates the `ag_ui_ex` Hex package (v0.1.0) as the canonical AG-UI protocol SDK, replacing all hardcoded event type strings with library-provided constants.

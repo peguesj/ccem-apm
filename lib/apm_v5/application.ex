@@ -47,6 +47,7 @@ defmodule ApmV5.Application do
       ApmV5.PluginScanner,
       ApmV5.BackfillStore,
       ApmV5.SkillsRegistryStore,
+      ApmV5.ShowcaseDataStore,
       ApmV5.AgUi.StateManager,
       ApmV5.AgUi.EventBus,
       ApmV5.AgUi.EventRouter,
