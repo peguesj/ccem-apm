@@ -1,4 +1,11 @@
 defmodule ApmV5Web.BackfillLive do
+  @moduledoc """
+  LiveView for the APM config backfill tool at /backfill.
+
+  Allows operators to retroactively populate apm_config.json for
+  discovered projects and sync APM metadata.
+  """
+
   use ApmV5Web, :live_view
 
   import ApmV5Web.Components.GettingStartedWizard

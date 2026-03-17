@@ -1,4 +1,11 @@
 defmodule ApmV5Web.Router do
+  @moduledoc """
+  Phoenix Router for the CCEM APM web application.
+
+  Defines browser and API pipelines, live routes for all LiveViews,
+  and the REST API surface under /api/* and /api/v2/*.
+  """
+
   use ApmV5Web, :router
 
   pipeline :browser do

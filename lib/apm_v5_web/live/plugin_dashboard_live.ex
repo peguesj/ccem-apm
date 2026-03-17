@@ -1,4 +1,11 @@
 defmodule ApmV5Web.PluginDashboardLive do
+  @moduledoc """
+  LiveView for the plugin scanner dashboard at /plugins.
+
+  Lists discovered Claude Code plugins and MCP server configurations
+  found by PluginScanner in registered project directories.
+  """
+
   use ApmV5Web, :live_view
 
   import ApmV5Web.Components.GettingStartedWizard

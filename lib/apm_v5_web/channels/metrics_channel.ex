@@ -1,4 +1,11 @@
 defmodule ApmV5Web.MetricsChannel do
+  @moduledoc """
+  Phoenix Channel for real-time metrics streaming.
+
+  Handles connections on the `metrics:live` topic. Broadcasts live
+  telemetry and performance metrics to connected clients.
+  """
+
   use ApmV5Web, :channel
 
   alias ApmV5.MetricsCollector

@@ -1,4 +1,11 @@
 defmodule ApmV5Web.TasksLive do
+  @moduledoc """
+  LiveView for background task monitoring at /tasks.
+
+  Shows running, queued, and completed background tasks with
+  log streaming, stop controls, and elapsed runtime.
+  """
+
   use ApmV5Web, :live_view
 
 

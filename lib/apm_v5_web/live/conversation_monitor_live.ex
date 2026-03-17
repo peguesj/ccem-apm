@@ -1,4 +1,11 @@
 defmodule ApmV5Web.ConversationMonitorLive do
+  @moduledoc """
+  LiveView for monitoring active Claude Code conversation sessions at /conversations.
+
+  Displays session-level context, token counts, and tool call history
+  sourced from ConversationWatcher.
+  """
+
   use ApmV5Web, :live_view
 
   import ApmV5Web.Components.GettingStartedWizard

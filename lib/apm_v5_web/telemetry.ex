@@ -1,4 +1,11 @@
 defmodule ApmV5Web.Telemetry do
+  @moduledoc """
+  Telemetry supervisor that attaches Phoenix and VM metrics reporters.
+
+  Configures Telemetry.Metrics and attaches them to the Phoenix.LiveDashboard
+  metrics reporter for real-time performance monitoring.
+  """
+
   use Supervisor
   import Telemetry.Metrics
 

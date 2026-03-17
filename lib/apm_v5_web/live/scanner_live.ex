@@ -1,4 +1,11 @@
 defmodule ApmV5Web.ScannerLive do
+  @moduledoc """
+  LiveView for the project scanner at /scanner.
+
+  Displays developer directory scan results: detected projects, stack
+  badges, port assignments, and formation activity counts.
+  """
+
   use ApmV5Web, :live_view
 
 

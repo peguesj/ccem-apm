@@ -1,4 +1,11 @@
 defmodule ApmV5Web.V2.ChatController do
+  @moduledoc """
+  V2 REST controller for AG-UI chat message history.
+
+  Provides GET /api/v2/chat/:scope for listing scoped messages and
+  DELETE /api/v2/chat/:scope for clearing a chat scope.
+  """
+
   use ApmV5Web, :controller
 
   @doc "GET /api/v2/chat/:scope — list messages for a scope"

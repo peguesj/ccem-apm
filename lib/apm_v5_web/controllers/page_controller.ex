@@ -1,4 +1,10 @@
 defmodule ApmV5Web.PageController do
+  @moduledoc """
+  Controller for static HTML page renders.
+
+  Handles the root `/` route and delegates to HEEx templates.
+  """
+
   use ApmV5Web, :controller
 
   def home(conn, _params) do

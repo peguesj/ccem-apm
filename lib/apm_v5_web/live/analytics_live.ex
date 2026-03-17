@@ -1,4 +1,11 @@
 defmodule ApmV5Web.AnalyticsLive do
+  @moduledoc """
+  LiveView for agent analytics and telemetry charts at /analytics.
+
+  Renders time-series token usage, task completion rates, and
+  formation success metrics from AnalyticsStore.
+  """
+
   use ApmV5Web, :live_view
 
   import ApmV5Web.Components.GettingStartedWizard

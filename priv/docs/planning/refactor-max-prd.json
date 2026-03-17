@@ -86,7 +86,7 @@
         "All 20 audit-identified files have non-empty @moduledoc",
         "mix compile --warnings-as-errors passes"
       ],
-      "estimatedPoints": 2, "dependencies": [], "status": "pending", "passes": false,
+      "estimatedPoints": 2, "dependencies": [], "status": "done", "passes": true,
       "planeIssueId": "9965098e-9d30-415c-8560-17e82d7c5c40", "checkpointId": "CP-123", "wave": 1
     },
     {

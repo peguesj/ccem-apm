@@ -1,4 +1,11 @@
 defmodule ApmV5Web.UserSocket do
+  @moduledoc """
+  Phoenix UserSocket — routes channel connections for the APM web interface.
+
+  Routes `agent:*` to `AgentChannel`, `metrics:live` to `MetricsChannel`,
+  and `alerts:*` to `AlertsChannel`.
+  """
+
   use Phoenix.Socket
 
   channel "agent:*", ApmV5Web.AgentChannel
