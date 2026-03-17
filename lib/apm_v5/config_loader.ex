@@ -10,6 +10,7 @@ defmodule ApmV5.ConfigLoader do
 
   # --- Client API ---
 
+  @spec start_link(keyword()) :: {:ok, pid()} | {:error, term()}
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -45,6 +46,7 @@ defmodule ApmV5.ConfigLoader do
   end
 
   @doc "Returns the config file path."
+  @spec config_path() :: String.t()
   def config_path do
     Application.get_env(:apm_v5, :config_path, @default_config_path)
   end

@@ -22,6 +22,7 @@ defmodule ApmV5.SkillsRegistryStore do
   # Public API
   # ---------------------------------------------------------------------------
 
+  @spec start_link(keyword()) :: {:ok, pid()} | {:error, term()}
   def start_link(_opts \\ []), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
 
   @doc "Returns all skills sorted by health_score descending."

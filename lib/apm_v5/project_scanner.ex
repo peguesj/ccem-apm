@@ -21,18 +21,22 @@ defmodule ApmV5.ProjectScanner do
 
   # --- Client API ---
 
+  @spec start_link(keyword()) :: {:ok, pid()} | {:error, term()}
   def start_link(_opts \\ []) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
 
+  @spec scan(String.t() | nil) :: :ok
   def scan(base_path \\ nil) do
     GenServer.call(__MODULE__, {:scan, base_path}, 60_000)
   end
 
+  @spec get_results() :: [map()]
   def get_results do
     GenServer.call(__MODULE__, :get_results)
   end
 
+  @spec get_status() :: map()
   def get_status do
     GenServer.call(__MODULE__, :get_status)
   end

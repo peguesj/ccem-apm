@@ -19,14 +19,17 @@ defmodule ApmV5.PortManager do
 
   # Client API
 
+  @spec start_link(keyword()) :: {:ok, pid()} | {:error, term()}
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: @server)
   end
 
+  @spec get_port_map() :: map()
   def get_port_map, do: GenServer.call(@server, :get_port_map)
   def scan_active_ports, do: GenServer.call(@server, :scan_active_ports, 15_000)
   def detect_clashes, do: GenServer.call(@server, :detect_clashes)
 
+  @spec assign_port(atom() | String.t()) :: {:ok, non_neg_integer()} | {:error, term()}
   def assign_port(namespace) when namespace in [:web, :api, :service, :tool] do
     GenServer.call(@server, {:assign_port, namespace})
   end
@@ -35,18 +38,23 @@ defmodule ApmV5.PortManager do
     GenServer.call(@server, {:assign_port_for_project, project_name})
   end
 
+  @spec get_port_ranges() :: map()
   def get_port_ranges, do: @namespace_ranges
 
   @doc "Returns full project configurations with all detected ports, config files, and metadata."
+  @spec get_project_configs() :: map()
   def get_project_configs, do: GenServer.call(@server, :get_project_configs)
 
   @doc "Suggest a remediation plan for a specific port clash."
+  @spec suggest_remediation(non_neg_integer()) :: map()
   def suggest_remediation(port), do: GenServer.call(@server, {:suggest_remediation, port})
 
   @doc "Reassign a project to a new port in its namespace, updating the config file."
+  @spec reassign_port(String.t(), non_neg_integer()) :: {:ok, non_neg_integer()} | {:error, term()}
   def reassign_port(project_name, new_port), do: GenServer.call(@server, {:reassign_port, project_name, new_port})
 
   @doc "Set a project's primary port and ownership in apm_config.json."
+  @spec set_primary_port(String.t(), non_neg_integer(), String.t()) :: {:ok, map()} | {:error, term()}
   def set_primary_port(project_name, port, ownership \\ "shared") do
     GenServer.call(@server, {:set_primary_port, project_name, port, ownership})
   end

@@ -24,6 +24,7 @@ defmodule ApmV5.ChatStore do
 
   # --- Client API ---
 
+  @spec start_link(keyword()) :: {:ok, pid()} | {:error, term()}
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end

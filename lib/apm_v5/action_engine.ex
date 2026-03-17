@@ -133,10 +133,12 @@ defmodule ApmV5.ActionEngine do
 
   # --- Client API ---
 
+  @spec start_link(keyword()) :: {:ok, pid()} | {:error, term()}
   def start_link(_opts \\ []) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
 
+  @spec list_catalog() :: [map()]
   def list_catalog do
     @catalog
   end
@@ -145,6 +147,7 @@ defmodule ApmV5.ActionEngine do
   Returns the current application status of APM actions for a project path.
   Pure filesystem check — no GenServer call needed.
   """
+  @spec project_status(String.t()) :: map()
   def project_status(project_path) do
     %{
       has_hooks: check_hooks_present(project_path),
@@ -153,14 +156,17 @@ defmodule ApmV5.ActionEngine do
     }
   end
 
+  @spec run_action(String.t(), String.t(), map()) :: {:ok, String.t()} | {:error, term()}
   def run_action(action_type, project_path, params \\ %{}) do
     GenServer.call(__MODULE__, {:run_action, action_type, project_path, params})
   end
 
+  @spec list_runs() :: [map()]
   def list_runs do
     GenServer.call(__MODULE__, :list_runs)
   end
 
+  @spec get_run(String.t()) :: {:ok, map()} | {:error, :not_found}
   def get_run(run_id) do
     GenServer.call(__MODULE__, {:get_run, run_id})
   end
