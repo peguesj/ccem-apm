@@ -2,16 +2,20 @@
  * DependencyGraph LiveView JS Hook
  *
  * Renders the CCEM agentic hierarchy as a live D3 top-down tree:
- *   Session → Formation → Squadron → Swarm → Agent → Task
+ *   Session → Formation → Squadron → Swarm → Cluster → Agent → Task
  *
  * Data sources (in priority order):
  *   1. push_event("hierarchy_data", {tree: {...}}) — structured tree from LiveView
  *   2. push_event("agents_updated", {agents: [...]}) — flat agent list, tree built client-side
  *   3. Fetch /api/v2/formations + /api/agents on mount — initial state
  *
+ * View modes (toggle button top-right):
+ *   - "Hierarchy": live agentic formation data (default)
+ *   - "Skills": static skill ecosystem dependency graph
+ *
  * Features:
  *   - D3 v7 tree layout (top-down, cubic bezier links)
- *   - Level-based node colors: Session/Formation/Squadron/Swarm/Agent/Task
+ *   - Level-based node colors: Session/Formation/Squadron/Swarm/Cluster/Agent/Task
  *   - Status dot per node (active=green, complete=blue, failed=red, idle=gray)
  *   - Hover tooltips with metadata
  *   - Zoom/pan via d3.zoom()
@@ -52,12 +56,16 @@ const LEVEL_COLORS = {
   formation: "#3b82f6",
   squadron:  "#06b6d4",
   swarm:     "#22c55e",
+  cluster:   "#8b5cf6",
   agent:     "#f97316",
   task:      "#eab308",
   unknown:   "#6b7280",
+  // Skill ecosystem node types
+  skill:     "#e879f9",
+  hub:       "#f43f5e",
 }
 
-const LEVEL_ORDER = ["session", "formation", "squadron", "swarm", "agent", "task"]
+const LEVEL_ORDER = ["session", "formation", "squadron", "swarm", "cluster", "agent", "task"]
 
 function levelColor(level) {
   return LEVEL_COLORS[(level || "").toLowerCase()] || LEVEL_COLORS.unknown
@@ -101,7 +109,7 @@ function roleToLevel(role) {
   if (r === "orchestrator")   return "formation"
   if (r === "squadron_lead")  return "squadron"
   if (r === "swarm_agent")    return "swarm"
-  if (r === "cluster_agent")  return "agent"
+  if (r === "cluster_agent")  return "cluster"
   return "agent"
 }
 
@@ -161,10 +169,41 @@ function buildHierarchyFromAgents(agents) {
 
     function toNode(a) {
       const kids = childrenOf[a.agent_id || a.id] || []
+      const level = roleToLevel(a.formation_role || a.role)
+      // If this is a swarm_agent with cluster children, group those under a cluster node
+      if (level === "swarm" && kids.length > 0) {
+        // Check if any kids have cluster_agent role
+        const clusterKids = kids.filter(k => (k.formation_role || k.role || "").toLowerCase() === "cluster_agent")
+        const nonClusterKids = kids.filter(k => (k.formation_role || k.role || "").toLowerCase() !== "cluster_agent")
+        if (clusterKids.length > 0) {
+          // Group cluster_agents by their cluster field
+          const byCluster = {}
+          clusterKids.forEach(k => {
+            const cname = k.cluster || "default"
+            if (!byCluster[cname]) byCluster[cname] = []
+            byCluster[cname].push(k)
+          })
+          const clusterNodes = Object.entries(byCluster).map(([cname, members]) => ({
+            id: `${a.agent_id || a.id}-cluster-${cname}`,
+            name: cname,
+            level: "cluster",
+            status: members.some(m => m.status === "active") ? "active" : members.every(m => m.status === "complete") ? "complete" : "idle",
+            children: members.map(toNode),
+          }))
+          return {
+            id: a.agent_id || a.id,
+            name: a.task_subject || a.agent_id || a.id,
+            level,
+            status: a.status || "unknown",
+            meta: a,
+            children: [...nonClusterKids.map(toNode), ...clusterNodes],
+          }
+        }
+      }
       return {
         id: a.agent_id || a.id,
         name: a.task_subject || a.agent_id || a.id,
-        level: roleToLevel(a.formation_role || a.role),
+        level,
         status: a.status || "unknown",
         meta: a,
         children: kids.map(toNode),
@@ -247,13 +286,24 @@ function buildHierarchyFromFormations(formations, agents) {
         const swarms = sq.swarms || []
         if (swarms.length > 0) {
           swarms.forEach(sw => {
-            const swNode = {
-              id: sw.id || `${sqNode.id}-sw`,
-              name: sw.name || sw.id || "Swarm",
-              level: "swarm",
-              status: sw.status || "unknown",
-              meta: sw,
-              children: (sw.agents || []).map(a => ({
+            const swAgents = sw.agents || []
+            // Group swarm agents by cluster field
+            const clustered = {}
+            const unclustered = []
+            swAgents.forEach(a => {
+              if (a.cluster) {
+                if (!clustered[a.cluster]) clustered[a.cluster] = []
+                clustered[a.cluster].push(a)
+              } else {
+                unclustered.push(a)
+              }
+            })
+            const clusterNodes = Object.entries(clustered).map(([cname, members]) => ({
+              id: `${sw.id || sqNode.id}-cluster-${cname}`,
+              name: cname,
+              level: "cluster",
+              status: members.some(m => m.status === "active") ? "active" : members.every(m => m.status === "complete") ? "complete" : "idle",
+              children: members.map(a => ({
                 id: a.agent_id || a.id,
                 name: a.task_subject || a.agent_id || a.id,
                 level: "agent",
@@ -261,6 +311,24 @@ function buildHierarchyFromFormations(formations, agents) {
                 meta: a,
                 children: [],
               })),
+            }))
+            const swNode = {
+              id: sw.id || `${sqNode.id}-sw`,
+              name: sw.name || sw.id || "Swarm",
+              level: "swarm",
+              status: sw.status || "unknown",
+              meta: sw,
+              children: [
+                ...unclustered.map(a => ({
+                  id: a.agent_id || a.id,
+                  name: a.task_subject || a.agent_id || a.id,
+                  level: "agent",
+                  status: a.status || "unknown",
+                  meta: a,
+                  children: [],
+                })),
+                ...clusterNodes,
+              ],
             }
             sqNode.children.push(swNode)
           })
@@ -297,6 +365,134 @@ function inferFormationStatus(agents) {
   return "idle"
 }
 
+// ── Skill ecosystem static tree ───────────────────────────────────────────────
+const SKILL_ECOSYSTEM_TREE = {
+  id: "ccem",
+  name: "CCEM",
+  level: "hub",
+  status: "active",
+  children: [
+    {
+      id: "lifecycle",
+      name: "Lifecycle",
+      level: "formation",
+      status: "active",
+      children: [
+        {
+          id: "idea",
+          name: "/idea",
+          level: "squadron",
+          status: "active",
+          meta: { description: "IDEA Framework — discovery through execution" },
+          children: [
+            {
+              id: "ralph",
+              name: "/ralph",
+              level: "swarm",
+              status: "active",
+              meta: { description: "prd.json generation + autonomous fix loop" },
+              children: [
+                {
+                  id: "upm",
+                  name: "/upm",
+                  level: "cluster",
+                  status: "active",
+                  meta: { description: "Unified Project Management orchestrator" },
+                  children: [
+                    {
+                      id: "formation",
+                      name: "/formation",
+                      level: "agent",
+                      status: "active",
+                      meta: { description: "5-level agent hierarchy deployment engine" },
+                      children: [
+                        {
+                          id: "deploy-agents",
+                          name: "/deploy:agents-v2",
+                          level: "task",
+                          status: "active",
+                          meta: { description: "Spawns leaf agents with hook orchestration" },
+                          children: [],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "telemetry",
+      name: "Telemetry",
+      level: "formation",
+      status: "active",
+      children: [
+        {
+          id: "ccem-apm",
+          name: "/ccem-apm",
+          level: "squadron",
+          status: "active",
+          meta: { description: "APM hub — register/heartbeat/event/notify" },
+          children: [
+            {
+              id: "showcase",
+              name: "/showcase",
+              level: "swarm",
+              status: "active",
+              meta: { description: "Consumes: agents, formations, UPM phase, AG-UI stream" },
+              children: [],
+            },
+            {
+              id: "ag-ui",
+              name: "/ag-ui",
+              level: "swarm",
+              status: "active",
+              meta: { description: "33 AG-UI event types — SSE transport" },
+              children: [],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "verification",
+      name: "Verification",
+      level: "formation",
+      status: "active",
+      children: [
+        {
+          id: "live-integration-testing",
+          name: "/live-integration-testing",
+          level: "squadron",
+          status: "active",
+          meta: { description: "Chrome DevTools → Playwright → Puppeteer" },
+          children: [
+            {
+              id: "screenshot",
+              name: "/screenshot",
+              level: "swarm",
+              status: "active",
+              meta: { description: "macOS screenshot capture — HEIC/U+202F aware" },
+              children: [],
+            },
+          ],
+        },
+        {
+          id: "prototype",
+          name: "/prototype",
+          level: "squadron",
+          status: "active",
+          meta: { description: "Rapid prototyping → feeds ralph → upm" },
+          children: [],
+        },
+      ],
+    },
+  ],
+}
+
 // ── Main Hook ─────────────────────────────────────────────────────────────────
 const DependencyGraph = {
   async mounted() {
@@ -305,6 +501,10 @@ const DependencyGraph = {
     this._treeData  = null
     this._tooltip   = null
     this._svg       = null
+    this._mode      = "hierarchy"  // "hierarchy" | "skills"
+
+    // Add mode toggle button
+    this._addModeToggle()
 
     // Fetch initial data from APM
     this._fetchInitialData()
@@ -312,14 +512,14 @@ const DependencyGraph = {
     // LiveView sends structured tree
     this.handleEvent("hierarchy_data", (data) => {
       this._treeData = data.tree || data
-      this._render()
+      if (this._mode === "hierarchy") this._render()
     })
 
     // LiveView sends flat agent list — build tree client-side
     this.handleEvent("agents_updated", (data) => {
       const agents = data.agents || []
       this._treeData = buildHierarchyFromAgents(agents) || this._treeData
-      this._render()
+      if (this._mode === "hierarchy") this._render()
     })
 
     // graph_toggle_anon kept for backward compat — re-renders in place
@@ -331,6 +531,49 @@ const DependencyGraph = {
   destroyed() {
     if (this._tooltip) this._tooltip.remove()
     if (this._svg) this._svg.remove()
+    if (this._toggleBtn) this._toggleBtn.remove()
+  },
+
+  _addModeToggle() {
+    const wrapper = this.el.closest("[data-graph-wrapper]") || this.el.parentElement
+    const btn = document.createElement("button")
+    btn.textContent = "Skills"
+    btn.title = "Toggle between Agentic Hierarchy and Skill Ecosystem views"
+    Object.assign(btn.style, {
+      position: "absolute",
+      top: "8px",
+      right: "8px",
+      zIndex: "100",
+      padding: "3px 10px",
+      background: "rgba(139,92,246,0.15)",
+      border: "1px solid rgba(139,92,246,0.5)",
+      borderRadius: "6px",
+      color: "#c4b5fd",
+      fontSize: "11px",
+      fontFamily: "monospace",
+      cursor: "pointer",
+    })
+    btn.addEventListener("click", () => {
+      this._mode = this._mode === "hierarchy" ? "skills" : "hierarchy"
+      btn.textContent = this._mode === "hierarchy" ? "Skills" : "Hierarchy"
+      btn.style.color = this._mode === "hierarchy" ? "#c4b5fd" : "#86efac"
+      btn.style.borderColor = this._mode === "hierarchy" ? "rgba(139,92,246,0.5)" : "rgba(34,197,94,0.5)"
+      btn.style.background = this._mode === "hierarchy" ? "rgba(139,92,246,0.15)" : "rgba(34,197,94,0.1)"
+      if (this._mode === "skills") {
+        this._renderSkillTree()
+      } else {
+        if (this._treeData) this._render()
+        else this._renderEmpty()
+      }
+    })
+    const container = this.el
+    container.style.position = "relative"
+    container.appendChild(btn)
+    this._toggleBtn = btn
+  },
+
+  _renderSkillTree() {
+    this._renderTreeData(SKILL_ECOSYSTEM_TREE, "SKILL ECOSYSTEM")
   },
 
   async _fetchInitialData() {
@@ -368,7 +611,10 @@ const DependencyGraph = {
   _render() {
     const data = this._treeData
     if (!data) { this._renderEmpty(); return }
+    this._renderTreeData(data, "AGENTIC HIERARCHY")
+  },
 
+  _renderTreeData(data, modeLabel) {
     const rect = this.el.getBoundingClientRect()
     const W = Math.max(rect.width  || 800, 400)
     const H = Math.max(rect.height || 600, 350)
@@ -567,10 +813,14 @@ const DependencyGraph = {
       .attr("class",     "dg-legend")
       .attr("transform", "translate(12, 12)")
 
+    const legendLevels = modeLabel === "SKILL ECOSYSTEM"
+      ? ["hub", "formation", "squadron", "swarm", "cluster", "agent", "task"]
+      : LEVEL_ORDER
+
     legendG.append("rect")
       .attr("x",            -4).attr("y", -4)
       .attr("width",        116)
-      .attr("height",       LEVEL_ORDER.length * 18 + 24)
+      .attr("height",       legendLevels.length * 18 + 24)
       .attr("rx",           6)
       .attr("fill",         "rgba(15,23,42,0.88)")
       .attr("stroke",       PALETTE.border)
@@ -581,10 +831,10 @@ const DependencyGraph = {
       .attr("fill",       PALETTE.textDim)
       .attr("font-size",  "8px")
       .attr("font-family","monospace")
-      .text("HIERARCHY LEVELS")
+      .text(modeLabel === "SKILL ECOSYSTEM" ? "SKILL NODES" : "HIERARCHY LEVELS")
 
     legendG.selectAll(".legend-item")
-      .data(LEVEL_ORDER)
+      .data(legendLevels)
       .enter()
       .append("g")
       .attr("class",     "legend-item")
@@ -606,15 +856,15 @@ const DependencyGraph = {
           .text(levelLabel(level))
       })
 
-    // Mode label (top-right)
+    // Mode label (top-right, leave space for toggle button)
     svg.append("text")
-      .attr("x",          W - 10)
+      .attr("x",          W - 90)
       .attr("y",          18)
       .attr("text-anchor","end")
       .attr("fill",       PALETTE.textDim)
       .attr("font-size",  "9px")
       .attr("font-family","monospace")
-      .text("AGENTIC HIERARCHY")
+      .text(modeLabel || "AGENTIC HIERARCHY")
   },
 
   _renderEmpty() {
@@ -685,6 +935,9 @@ const DependencyGraph = {
         .attr("font-family","monospace")
         .text(levelLabel(level))
     })
+
+    // Update rect height for 7 levels
+    legendG.select("rect").attr("height", LEVEL_ORDER.length * 18 + 24)
   },
 }
 
