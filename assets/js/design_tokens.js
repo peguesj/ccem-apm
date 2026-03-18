@@ -55,6 +55,11 @@ export const TOKENS = {
       stroke: "#10b981",   // emerald-500
       text:   "#d1fae5",   // emerald-100
     },
+    cluster: {
+      fill:   "#2e1065",   // violet-950
+      stroke: "#8b5cf6",   // violet-500
+      text:   "#ede9fe",   // violet-100
+    },
     agent: {
       active:  { fill: "#14532d", stroke: "#22c55e" },  // green-900 / green-500
       idle:    { fill: "#1e293b", stroke: "#64748b" },  // slate-800 / slate-500
@@ -106,7 +111,7 @@ export const TOKENS = {
 /**
  * Resolve a formation node's colors by level and optional status.
  *
- * @param {string} level  - "session"|"formation"|"squadron"|"swarm"|"agent"|"task"|"fleet"
+ * @param {string} level  - "session"|"formation"|"squadron"|"swarm"|"cluster"|"agent"|"task"|"fleet"
  * @param {string} status - (agent only) "active"|"idle"|"error"|"default"
  * @returns {{ fill: string, stroke: string, text: string }}
  */
@@ -117,6 +122,7 @@ export function nodeColors(level, status) {
     case "formation": return t.formation
     case "squadron":  return t.squadron
     case "swarm":     return t.swarm
+    case "cluster":   return t.cluster
     case "task":      return t.task
     case "fleet":     return t.fleet
     case "agent": {
