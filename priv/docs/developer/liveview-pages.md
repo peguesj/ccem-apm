@@ -449,6 +449,69 @@ Reload showcase data for a project without restarting the server:
 ApmV5.ShowcaseDataStore.reload("my-app")
 ```
 
+## AgentPanel Component
+
+**Module**: `ApmV5Web.Components.AgentPanel`
+**Extracted from**: `DashboardLive` (v6.2.0)
+
+Reusable component that renders a single agent card with tier, status, and type classification badges. Supports filter-aware rendering so callers can pass active filter state without coupling.
+
+### AgentPanel Features
+
+- **Tier badges**: Tier 1 / Tier 2 / Tier 3 color-coded chips
+- **Status badges**: active (green), idle (yellow), error (red), completed (gray), discovered (blue)
+- **Type badges**: individual, squadron, swarm, orchestrator — each with a distinct icon
+- **Filter support**: `active_filters` attribute hides non-matching agents without re-mounting the component
+- **Click-to-inspect**: `phx-click="inspect_agent"` with `phx-value-agent-id` for right-panel integration
+
+### AgentPanel Attributes
+
+```elixir
+attr :agent, :map, required: true
+attr :active_filters, :map, default: %{}
+attr :selected_agent_id, :string, default: nil
+```
+
+### AgentPanel Usage
+
+```heex
+<.agent_panel
+  agent={agent}
+  active_filters={@filters}
+  selected_agent_id={@inspector_agent_id}
+/>
+```
+
+## PortPanel Component
+
+**Module**: `ApmV5Web.Components.PortPanel`
+**Extracted from**: `DashboardLive` (v6.2.0)
+
+Reusable component that renders a single port entry card. Highlights clash conditions with inline remediation suggestions.
+
+### PortPanel Features
+
+- **Clash alert banner**: Shown when two or more projects claim the same port number
+- **Remediation display**: Suggests next available port in the project's namespace range
+- **Status dot**: Green (active/in-use), gray (assigned but not active)
+- **Namespace badge**: web / api / service / tool with distinct colors
+
+### PortPanel Attributes
+
+```elixir
+attr :port_entry, :map, required: true
+attr :clashes, :list, default: []
+```
+
+### PortPanel Usage
+
+```heex
+<.port_panel
+  port_entry={entry}
+  clashes={@port_clashes}
+/>
+```
+
 ## CcemOverviewLive
 
 **Route**: `/ccem`
@@ -567,6 +630,40 @@ end
 ```
 
 See `test/apm_v5_web/live/` for more examples.
+
+### Integration Test Suite (v6.2.0)
+
+A formal ExUnit integration test suite covering the two most-used LiveViews ships with v6.2.0. Tests live in `test/apm_v5_web/live/`.
+
+**DashboardLive tests (8):**
+
+| Test | Asserts |
+|------|---------|
+| renders agent count stat card | `html =~ "Agents"` |
+| renders session count stat card | `html =~ "Sessions"` |
+| agent list updates on `{:agent_registered, agent}` | new agent name appears |
+| agent card removed on `{:agent_disconnected, id}` | agent name absent |
+| filter by status hides non-matching agents | filtered agent absent |
+| inspector panel opens on `inspect_agent` click | inspector panel visible |
+| notification badge increments on new notification | badge count +1 |
+| project selector reflects config active project | project name highlighted |
+
+**ShowcaseLive tests (6):**
+
+| Test | Asserts |
+|------|---------|
+| renders default active project | active project name visible |
+| switches project on `/showcase/:project` navigate | new project features rendered |
+| feature grid groups features by wave | wave heading present |
+| live agent count updates on `{:agent_registered, _}` | stats bar count updated |
+| fullscreen toggle sets `fullscreen` assign | `phx-value-fullscreen` attribute present |
+| showcase data reload via `{:showcase_data_reloaded, _, _}` | updated feature title visible |
+
+Run the full test suite:
+
+```bash
+mix test test/apm_v5_web/live/
+```
 
 ## Extending with New LiveView Pages
 

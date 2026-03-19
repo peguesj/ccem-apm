@@ -1321,6 +1321,252 @@ List available A2UI components (accepts JSON and JSONL).
 curl http://localhost:3032/api/a2ui/components
 ```
 
+## Agent Activity Log Endpoints (v6.1.0)
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| GET | `/api/agents/activity-log` | Get recent agent activity events (ring buffer, up to 200) |
+
+### GET /api/agents/activity-log
+
+Returns recent agent activity events from the `AgentActivityLog` ring buffer. Events are ordered chronologically (oldest first). Use the `limit` query parameter to request fewer events.
+
+```bash
+curl 'http://localhost:3032/api/agents/activity-log?limit=30'
+```
+
+Query params:
+- `limit` — Number of events to return (1–200, default: 200)
+
+Example response:
+
+```json
+{
+  "events": [
+    {
+      "id": "evt-abc123",
+      "type": "lifecycle",
+      "agent_id": "agent-xyz",
+      "timestamp": "2026-03-18T10:00:00.000Z",
+      "payload": {
+        "event": "registered",
+        "status": "active",
+        "project": "ccem"
+      }
+    },
+    {
+      "id": "evt-def456",
+      "type": "tool",
+      "agent_id": "agent-xyz",
+      "timestamp": "2026-03-18T10:00:01.500Z",
+      "payload": {
+        "tool_name": "Read",
+        "phase": "start",
+        "path": "/path/to/file"
+      }
+    }
+  ],
+  "total": 2,
+  "capacity": 200
+}
+```
+
+Event types:
+- `lifecycle` — agent register / update / disconnect
+- `tool` — tool call start and finish (includes `tool_name`, `phase`)
+- `thinking` — thinking token events (includes `token_count`)
+- `text` — text output events (includes `char_count`)
+
+## UPM API Controller (v6.2.0)
+
+`UpmApiController` is a dedicated domain controller for UPM execution tracking endpoints, extracted from the monolithic `ApiController` in v6.2.0. All `/api/upm/*` routes are now handled by this controller.
+
+| Method | Path | Controller | Description |
+|:-------|:-----|:-----------|:------------|
+| POST | `/api/upm/register` | `UpmApiController` | Register UPM execution session |
+| POST | `/api/upm/agent` | `UpmApiController` | Register agent with work-item binding |
+| POST | `/api/upm/event` | `UpmApiController` | Log UPM lifecycle event |
+| GET | `/api/upm/status` | `UpmApiController` | Get current UPM execution state |
+
+The request/response contract for each endpoint is unchanged — see [UPM Integration Endpoints](#upm-integration-endpoints) for full details.
+
+## Formation API Controller (v6.2.0)
+
+`FormationApiController` is a dedicated domain controller for formation CRUD operations, extracted from `ApiController` in v6.2.0.
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| GET | `/api/v2/formations` | List all formations |
+| GET | `/api/v2/formations/:id` | Get a single formation by ID |
+| POST | `/api/v2/formations` | Create a new formation |
+| PUT | `/api/v2/formations/:id` | Update a formation |
+| GET | `/api/v2/formations/:id/agents` | List agents belonging to a formation |
+
+### GET /api/v2/formations
+
+List all registered formations.
+
+```bash
+curl http://localhost:3032/api/v2/formations
+```
+
+Example response:
+
+```json
+{
+  "formations": [
+    {
+      "id": "fmt-abc123",
+      "name": "ccem-v6-20260318",
+      "status": "active",
+      "agent_count": 5,
+      "created_at": "2026-03-18T09:00:00Z"
+    }
+  ]
+}
+```
+
+### GET /api/v2/formations/:id/agents
+
+List all agents registered under a formation.
+
+```bash
+curl http://localhost:3032/api/v2/formations/fmt-abc123/agents
+```
+
+Example response:
+
+```json
+{
+  "formation_id": "fmt-abc123",
+  "agents": [
+    {
+      "id": "agent-001",
+      "name": "orchestrator",
+      "formation_role": "orchestrator",
+      "status": "active"
+    }
+  ]
+}
+```
+
+## Showcase API Controller (v6.2.0)
+
+`ShowcaseApiController` is a dedicated domain controller for showcase data REST endpoints, extracted from `ApiController` in v6.2.0.
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| GET | `/api/showcase` | List all projects that have showcase data |
+| GET | `/api/showcase/:project` | Get showcase data for a named project |
+| POST | `/api/showcase/:project/reload` | Hot-reload showcase data from disk |
+
+### GET /api/showcase/:project
+
+Fetch showcase data for a project.
+
+```bash
+curl http://localhost:3032/api/showcase/ccem
+```
+
+Example response:
+
+```json
+{
+  "project": "ccem",
+  "features": [
+    {
+      "id": "US-031",
+      "wave": 6,
+      "title": "AgentActivityLog",
+      "status": "done"
+    }
+  ],
+  "feature_count": 1
+}
+```
+
+### POST /api/showcase/:project/reload
+
+Hot-reload showcase data from disk without restarting the server. Broadcasts `{:showcase_data_reloaded, project, data}` on `apm:showcase`.
+
+```bash
+curl -X POST http://localhost:3032/api/showcase/ccem/reload
+```
+
+Response:
+
+```json
+{"ok": true, "project": "ccem"}
+```
+
+## Claude Usage API (v6.3.0)
+
+Track Claude model and token usage at user and project scope.
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| GET | `/api/usage` | All usage data keyed by project → model |
+| GET | `/api/usage/summary` | Aggregated totals with model breakdown and per-project effort levels |
+| GET | `/api/usage/project/:name` | Usage data for a single project |
+| POST | `/api/usage/record` | Record a usage event |
+| DELETE | `/api/usage/project/:name` | Reset all counters for a project |
+
+### POST /api/usage/record
+
+Record a Claude API usage event.
+
+```bash
+curl -X POST http://localhost:3032/api/usage/record \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project": "ccem",
+    "model": "claude-sonnet-4-6",
+    "input_tokens": 1000,
+    "output_tokens": 250,
+    "cache_tokens": 0,
+    "tool_calls": 1
+  }'
+```
+
+### GET /api/usage/summary
+
+Returns aggregated summary with effort levels.
+
+```json
+{
+  "ok": true,
+  "summary": {
+    "total_input_tokens": 45000,
+    "total_output_tokens": 12000,
+    "total_cache_tokens": 3000,
+    "total_tool_calls": 350,
+    "total_sessions": 12,
+    "top_model": "claude-sonnet-4-6",
+    "model_breakdown": { ... },
+    "projects": {
+      "ccem": {
+        "effort_level": "high",
+        "input_tokens": 45000,
+        ...
+      }
+    }
+  }
+}
+```
+
+### Effort Levels
+
+Inferred from `tool_calls / sessions` ratio per project:
+
+| Level | Threshold | Behavior |
+|-------|-----------|----------|
+| `low` | <10 calls/session | None |
+| `medium` | 10–50 calls/session | None |
+| `high` | 50–100 calls/session | None |
+| `intensive` | >100 calls/session | PreToolUse hook emits warning |
+
+---
+
 ## Error Responses
 
 All endpoints return structured error information on failure.

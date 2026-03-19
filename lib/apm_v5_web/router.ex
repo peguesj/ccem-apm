@@ -67,6 +67,7 @@ defmodule ApmV5Web.Router do
     live "/showcase", ShowcaseLive, :index
     live "/showcase/:project", ShowcaseLive, :project
     live "/ccem", CcemOverviewLive, :index
+    live "/usage", UsageLive, :index
 
     # /upm redirects to workflow UPM view
     get "/upm", PageController, :upm_redirect
@@ -202,6 +203,13 @@ defmodule ApmV5Web.Router do
     post "/intake", ApiController, :intake_submit
     get "/intake", ApiController, :intake_list
     get "/intake/watchers", ApiController, :intake_watchers
+
+    # Claude usage tracking (US-042)
+    get "/usage", UsageController, :index
+    get "/usage/summary", UsageController, :summary
+    get "/usage/project/:name", UsageController, :project
+    post "/usage/record", UsageController, :record
+    delete "/usage/project/:name", UsageController, :reset
 
   end
 

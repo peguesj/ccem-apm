@@ -46,7 +46,7 @@ defmodule ApmV5Web.ShowcaseLive do
       |> assign(:narratives, %{})
       |> assign(:slides, %{})
       |> assign(:design_system, %{})
-      |> assign(:version, "5.5.0")
+      |> assign(:version, "6.2.0")
       |> assign(:showcase_initialized, false)
       |> assign(:activity_log, [])
 
@@ -201,7 +201,7 @@ defmodule ApmV5Web.ShowcaseLive do
       narratives = Map.get(data, "narratives", %{})
       slides = Map.get(data, "slides", %{})
       design_system = Map.get(data, "design_system", %{})
-      version = Map.get(data, "version", "5.5.0") || "5.5.0"
+      version = Map.get(data, "version", "6.2.0") || "6.2.0"
 
       {:noreply,
        socket
@@ -236,7 +236,7 @@ defmodule ApmV5Web.ShowcaseLive do
     narratives = Map.get(showcase_data, "narratives", %{})
     slides = Map.get(showcase_data, "slides", %{})
     design_system = Map.get(showcase_data, "design_system", %{})
-    version = Map.get(showcase_data, "version", "5.5.0") || "5.5.0"
+    version = Map.get(showcase_data, "version", "6.2.0") || "6.2.0"
     static_path = static_showcase_path(project)
 
     socket =

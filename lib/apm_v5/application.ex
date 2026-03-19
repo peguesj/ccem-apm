@@ -68,6 +68,8 @@ defmodule ApmV5.Application do
       # Wave 4: A2A messaging router (US-031)
       ApmV5.AgUi.A2A.Router,
       ApmV5.ChatStore,
+      # Claude usage tracking (US-042)
+      ApmV5.ClaudeUsageStore,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]

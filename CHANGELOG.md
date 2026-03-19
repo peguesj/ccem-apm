@@ -1,5 +1,42 @@
 # Changelog
 
+## v6.4.0 (2026-03-18)
+
+CCEM APM v6.4.0 — Skills UX overhaul: WCAG 2.1 AA compliance, guided Fix Wizard, card grid layout, slide-in detail drawer, Session invocation timeline, AG-UI health indicators, and SkillsHook JS.
+
+### Added
+- `SkillsLive` full rewrite — WCAG AA: skip links, ARIA landmarks (`main`, `complementary`, `banner`, tablist/tab/tabpanel roles), `aria-live="polite"` for search result announcements
+- Card grid layout with health-ring SVG indicator (green ≥80 / yellow 50–79 / red <50), tier badge (Healthy / Needs Attention / Critical), trigger pills
+- Slide-in detail drawer (`#skill-drawer`) with keyboard focus trap — Escape navigates back through wizard steps or closes
+- Fix Wizard 4-step flow: `:diagnose → :select → :preview → :done` with `MapSet`-backed repair type selection; invokes `ActionEngine` for `fix_skill_frontmatter`, `complete_skill_description`, `add_skill_triggers`
+- Session tab: vertical invocation timeline sorted by `last_seen` descending, absolute-positioned colored dots, methodology badge, relative timestamp
+- AG-UI tab: summary stats row (Connected/Degraded/Broken counts), per-skill health dot + border + text color helpers, Repair button for critical skills
+- `assets/js/hooks/skills.js` — `SkillsHook` LiveView hook: `/` shortcut focuses search input, focus trap management for drawer, previous-focus restoration on drawer close
+- Search + filter bar: debounced text search (300ms), tier dropdown filter, real-time `phx-change`
+
+### Changed
+- `app.js`: `SkillsHook` registered in `Hooks` map
+- `mix.exs`: version bumped 6.3.0 → 6.4.0
+
+## v6.3.0 (2026-03-18)
+
+CCEM APM v6.3.0 — Claude usage management: token/model tracking at user and project scope, UsageLive dashboard, PostToolUse/PreToolUse hooks, CCEMAgent menubar integration.
+
+### Added
+- `ClaudeUsageStore` GenServer (ETS, PubSub, effort level inference)
+- `UsageController` REST API at `/api/usage/*` (5 endpoints)
+- `UsageLive` LiveView at `/usage` (summary bar, model table, project accordion, 10s refresh)
+- PostToolUse hook `claude_usage_record.sh` — fire-and-forget to `/api/usage/record`
+- PreToolUse hook `claude_usage_check.sh` — intensive usage warning
+- CCEMAgent: `UsageModels.swift`, `fetchUsageSummary()`, `usageSection` in MenuBarView
+
+### Changed
+- `application.ex`: `ClaudeUsageStore` in supervision tree
+- `router.ex`: `/usage` live route + `/api/usage/*` REST routes
+- `sidebar_nav.ex`: Usage nav item (hero-cpu-chip, APM Monitoring section)
+- `mix.exs`: version bumped 6.2.0 → 6.3.0
+- `~/.claude/settings.json`: new PostToolUse and PreToolUse usage hooks
+
 ## v6.2.0 (2026-03-17)
 
 CCEM APM v6.2 — refactor-max: ApiController domain split, DashboardLive decomposition, LiveView integration tests, and OpenAPI v6.1.0.

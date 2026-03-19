@@ -127,6 +127,128 @@ Click the fullscreen icon in the header to expand the showcase to cover the enti
 | `ag_ui:events` | Receive AG-UI events for real-time diagram updates |
 | `apm:showcase` | React to `ShowcaseDataStore.reload/1` calls |
 
+## Activity Tab (v6.1.0)
+
+The Activity Tab is the second tab of the showcase panel. It provides live observability of agent activity without leaving the presentation view.
+
+### Activity Tab Components
+
+- **D3.js force-directed graph**: Each active agent rendered as a node; edges represent coordination/dependency links registered via the agent's `deps` field
+- **anime.js pulse rings**: Agents with `status: "active"` emit a continuous concentric pulse ring animation at their node
+- **30-event pull-down log**: Scrollable list of the 30 most recent events pulled from `GET /api/agents/activity-log?limit=30`; rendered below the force graph
+
+### Activity Tab JS
+
+The activity tab is driven by the `Showcase` hook in `assets/js/hooks/showcase.js`. On tab activation the hook:
+
+1. Calls `GET /api/agents/activity-log?limit=30` to seed the event log
+2. Subscribes to `apm:activity_log` via the LiveView channel to receive incremental events
+3. Initialises the D3 force simulation with the current agent list
+4. Starts anime.js pulse ring animations for each active agent node
+
+Agent nodes auto-animate on `{:activity_log_event, event}` messages where `event.type == "lifecycle"`.
+
+## Feature Inspector (v6.1.0)
+
+The Feature Inspector is a collapsible right-column panel that provides per-feature detail without navigating away from the showcase.
+
+### Feature Inspector Components
+
+- **Acceptance criteria checklist**: Criteria sourced from `features.json` `acceptance_criteria` array; each item rendered as a checkbox (read-only, reflecting `done` status)
+- **Related agents list**: Agents whose `story_id` field matches the selected feature's `id`; pulled live from the current agent roster on the socket
+- **Status mini-timeline**: Four milestones (`planned → in-progress → review → done`) with the current status highlighted; timestamps shown where available from UPM events
+
+### Feature Inspector Integration
+
+To populate the acceptance criteria checklist, add an `acceptance_criteria` array to entries in `features.json`:
+
+```json
+{
+  "id": "US-031",
+  "wave": 6,
+  "title": "AgentActivityLog GenServer",
+  "status": "done",
+  "acceptance_criteria": [
+    {"text": "Ring buffer holds ≤200 events", "done": true},
+    {"text": "PubSub broadcasts on apm:activity_log", "done": true},
+    {"text": "REST endpoint returns chronological order", "done": true}
+  ]
+}
+```
+
+Opening the inspector is triggered by clicking a feature card. The panel opens via a CSS transition on a `data-inspector-open` attribute toggled by the `Showcase` hook.
+
+## Template System (v6.1.0)
+
+The Template System allows operators to switch the showcase canvas layout at runtime without reloading the page.
+
+### TEMPLATES Registry
+
+A `TEMPLATES` object defined in `showcase.js` maps template IDs to layout configurations:
+
+```javascript
+const TEMPLATES = {
+  "engine":    { layout: "engine",    columns: 3, animate: true },
+  "formation": { layout: "formation", columns: 2, animate: false }
+}
+```
+
+Built-in templates:
+
+| ID | Layout | Description |
+|----|--------|-------------|
+| `engine` | `engine` | 3-column feature grid, animated card entrances |
+| `formation` | `formation` | 2-column wave-grouped list, compact mode |
+
+### Applying a Template
+
+Templates are applied programmatically by dispatching the `showcase:template-changed` custom event:
+
+```javascript
+window.dispatchEvent(new CustomEvent("showcase:template-changed", {
+  detail: { templateId: "formation" }
+}))
+```
+
+The `Showcase` hook listens for this event and calls `applyTemplate(id)`, which:
+
+1. Looks up the template in `TEMPLATES`
+2. Updates the root container's `data-layout` attribute
+3. Re-triggers the entry animations if `animate: true`
+4. Preserves the current selected feature in the Feature Inspector
+
+### Template API
+
+The active template can also be changed server-side by pushing a `template_changed` event from the LiveView:
+
+```elixir
+push_event(socket, "template_changed", %{template_id: "formation"})
+```
+
+## Project Dropdown UX (v6.1.0)
+
+The project selector dropdown was reorganised in v6.1.0 into three labelled sections for faster navigation in multi-project APM deployments.
+
+### Dropdown Sections
+
+| Section | Contents |
+|---------|----------|
+| **Active** | The single project currently set in `apm_config.json` `active_project` |
+| **Recently Active** | Projects with a session registered in the last 24 hours |
+| **Other** | All remaining configured projects with showcase data |
+
+### categorize_projects/2
+
+Projects are sorted into sections by `ApmV5Web.ShowcaseLive.categorize_projects/2`:
+
+```elixir
+@spec categorize_projects([map()], String.t()) ::
+  %{active: [map()], recently_active: [map()], other: [map()]}
+def categorize_projects(projects, active_project_name)
+```
+
+The function is a pure helper (no GenServer calls) — pass the projects list from `ConfigLoader.get_config()` and the active project name string.
+
 ## Extending Showcase Data
 
 To add a new project's showcase:

@@ -382,6 +382,35 @@ API:
   - search/1
 ```
 
+### AgentActivityLog
+
+Ring-buffer event log for real-time agent lifecycle observability. Added in v6.1.0.
+
+GenServer state and API summary:
+
+```elixir
+GenServer: ApmV5.AgentActivityLog
+State:
+  - ring_buffer: :queue of up to 200 events (oldest evicted on overflow)
+  - subscribers: PIDs subscribed to live event pushes
+
+API:
+  - log_event/1
+  - get_recent/0       # last 200 events
+  - get_recent/1       # last N events (1..200)
+
+Subscribes to EventBus:
+  - :agent_lifecycle   # register, update, disconnect
+  - :agent_tool        # tool call start/finish
+  - :agent_thinking    # thinking token events
+  - :agent_text        # text output events
+
+Broadcasts:
+  - {:activity_log_event, event} to "apm:activity_log"
+```
+
+> **Ring buffer**: Implemented with `:queue` — `enqueue` at back, dequeue from front when size exceeds 200. `get_recent/0` returns events in chronological order (oldest first).
+
 ### Additional GenServers
 
 - **ApiKeyStore** -- API authentication and key management
@@ -536,6 +565,20 @@ AG-UI Server-Sent Events.
 
 ```elixir
 {:ag_ui_event, event}
+```
+
+### apm:activity_log
+
+Agent activity ring-buffer events (added in v6.1.0).
+
+```elixir
+{:activity_log_event, %{
+  id: String.t(),
+  type: :lifecycle | :tool | :thinking | :text,
+  agent_id: String.t(),
+  timestamp: DateTime.t(),
+  payload: map()
+}}
 ```
 
 ## Error Handling
