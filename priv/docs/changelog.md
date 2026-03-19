@@ -1,8 +1,28 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file.
+All notable changes to CCEM APM are documented in this file. Latest: v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [6.4.0] - 2026-03-18
+
+Skills UX overhaul — WCAG 2.1 AA compliance, guided Fix Wizard, card grid layout, slide-in detail drawer, Session invocation timeline, AG-UI health indicators, and SkillsHook JS.
+
+### Added
+- `SkillsLive` full rewrite — WCAG AA: skip links, ARIA landmarks (`main`, `complementary`, `banner`, tablist/tab/tabpanel roles), `aria-live="polite"` for search result announcements
+- Card grid layout with health-ring SVG indicator (green ≥80 / yellow 50–79 / red <50), tier badge (Healthy / Needs Attention / Critical), trigger pills
+- Slide-in detail drawer (`#skill-drawer`) with keyboard focus trap — Escape navigates back through wizard steps or closes
+- Fix Wizard 4-step flow: `:diagnose → :select → :preview → :done` with `MapSet`-backed repair type selection; invokes `ActionEngine` for `fix_skill_frontmatter`, `complete_skill_description`, `add_skill_triggers`
+- Session tab: vertical invocation timeline sorted by `last_seen` descending, absolute-positioned colored dots, methodology badge, relative timestamp
+- AG-UI tab: summary stats row (Connected/Degraded/Broken counts), per-skill health dot + border + text color helpers, Repair button for critical skills
+- `assets/js/hooks/skills.js` — `SkillsHook` LiveView hook: `/` shortcut focuses search input, focus trap management for drawer, previous-focus restoration on drawer close
+- Search + filter bar: debounced text search (300ms), tier dropdown filter, real-time `phx-change`
+
+### Changed
+- `app.js`: `SkillsHook` registered in `Hooks` map
+- `mix.exs`: version bumped 6.3.0 → 6.4.0
 
 ---
 
