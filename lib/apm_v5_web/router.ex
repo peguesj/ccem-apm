@@ -248,6 +248,7 @@ defmodule ApmV5Web.Router do
 
     # AG-UI Protocol (v5)
     post "/ag-ui/emit", AgUiV2Controller, :emit
+    post "/ag-ui/tool", AgUiV2Controller, :tool_call
     get "/ag-ui/events", AgUiV2Controller, :stream_events
     get "/ag-ui/events/:agent_id", AgUiV2Controller, :stream_agent_events
     get "/ag-ui/state/:agent_id", AgUiV2Controller, :get_state
