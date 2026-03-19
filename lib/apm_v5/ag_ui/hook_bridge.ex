@@ -8,13 +8,28 @@ defmodule ApmV5.AgUi.HookBridge do
 
   ## Mapping
 
-  | Legacy Endpoint      | AG-UI Event Type         |
-  |---------------------|--------------------------|
-  | POST /api/register  | RUN_STARTED              |
-  | POST /api/heartbeat | STEP_STARTED/FINISHED    |
-  | POST /api/notify    | CUSTOM                   |
-  | POST /api/tool-use  | TOOL_CALL_START/ARGS/END |
-  | Config reload       | STATE_DELTA              |
+  | Legacy Endpoint      | AG-UI Event Type                          |
+  |---------------------|-------------------------------------------|
+  | POST /api/register  | RUN_STARTED                               |
+  | POST /api/heartbeat | STEP_STARTED/FINISHED (status change)     |
+  | POST /api/notify    | Semantic routing by event_type/category   |
+  | POST /api/tool-use  | TOOL_CALL_START/ARGS/END/RESULT           |
+  | Config reload       | STATE_DELTA                               |
+
+  ## Notification → AG-UI Semantic Routing
+
+  Notifications are routed by their `event_type` field first, then by `category`:
+
+  | Notification event_type/category     | AG-UI Event Type         |
+  |--------------------------------------|--------------------------|
+  | spawn / agent_spawned                | RUN_STARTED              |
+  | task_complete / agent_complete       | RUN_FINISHED             |
+  | task_fail / agent_failed / error     | RUN_ERROR                |
+  | upm_wave_start / squadron_started    | STEP_STARTED             |
+  | upm_wave_complete / squadron_complete| STEP_FINISHED            |
+  | agent_input_required                 | TEXT_MESSAGE_START+CONTENT+END |
+  | upm_plan_complete / formation_*      | CUSTOM (semantic name)   |
+  | default                              | CUSTOM (semantic name)   |
   """
 
   alias ApmV5.EventStream
@@ -52,21 +67,115 @@ defmodule ApmV5.AgUi.HookBridge do
   end
 
   @doc """
-  Translates a legacy notification payload to a CUSTOM event.
+  Translates a legacy notification payload to the appropriate AG-UI event type.
+
+  Routes semantically based on `event_type` field (formation/UPM lifecycle events)
+  then `category` field, then falls back to CUSTOM with a semantic name.
+
+  ## Semantic routing:
+  - spawn/agent_spawned       → RUN_STARTED
+  - task_complete/agent_complete → RUN_FINISHED
+  - task_fail/agent_failed/error → RUN_ERROR
+  - upm_wave_start/squadron_started → STEP_STARTED
+  - upm_wave_complete/squadron_complete → STEP_FINISHED
+  - agent_input_required      → TEXT_MESSAGE_START + CONTENT + END
+  - all others                → CUSTOM with semantic name
   """
   @spec translate_notification(map()) :: map()
   def translate_notification(payload) do
-    EventStream.emit(EventType.custom(), %{
-      name: "notification",
-      agent_id: payload["agent_id"] || payload["session_id"],
-      value: %{
-        title: payload["title"],
-        message: payload["message"],
-        level: payload["level"] || "info",
-        category: payload["category"],
-        action_url: payload["action_url"]
-      }
-    })
+    agent_id = payload["agent_id"] || payload["session_id"]
+    event_type = payload["event_type"] || payload["type"]
+    category = payload["category"]
+
+    cond do
+      # Lifecycle: agent/run started
+      event_type in ["spawn", "agent_spawned", "run_started"] or
+        (category == "agent" and event_type == "spawn") ->
+        EventStream.emit(EventType.run_started(), %{
+          agent_id: agent_id,
+          run_id: payload["formation_id"] || payload["agent_id"] || "unknown",
+          thread_id: payload["session_id"] || agent_id || "unknown",
+          metadata: notification_metadata(payload)
+        })
+
+      # Lifecycle: agent/run finished
+      event_type in ["task_complete", "agent_complete", "formation_complete", "run_finished"] ->
+        EventStream.emit(EventType.run_finished(), %{
+          agent_id: agent_id,
+          run_id: payload["formation_id"] || agent_id || "unknown",
+          thread_id: payload["session_id"] || agent_id || "unknown",
+          result: payload["payload"] || payload["message"],
+          metadata: notification_metadata(payload)
+        })
+
+      # Lifecycle: agent/run error
+      event_type in ["task_fail", "agent_failed", "run_error", "upm_kill_criteria"] or
+        (payload["type"] == "error" and is_nil(event_type)) ->
+        EventStream.emit(EventType.run_error(), %{
+          agent_id: agent_id,
+          message: payload["message"] || "Agent failed",
+          code: event_type || "unknown_error",
+          metadata: notification_metadata(payload)
+        })
+
+      # Step started: wave/squadron begins
+      event_type in ["upm_wave_start", "squadron_started", "swarm_spawned", "step_started"] ->
+        step_name = payload["title"] || event_type
+        EventStream.emit(EventType.step_started(), %{
+          agent_id: agent_id,
+          step_name: step_name,
+          wave: payload["wave"] || get_in(payload, ["payload", "wave"]),
+          formation_id: payload["formation_id"],
+          metadata: notification_metadata(payload)
+        })
+
+      # Step finished: wave/squadron complete
+      event_type in ["upm_wave_complete", "squadron_complete", "swarm_complete", "step_finished"] ->
+        step_name = payload["title"] || event_type
+        EventStream.emit(EventType.step_finished(), %{
+          agent_id: agent_id,
+          step_name: step_name,
+          wave: payload["wave"] || get_in(payload, ["payload", "wave"]),
+          formation_id: payload["formation_id"],
+          metadata: notification_metadata(payload)
+        })
+
+      # Text: agent waiting for input → present as text message from agent
+      event_type in ["agent_input_required", "input_required"] ->
+        message_id = "msg-#{agent_id}-#{System.system_time(:millisecond)}"
+        msg = payload["message"] || payload["title"] || "Input required"
+        EventStream.emit(EventType.text_message_start(), %{
+          agent_id: agent_id,
+          message_id: message_id,
+          role: "assistant"
+        })
+        EventStream.emit(EventType.text_message_content(), %{
+          agent_id: agent_id,
+          message_id: message_id,
+          delta: msg
+        })
+        EventStream.emit(EventType.text_message_end(), %{
+          agent_id: agent_id,
+          message_id: message_id
+        })
+
+      # Default: emit CUSTOM with semantic name (title, category preserved)
+      true ->
+        semantic_name = event_type || category || "notification"
+        EventStream.emit(EventType.custom(), %{
+          name: semantic_name,
+          agent_id: agent_id,
+          value: %{
+            title: payload["title"],
+            message: payload["message"],
+            level: payload["level"] || payload["type"] || "info",
+            category: category,
+            event_type: event_type,
+            formation_id: payload["formation_id"],
+            action_url: payload["action_url"]
+          }
+        })
+    end
   end
 
   @doc """
@@ -120,6 +229,19 @@ defmodule ApmV5.AgUi.HookBridge do
   end
 
   # -- Private ----------------------------------------------------------------
+
+  # Builds a compact metadata map from notification payload for event augmentation.
+  defp notification_metadata(payload) do
+    %{}
+    |> maybe_put("formation_id", payload["formation_id"])
+    |> maybe_put("formation_role", payload["formation_role"])
+    |> maybe_put("wave", payload["wave"] || get_in(payload, ["payload", "wave"]))
+    |> maybe_put("task_subject", payload["task_subject"])
+    |> maybe_put("project", payload["project"])
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp compute_delta(old_map, new_map) do
     all_keys = MapSet.union(MapSet.new(Map.keys(old_map)), MapSet.new(Map.keys(new_map)))
