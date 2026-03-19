@@ -1,5 +1,124 @@
 # Changelog
 
+## v6.4.0 (2026-03-18)
+
+CCEM APM v6.4.0 — Skills UX overhaul: WCAG 2.1 AA compliance, guided Fix Wizard, card grid layout, slide-in detail drawer, Session invocation timeline, AG-UI health indicators, and SkillsHook JS.
+
+### Added
+- `SkillsLive` full rewrite — WCAG AA: skip links, ARIA landmarks (`main`, `complementary`, `banner`, tablist/tab/tabpanel roles), `aria-live="polite"` for search result announcements
+- Card grid layout with health-ring SVG indicator (green ≥80 / yellow 50–79 / red <50), tier badge (Healthy / Needs Attention / Critical), trigger pills
+- Slide-in detail drawer (`#skill-drawer`) with keyboard focus trap — Escape navigates back through wizard steps or closes
+- Fix Wizard 4-step flow: `:diagnose → :select → :preview → :done` with `MapSet`-backed repair type selection; invokes `ActionEngine` for `fix_skill_frontmatter`, `complete_skill_description`, `add_skill_triggers`
+- Session tab: vertical invocation timeline sorted by `last_seen` descending, absolute-positioned colored dots, methodology badge, relative timestamp
+- AG-UI tab: summary stats row (Connected/Degraded/Broken counts), per-skill health dot + border + text color helpers, Repair button for critical skills
+- `assets/js/hooks/skills.js` — `SkillsHook` LiveView hook: `/` shortcut focuses search input, focus trap management for drawer, previous-focus restoration on drawer close
+- Search + filter bar: debounced text search (300ms), tier dropdown filter, real-time `phx-change`
+
+### Changed
+- `app.js`: `SkillsHook` registered in `Hooks` map
+- `mix.exs`: version bumped 6.3.0 → 6.4.0
+
+## v6.3.0 (2026-03-18)
+
+CCEM APM v6.3.0 — Claude usage management: token/model tracking at user and project scope, UsageLive dashboard, PostToolUse/PreToolUse hooks, CCEMAgent menubar integration.
+
+### Added
+- `ClaudeUsageStore` GenServer (ETS, PubSub, effort level inference)
+- `UsageController` REST API at `/api/usage/*` (5 endpoints)
+- `UsageLive` LiveView at `/usage` (summary bar, model table, project accordion, 10s refresh)
+- PostToolUse hook `claude_usage_record.sh` — fire-and-forget to `/api/usage/record`
+- PreToolUse hook `claude_usage_check.sh` — intensive usage warning
+- CCEMAgent: `UsageModels.swift`, `fetchUsageSummary()`, `usageSection` in MenuBarView
+
+### Changed
+- `application.ex`: `ClaudeUsageStore` in supervision tree
+- `router.ex`: `/usage` live route + `/api/usage/*` REST routes
+- `sidebar_nav.ex`: Usage nav item (hero-cpu-chip, APM Monitoring section)
+- `mix.exs`: version bumped 6.2.0 → 6.3.0
+- `~/.claude/settings.json`: new PostToolUse and PreToolUse usage hooks
+
+## v6.2.0 (2026-03-17)
+
+CCEM APM v6.2 — refactor-max: ApiController domain split, DashboardLive decomposition, LiveView integration tests, and OpenAPI v6.1.0.
+
+### Added
+- **UpmApiController** (`controllers/upm_api_controller.ex`) — Domain controller for UPM execution tracking: `upm_register`, `upm_agent`, `upm_event`, `upm_status` extracted from ApiController
+- **FormationApiController** (`controllers/formation_api_controller.ex`) — Domain controller for formation CRUD: list, get, create, update, agents via `UpmStore` + `AgentRegistry`
+- **ShowcaseApiController** (`controllers/showcase_api_controller.ex`) — Domain controller for showcase data REST API: index, show, reload via `ShowcaseDataStore`
+- **AgentPanel component** (`components/agent_panel.ex`) — Functional component extracted from DashboardLive Agent Fleet section; includes tier/status/agent_type badges and filter support
+- **PortPanel component** (`components/port_panel.ex`) — Functional component extracted from DashboardLive Ports tab; includes clash alerts, remediation display, project port configs, and badge helpers
+- **DashboardLive integration tests** (`test/apm_v5_web/live/dashboard_live_test.exs`) — 8 tests verifying AgentPanel and PortPanel component integration within DashboardLive
+- **ShowcaseLive integration tests** (`test/apm_v5_web/live/showcase_live_test.exs`) — 6 tests including nil-session regression: ShowcaseLive must not crash when UpmStore has no active sessions
+
+### Changed
+- **Router** — `/api/upm/*` routes now delegated to `UpmApiController`; `/api/formations/*` and `/api/showcase/*` routes added for domain controllers
+- **ApiController** — UPM functions (`upm_register/agent/event/status`) removed; responsibility moved to `UpmApiController`
+- **DashboardLive** — Agent Fleet section replaced by `AgentPanel.agent_fleet/1` component call; Ports tab replaced by `PortPanel.port_manager/1` component call; unused badge helpers (`tier_badge_class`, `stack_badge`, `ns_badge`, `server_type_badge`) removed; line count reduced from 1,923 to 1,765 (158 lines)
+- **OpenAPI spec** — Version bumped to 6.1.0; added `/api/formations`, `/api/formations/{id}`, `/api/formations/{id}/agents`, `/api/showcase`, `/api/showcase/{project}`, `/api/showcase/{project}/reload` endpoint definitions; added Formations tag
+
+### Version
+- Bumped to v6.2.0
+
+## v6.1.0 (2026-03-17)
+
+CCEM APM v6.1 — Agentic activity visualization, showcase inspector, project dropdown UX, and infrastructure telemetry.
+
+### Added
+- **AgentActivityLog** (`lib/apm_v5/agent_activity_log.ex`) — GenServer ring buffer (200 events) that subscribes to `lifecycle:*`, `tool:*`, `thinking:*`, `text:*` EventBus topics; PubSub broadcast on `"apm:activity_log"`; REST at `GET /api/agents/activity-log?limit=N&agent_id=X`
+- **ShowcaseEngine — Activity tab** — D3.js force-directed graph showing live agent status-colored nodes with anime.js pulse rings for active agents; collapsible action log pull-down (30 most recent events with type badges); data fed via `showcase:activity` push_event on every heartbeat + per-entry
+- **ShowcaseEngine — Feature Inspector** — Right-column contextual panel activated by clicking any feature card; shows description, acceptance criteria checklist, related agents filtered by story_id, timing rows, status mini-timeline, "View Formation" and "Copy ID" action buttons; `setPushEventFn` bridge for LiveView event propagation
+- **ShowcaseEngine — Template system** — `TEMPLATES` registry with `engine` (default 3-col) and `formation` layouts; `applyTemplate(id)` dispatch; switchable via `showcase:template-changed` AG-UI event
+- **ShowcaseEngine — In-place project update** — `updateProject(data)` surgically re-renders orchestration bar and feature cards only, eliminating full destroy+rebuild flash on project switch
+
+### Changed
+- **Project dropdown** (`dashboard_live.ex`) — Sectioned into Active (check-circle), Recently Active (clock, 30-day window), and "Show N other" collapsible toggle; `categorize_projects/2` helper recomputes on config reload
+- **Getting Started wizard** — Added `phx-update="ignore"` to wrapper div; eliminates 1s flash caused by morphdom resetting client-side `style="display:flex"` to `"display:none"` after `handle_params/3` completes
+- **ShowcaseLive** — Subscribes to `"apm:activity_log"` PubSub; pushes `showcase:activity` on entry + heartbeat; `updateProject` path avoids full reinit on project switch
+- **Version** — Bumped to v6.1.0
+
+## v6.0.0 (2026-03-16)
+
+CCEM APM v6 — CCEM UI, port management, agentic hierarchy graph, and showcase integration complete.
+
+### Added
+- **PortsLive** (`live/ports_live.ex`) — `/ports` dashboard with utilization heatmap, conflict detection, project accordion, and add-port form using `PortManager` GenServer
+- **CCEM sidebar sections** — Dual-section sidebar nav: CCEM MANAGEMENT (Showcase, Projects, Ports, Actions, Scanner) and APM MONITORING (Dashboard, Agents, Formations, AG-UI, Conversations, Skills, Tasks, Health, Notifications); collapsible section headers with icon-only mode support
+- **Agentic hierarchy graph** (`assets/js/hooks/dependency_graph.js`) — D3 v7 top-down tree rendering live formation data: Session → Formation → Squadron → Swarm → Agent → Task; level-based colors (purple/blue/cyan/green/orange/yellow); status dots; hover tooltips; auto-fit zoom; fetches `/api/v2/formations` + `/api/agents` on mount; live-updates via `hierarchy_data` and `agents_updated` push_events
+- **ActionEngine port actions** — 4 catalog entries: `register_all_ports`, `update_port_namespace`, `analyze_port_assignment`, `smart_reassign_ports`
+- **ShowcaseLive** — `/showcase` LiveView with full APM chrome, project dropdown, PubSub real-time data (merged from v5.5.0 milestone)
+- **ShowcaseDataStore** — Per-project data GenServer with 3-tier path resolution and ETS cache
+- **ShowcaseHook** + **ShowcaseEngine** — JS hook bridging LiveView push_event to containerized rendering engine
+
+### Changed
+- **Dependency graph** — Replaced static Phoenix module DAG with live agentic hierarchy tree (Session → Formation → Squadron → Swarm → Agent → Task); D3 loaded lazily from CDN
+- **WebSocket config** — `check_origin: false, timeout: 60_000` on `/live` socket for reliable LiveView connections
+- **Showcase CSS** — Injected/removed by `ShowcaseHook._loadStyles()` only (no global root layout link)
+- **Version** — Bumped to v6.0.0
+
+## v5.5.0 (2026-03-16)
+
+Integrates the standalone Showcase dashboard into the APM server as a project-scoped LiveView at `/showcase`, replacing the separate `python3 -m http.server 8080` workflow with real-time PubSub-driven data delivery.
+
+### Added
+- **ShowcaseLive** (`live/showcase_live.ex`) — LiveView at `/showcase` with APM chrome (sidebar nav, header, project dropdown), PubSub subscriptions for agent/UPM/config/AG-UI events, 5s heartbeat data push
+- **ShowcaseDataStore** (`showcase_data_store.ex`) — GenServer loading per-project showcase data from disk (features, narratives, design system, redaction rules); ETS-cached, per-project keyed with reload support
+- **ShowcaseHook** (`assets/js/hooks/showcase.js`) — JS hook bridging LiveView push_event to ShowcaseEngine; handles `showcase:data`, `showcase:agents`, `showcase:orch`, `showcase:project-changed`
+- **ShowcaseEngine** (`priv/static/showcase/showcase-engine.js`) — Containerized refactor of showcase.js as `window.ShowcaseEngine` class; all DOM queries scoped to container, no polling, data via hook methods
+- **Showcase CSS** (`priv/static/showcase/showcase-styles.css`) — Scoped under `.showcase-scope` to prevent leaking into APM daisyUI theme
+- **Sidebar nav** — "Showcase" item with `hero-presentation-chart-bar` icon added before Docs
+- **Route** — `live "/showcase", ShowcaseLive, :index` in browser scope
+
+### Changed
+- **Version** — Bumped to v5.5.0
+- **Supervision tree** — Added `ShowcaseDataStore` to `application.ex` children
+- **Root layout** — Added showcase-styles.css stylesheet link
+- **app.js** — Registered `ShowcaseHook` in LiveView hooks
+
+### Architecture
+- Hybrid LiveView shell + JS hook (Option D): LiveView provides APM chrome and PubSub subscriptions, JS hook bridges events to the existing 682-line rendering engine
+- Project switching propagates via `push_event("showcase:project-changed")` — no iframe postMessage fragility
+- 3-column layout (features/architecture/inspector) renders identically to standalone
+
 ## v5.3.0 (2026-03-12)
 
 Integrates the `ag_ui_ex` Hex package (v0.1.0) as the canonical AG-UI protocol SDK, replacing all hardcoded event type strings with library-provided constants.

@@ -1,4 +1,11 @@
 defmodule ApmV5Web.AgentChannel do
+  @moduledoc """
+  Phoenix Channel for real-time agent event streaming.
+
+  Handles connections on the `agent:*` topic. Broadcasts agent
+  registration, heartbeat, and completion events to connected clients.
+  """
+
   use ApmV5Web, :channel
 
   alias ApmV5.AgentRegistry

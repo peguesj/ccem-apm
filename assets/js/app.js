@@ -37,6 +37,10 @@ import ShiftSelect from "./hooks/shift_select"
 import TooltipOverlay from "./hooks/tooltip_overlay"
 import InspectorChat from "./hooks/inspector_chat"
 import GettingStartedShowcase from "./hooks/getting_started_showcase"
+import ShowcaseHook from "./hooks/showcase"
+import LoadContext from "./hooks/load_context"
+import CcemAssistant from "./hooks/ccem_assistant"
+import SkillsHook from "./hooks/skills"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -62,7 +66,11 @@ const Hooks = {
   ShiftSelect,
   TooltipOverlay,
   InspectorChat,
-  GettingStartedShowcase
+  GettingStartedShowcase,
+  ShowcaseHook,
+  LoadContext,
+  CcemAssistant,
+  SkillsHook
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

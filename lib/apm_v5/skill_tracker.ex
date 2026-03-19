@@ -17,17 +17,20 @@ defmodule ApmV5.SkillTracker do
 
   # --- Public API ---
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
   @doc "Track a skill invocation for a session."
+  @spec track_skill(String.t(), String.t(), String.t() | nil, term()) :: :ok
   def track_skill(session_id, skill_name, project \\ nil, args \\ nil) do
     GenServer.cast(__MODULE__, {:track, session_id, skill_name, project, args})
   end
 
   @doc "Get all skills tracked for a specific session."
+  @spec get_session_skills(String.t()) :: %{optional(String.t()) => map()}
   def get_session_skills(session_id) do
     @table
     |> :ets.match({{session_id, :"$1"}, :"$2"})
@@ -35,6 +38,7 @@ defmodule ApmV5.SkillTracker do
   end
 
   @doc "Get aggregated skill data across all sessions for a project."
+  @spec get_project_skills(String.t()) :: %{optional(String.t()) => map()}
   def get_project_skills(project_name) do
     @table
     |> :ets.tab2list()
@@ -48,6 +52,7 @@ defmodule ApmV5.SkillTracker do
   end
 
   @doc "Get catalog of all observed skills plus filesystem scan."
+  @spec get_skill_catalog() :: %{optional(String.t()) => map()}
   def get_skill_catalog do
     observed =
       @table
@@ -77,6 +82,7 @@ defmodule ApmV5.SkillTracker do
   end
 
   @doc "Get skill co-occurrence pairs across sessions."
+  @spec get_co_occurrence() :: %{optional({String.t(), String.t()}) => non_neg_integer()}
   def get_co_occurrence do
     @table
     |> :ets.tab2list()
@@ -90,6 +96,7 @@ defmodule ApmV5.SkillTracker do
   end
 
   @doc "Detect active methodology for a session based on skill invocations."
+  @spec active_methodology(String.t()) :: :ralph | :tdd | :elixir_architect | :custom | nil
   def active_methodology(session_id) do
     skills = get_session_skills(session_id) |> Map.keys()
 
@@ -103,6 +110,7 @@ defmodule ApmV5.SkillTracker do
   end
 
   @doc "Clear all tracked data (for tests)."
+  @spec clear_all() :: :ok
   def clear_all do
     GenServer.call(__MODULE__, :clear_all)
   end

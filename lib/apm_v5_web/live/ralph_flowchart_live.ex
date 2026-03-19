@@ -10,6 +10,8 @@ defmodule ApmV5Web.RalphFlowchartLive do
 
   use ApmV5Web, :live_view
 
+  import ApmV5Web.Components.GettingStartedWizard
+
   alias ApmV5.ConfigLoader
   alias ApmV5.Ralph
 
@@ -170,6 +172,7 @@ defmodule ApmV5Web.RalphFlowchartLive do
         </div>
       </div>
     </div>
+    <.wizard page="upm" dom_id="ccem-wizard-upm-ralph" />
     """
   end
 

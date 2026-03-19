@@ -1,4 +1,11 @@
 defmodule ApmV5Web.Router do
+  @moduledoc """
+  Phoenix Router for the CCEM APM web application.
+
+  Defines browser and API pipelines, live routes for all LiveViews,
+  and the REST API surface under /api/* and /api/v2/*.
+  """
+
   use ApmV5Web, :router
 
   pipeline :browser do
@@ -37,7 +44,7 @@ defmodule ApmV5Web.Router do
     live "/skills", SkillsLive, :index
     live "/timeline", SessionTimelineLive, :index
     live "/docs", DocsLive, :index
-    get "/docs/upm/status", PageController, :upm_showcase
+    get "/docs/upm/status", PageController, :redirect_to_showcase
     live "/docs/*path", DocsLive, :show
     live "/formation", FormationLive, :index
     live "/notifications", NotificationLive, :index
@@ -57,6 +64,10 @@ defmodule ApmV5Web.Router do
     live "/tool-calls", ToolCallLive, :index
     live "/generative-ui", GenerativeUILive, :index
     live "/a2a", A2ALive, :index
+    live "/showcase", ShowcaseLive, :index
+    live "/showcase/:project", ShowcaseLive, :project
+    live "/ccem", CcemOverviewLive, :index
+    live "/usage", UsageLive, :index
 
     # /upm redirects to workflow UPM view
     get "/upm", PageController, :upm_redirect
@@ -88,6 +99,7 @@ defmodule ApmV5Web.Router do
     get "/ralph/flowchart", ApiController, :ralph_flowchart
     get "/commands", ApiController, :commands
     post "/commands", ApiController, :register_commands
+    get "/agents/activity-log", ApiController, :activity_log
     get "/agents/discover", ApiController, :discover_agents
     post "/agents/register", ApiController, :register
     post "/agents/update", ApiController, :update_agent
@@ -117,11 +129,23 @@ defmodule ApmV5Web.Router do
     get "/v2/export", ApiController, :export
     post "/v2/import", ApiController, :import_data
 
-    # UPM execution tracking
-    post "/upm/register", ApiController, :upm_register
-    post "/upm/agent", ApiController, :upm_agent
-    post "/upm/event", ApiController, :upm_event
-    get "/upm/status", ApiController, :upm_status
+    # UPM execution tracking — routed to domain controller (US-R12)
+    post "/upm/register", UpmApiController, :upm_register
+    post "/upm/agent", UpmApiController, :upm_agent
+    post "/upm/event", UpmApiController, :upm_event
+    get "/upm/status", UpmApiController, :upm_status
+
+    # Formation domain controller (US-R12)
+    get "/formations", FormationApiController, :list_formations
+    post "/formations", FormationApiController, :create_formation
+    get "/formations/:id", FormationApiController, :get_formation
+    patch "/formations/:id", FormationApiController, :update_formation
+    get "/formations/:id/agents", FormationApiController, :get_formation_agents
+
+    # Showcase domain controller (US-R12)
+    get "/showcase", ShowcaseApiController, :index
+    get "/showcase/:project", ShowcaseApiController, :show
+    post "/showcase/:project/reload", ShowcaseApiController, :reload
 
     # Port management
     get "/ports", ApiController, :ports
@@ -180,6 +204,13 @@ defmodule ApmV5Web.Router do
     get "/intake", ApiController, :intake_list
     get "/intake/watchers", ApiController, :intake_watchers
 
+    # Claude usage tracking (US-042)
+    get "/usage", UsageController, :index
+    get "/usage/summary", UsageController, :summary
+    get "/usage/project/:name", UsageController, :project
+    post "/usage/record", UsageController, :record
+    delete "/usage/project/:name", UsageController, :reset
+
   end
 
   # v2 REST API (Phase 3.1)
@@ -217,6 +248,7 @@ defmodule ApmV5Web.Router do
 
     # AG-UI Protocol (v5)
     post "/ag-ui/emit", AgUiV2Controller, :emit
+    post "/ag-ui/tool", AgUiV2Controller, :tool_call
     get "/ag-ui/events", AgUiV2Controller, :stream_events
     get "/ag-ui/events/:agent_id", AgUiV2Controller, :stream_agent_events
     get "/ag-ui/state/:agent_id", AgUiV2Controller, :get_state

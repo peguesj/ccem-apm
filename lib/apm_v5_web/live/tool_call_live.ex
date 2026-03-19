@@ -14,6 +14,8 @@ defmodule ApmV5Web.ToolCallLive do
 
   use ApmV5Web, :live_view
 
+  import ApmV5Web.Components.GettingStartedWizard
+
   alias ApmV5.AgUi.ToolCallTracker
   alias ApmV5.AgUi.EventBus
 
@@ -129,6 +131,7 @@ defmodule ApmV5Web.ToolCallLive do
         </div>
       </div>
     </div>
+    <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-toolcall" />
     """
   end
 

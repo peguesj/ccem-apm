@@ -171,6 +171,21 @@ defmodule ApmV5Web.ApiController do
     json(conn, cmds)
   end
 
+  @doc "GET /api/agents/activity-log -- recent agent activity log entries"
+  def activity_log(conn, params) do
+    limit = Map.get(params, "limit", "50") |> String.to_integer() |> min(200)
+    agent_id = Map.get(params, "agent_id")
+
+    entries =
+      if agent_id do
+        ApmV5.AgentActivityLog.get_agent_log(agent_id, limit)
+      else
+        ApmV5.AgentActivityLog.list_recent(limit)
+      end
+
+    json(conn, %{entries: entries, total: length(entries)})
+  end
+
   @doc "GET /api/agents/discover -- trigger discovery scan"
   def discover_agents(conn, _params) do
     discovered = AgentDiscovery.discover_now()
@@ -357,16 +372,17 @@ defmodule ApmV5Web.ApiController do
 
   @doc "POST /api/notify -- add notification with optional scoped fields"
   def notify(conn, params) do
-    # deploy_agents category carries wave-specific metadata
-    wave_fields =
-      if params["category"] == "deploy_agents" do
-        %{
-          wave_number: params["wave_number"],
-          wave_total: params["wave_total"],
-          wave_status: params["wave_status"]
-        }
-      else
-        %{}
+    # Parse upm_context — may arrive as JSON string or already-decoded map
+    upm_context =
+      case params["upm_context"] do
+        nil -> nil
+        ctx when is_map(ctx) -> ctx
+        ctx when is_binary(ctx) ->
+          case Jason.decode(ctx) do
+            {:ok, decoded} -> decoded
+            _ -> nil
+          end
+        _ -> nil
       end
 
     notification =
@@ -379,10 +395,14 @@ defmodule ApmV5Web.ApiController do
         namespace: params["namespace"],
         formation_id: params["formation_id"],
         squadron_id: params["squadron_id"],
+        swarm_id: params["swarm_id"],
+        session_id: params["session_id"],
         agent_id: params["agent_id"],
-        story_id: params["story_id"]
+        story_id: params["story_id"],
+        wave_number: params["wave_number"] || params["wave"],
+        wave_total: params["wave_total"],
+        upm_context: upm_context
       }
-      |> Map.merge(wave_fields)
 
     id = AgentRegistry.add_notification(notification)
 
@@ -669,46 +689,6 @@ defmodule ApmV5Web.ApiController do
   end
   defp parse_limit(val, _default) when is_integer(val), do: min(max(val, 1), 1000)
   defp parse_limit(_, default), do: default
-
-  # ============================
-  # UPM Endpoints
-  # ============================
-
-  alias ApmV5.UpmStore
-
-  @doc "POST /api/upm/register -- register a UPM execution session"
-  def upm_register(conn, params) do
-    {:ok, session_id} = UpmStore.register_session(params)
-
-    conn
-    |> put_status(201)
-    |> json(%{ok: true, upm_session_id: session_id})
-  end
-
-  @doc "POST /api/upm/agent -- register an agent with work-item binding"
-  def upm_agent(conn, params) do
-    case UpmStore.register_agent(params) do
-      :ok ->
-        json(conn, %{ok: true})
-
-      {:error, :session_not_found} ->
-        conn
-        |> put_status(404)
-        |> json(%{error: "UPM session not found", upm_session_id: params["upm_session_id"]})
-    end
-  end
-
-  @doc "POST /api/upm/event -- report a UPM lifecycle event"
-  def upm_event(conn, params) do
-    :ok = UpmStore.record_event(params)
-    json(conn, %{ok: true})
-  end
-
-  @doc "GET /api/upm/status -- current UPM execution state"
-  def upm_status(conn, _params) do
-    status = UpmStore.get_status()
-    json(conn, status)
-  end
 
   # ============================
   # Export / Import Endpoints

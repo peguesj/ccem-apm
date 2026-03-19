@@ -15,11 +15,13 @@ defmodule ApmV5.EnvironmentScanner do
 
   # --- Client API ---
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @doc "Returns all discovered CC environments."
+  @spec list_environments() :: [map()]
   def list_environments do
     :ets.tab2list(@table)
     |> Enum.map(fn {_name, env} -> env end)
@@ -27,6 +29,7 @@ defmodule ApmV5.EnvironmentScanner do
   end
 
   @doc "Returns detail for one environment by name."
+  @spec get_environment(String.t()) :: {:ok, map()} | {:error, :not_found}
   def get_environment(name) do
     case :ets.lookup(@table, name) do
       [{^name, env}] -> {:ok, env}
@@ -35,6 +38,7 @@ defmodule ApmV5.EnvironmentScanner do
   end
 
   @doc "Triggers an immediate rescan."
+  @spec rescan() :: [map()]
   def rescan do
     GenServer.call(__MODULE__, :rescan, 30_000)
   end

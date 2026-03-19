@@ -24,7 +24,7 @@ defmodule ApmV5Web.Components.InspectorChat do
       </div>
 
       <%!-- Messages area --%>
-      <div class="flex-1 overflow-y-auto p-2 space-y-2 min-h-0" id="chat-messages" phx-update="stream">
+      <div class="flex-1 overflow-y-auto p-2 space-y-2 min-h-0" id="chat-messages">
         <div :if={@messages == []} class="text-center text-base-content/30 py-8 text-xs">
           No messages yet. Type below to start a conversation.
         </div>

@@ -1,0 +1,228 @@
+{
+  "project": "CCEM APM",
+  "branchName": "ralph/ccem-refactor-max-v6",
+  "baseBranch": "main",
+  "description": "refactor-max: CCEM APM v6.x architectural refactoring — DashboardLive decomposition, supervision tree restructure, async PortManager, ApiController domain split, static analysis tooling, @spec + @moduledoc coverage, and test suite expansion",
+  "upm": {
+    "planeProjectId": "a20e1d2e-3139-406e-ae03-dc6d1d8cb995",
+    "checkpointRange": "CP-118 to CP-134",
+    "builtWaves": 0,
+    "verifiedAt": null,
+    "shippedAt": null,
+    "prUrl": null
+  },
+  "userStories": [
+    {
+      "id": "US-R01",
+      "title": "Add Credo + Sobelow to dev deps and run clean baseline",
+      "description": "Add Credo (code style linter) and Sobelow (security scanner) as dev dependencies in mix.exs. Run both tools, capture all findings to priv/docs/audit/credo-baseline.txt and sobelow-baseline.txt.",
+      "acceptanceCriteria": [
+        "mix.exs dev deps include {:credo, ~> 1.7, only: :dev} and {:sobelow, ~> 0.13, only: [:dev, :test]}",
+        "mix credo --all runs without error",
+        "mix sobelow --skip produces priv/docs/audit/sobelow-baseline.txt",
+        "No high-severity Sobelow findings",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2, "dependencies": [], "status": "done", "passes": true,
+      "planeIssueId": "1fad59ca-97dd-4b6c-9254-d4046dcde8b7", "checkpointId": "CP-118", "wave": 1
+    },
+    {
+      "id": "US-R02",
+      "title": "PortManager: move System.cmd calls from handle_call to async Task",
+      "description": "Move all System.cmd calls in PortManager to async Task + handle_info. handle_call must return within 100ms using cached ETS data.",
+      "acceptanceCriteria": [
+        "No System.cmd calls inside any handle_call clause",
+        "scan_active_ports/0 triggers async Task, updates ETS, broadcasts via PubSub",
+        "Existing port_manager_test.exs tests still pass",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3, "dependencies": [], "status": "done", "passes": true,
+      "planeIssueId": "809b62ee-0651-467a-9cb0-f2f47e8b475c", "checkpointId": "CP-119", "wave": 1
+    },
+    {
+      "id": "US-R03",
+      "title": "ActionEngine: add run_map TTL pruning + list_runs/0 API",
+      "description": "Add list_runs/0 public API and periodic pruning: runs older than 24h deleted, max 1000 entries enforced.",
+      "acceptanceCriteria": [
+        "ActionEngine.list_runs/0 returns list of recent runs",
+        "Runs older than 24h pruned on hourly tick",
+        "ETS capped at 1000 entries",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2, "dependencies": [], "status": "done", "passes": true,
+      "planeIssueId": "b78058f8-1f98-4d01-941b-37abf9176fa8", "checkpointId": "CP-120", "wave": 1
+    },
+    {
+      "id": "US-R04",
+      "title": "Supervision tree: add ApmV5.AgUiSupervisor sub-supervisor",
+      "description": "Extract EventBus, EventStream, EventRouter, HookBridge into ApmV5.AgUiSupervisor with :rest_for_one strategy.",
+      "acceptanceCriteria": [
+        "lib/apm_v5/ag_ui_supervisor.ex created as :rest_for_one Supervisor",
+        "Root application.ex children count reduced by 4",
+        "All AG-UI tests still pass",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3, "dependencies": [], "status": "done", "passes": true,
+      "planeIssueId": "29022a21-4a15-4222-8100-76f3a5600972", "checkpointId": "CP-121", "wave": 1
+    },
+    {
+      "id": "US-R05",
+      "title": "Supervision tree: add ApmV5.IntakeSupervisor sub-supervisor",
+      "description": "Extract ApiKeyStore, CommandRunner, InputRequestStore, AlertRulesEngine into ApmV5.IntakeSupervisor with :one_for_one strategy.",
+      "acceptanceCriteria": [
+        "lib/apm_v5/intake_supervisor.ex created",
+        "Root application.ex children count further reduced by 4",
+        "All existing tests still pass",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2, "dependencies": ["US-R04"], "status": "done", "passes": true,
+      "planeIssueId": "29022a21-4a15-4222-8100-76f3a5600972", "checkpointId": "CP-122", "wave": 1
+    },
+    {
+      "id": "US-R06",
+      "title": "@moduledoc for 20 missing files — channels, controllers, LiveViews",
+      "description": "Add @moduledoc to all 20 files identified in audit: 4 channels, 3 controllers, 10 LiveViews, 3 infrastructure files.",
+      "acceptanceCriteria": [
+        "All 20 audit-identified files have non-empty @moduledoc",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2, "dependencies": [], "status": "done", "passes": true,
+      "planeIssueId": "9965098e-9d30-415c-8560-17e82d7c5c40", "checkpointId": "CP-123", "wave": 1
+    },
+    {
+      "id": "US-R07",
+      "title": "@spec coverage: all public GenServer client APIs",
+      "description": "Add @spec to all public functions in 10 priority GenServers: AgentRegistry, ConfigLoader, ChatStore, PortManager, ActionEngine, BackgroundTasksStore, UpmStore, ProjectScanner, SkillsRegistryStore, FormationStore.",
+      "acceptanceCriteria": [
+        "@spec on all public functions in the 10 specified modules",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3, "dependencies": ["US-R01"], "status": "done", "passes": true,
+      "planeIssueId": "9965098e-9d30-415c-8560-17e82d7c5c40", "checkpointId": "CP-124", "wave": 2
+    },
+    {
+      "id": "US-R08",
+      "title": "ExUnit tests: ActionEngine — all 4 catalog actions",
+      "description": "Write ExUnit tests covering list_catalog/0, run/2, get_run/1, list_runs/0, async completion, ETS storage.",
+      "acceptanceCriteria": [
+        "test/apm_v5/action_engine_test.exs with at least 15 test cases",
+        "All tests pass",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3, "dependencies": ["US-R03"], "status": "done", "passes": true,
+      "planeIssueId": "08ac980b-9b2b-420c-82ab-b3c0086b989e", "checkpointId": "CP-125", "wave": 2
+    },
+    {
+      "id": "US-R09",
+      "title": "ExUnit tests: ChatStore — scoping, persistence, AG-UI event capture",
+      "description": "Expand chat_store_test.exs: send_message, list_messages, clear_scope, determine_scope (formation/project scoping), 500-msg FIFO, AG-UI TEXT_MESSAGE assembly.",
+      "acceptanceCriteria": [
+        "At least 12 new test cases added to chat_store_test.exs",
+        "All tests pass",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3, "dependencies": [], "status": "done", "passes": true,
+      "planeIssueId": "08ac980b-9b2b-420c-82ab-b3c0086b989e", "checkpointId": "CP-126", "wave": 2
+    },
+    {
+      "id": "US-R10",
+      "title": "ExUnit tests: UpmStore — ETS tables, nil session guard, event tracking",
+      "description": "Expand upm_store_test.exs: register/2, get_status/0 with and without sessions, record_event/2, list_events/1.",
+      "acceptanceCriteria": [
+        "At least 12 new test cases in upm_store_test.exs",
+        "Regression test: get_status/0 with no sessions returns %{active: false, session: nil} without crash",
+        "All tests pass",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2, "dependencies": [], "status": "done", "passes": true,
+      "planeIssueId": "08ac980b-9b2b-420c-82ab-b3c0086b989e", "checkpointId": "CP-127", "wave": 2
+    },
+    {
+      "id": "US-R11",
+      "title": "ExUnit tests: AG-UI EventBus, EventStream, EventRouter",
+      "description": "Write tests for AG-UI event pipeline: EventBus (subscribe, broadcast, wildcard), EventStream (subscribe, emit, clear), EventRouter (routing by event type).",
+      "acceptanceCriteria": [
+        "test/apm_v5/ag_ui/ with at least 3 test files",
+        "All tests pass",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3, "dependencies": ["US-R04"], "status": "done", "passes": true,
+      "planeIssueId": "d3a3397c-90d5-4a1d-a322-8cf5adb9a1cb", "checkpointId": "CP-128", "wave": 2
+    },
+    {
+      "id": "US-R12",
+      "title": "ApiController: extract UPM, Formation, Showcase domain controllers",
+      "description": "Split 65-action ApiController into domain controllers: UpmApiController, FormationApiController, ShowcaseApiController. All existing routes preserved.",
+      "acceptanceCriteria": [
+        "3 new domain controller files created",
+        "Router updated, all existing routes still work",
+        "All existing controller tests pass",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 5, "dependencies": [], "status": "done", "passes": true,
+      "planeIssueId": "c8f0fa16-ca09-4a42-a320-5cca94d0930a", "checkpointId": "CP-129", "wave": 2
+    },
+    {
+      "id": "US-R13",
+      "title": "DashboardLive: extract AgentPanel sub-component",
+      "description": "Extract agent card grid section from DashboardLive (1,914 lines) into ApmV5Web.Components.AgentPanel functional component.",
+      "acceptanceCriteria": [
+        "lib/apm_v5_web/components/agent_panel.ex created",
+        "DashboardLive line count reduced by 200+",
+        "Dashboard / still renders correctly in tests",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3, "dependencies": [], "status": "done", "passes": true,
+      "planeIssueId": "f0c0f839-868d-405a-9b88-3cd21ce3ff58", "checkpointId": "CP-130", "wave": 2
+    },
+    {
+      "id": "US-R14",
+      "title": "DashboardLive: extract PortPanel sub-component",
+      "description": "Extract port management section from DashboardLive into ApmV5Web.Components.PortPanel.",
+      "acceptanceCriteria": [
+        "lib/apm_v5_web/components/port_panel.ex created",
+        "DashboardLive further reduced by 150+ lines",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3, "dependencies": ["US-R13"], "status": "done", "passes": true,
+      "planeIssueId": "f0c0f839-868d-405a-9b88-3cd21ce3ff58", "checkpointId": "CP-131", "wave": 3
+    },
+    {
+      "id": "US-R15",
+      "title": "LiveView integration tests: DashboardLive, ShowcaseLive",
+      "description": "Write LiveView integration tests for DashboardLive (8 tests) and ShowcaseLive (6 tests, including UpmStore nil session regression).",
+      "acceptanceCriteria": [
+        "dashboard_live_test.exs and showcase_live_test.exs created",
+        "ShowcaseLive regression: mount without UpmStore sessions does not crash",
+        "All tests pass",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3, "dependencies": ["US-R13"], "status": "done", "passes": true,
+      "planeIssueId": "4bf2bf79-f065-4011-a305-ad06a2252f3e", "checkpointId": "CP-132", "wave": 3
+    },
+    {
+      "id": "US-R16",
+      "title": "OpenAPI v6.1.0: update spec with all new endpoints",
+      "description": "Update OpenAPI 3.0.3 spec to version 6.1.0. Add missing DRTW, UAT, Activity, showcase endpoints.",
+      "acceptanceCriteria": [
+        "spec info.version updated to 6.1.0",
+        "GET /api/v2/openapi.json returns updated spec",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2, "dependencies": [], "status": "done", "passes": true,
+      "planeIssueId": null, "checkpointId": "CP-133", "wave": 3
+    },
+    {
+      "id": "US-R17",
+      "title": "CHANGELOG + version bump to v6.2.0",
+      "description": "Write CHANGELOG v6.2.0 entry covering all refactor-max changes. Bump mix.exs to 6.2.0.",
+      "acceptanceCriteria": [
+        "CHANGELOG.md has v6.2.0 entry",
+        "mix.exs version is 6.2.0",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 1, "dependencies": ["US-R14", "US-R15", "US-R16"], "status": "done", "passes": true,
+      "planeIssueId": null, "checkpointId": "CP-134", "wave": 4
+    }
+  ]
+}

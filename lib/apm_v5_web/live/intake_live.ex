@@ -1,5 +1,14 @@
 defmodule ApmV5Web.IntakeLive do
+  @moduledoc """
+  LiveView for the Intake monitoring dashboard at /intake.
+
+  Displays incoming request records, watcher status, and dispatcher
+  activity from the Intake subsystem.
+  """
+
   use ApmV5Web, :live_view
+
+  import ApmV5Web.Components.GettingStartedWizard
 
   alias ApmV5.Intake.Store, as: IntakeStore
 
@@ -189,6 +198,7 @@ defmodule ApmV5Web.IntakeLive do
         </div>
       </div>
     </div>
+    <.wizard page="agents" dom_id="ccem-wizard-agents-intake" />
     """
   end
 end

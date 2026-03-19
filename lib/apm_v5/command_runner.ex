@@ -28,6 +28,7 @@ defmodule ApmV5.CommandRunner do
 
   # --- Client API ---
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -36,16 +37,19 @@ defmodule ApmV5.CommandRunner do
   Execute a command in the given environment's directory.
   Returns {exit_code, output} or {:error, reason}.
   """
+  @spec exec(String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, atom()}
   def exec(env_name, command, opts \\ []) do
     GenServer.call(__MODULE__, {:exec, env_name, command, opts}, @max_timeout + 5_000)
   end
 
   @doc "Kill a running command by request_id."
+  @spec kill(String.t()) :: :ok | {:error, :not_found}
   def kill(request_id) do
     GenServer.call(__MODULE__, {:kill, request_id})
   end
 
   @doc "List currently running commands."
+  @spec list_running() :: [map()]
   def list_running do
     :ets.tab2list(@table)
     |> Enum.map(fn {_id, info} -> info end)

@@ -14,6 +14,8 @@ defmodule ApmV5Web.GenerativeUILive do
 
   use ApmV5Web, :live_view
 
+  import ApmV5Web.Components.GettingStartedWizard
+
   alias ApmV5.AgUi.GenerativeUI.Registry
   alias ApmV5.AgUi.EventBus
 
@@ -75,6 +77,7 @@ defmodule ApmV5Web.GenerativeUILive do
         <% end %>
       </div>
     </div>
+    <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-genui" />
     """
   end
 

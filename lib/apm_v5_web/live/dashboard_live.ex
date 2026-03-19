@@ -22,6 +22,7 @@ defmodule ApmV5Web.DashboardLive do
   alias ApmV5.ChatStore
 
   import ApmV5Web.Components.GettingStartedShowcase
+  import ApmV5Web.Components.GettingStartedWizard
 
   @impl true
   def mount(_params, _session, socket) do
@@ -53,15 +54,17 @@ defmodule ApmV5Web.DashboardLive do
     ralph_data = load_ralph_for_project(active_project, config)
     session_count = count_config_sessions(config)
     upm_status = UpmStore.get_status()
-    project_configs = PortManager.get_project_configs()
-    port_clashes = PortManager.detect_clashes()
-    port_ranges = PortManager.get_port_ranges()
+    project_configs = safe_call(fn -> PortManager.get_project_configs() end, %{})
+    port_clashes = safe_call(fn -> PortManager.detect_clashes() end, [])
+    port_ranges = safe_call(fn -> PortManager.get_port_ranges() end, %{})
 
     socket =
       socket
       |> assign(:page_title, "Dashboard")
       |> assign(:projects, projects)
       |> assign(:active_project, active_project)
+      |> assign(:project_cats, categorize_projects(projects, active_project))
+      |> assign(:show_other_projects, false)
       |> assign(:agents, agents)
       |> assign(:notifications, notifications)
       |> assign(:uptime, uptime)
@@ -148,18 +151,58 @@ defmodule ApmV5Web.DashboardLive do
                 {@active_project || "All Projects"}
                 <.icon name="hero-chevron-down" class="size-3" />
               </div>
-              <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-48">
+              <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-52">
+                <%!-- Always first: All Projects --%>
                 <li>
-                  <button phx-click="switch_project" phx-value-project="">
+                  <button phx-click="switch_project" phx-value-project="" class={is_nil(@active_project) && "active"}>
+                    <.icon name="hero-squares-2x2" class="size-3" />
                     All Projects
                   </button>
                 </li>
-                <li :for={project <- @projects}>
+
+                <%!-- Active section --%>
+                <li :if={length(@project_cats.active) > 0} class="menu-title pt-1">
+                  <span class="text-[9px] text-base-content/40 uppercase tracking-widest">Active</span>
+                </li>
+                <li :for={project <- @project_cats.active}>
+                  <button phx-click="switch_project" phx-value-project={project["name"]} class="active">
+                    <.icon name="hero-check-circle" class="size-3 text-success" />
+                    {project["name"]}
+                  </button>
+                </li>
+
+                <%!-- Recently Active section --%>
+                <li :if={length(@project_cats.recent) > 0} class="menu-title pt-1">
+                  <span class="text-[9px] text-base-content/40 uppercase tracking-widest">Recently Active</span>
+                </li>
+                <li :for={project <- @project_cats.recent}>
                   <button
                     phx-click="switch_project"
                     phx-value-project={project["name"]}
                     class={@active_project == project["name"] && "active"}
                   >
+                    <.icon name="hero-clock" class="size-3 opacity-50" />
+                    {project["name"]}
+                  </button>
+                </li>
+
+                <%!-- Show other toggle --%>
+                <li :if={length(@project_cats.other) > 0} class="menu-title pt-1">
+                  <button
+                    phx-click="toggle_other_projects"
+                    class="flex items-center gap-1 text-[10px] text-base-content/40 hover:text-base-content/70 normal-case font-normal w-full text-left"
+                  >
+                    <.icon name={if @show_other_projects, do: "hero-chevron-up", else: "hero-chevron-down"} class="size-3" />
+                    {if @show_other_projects, do: "Hide other", else: "Show #{length(@project_cats.other)} other"}
+                  </button>
+                </li>
+                <li :if={@show_other_projects} :for={project <- @project_cats.other}>
+                  <button
+                    phx-click="switch_project"
+                    phx-value-project={project["name"]}
+                    class={@active_project == project["name"] && "active"}
+                  >
+                    <.icon name="hero-folder" class="size-3 opacity-40" />
                     {project["name"]}
                   </button>
                 </li>
@@ -563,66 +606,14 @@ defmodule ApmV5Web.DashboardLive do
               </div>
             </div>
 
-            <%!-- Agent Fleet --%>
-            <div>
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">
-                Agent Fleet
-              </h3>
-              <%!-- Column headers --%>
-              <div class="grid grid-cols-[24px_1fr_80px_60px_80px] gap-2 px-3 mb-1 text-[10px] uppercase tracking-wider text-base-content/30">
-                <span></span>
-                <span>Agent</span>
-                <span class="text-right">Last Seen</span>
-                <span class="text-center">Type</span>
-                <span class="text-center">Status</span>
-              </div>
-              <%!-- Agent rows --%>
-              <div class="space-y-1">
-                <div
-                  :for={agent <- filtered_agents(assigns)}
-                  class="card bg-base-200 border border-base-300 hover:border-primary/50 transition-colors cursor-pointer"
-                  phx-click="select_agent"
-                  phx-value-agent_id={agent.id}
-                >
-                  <div class="grid grid-cols-[24px_1fr_80px_60px_80px] gap-2 items-center px-3 py-2">
-                    <div class={["badge badge-xs", tier_badge_class(agent.tier)]}>
-                      {agent.tier}
-                    </div>
-                    <div>
-                      <div class="text-sm font-medium truncate flex items-center gap-1.5">
-                        {agent.name}
-                        <span :if={agent[:member_count] && agent[:member_count] > 1} class="badge badge-xs badge-info">
-                          {agent[:member_count]}
-                        </span>
-                        <span :if={agent[:story_id]} class="badge badge-xs badge-primary badge-outline font-mono">
-                          {agent[:story_id]}
-                        </span>
-                      </div>
-                      <div class="text-[10px] text-base-content/30 flex items-center gap-1">
-                        <span class="font-mono">{agent.id}</span>
-                        <span :if={agent[:namespace]} class="text-primary/60">/ {agent[:namespace]}</span>
-                      </div>
-                    </div>
-                    <div class="text-right text-xs text-base-content/40">
-                      {format_last_seen(agent.last_seen)}
-                    </div>
-                    <div class="text-center">
-                      <span class={["badge badge-xs", agent_type_badge_class(agent[:agent_type])]}>
-                        {agent[:agent_type] || "individual"}
-                      </span>
-                    </div>
-                    <div class="text-center">
-                      <span class={["badge badge-sm", status_badge_class(agent.status)]}>
-                        {agent.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div :if={@agents == []} class="text-center text-base-content/30 py-8 text-sm">
-                  No agents registered. POST to /api/register to add agents.
-                </div>
-              </div>
-            </div>
+            <%!-- Agent Fleet — extracted to AgentPanel component (US-R13) --%>
+            <ApmV5Web.Components.AgentPanel.agent_fleet
+              agents={@agents}
+              filter_status={@filter_status}
+              filter_namespace={@filter_namespace}
+              filter_agent_type={@filter_agent_type}
+              filter_query={@filter_query}
+            />
           </div>
 
           <%!-- Right panel: tabs --%>
@@ -813,92 +804,13 @@ defmodule ApmV5Web.DashboardLive do
                 </div>
               </div>
 
-              <%!-- Ports tab --%>
-              <div :if={@active_tab == :ports} class="space-y-3">
-                <div class="flex items-center justify-between">
-                  <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                    Port Manager
-                  </h3>
-                  <button phx-click="scan_ports" class="btn btn-xs btn-ghost text-primary">
-                    <.icon name="hero-arrow-path" class="size-3" /> Scan
-                  </button>
-                </div>
-
-                <%!-- Clash alerts --%>
-                <div :if={@port_clashes != []} class="space-y-1">
-                  <div class="text-[10px] uppercase tracking-wider text-error/70 font-semibold">Clashes</div>
-                  <div :for={clash <- @port_clashes} class="p-2 rounded bg-error/10 border border-error/20 text-xs">
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="font-mono font-bold text-error">:{clash.port}</span>
-                      <span class="text-base-content/50">{Enum.join(clash.projects, " + ")}</span>
-                    </div>
-                    <button phx-click="get_remediation" phx-value-port={clash.port}
-                      class="text-[10px] text-primary hover:underline">
-                      Suggest fix
-                    </button>
-                  </div>
-                </div>
-
-                <%!-- Remediation suggestion --%>
-                <div :if={@port_remediation} class="p-2 rounded bg-info/10 border border-info/20 text-xs space-y-1">
-                  <div class="font-semibold text-info">Remediation for :{@port_remediation.port}</div>
-                  <div class="text-base-content/60">{@port_remediation.recommendation}</div>
-                  <div :if={@port_remediation.alternatives != []} class="flex gap-1 mt-1">
-                    <span class="text-[10px] text-base-content/40">Available:</span>
-                    <span :for={alt <- @port_remediation.alternatives} class="badge badge-xs badge-ghost font-mono">{alt}</span>
-                  </div>
-                </div>
-
-                <%!-- Project configs --%>
-                <div :for={{name, config} <- Enum.sort_by(@project_configs, fn {n, _} -> n end)} class="space-y-1">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-semibold text-base-content/80">{name}</span>
-                    <span class={["badge badge-xs", stack_badge(config.stack)]}>{config.stack}</span>
-                  </div>
-                  <div class="p-2 rounded bg-base-300 text-[10px] space-y-1">
-                    <div class="text-base-content/40 font-mono truncate" title={config.root}>
-                      {Path.basename(config.root)}
-                    </div>
-                    <%!-- Ports --%>
-                    <div :for={port_info <- config.ports} class="space-y-0.5">
-                      <div class="flex items-center gap-2">
-                        <span class={["w-1.5 h-1.5 rounded-full", if(port_info[:active], do: "bg-success", else: "bg-base-content/20")]}></span>
-                        <span class="font-mono font-bold">:{port_info.port}</span>
-                        <span class={["badge badge-xs", ns_badge(port_info.namespace)]}>{port_info.namespace}</span>
-                        <span :if={port_info[:server_type] && port_info[:server_type] != :unknown}
-                          class={["badge badge-xs", server_type_badge(port_info[:server_type])]}>
-                          {port_info[:server_type]}
-                        </span>
-                        <span class="text-base-content/30 ml-auto">{port_info.file}</span>
-                      </div>
-                      <div :if={port_info[:active]} class="pl-4 text-[9px] text-base-content/30 space-y-0.5">
-                        <div :if={port_info[:cwd]} class="font-mono truncate" title={port_info[:cwd]}>
-                          cwd: {port_info[:cwd]}
-                        </div>
-                        <div :if={port_info[:full_command]} class="font-mono truncate" title={port_info[:full_command]}>
-                          cmd: {port_info[:full_command]}
-                        </div>
-                        <div :if={port_info[:pid]} class="font-mono">
-                          pid: {port_info[:pid]}
-                        </div>
-                      </div>
-                    </div>
-                    <div :if={config.ports == []} class="text-base-content/30">No ports detected</div>
-                    <%!-- Config files --%>
-                    <details class="mt-1">
-                      <summary class="text-base-content/30 cursor-pointer hover:text-base-content/50">
-                        {length(config.config_files)} config files
-                      </summary>
-                      <div class="mt-1 space-y-0.5 pl-2">
-                        <div :for={f <- config.config_files} class="text-base-content/40 font-mono">{f}</div>
-                      </div>
-                    </details>
-                  </div>
-                </div>
-
-                <div :if={@project_configs == %{}} class="text-xs text-base-content/40 py-4 text-center">
-                  No projects detected. Check ~/Developer/ccem/apm/sessions/
-                </div>
+              <%!-- Ports tab — extracted to PortPanel component (US-R14) --%>
+              <div :if={@active_tab == :ports}>
+                <ApmV5Web.Components.PortPanel.port_manager
+                  port_clashes={@port_clashes}
+                  port_remediation={@port_remediation}
+                  project_configs={@project_configs}
+                />
               </div>
 
               <%!-- Commands tab --%>
@@ -940,6 +852,7 @@ defmodule ApmV5Web.DashboardLive do
       <%!-- Getting Started Showcase --%>
       <.showcase show={@show_showcase} />
     </div>
+    <.wizard page="dashboard" dom_id="ccem-wizard-dashboard-main" />
     """
   end
 
@@ -1068,6 +981,11 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:graph_expanded, expanded)
       |> push_event("graph_resize", %{expanded: expanded})
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("toggle_other_projects", _params, socket) do
+    {:noreply, assign(socket, :show_other_projects, !socket.assigns.show_other_projects)}
   end
 
   def handle_event("switch_project", %{"project" => ""}, socket) do
@@ -1223,9 +1141,9 @@ defmodule ApmV5Web.DashboardLive do
   end
 
   def handle_event("scan_ports", _params, socket) do
-    PortManager.scan_active_ports()
-    project_configs = PortManager.get_project_configs()
-    port_clashes = PortManager.detect_clashes()
+    safe_call(fn -> PortManager.scan_active_ports() end, :ok)
+    project_configs = safe_call(fn -> PortManager.get_project_configs() end, %{})
+    port_clashes = safe_call(fn -> PortManager.detect_clashes() end, [])
     {:noreply,
      socket
      |> assign(:project_configs, project_configs)
@@ -1234,7 +1152,7 @@ defmodule ApmV5Web.DashboardLive do
 
   def handle_event("get_remediation", %{"port" => port_str}, socket) do
     {port, _} = Integer.parse(port_str)
-    remediation = PortManager.suggest_remediation(port)
+    remediation = safe_call(fn -> PortManager.suggest_remediation(port) end, "")
     {:noreply, assign(socket, :port_remediation, remediation)}
   end
 
@@ -1324,6 +1242,7 @@ defmodule ApmV5Web.DashboardLive do
       socket
       |> assign(:projects, projects)
       |> assign(:active_project, active)
+      |> assign(:project_cats, categorize_projects(projects, active))
       |> assign(:ralph_data, ralph_data)
       |> assign(:session_count, session_count)
 
@@ -1355,8 +1274,8 @@ defmodule ApmV5Web.DashboardLive do
   end
 
   def handle_info({:port_assigned, _, _}, socket) do
-    project_configs = PortManager.get_project_configs()
-    port_clashes = PortManager.detect_clashes()
+    project_configs = safe_call(fn -> PortManager.get_project_configs() end, %{})
+    port_clashes = safe_call(fn -> PortManager.detect_clashes() end, [])
     {:noreply, socket |> assign(:project_configs, project_configs) |> assign(:port_clashes, port_clashes)}
   end
 
@@ -1531,11 +1450,6 @@ defmodule ApmV5Web.DashboardLive do
   defp agent_type_badge_class("orchestrator"), do: "badge-accent"
   defp agent_type_badge_class(_), do: "badge-ghost"
 
-  defp tier_badge_class(1), do: "badge-primary"
-  defp tier_badge_class(2), do: "badge-secondary"
-  defp tier_badge_class(3), do: "badge-warning"
-  defp tier_badge_class(_), do: "badge-ghost"
-
   defp notif_badge_class("error"), do: "badge-error"
   defp notif_badge_class("warning"), do: "badge-warning"
   defp notif_badge_class("success"), do: "badge-success"
@@ -1546,28 +1460,6 @@ defmodule ApmV5Web.DashboardLive do
   defp task_status_class("in_progress"), do: "badge-info"
   defp task_status_class("pending"), do: "badge-ghost"
   defp task_status_class(_), do: "badge-ghost"
-
-  defp stack_badge(:elixir), do: "badge-accent"
-  defp stack_badge(:nextjs), do: "badge-info"
-  defp stack_badge(:node), do: "badge-success"
-  defp stack_badge(:python), do: "badge-warning"
-  defp stack_badge(_), do: "badge-ghost"
-
-  defp ns_badge(:web), do: "badge-info"
-  defp ns_badge(:api), do: "badge-accent"
-  defp ns_badge(:service), do: "badge-warning"
-  defp ns_badge(:tool), do: "badge-success"
-  defp ns_badge(_), do: "badge-ghost"
-
-  defp server_type_badge(:phoenix), do: "badge-accent"
-  defp server_type_badge(:elixir), do: "badge-accent"
-  defp server_type_badge(:nextjs), do: "badge-info"
-  defp server_type_badge(:vite), do: "badge-primary"
-  defp server_type_badge(:node), do: "badge-success"
-  defp server_type_badge(:python_web), do: "badge-warning"
-  defp server_type_badge(:postgres), do: "badge-secondary"
-  defp server_type_badge(:redis), do: "badge-error"
-  defp server_type_badge(_), do: "badge-ghost"
 
   defp tab_label(:inspector), do: "Inspector"
   defp tab_label(:ralph), do: "Ralph"
@@ -1636,6 +1528,48 @@ defmodule ApmV5Web.DashboardLive do
     |> Map.get("projects", [])
     |> Enum.flat_map(fn p -> Map.get(p, "sessions", []) end)
     |> length()
+  end
+
+  defp categorize_projects(projects, active_project) do
+    now = DateTime.utc_now()
+    thirty_days_ago = DateTime.add(now, -30 * 24 * 3600, :second)
+
+    Enum.reduce(projects, %{active: [], recent: [], other: []}, fn project, acc ->
+      name = project["name"]
+      sessions = project["sessions"] || []
+
+      last_active =
+        sessions
+        |> Enum.map(fn s -> s["start_time"] end)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.map(fn ts ->
+          case DateTime.from_iso8601(ts) do
+            {:ok, dt, _} -> dt
+            _ -> nil
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.sort({:desc, DateTime})
+        |> List.first()
+
+      cond do
+        name == active_project ->
+          %{acc | active: [project | acc.active]}
+
+        last_active != nil and DateTime.compare(last_active, thirty_days_ago) == :gt ->
+          %{acc | recent: [project | acc.recent]}
+
+        true ->
+          %{acc | other: [project | acc.other]}
+      end
+    end)
+    |> then(fn cats ->
+      %{
+        active: Enum.reverse(cats.active),
+        recent: cats.recent |> Enum.reverse() |> Enum.take(8),
+        other: Enum.reverse(cats.other)
+      }
+    end)
   end
 
   # --- UPM Helpers ---
@@ -1812,6 +1746,15 @@ defmodule ApmV5Web.DashboardLive do
   defp status_text_class("warning"), do: "text-warning"
   defp status_text_class("completed"), do: "text-purple-400"
   defp status_text_class(_), do: "text-base-content/40"
+
+  defp safe_call(fun, default) do
+    try do
+      fun.()
+    catch
+      :exit, _ -> default
+      _, _ -> default
+    end
+  end
 
   defp status_dot_class("active"), do: "bg-success"
   defp status_dot_class("running"), do: "bg-success"

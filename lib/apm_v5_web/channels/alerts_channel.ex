@@ -1,4 +1,11 @@
 defmodule ApmV5Web.AlertsChannel do
+  @moduledoc """
+  Phoenix Channel for real-time alert event streaming.
+
+  Handles connections on the `alerts:*` topic. Broadcasts alert rule
+  evaluations and triggered notifications to connected clients.
+  """
+
   use ApmV5Web, :channel
 
   alias ApmV5.AlertRulesEngine

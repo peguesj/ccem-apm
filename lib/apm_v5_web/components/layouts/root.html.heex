@@ -29,6 +29,25 @@
         window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
       })();
     </script>
+    <script>
+      (() => {
+        const KEY = "apm:sidebar-collapsed";
+        const restore = () => {
+          const el = document.getElementById("apm-sidebar");
+          if (el && localStorage.getItem(KEY) === "1") el.classList.add("sidebar-collapsed");
+        };
+        window.apmSidebar = {
+          toggle() {
+            const el = document.getElementById("apm-sidebar");
+            if (!el) return;
+            el.classList.toggle("sidebar-collapsed");
+            localStorage.setItem(KEY, el.classList.contains("sidebar-collapsed") ? "1" : "0");
+          }
+        };
+        document.addEventListener("DOMContentLoaded", restore);
+        window.addEventListener("phx:page-loading-stop", restore);
+      })();
+    </script>
     <script type="module">
       import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
       mermaid.initialize({

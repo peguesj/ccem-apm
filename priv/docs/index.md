@@ -1,19 +1,38 @@
 # CCEM APM Documentation
 
-**Version 5.2.0** | Phoenix/Elixir Agentic Performance Monitor
+**Version 6.4.0** | Phoenix/Elixir Agentic Performance Monitor
 
 A real-time monitoring and orchestration platform for Claude Code AI agent sessions, providing fleet visualization, multi-project tracking, and autonomous workflow management.
 
 ---
 
-## What's New
+## What's New in v6.4.0
 
+- **Skills UX Overhaul** -- Full `SkillsLive` rewrite with WCAG 2.1 AA compliance: skip links, ARIA landmarks, `aria-live` search announcements
+- **Card Grid Layout** -- Health-ring SVG indicator (green/yellow/red by score), tier badge, trigger pills, and slide-in detail drawer with keyboard focus trap
+- **Fix Wizard** -- 4-step guided repair flow (`:diagnose → :select → :preview → :done`) via `ActionEngine` for frontmatter, description, and trigger fixes
+- **Session Timeline** -- Vertical invocation timeline sorted by `last_seen` descending with methodology badge and relative timestamp
+- **AG-UI Health** -- Summary stats row (Connected/Degraded/Broken counts), per-skill health indicators, Repair button for critical skills
+- **SkillsHook JS** -- LiveView hook with `/` keyboard shortcut to focus search, focus trap management for drawer, previous-focus restoration on close
+- **Search + Filter Bar** -- Debounced text search (300ms), tier dropdown filter, real-time `phx-change`
+
+## What's New in v6.3.0
+
+- **Claude Usage Tracking** -- `ClaudeUsageStore` GenServer with ETS, PubSub, and effort level inference; token and model tracking at user and project scope
+- **UsageLive Dashboard** -- `/usage` LiveView with summary bar, model breakdown table, project accordion, and 10-second refresh
+- **Usage REST API** -- `UsageController` at `/api/usage/*` (5 endpoints: record, summary, by-project, by-model, clear)
+- **PostToolUse/PreToolUse Hooks** -- `claude_usage_record.sh` (fire-and-forget recording) and `claude_usage_check.sh` (intensive usage warning)
+- **CCEMAgent Usage Section** -- `UsageModels.swift`, `fetchUsageSummary()`, and `usageSection` in MenuBarView
+
+## What's New in v6.0.0
+
+- **Showcase** -- Project-scoped GIMME-style dashboard with per-project feature roadmaps, architecture diagrams, and live APM data; data isolated per project namespace
+- **Port Intelligence** -- Port registry with conflict detection, utilization heatmaps, and smart reassignment via ActionEngine
+- **CCEM UI** -- Dual-section sidebar (CCEM Management / APM Monitoring) with dynamic header branding
+- **Performance** -- Code-split app.js bundle (D3 lazy-loaded per route), scoped showcase CSS, WebSocket-only LiveView transport
 - **AG-UI Protocol** -- Standardized event-based agent-user interaction with SSE streaming, state management, and HookBridge translation
-- **User Acceptance Testing** -- UAT workflow integration with automated verification gates
-- **UPM Tracking** -- Unified Project Management integration for cross-tool task sync
 - **Formation System** -- Agent squadrons and swarm orchestration with tier-based classification
 - **Documentation Wiki** -- Embedded interactive docs with slash command reference
-- **Port Management** -- Automatic port 3032 lifecycle with conflict detection
 
 See the full [Changelog](changelog.md) for version history and release notes.
 
@@ -34,7 +53,7 @@ See the full [Changelog](changelog.md) for version history and release notes.
 
 ## Documentation
 
-### User Guide (8 pages)
+### User Guide (9 pages)
 
 Learn to use the dashboard, manage projects, and monitor agents.
 
@@ -45,9 +64,10 @@ Learn to use the dashboard, manage projects, and monitor agents.
 - [Ralph Methodology](user/ralph.md) -- Autonomous workflow execution
 - [UPM Integration](user/upm.md) -- Project management tracking
 - [Skills Analytics](user/skills.md) -- Skill usage and co-occurrence
+- [Claude Usage Tracking](user/usage.md) -- Token and model usage tracking by project and effort level
 - [Notifications](user/notifications.md) -- Alert system overview
 
-### Developer (6 pages)
+### Developer (9 pages)
 
 Architecture, API reference, and extending the platform.
 
@@ -56,8 +76,10 @@ Architecture, API reference, and extending the platform.
 - [LiveView Pages](developer/liveview-pages.md) -- Frontend components
 - [PubSub Events](developer/pubsub-events.md) -- Real-time event system
 - [AG-UI Protocol](developer/ag-ui-protocol.md) -- Event types, SSE streaming, and state management
+- [Showcase](developer/showcase.md) -- Project-scoped dashboard, ShowcaseDataStore, and IP-safe presentation
+- [CCEM UI](developer/ccem-ui.md) -- Dual-section sidebar, port management dashboard, and CCEM branding
+- [Port Management](developer/ports.md) -- Port registry, conflict detection, utilization heatmaps, and smart reassignment
 - [Extending CCEM](developer/extending.md) -- Adding new features
-- [Testing Guide](developer/testing.md) -- Test patterns and coverage
 
 ### Administration (4 pages)
 
@@ -79,8 +101,9 @@ Configuration, deployment, hooks, and troubleshooting.
 ### Monitoring
 
 - **Real-time Dashboard** -- Agent fleet visualization with D3.js dependency graphs and live WebSocket updates
-- **Session Timeline** -- Visual audit logging of agent lifecycle events and state transitions
-- **Skills Analytics** -- UEBA-powered skill usage tracking with co-occurrence analysis and methodology detection
+- **Session Timeline** -- Visual audit logging of agent lifecycle events and state transitions; also available per-skill in SkillsLive Session tab
+- **Skills Analytics** -- UEBA-powered skill usage tracking with co-occurrence analysis and methodology detection; WCAG 2.1 AA card grid with Fix Wizard
+- **Claude Usage Tracking** -- Token consumption and model usage dashboards at user and project scope, with effort-level inference
 
 ### Integration
 
@@ -94,6 +117,7 @@ Configuration, deployment, hooks, and troubleshooting.
 - **Agent Fleet Management** -- Tier-based classification with squadron and swarm discovery
 - **REST API** -- Full agent registration, heartbeats, commands, and data sync endpoints
 - **Interactive Docs** -- Embedded slash command reference with search and filtering
+- **Port Intelligence** -- Port registry with conflict detection, utilization heatmaps, and smart reassignment
 
 ---
 
@@ -103,7 +127,7 @@ Configuration, deployment, hooks, and troubleshooting.
 graph TD
     A["Phoenix LiveView<br/><small>Dashboard, Projects, Skills, Ralph<br/>Real-time updates via WebSocket</small>"]
     B["REST API & WebSocket Routes<br/><small>Agent registration, heartbeats<br/>Notifications, tasks, commands</small>"]
-    C["GenServer Stores — OTP Supervision<br/><small>ConfigLoader, AgentRegistry, UpmStore<br/>SkillTracker, MetricsCollector</small>"]
+    C["GenServer Stores — OTP Supervision<br/><small>ConfigLoader, AgentRegistry, UpmStore<br/>SkillTracker, MetricsCollector<br/>ClaudeUsageStore, ShowcaseDataStore</small>"]
     D["Data Layer — ETS + Files<br/><small>apm_config.json, session JSONs<br/>ETS tables for fast queries</small>"]
 
     A --> B --> C --> D

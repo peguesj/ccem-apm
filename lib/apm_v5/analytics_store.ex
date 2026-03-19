@@ -31,6 +31,7 @@ defmodule ApmV5.AnalyticsStore do
 
   # --- GenServer callbacks ---
 
+  @doc false
   @impl true
   def init(_) do
     state = %{
@@ -42,26 +43,31 @@ defmodule ApmV5.AnalyticsStore do
     {:ok, state, {:continue, :initial_load}}
   end
 
+  @doc false
   @impl true
   def handle_continue(:initial_load, state) do
     {:noreply, do_refresh(state)}
   end
 
+  @doc false
   @impl true
   def handle_call(:get_summary, _from, state) do
     {:reply, state.summary, state}
   end
 
+  @doc false
   @impl true
   def handle_call(:get_sessions, _from, state) do
     {:reply, state.sessions, state}
   end
 
+  @doc false
   @impl true
   def handle_cast(:refresh, state) do
     {:noreply, do_refresh(state)}
   end
 
+  @doc false
   @impl true
   def handle_info(:refresh, state) do
     schedule_refresh()
@@ -164,17 +170,7 @@ defmodule ApmV5.AnalyticsStore do
       |> Enum.take(10)
       |> Map.new()
 
-    active_count =
-      sessions
-      |> Enum.count(fn s ->
-        case s.last_modified do
-          {date, time} ->
-            naive = NaiveDateTime.from_erl!({date, time})
-            diff = NaiveDateTime.diff(NaiveDateTime.utc_now(), naive, :minute)
-            diff < 5
-          _ -> false
-        end
-      end)
+    active_count = count_active_sessions(sessions)
 
     %{
       total_sessions: length(sessions),
@@ -184,6 +180,18 @@ defmodule ApmV5.AnalyticsStore do
       model_distribution: model_dist,
       top_tools: tool_freq
     }
+  end
+
+  defp count_active_sessions(sessions) when is_list(sessions) do
+    Enum.count(sessions, fn s ->
+      case s.last_modified do
+        {date, time} ->
+          naive = NaiveDateTime.from_erl!({date, time})
+          diff = NaiveDateTime.diff(NaiveDateTime.utc_now(), naive, :minute)
+          diff < 5
+        _ -> false
+      end
+    end)
   end
 
   defp default_summary do

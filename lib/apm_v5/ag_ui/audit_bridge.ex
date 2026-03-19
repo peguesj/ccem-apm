@@ -80,7 +80,7 @@ defmodule ApmV5.AgUi.AuditBridge do
       "CUSTOM" ->
         # Check for approval gate events
         case data[:name] do
-          name when name in ["approval_request", "approval_approve", "approval_reject"] ->
+          name when name in ["approval_requested", "approval_approve", "approval_reject"] ->
             write_audit("ag_ui.approval.#{name}", %{
               agent_id: data[:agent_id],
               gate_id: get_in(data, [:value, :gate_id]),

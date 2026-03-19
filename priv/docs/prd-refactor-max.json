@@ -1,0 +1,337 @@
+{
+  "project": "CCEM APM",
+  "branchName": "ralph/ccem-refactor-max-v6",
+  "baseBranch": "main",
+  "description": "Refactor-max: DashboardLive decomposition, supervision restructuring, API split, test coverage, typespecs",
+  "upm": {
+    "planeProjectId": "a20e1d2e-3139-406e-ae03-dc6d1d8cb995",
+    "checkpointRange": "CP-118 to CP-132",
+    "builtWaves": 0,
+    "verifiedAt": null,
+    "shippedAt": null,
+    "prUrl": null
+  },
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "DashboardLive decomposition — extract into focused sub-LiveViews",
+      "description": "Decompose the 1,914-line god-object DashboardLive into focused sub-LiveViews and live components. Extract metrics panel (agent counts, uptime, telemetry summary), agent list/detail panel, notification feed panel, and project selector/overview panel into separate modules. The parent DashboardLive becomes a thin coordinator that mounts child LiveViews and routes PubSub messages. Each sub-LiveView handles its own assigns and handle_event clauses. Target: parent DashboardLive under 400 lines, each child under 500 lines.",
+      "acceptanceCriteria": [
+        "lib/apm_v5_web/live/dashboard/metrics_component.ex exists with @moduledoc and handles metrics-related assigns (uptime, telemetry, agent counts)",
+        "lib/apm_v5_web/live/dashboard/agents_component.ex exists with @moduledoc and handles agent list, selection, and drill-down events",
+        "lib/apm_v5_web/live/dashboard/notifications_component.ex exists with @moduledoc and handles notification feed, tabs, and dismiss events",
+        "lib/apm_v5_web/live/dashboard/projects_component.ex exists with @moduledoc and handles project switching, overview, and graph toggle events",
+        "DashboardLive (dashboard_live.ex) is under 500 lines and delegates to child components via live_component or live_render",
+        "All 37 handle_event clauses still function correctly — events route to the appropriate component",
+        "All 12 PubSub subscriptions still function — messages dispatched to child components via send_update or PubSub re-broadcast",
+        "Dashboard renders identically in browser at http://localhost:3032/",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 8,
+      "dependencies": [],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-118",
+      "wave": 1
+    },
+    {
+      "id": "US-002",
+      "title": "Supervision tree restructuring — add AG-UI, Intake, Core sub-supervisors",
+      "description": "Restructure the flat supervision tree (50 children under single one_for_one) into a hierarchical tree with sub-supervisors. Create ApmV5.Supervisors.AgUiSupervisor for the 11 AG-UI GenServers (EventBus, EventRouter, StateManager, V4Compat, ToolCallTracker, DashboardStateSync, ActivityTracker, MetricsBridge, AuditBridge, EventBusHealth, ApprovalGate). Create ApmV5.Supervisors.IntakeSupervisor for Intake.Store + watchers. Create ApmV5.Supervisors.CoreSupervisor for AgentRegistry, ProjectStore, ConfigLoader, DashboardStore. Update application.ex to use the new sub-supervisors instead of flat child list. Each sub-supervisor uses :one_for_one strategy.",
+      "acceptanceCriteria": [
+        "lib/apm_v5/supervisors/ag_ui_supervisor.ex exists with @moduledoc, starts 11 AG-UI GenServers as children",
+        "lib/apm_v5/supervisors/intake_supervisor.ex exists with @moduledoc, starts Intake.Store and watcher GenServers",
+        "lib/apm_v5/supervisors/core_supervisor.ex exists with @moduledoc, starts AgentRegistry, ProjectStore, ConfigLoader, DashboardStore",
+        "ApmV5.Application children list references the 3 new sub-supervisors instead of individual GenServers for those groups",
+        "Total direct children of ApmV5.Supervisor reduced from 50 to under 40",
+        "All GenServers still start and are reachable via their registered names",
+        "PubSub broadcasting from sub-supervised GenServers still works (verified via dashboard load)",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 5,
+      "dependencies": [],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-119",
+      "wave": 1
+    },
+    {
+      "id": "US-003",
+      "title": "PortManager async — move System.cmd calls from handle_call to async Task/handle_continue",
+      "description": "Fix the critical blocking issue in PortManager where System.cmd('lsof') and System.cmd('ps') calls inside handle_call block the GenServer for all callers during port scanning. Move the scan_active_ports logic to handle_continue or an async Task that sends results back via handle_info. The handle_call(:scan_active_ports) should immediately return {:reply, :scanning, state} and the actual scan runs asynchronously. Also fix the N+1 pattern in enrich_process_info/2 and get_full_command/1 where per-PID System.cmd calls accumulate. Batch the lsof + ps calls into a single System.cmd invocation where possible.",
+      "acceptanceCriteria": [
+        "handle_call(:scan_active_ports, ...) no longer contains System.cmd calls — returns immediately with {:reply, :scanning, state} or {:noreply, state, {:continue, :scan}}",
+        "Port scanning logic runs in handle_continue(:scan, state) or via Task.async/Task.Supervisor",
+        "Results are stored in GenServer state and broadcast via PubSub apm:ports when complete",
+        "enrich_process_info/2 no longer makes per-PID System.cmd calls inside handle_call — batched or async",
+        "get_full_command/1 calls are batched (single ps aux call parsed for all PIDs) or moved to async path",
+        "GET /api/ports and POST /api/ports/scan still return valid data (may return stale data during async scan)",
+        "PortsLive at /ports still renders correctly with scan results",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 5,
+      "dependencies": [],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-120",
+      "wave": 1
+    },
+    {
+      "id": "US-004",
+      "title": "Add Dialyzer, Credo, Sobelow to mix.exs dev/test deps + initial Credo config",
+      "description": "Add static analysis tooling to the project: dialyxir for compile-time typespec checking, credo for code style/consistency enforcement, and sobelow for security-focused static analysis. Add all three as dev/test-only dependencies in mix.exs. Create an initial .credo.exs configuration that sets reasonable defaults for the existing codebase (disable rules that would produce excessive noise on first run, e.g., ModuleDoc can warn but not error since 20 files lack it). Run mix deps.get to verify resolution. Run mix credo --strict to verify it executes (expect warnings, not crashes). Run mix dialyzer --format short to verify PLT builds (first run will be slow). Do NOT fix any issues flagged — just ensure the tools run.",
+      "acceptanceCriteria": [
+        "mix.exs deps include {:dialyxir, \"~> 1.4\", only: [:dev, :test], runtime: false}",
+        "mix.exs deps include {:credo, \"~> 1.7\", only: [:dev, :test], runtime: false}",
+        "mix.exs deps include {:sobelow, \"~> 0.13\", only: [:dev, :test], runtime: false}",
+        ".credo.exs file exists at project root with reasonable initial config (ModuleDoc set to priority: :low or :normal)",
+        "mix deps.get succeeds with no conflicts",
+        "mix credo executes without crash (warnings are expected and acceptable)",
+        "mix dialyzer --format short builds PLT and executes (warnings are expected and acceptable)",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": [],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-121",
+      "wave": 1
+    },
+    {
+      "id": "US-005",
+      "title": "ApiController domain split — extract agents, sessions, notifications, tasks, UPM into domain controllers",
+      "description": "Split the 1,137-line ApiController (65 actions) into focused domain controllers. Extract agent-related actions (register, heartbeat, list_agents, get_agent) into AgentApiController. Extract session-related actions into SessionApiController. Extract notification actions (notify, list_notifications) into NotificationApiController. Extract background task actions (list_bg_tasks, register_bg_task, get_bg_task, update_bg_task, stop_bg_task, delete_bg_task, get_bg_task_logs) into TaskApiController. Extract UPM actions (upm_register, upm_agent, upm_event, upm_status) into UpmApiController. Update router.ex to route to new controllers. Keep remaining actions (status, config, export, import, ports, scanner, actions, telemetry, intake, environments, hooks) in ApiController until further splits.",
+      "acceptanceCriteria": [
+        "lib/apm_v5_web/controllers/agent_api_controller.ex exists with @moduledoc, handles register, heartbeat, list_agents, get_agent actions",
+        "lib/apm_v5_web/controllers/session_api_controller.ex exists with @moduledoc, handles session-related actions",
+        "lib/apm_v5_web/controllers/notification_api_controller.ex exists with @moduledoc, handles notify and list_notifications",
+        "lib/apm_v5_web/controllers/task_api_controller.ex exists with @moduledoc, handles 7 bg-task CRUD actions",
+        "lib/apm_v5_web/controllers/upm_api_controller.ex exists with @moduledoc, handles upm_register, upm_agent, upm_event, upm_status",
+        "router.ex updated to route /api/register, /api/heartbeat to AgentApiController",
+        "router.ex updated to route /api/notify, /api/notifications to NotificationApiController",
+        "router.ex updated to route /api/bg-tasks/* to TaskApiController",
+        "router.ex updated to route /api/upm/* to UpmApiController",
+        "ApiController reduced to under 500 lines",
+        "All API endpoints return identical responses (verified via curl against /api/status, /api/register, /api/notify, /api/bg-tasks, /api/upm/status)",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 5,
+      "dependencies": ["US-001", "US-002", "US-003", "US-004"],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-122",
+      "wave": 2
+    },
+    {
+      "id": "US-006",
+      "title": "ActionEngine run map TTL — add @max_runs cap + pruning in handle_info",
+      "description": "Fix the memory leak in ActionEngine where the runs map grows unbounded. Add a @max_runs module attribute (default 200) and a periodic pruning timer (every 5 minutes via Process.send_after in init and handle_info). When pruning fires, remove completed/failed runs older than 1 hour, keeping the most recent @max_runs entries. Also add a TTL check in handle_call(:list_runs) that filters out stale entries. Add @spec annotations to all public functions (list_catalog/0, run_action/2, list_runs/0, get_run/1, project_status/1).",
+      "acceptanceCriteria": [
+        "@max_runs module attribute defined in ActionEngine (default 200)",
+        "init/1 schedules periodic pruning via Process.send_after(:prune_runs, 300_000)",
+        "handle_info(:prune_runs, state) removes completed/failed runs older than 3600 seconds, caps at @max_runs, reschedules",
+        "@spec annotations present on list_catalog/0, run_action/2, list_runs/0, get_run/1, project_status/1",
+        "GET /api/actions/runs returns runs (excludes pruned entries)",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": ["US-001", "US-002", "US-003", "US-004"],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-123",
+      "wave": 2
+    },
+    {
+      "id": "US-007",
+      "title": "A2A/ConnectionTracker dead code removal — delete unused modules",
+      "description": "Remove confirmed dead code identified in the code quality audit. Delete AgUi.A2A.Addressing (~50 lines, 0 external references, not in router). Delete AgUi.A2A.Patterns (~50 lines, 0 external references, not in router). Delete ConnectionTracker (117 lines, 0 external references, not in supervision tree). Before deletion, run a final grep to confirm zero references. Also evaluate and document V4Compat status — if it has non-zero references, add a @moduledoc noting it is a legacy bridge scheduled for removal in v7.0.",
+      "acceptanceCriteria": [
+        "lib/apm_v5/ag_ui/a2a/addressing.ex is deleted",
+        "lib/apm_v5/ag_ui/a2a/patterns.ex is deleted",
+        "lib/apm_v5/connection_tracker.ex is deleted",
+        "No references to A2A.Addressing, A2A.Patterns, or ConnectionTracker remain in any .ex file (verified by grep)",
+        "V4Compat has a @moduledoc documenting its legacy bridge status and planned removal timeline",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2,
+      "dependencies": ["US-001", "US-002", "US-003", "US-004"],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-124",
+      "wave": 2
+    },
+    {
+      "id": "US-008",
+      "title": "Add @moduledoc to 20 undocumented files",
+      "description": "Add @moduledoc strings to all 20 files identified in the code quality audit as missing documentation: agent_channel.ex, alerts_channel.ex, metrics_channel.ex, user_socket.ex, page_controller.ex, agent_control_controller.ex, chat_controller.ex, endpoint.ex, actions_live.ex, analytics_live.ex, backfill_live.ex, conversation_monitor_live.ex, health_check_live.ex, intake_live.ex, plugin_dashboard_live.ex, scanner_live.ex, tasks_live.ex, workflow_live.ex, router.ex, telemetry.ex. Each @moduledoc should be 1-3 sentences describing the module's purpose, what it handles, and key entry points.",
+      "acceptanceCriteria": [
+        "All 20 files listed in the audit Section 1 'Missing @moduledoc' now have @moduledoc with 1-3 sentence descriptions",
+        "agent_channel.ex @moduledoc describes WebSocket channel for agent real-time updates",
+        "alerts_channel.ex @moduledoc describes WebSocket channel for alert broadcasting",
+        "metrics_channel.ex @moduledoc describes WebSocket channel for metric streaming",
+        "router.ex @moduledoc describes the Phoenix router with browser and API scope organization",
+        "endpoint.ex @moduledoc describes the Phoenix endpoint with plug pipeline",
+        "No @moduledoc false annotations — all are descriptive strings",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": [],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-125",
+      "wave": 3
+    },
+    {
+      "id": "US-009",
+      "title": "@spec coverage pass — add typespecs to all GenServer public API functions",
+      "description": "Add @spec annotations to all public functions in the 8 highest-priority untested GenServers: ActionEngine (5 public fns), PortManager (10 public fns), BackgroundTasksStore (8 public fns), ChatStore (4 public fns), UpmStore (5 public fns), ProjectScanner (4 public fns), SkillsRegistryStore (3 public fns), ShowcaseDataStore (4 public fns). Also add @spec to EventBus (2 public fns), EventRouter (2 public fns), and StateManager (5 public fns) from the AG-UI subsystem. Total: ~52 @spec annotations across 11 modules. Use proper tagged tuple return types ({:ok, term()} | {:error, term()}) and list/map types.",
+      "acceptanceCriteria": [
+        "ActionEngine has @spec on list_catalog/0, run_action/2, list_runs/0, get_run/1, project_status/1",
+        "PortManager has @spec on all 10 public API functions listed in the feature inventory",
+        "BackgroundTasksStore has @spec on all 8 public API functions",
+        "ChatStore has @spec on list_messages/1, list_messages/2, send_message/2, send_message/3, get_message/1, clear_scope/1",
+        "UpmStore has @spec on register_session/1, register_agent/1, record_event/1, get_session/1, get_status/0",
+        "EventBus has @spec on publish/1, publish/2, subscribe/1, subscribe/2",
+        "EventRouter has @spec on route/1, emit_and_route/2",
+        "StateManager has @spec on get_state/1, get_state_versioned/1, set_state/2, apply_delta/2, remove_state/1",
+        "All @spec annotations use proper Elixir types (no any() without justification)",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 5,
+      "dependencies": [],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-126",
+      "wave": 3
+    },
+    {
+      "id": "US-010",
+      "title": "Complete Wave 3 CPs: /docs LiveView v6.0.0 update + OpenAPI 3.0.3 spec v6.0.0",
+      "description": "Complete the two remaining open checkpoints from the v6.0.0 release (CP-110 and CP-112 from CLAUDE.md). Update DocsLive (/docs) to include documentation sections for: showcase integration (embedded showcase viewer, showcase data flow), port management (PortManager, PortsLive, port intelligence actions), and CCEM UI (sidebar transformation, dynamic header branding, /ccem overview route). Add corresponding markdown doc pages in priv/docs/ for these sections. Also update the OpenAPI 3.0.3 spec at the /api/v2/openapi.json endpoint to include all v6.0.0 new endpoints (port intelligence actions, showcase data, CCEM overview routes). Verify the spec serves valid JSON via curl.",
+      "acceptanceCriteria": [
+        "priv/docs/ contains new markdown pages for showcase integration, port management, and CCEM UI sections",
+        "DocsLive TOC (docs.json) includes entries for the new documentation pages",
+        "DocsLive renders the new pages at /docs/showcase, /docs/ports, /docs/ccem-ui (or equivalent paths)",
+        "OpenAPI spec at GET /api/v2/openapi.json includes port intelligence endpoints (register_all_ports, analyze_port_assignment, smart_reassign_ports, update_port_namespace)",
+        "OpenAPI spec includes showcase-related endpoints if any exist",
+        "curl http://localhost:3032/api/v2/openapi.json returns valid JSON with updated paths",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 5,
+      "dependencies": [],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-127",
+      "wave": 3
+    },
+    {
+      "id": "US-011",
+      "title": "GenServer unit tests — ExUnit tests for ActionEngine, PortManager, ChatStore, UpmStore",
+      "description": "Create ExUnit test files for the 4 highest-risk untested GenServers. For ActionEngine: test list_catalog/0 returns expected action names, test run_action/2 with valid action, test get_run/1 with valid and invalid IDs, test pruning behavior (if implemented in US-006). For PortManager: test assign_port/1, get_port_map/0, detect_clashes/0 (mock System.cmd calls). For ChatStore: test send_message/2, list_messages/1, clear_scope/1, verify @max_messages_per_scope enforcement. For UpmStore: test register_session/1, register_agent/1, get_status/0, verify ETS table creation.",
+      "acceptanceCriteria": [
+        "test/apm_v5/action_engine_test.exs exists with at least 6 test cases covering list_catalog, run_action, get_run, list_runs",
+        "test/apm_v5/port_manager_test.exs exists with at least 4 test cases covering assign_port, get_port_map, detect_clashes",
+        "test/apm_v5/chat_store_test.exs exists with at least 5 test cases covering send_message, list_messages, clear_scope, max_messages cap",
+        "test/apm_v5/upm_store_test.exs exists with at least 4 test cases covering register_session, register_agent, get_status",
+        "All new tests pass: mix test test/apm_v5/action_engine_test.exs test/apm_v5/port_manager_test.exs test/apm_v5/chat_store_test.exs test/apm_v5/upm_store_test.exs",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 5,
+      "dependencies": ["US-001", "US-002", "US-003", "US-005", "US-006"],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-128",
+      "wave": 4
+    },
+    {
+      "id": "US-012",
+      "title": "AG-UI subsystem tests — EventBus, EventRouter unit tests",
+      "description": "Create ExUnit test files for the AG-UI subsystem's two most critical GenServers: EventBus and EventRouter. For EventBus: test publish/1 delivers to subscribers, test subscribe/1 registers the caller process, test publish with topic filtering, test concurrent publish from multiple processes, test EventBus process crash and restart (verify subscribers can re-subscribe). For EventRouter: test route/1 dispatches to correct handler, test emit_and_route/2 combines emission and routing, test routing with unknown event types returns error or no-op.",
+      "acceptanceCriteria": [
+        "test/apm_v5/ag_ui/event_bus_test.exs exists with at least 5 test cases covering publish, subscribe, topic filtering, concurrent publish",
+        "test/apm_v5/ag_ui/event_router_test.exs exists with at least 4 test cases covering route, emit_and_route, unknown event type handling",
+        "Tests use ExUnit.Case async: false (GenServer tests need process isolation)",
+        "All new tests pass: mix test test/apm_v5/ag_ui/event_bus_test.exs test/apm_v5/ag_ui/event_router_test.exs",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 5,
+      "dependencies": ["US-001", "US-002", "US-003"],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-129",
+      "wave": 4
+    },
+    {
+      "id": "US-013",
+      "title": "LiveView integration tests — DashboardLive (refactored), ShowcaseLive, FormationLive",
+      "description": "Create LiveView integration tests for 3 key LiveViews using Phoenix.LiveViewTest. For DashboardLive (post-decomposition from US-001): test mount renders without crash, test switch_tab event changes active tab, test project switching updates assigns. For ShowcaseLive: test mount renders project list, test switch_project event updates showcase data. For FormationLive: test mount renders formation list, test select_formation event updates active formation. Use live/2, render_click/3, and assert_patched/3 helpers.",
+      "acceptanceCriteria": [
+        "test/apm_v5_web/live/dashboard_live_test.exs exists with at least 4 test cases covering mount, tab switching, project switching",
+        "test/apm_v5_web/live/showcase_live_test.exs exists with at least 3 test cases covering mount, project switching",
+        "test/apm_v5_web/live/formation_live_test.exs exists with at least 3 test cases covering mount, formation selection",
+        "Tests use Phoenix.ConnTest and Phoenix.LiveViewTest imports",
+        "All new tests pass: mix test test/apm_v5_web/live/",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 5,
+      "dependencies": ["US-001", "US-002", "US-005"],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-130",
+      "wave": 4
+    },
+    {
+      "id": "US-014",
+      "title": "API controller tests — agents, UPM, notifications endpoints",
+      "description": "Create controller tests for the new domain controllers from US-005. For AgentApiController: test POST /api/register with valid payload returns 200, test POST /api/heartbeat with valid agent_id returns 200, test GET /api/agents returns agent list. For UpmApiController: test POST /api/upm/register with valid payload, test GET /api/upm/status returns status map. For NotificationApiController: test POST /api/notify with valid payload returns 200, test GET /api/notifications returns list. Use Phoenix.ConnTest with json_response/2 assertions.",
+      "acceptanceCriteria": [
+        "test/apm_v5_web/controllers/agent_api_controller_test.exs exists with at least 3 test cases",
+        "test/apm_v5_web/controllers/upm_api_controller_test.exs exists with at least 2 test cases",
+        "test/apm_v5_web/controllers/notification_api_controller_test.exs exists with at least 2 test cases",
+        "Tests verify HTTP status codes and JSON response structure",
+        "All new tests pass: mix test test/apm_v5_web/controllers/",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 5,
+      "dependencies": ["US-005"],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-131",
+      "wave": 4
+    },
+    {
+      "id": "US-015",
+      "title": "v6.2.0 release — mix.exs bump, CHANGELOG, CCEMAgent rebuild",
+      "description": "Bump version to 6.2.0 in mix.exs. Update CHANGELOG.md with a v6.2.0 section documenting all changes from this refactor-max initiative: DashboardLive decomposition, supervision tree restructuring, PortManager async fix, static analysis tooling (Dialyzer/Credo/Sobelow), ApiController domain split, ActionEngine TTL, dead code removal, @moduledoc and @spec coverage pass, /docs and OpenAPI updates, test coverage expansion. Update the OpenAPI spec version field to 6.2.0. Rebuild CCEMAgent: cd ~/Developer/ccem/CCEMAgent && swift build -c release. Verify mix compile --warnings-as-errors and mix test both pass on the final state.",
+      "acceptanceCriteria": [
+        "mix.exs version field is \"6.2.0\"",
+        "CHANGELOG.md has a ## v6.2.0 section with categorized entries for all 14 preceding user stories",
+        "OpenAPI spec version field at /api/v2/openapi.json reads \"6.2.0\"",
+        "CCEMAgent swift build -c release succeeds (exit 0)",
+        "mix compile --warnings-as-errors passes",
+        "mix test passes with 0 failures"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": ["US-001", "US-002", "US-003", "US-004", "US-005", "US-006", "US-007", "US-008", "US-009", "US-010", "US-011", "US-012", "US-013", "US-014"],
+      "status": "pending",
+      "passes": false,
+      "planeIssueId": null,
+      "checkpointId": "CP-132",
+      "wave": 5
+    }
+  ]
+}

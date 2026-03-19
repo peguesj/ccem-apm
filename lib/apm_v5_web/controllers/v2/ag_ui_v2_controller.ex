@@ -164,6 +164,32 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
   end
 
   @doc """
+  POST /api/v2/ag-ui/tool
+
+  Receives tool call lifecycle events from Claude Code hooks
+  (pre_tool_use.sh → action=start, post_tool_use.sh → action=end).
+
+  Body:
+  - `agent_id` (required): session/agent identifier
+  - `tool_name` (required): name of the tool being called
+  - `action` (required): "start" | "end"
+  - `tool_call_id` (optional): stable ID across start/end
+  - `duration_ms` (optional, end only): tool execution duration
+  - `result_type` (optional, end only): "text" | "error" | "empty"
+  - `args` (optional, start only): tool input arguments
+  """
+  def tool_call(conn, %{"agent_id" => _agent_id, "tool_name" => _tool_name, "action" => _action} = params) do
+    events = HookBridge.translate_tool_use(params)
+    json(conn, %{ok: true, events: events})
+  end
+
+  def tool_call(conn, _params) do
+    conn
+    |> put_status(400)
+    |> json(%{error: "Missing required fields: agent_id, tool_name, action"})
+  end
+
+  @doc """
   GET /api/v2/ag-ui/router/stats
 
   Returns event routing statistics.

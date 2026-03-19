@@ -1,5 +1,14 @@
 defmodule ApmV5Web.WorkflowLive do
+  @moduledoc """
+  LiveView for workflow schema exploration at /workflows.
+
+  Renders Ralph/UPM formation workflow schemas and ship integration
+  configurations from WorkflowSchemaStore.
+  """
+
   use ApmV5Web, :live_view
+
+  import ApmV5Web.Components.GettingStartedWizard
 
   alias ApmV5.WorkflowRegistry
 
@@ -143,6 +152,7 @@ defmodule ApmV5Web.WorkflowLive do
         </div>
       </div>
     </div>
+    <.wizard page="upm" dom_id="ccem-wizard-upm-workflow" />
     """
   end
 

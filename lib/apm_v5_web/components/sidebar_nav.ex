@@ -11,31 +11,49 @@ defmodule ApmV5Web.Components.SidebarNav do
     assigns = assign(assigns, :version, version())
 
     ~H"""
-    <aside class="w-52 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
+    <aside id="apm-sidebar" class="w-52 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
       <div class="p-3 border-b border-base-300">
-        <div class="flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-success animate-pulse"></div>
-          <span class="font-mono font-bold text-sm text-base-content">CCEM APM</span>
+        <div class="sidebar-brand flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="w-2 h-2 rounded-full bg-success animate-pulse flex-shrink-0"></div>
+            <span class="font-mono font-bold text-sm text-base-content sidebar-label truncate">CCEM APM</span>
+          </div>
+          <button
+            onclick="window.apmSidebar.toggle()"
+            class="btn btn-ghost btn-xs p-0.5 flex-shrink-0 text-base-content/40 hover:text-base-content"
+            title="Toggle sidebar"
+          >
+            <.icon name="hero-chevron-left" class="size-3 sidebar-arrow-collapse" />
+            <.icon name="hero-chevron-right" class="size-3 sidebar-arrow-expand" />
+          </button>
         </div>
-        <div class="text-xs text-base-content/40 mt-0.5">v{@version}</div>
+        <div class="text-xs text-base-content/40 mt-0.5 sidebar-label sidebar-version">v{@version}</div>
       </div>
       <nav class="flex-1 p-2 space-y-0.5 overflow-y-auto" aria-label="Main navigation">
-        <.nav_item icon="hero-squares-2x2" label="Dashboard" href="/" current_path={@current_path} />
+        <div class="px-2 pt-3 pb-1 sidebar-label">
+          <span class="text-[10px] font-semibold uppercase tracking-widest text-base-content/30">CCEM Management</span>
+        </div>
+        <.nav_item icon="hero-presentation-chart-bar" label="Showcase" href="/showcase" current_path={@current_path} />
         <.nav_item icon="hero-globe-alt" label="All Projects" href="/apm-all" current_path={@current_path} />
-        <.nav_item icon="hero-rectangle-group" label="Formations" href="/formation" current_path={@current_path} />
-        <.nav_item icon="hero-clock" label="Timeline" href="/timeline" current_path={@current_path} />
-        <.nav_item icon="hero-bell" label="Notifications" href="/notifications" current_path={@current_path} badge={@notification_count} />
-        <.nav_item icon="hero-queue-list" label="Background Tasks" href="/tasks" current_path={@current_path} />
-        <.nav_item icon="hero-magnifying-glass" label="Project Scanner" href="/scanner" current_path={@current_path} />
-        <.nav_item icon="hero-bolt" label="Actions" href="/actions" current_path={@current_path} />
-        <.nav_item icon="hero-sparkles" label="Skills" href="/skills" current_path={@current_path} badge={@skill_count} />
-        <.nav_item icon="hero-arrow-path" label="Ralph" href="/ralph" current_path={@current_path} />
         <.nav_item icon="hero-signal" label="Ports" href="/ports" current_path={@current_path} />
-        <.nav_item icon="hero-chart-bar" label="Analytics" href="/analytics" current_path={@current_path} />
-        <.nav_item icon="hero-heart" label="Health" href="/health" current_path={@current_path} />
+        <.nav_item icon="hero-bolt" label="Actions" href="/actions" current_path={@current_path} />
+        <.nav_item icon="hero-magnifying-glass" label="Project Scanner" href="/scanner" current_path={@current_path} />
+        <div class="px-2 pt-3 pb-1 sidebar-label">
+          <span class="text-[10px] font-semibold uppercase tracking-widest text-base-content/30">APM Monitoring</span>
+        </div>
+        <.nav_item icon="hero-squares-2x2" label="Dashboard" href="/" current_path={@current_path} />
+        <.nav_item icon="hero-rectangle-group" label="Formations" href="/formation" current_path={@current_path} />
         <.nav_item icon="hero-cpu-chip" label="AG-UI" href="/ag-ui" current_path={@current_path} />
-        <.nav_item icon="hero-beaker" label="UAT" href="/uat" current_path={@current_path} />
         <.nav_item icon="hero-chat-bubble-left-right" label="Conversations" href="/conversations" current_path={@current_path} />
+        <.nav_item icon="hero-sparkles" label="Skills" href="/skills" current_path={@current_path} badge={@skill_count} />
+        <.nav_item icon="hero-queue-list" label="Background Tasks" href="/tasks" current_path={@current_path} />
+        <.nav_item icon="hero-heart" label="Health" href="/health" current_path={@current_path} />
+        <.nav_item icon="hero-bell" label="Notifications" href="/notifications" current_path={@current_path} badge={@notification_count} />
+        <.nav_item icon="hero-chart-bar" label="Analytics" href="/analytics" current_path={@current_path} />
+        <.nav_item icon="hero-cpu-chip" label="Usage" href="/usage" current_path={@current_path} />
+        <.nav_item icon="hero-arrow-path" label="Ralph" href="/ralph" current_path={@current_path} />
+        <.nav_item icon="hero-clock" label="Timeline" href="/timeline" current_path={@current_path} />
+        <.nav_item icon="hero-beaker" label="UAT" href="/uat" current_path={@current_path} />
         <.nav_item icon="hero-puzzle-piece" label="Plugins" href="/plugins" current_path={@current_path} />
         <.nav_item icon="hero-book-open" label="Docs" href="/docs" current_path={@current_path} />
       </nav>
@@ -66,8 +84,8 @@ defmodule ApmV5Web.Components.SidebarNav do
       ]}
     >
       <.icon name={@icon} class="size-4 flex-shrink-0" />
-      <span>{@label}</span>
-      <span :if={@badge > 0} class="badge badge-xs badge-primary ml-auto">{@badge}</span>
+      <span class="sidebar-label">{@label}</span>
+      <span :if={@badge > 0} class="badge badge-xs badge-primary ml-auto sidebar-badge">{@badge}</span>
     </a>
     """
   end

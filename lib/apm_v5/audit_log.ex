@@ -15,31 +15,43 @@ defmodule ApmV5.AuditLog do
 
   # --- Client API ---
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @doc "Clear all in-memory audit log entries. Used in tests."
+  @spec clear_all() :: :ok
+  def clear_all do
+    GenServer.call(__MODULE__, :clear_all)
+  end
+
   @doc "Async log - fire and forget, zero latency."
+  @spec log(atom() | String.t(), String.t(), String.t(), map()) :: :ok
   def log(event_type, actor, resource, details \\ %{}) do
     GenServer.cast(__MODULE__, {:log, event_type, actor, resource, details, nil})
   end
 
   @doc "Sync log for critical events. Returns the event."
+  @spec log_sync(atom() | String.t(), String.t(), String.t(), map(), String.t() | nil) :: map()
   def log_sync(event_type, actor, resource, details, correlation_id \\ nil) do
     GenServer.call(__MODULE__, {:log, event_type, actor, resource, details, correlation_id})
   end
 
   @doc "Query events with filters: event_type, actor, since, until, limit."
+  @spec query(keyword()) :: [map()]
   def query(opts \\ []) do
     GenServer.call(__MODULE__, {:query, opts})
   end
 
   @doc "Get last N events from ring buffer."
+  @spec tail(non_neg_integer()) :: [map()]
   def tail(n \\ 20) do
     GenServer.call(__MODULE__, {:tail, n})
   end
 
   @doc "Return counts by event_type."
+  @spec stats() :: %{optional(atom() | String.t()) => non_neg_integer()}
   def stats do
     GenServer.call(__MODULE__, :stats)
   end
@@ -99,6 +111,12 @@ defmodule ApmV5.AuditLog do
       |> Enum.take(n)
 
     {:reply, events, state}
+  end
+
+  def handle_call(:clear_all, _from, state) do
+    :ets.delete_all_objects(@ets_table)
+    :ets.delete_all_objects(@ring_table)
+    {:reply, :ok, %{state | counter: 0}}
   end
 
   def handle_call(:stats, _from, state) do

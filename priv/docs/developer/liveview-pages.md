@@ -1,6 +1,9 @@
 # LiveView Pages
 
-CCEM APM v4 uses Phoenix LiveView for real-time, interactive web pages. Each page maintains a WebSocket connection with the server for live updates without page refresh.
+CCEM APM v6.4.0 uses Phoenix LiveView for real-time, interactive web pages. Each page maintains a WebSocket connection with the server for live updates without page refresh.
+
+**Author**: Jeremiah Pegues
+**Version**: v6.4.0
 
 ## LiveView Architecture
 
@@ -121,29 +124,90 @@ handle_info({:agent_registered, agent}, socket)
 
 **Route**: `/skills`
 **Module**: `ApmV5Web.SkillsLive`
+**Added**: v4.2.0 | **Redesigned**: v6.4.0
 
-Skill tracking, analytics, and methodology detection.
+Skills Registry health dashboard, UEBA session analytics, and AG-UI hook connectivity monitor. WCAG 2.1 AA compliant — skip links, ARIA landmarks, `tablist`/`tab`/`tabpanel` roles, `aria-live` regions, Escape-key drawer dismissal.
 
-### SkillsLive Components
+### SkillsLive Tabs (v6.4.0)
 
-- **Skill Catalog**: All skills with usage counts
-- **Co-Occurrence Matrix**: Heatmap of skill relationships
-- **Detected Methodologies**: Active TDD, refactor-max, fix-loop, etc.
-- **Trending Skills**: Week-over-week changes
-- **UEBA Anomalies**: Flagged unusual behavior
+The page is organised into three tabs selectable from the top bar:
+
+| Tab | aria-controls | Content |
+|-----|---------------|---------|
+| Registry | `tabpanel-registry` | Card grid with health rings, search/filter bar, tier collapsing, slide-in detail drawer, Fix Wizard |
+| Session | `tabpanel-session` | Skill invocation timeline, skill catalog table, co-occurrence matrix |
+| AG-UI | `tabpanel-ag_ui` | Skill-to-AG-UI event mapping, hook connectivity health, repair actions |
+
+### SkillsLive Components (v6.4.0)
+
+**Registry tab:**
+- **Summary Stats Bar**: Total / Healthy (score ≥ 80) / Needs Attention (50–79) / Critical (< 50) stat cards
+- **Filter Bar**: Debounced search input (200 ms), tier selector (all / healthy / needs_attention / critical), methodology selector (all / ralph / tdd / elixir_architect), inline active-filter badge, "Clear filters" button
+- **Tier Card Grid**: Three collapsible sections — Critical, Needs Attention, Healthy — each rendered by the `skill_tier_cards/1` component with health-ring SVGs and per-card "Fix" button
+- **Detail Drawer**: Slide-in panel showing selected skill metadata, health score breakdown, and repair options
+- **Fix Wizard**: Multi-step state machine (`fix_wizard_step` assign) with `fix_wizard_selected_repairs` (`MapSet`) — guides user through selecting and applying automated repairs
+- **Audit All Button**: Triggers `ActionEngine` skill audit across all discovered skills; shows `loading` spinner while `audit_loading: true`
+
+**Session tab:**
+- **Invocation Timeline**: Vertical timeline of skills invoked in the current session, sorted descending by `last_seen`, with methodology badge overlay (primary-colored dot for methodology-linked skills)
+- **Skill Catalog Table**: All-time tracked skills — name, total invocations, session count, source badge
+- **Co-occurrence Matrix**: Table of skill pairs that co-appear in sessions with count
+
+**AG-UI tab:**
+- **AG-UI Health Summary**: Connected / Degraded / Broken stat cards derived from `registry_skills` health scores
+- **Skills as AG-UI Emitters**: Card grid showing each skill's AG-UI event emission status with animated connectivity dot
+
+### SkillsLive Key Assigns
+
+```elixir
+:tab                      # :registry | :session | :ag_ui
+:registry_skills          # [%{name, health_score, ...}] from SkillsRegistryStore
+:filtered_skills          # registry_skills after search/tier/methodology filters
+:selected_skill           # nil | skill map — controls detail drawer
+:search_query             # debounced string (phx-debounce="200")
+:filter_tier              # "all" | "healthy" | "needs_attention" | "critical"
+:filter_methodology       # "all" | "ralph" | "tdd" | "elixir_architect"
+:collapsed_tiers          # %{healthy: bool, needs_attention: bool, critical: bool}
+:fix_wizard_step          # nil | :select_repairs | :confirm | :applying | :done
+:fix_wizard_selected_repairs # MapSet of repair action keys
+:audit_loading            # boolean — true while ActionEngine audit is running
+:session_skills           # %{skill_name => %{count, last_seen}} for current session
+:catalog                  # %{skill_name => %{total_count, session_count, source}}
+:co_occurrence            # %{{skill_a, skill_b} => count}
+:methodology              # active methodology atom for the current session
+:active_skill_count       # integer shown as sidebar badge
+```
 
 ### SkillsLive PubSub Subscriptions
 
 Topics subscribed to on mount:
 
 ```elixir
-subscribe("apm:skills")    # Skill tracking events
-subscribe("apm:agents")    # Agent updates for context
+subscribe("apm:skills")          # Skill tracking events
+ApmV5.AgUi.EventBus.subscribe("special:custom")  # AG-UI custom events
 ```
 
 ### SkillsLive Event Handlers
 
-Handlers for incoming PubSub messages:
+User interaction events:
+
+```elixir
+handle_event("set_tab", %{"tab" => tab}, socket)
+handle_event("update_filters", %{"search" => _, "tier" => _, "methodology" => _}, socket)
+handle_event("clear_filters", _params, socket)
+handle_event("select_skill", %{"name" => name}, socket)
+handle_event("close_drawer", _params, socket)
+handle_event("keydown", %{"key" => "Escape"}, socket)   # closes drawer
+handle_event("toggle_tier", %{"tier" => tier}, socket)
+handle_event("audit_all", _params, socket)
+handle_event("fix_skill", %{"name" => name}, socket)
+handle_event("fix_wizard_next", _params, socket)
+handle_event("fix_wizard_back", _params, socket)
+handle_event("fix_wizard_toggle_repair", %{"key" => key}, socket)
+handle_event("fix_wizard_apply", _params, socket)
+```
+
+PubSub handlers:
 
 ```elixir
 handle_info({:skill_tracked, skill}, socket)
@@ -152,14 +216,9 @@ handle_info({:methodology_detected, methodology}, socket)
 
 ### SkillsLive JS Hooks
 
-Client-side hooks for data visualization:
-
 ```javascript
-// CoOccurrenceHeatmap hook - renders heatmap matrix
-Hooks.CoOccurrenceHeatmap
-
-// TrendingChart hook - renders trend lines
-Hooks.TrendingChart
+// Skills hook — keyboard navigation, Escape-to-close-drawer
+Hooks.Skills
 ```
 
 ## RalphFlowchartLive
@@ -313,24 +372,41 @@ Hooks.FormationGraph
 
 **Route**: `/ports`
 **Module**: `ApmV5Web.PortsLive`
+**Added**: v6.0.0
 
-Port management dashboard for viewing and managing port assignments across all CCEM projects.
+Port management dashboard for viewing and managing port assignments across all CCEM projects via `ApmV5.PortManager`.
 
 ### PortsLive Components
 
-- **Summary Bar**: Total projects, active count, clash count with scan button
-- **Filter Bar**: Filter by status (all/active/clashes) and namespace (all/web/api/service/tool)
-- **Port Cards Grid**: Each project shown as a card with port number, namespace badge, active status dot, and clash warnings with reassign button
-- **Port Ranges Sidebar**: Visual display of configured port ranges per namespace with usage bars
-- **Clash Resolution Panel**: Lists all port clashes with affected projects
+- **Header Summary Bar**: Total projects badge, active count badge (success), clash count badge (error, conditional) with "Scan Ports" button
+- **Filter Bar**: Status pills (all / active / clashes) and namespace pills (all / web / api / service / tool); active selection highlighted with `btn-primary`
+- **Port Cards Grid**: Responsive grid (1 → 2 → 3 columns). Each card shows: project name, namespace badge (color-coded by namespace), large monospace port number, active/inactive status dot (green = active). Cards in clash state show an error banner with inline "Reassign" button
+- **Port Ranges Sidebar**: 64-unit wide sidebar listing each namespace with port range (`first`-`last`) and a colored progress bar showing utilization
+- **Clash Resolution Panel**: Appears when `clash_count > 0`; lists each clash with port number and affected project names
+
+### PortsLive Key Assigns
+
+```elixir
+:port_map        # raw map from PortManager.get_port_map()
+:clashes         # [%{port, projects}] from PortManager.detect_clashes()
+:port_ranges     # map of namespace => range from PortManager.get_port_ranges()
+:all_projects    # derived list of %{name, port, namespace, active}
+:filtered        # all_projects after status/namespace filters
+:clash_ports     # MapSet of project names involved in any clash
+:status_filter   # "all" | "active" | "clashes"
+:namespace_filter# "all" | "web" | "api" | "service" | "tool"
+:total           # integer — total project count
+:active_count    # integer — active project count
+:clash_count     # integer — number of clash groups
+```
 
 ### PortsLive Features
 
 - Real-time updates via `apm:ports` PubSub topic
-- Scan active ports on the system to detect which are in use
-- Assign new ports to projects from available ranges
-- Detect and resolve port clashes between projects
-- Filter by status (active, clashes) and namespace (web, api, service, tool)
+- One-click "Scan Ports" triggers `PortManager.scan_active_ports/0` and refreshes
+- Per-card "Reassign" calls `PortManager.assign_port/1` — assigns the next available port in the project's namespace range; shows flash error if no port available
+- Client-side derived filtering via `refilter/1` private helper — no additional server round-trip needed after filter change
+- Namespace color coding: web=blue, api=purple, service=amber, tool=emerald
 
 ### PortsLive PubSub Subscriptions
 
@@ -342,11 +418,24 @@ subscribe("apm:ports")    # Port assignment events
 
 ### PortsLive Event Handlers
 
-Handlers for incoming PubSub messages:
+User interaction events:
+
+```elixir
+handle_event("scan_ports", _params, socket)
+handle_event("filter", %{"status" => status}, socket)
+handle_event("namespace_filter", %{"namespace" => ns}, socket)
+handle_event("assign_port", %{"project" => project}, socket)
+```
+
+PubSub handlers:
 
 ```elixir
 handle_info({:port_assigned, _, _}, socket)
 ```
+
+### PortsLive JS Hooks
+
+None — all interactivity is handled via server-side `handle_event` and LiveView re-renders. The Getting Started wizard is rendered via the `<.wizard page="ports" />` component.
 
 ## DocsLive
 
@@ -378,11 +467,302 @@ Industry-standard documentation viewer with search, navigation, and responsive l
 
 None -- docs are static content served from the `DocsStore` cache.
 
+## ShowcaseLive
+
+**Route**: `/showcase` and `/showcase/:project`
+**Module**: `ApmV5Web.ShowcaseLive`
+
+GIMME-style project showcase dashboard integrated into the APM chrome. Displays IP-safe architecture diagrams, feature roadmaps, and live agent/UPM data for any CCEM-managed project that has showcase data.
+
+### ShowcaseLive Components
+
+- **Project Selector**: Dropdown listing all projects that have showcase data (detected via `ShowcaseDataStore.filter_showcase_projects/1`)
+- **Feature Grid**: Cards per story/feature grouped by wave, sourced from `showcase/data/features.json`
+- **Live Stats Bar**: Real-time agent count, session count, active UPM session indicator
+- **Fullscreen Toggle**: Covers APM chrome; press Esc to exit
+- **Iframe Mode**: Falls back to serving a standalone `showcase.js` when project has `showcase/client/showcase.js` but no full data directory
+
+### ShowcaseLive Features
+
+- **Project switching**: Navigate to `/showcase/:project` via `push_patch` — updates URL without full page reload
+- **Active project detection**: Defaults to the project set in `apm_config.json` `active_project` field
+- **Showcase data resolution**: `ShowcaseDataStore` checks (in order) `showcase_data_path`, `project_root/showcase/data/`, `project_root/showcase/client/showcase.js`
+- **Live heartbeat**: Pushes 5-second heartbeat events to JS hook for animated status indicators
+- **PubSub-driven updates**: Reacts to agent, config, UPM, AG-UI, and showcase data reload events
+
+### ShowcaseLive PubSub Subscriptions
+
+Topics subscribed to on mount:
+
+```elixir
+subscribe("apm:agents")     # Agent registration and fleet stats
+subscribe("apm:config")     # Config reload, active project change
+subscribe("apm:upm")        # UPM session events
+subscribe("ag_ui:events")   # AG-UI event stream integration
+subscribe("apm:showcase")   # Showcase data reload broadcasts
+```
+
+### ShowcaseLive Event Handlers
+
+Handlers for incoming PubSub messages:
+
+```elixir
+handle_info({:agent_registered, _agent}, socket)
+handle_info({:agent_updated, _agent}, socket)
+handle_info({:config_reloaded, _config}, socket)
+handle_info({:upm_session_registered, _}, socket)
+handle_info({:showcase_data_reloaded, project, data}, socket)
+handle_info(:heartbeat_push, socket)
+```
+
+### ShowcaseLive JS Hooks
+
+```javascript
+// Showcase hook - initialises GIMME-style diagram engine, handles heartbeat pulses
+Hooks.Showcase
+```
+
+### Project Switching
+
+Use the URL parameter to load a named project:
+
+```
+/showcase            # active project from apm_config.json
+/showcase/ccem       # CCEM APM project
+/showcase/my-app     # Any project with showcase data
+```
+
+Reload showcase data for a project without restarting the server:
+
+```elixir
+ApmV5.ShowcaseDataStore.reload("my-app")
+```
+
+## AgentPanel Component
+
+**Module**: `ApmV5Web.Components.AgentPanel`
+**Extracted from**: `DashboardLive` (v6.2.0)
+
+Reusable component that renders a single agent card with tier, status, and type classification badges. Supports filter-aware rendering so callers can pass active filter state without coupling.
+
+### AgentPanel Features
+
+- **Tier badges**: Tier 1 / Tier 2 / Tier 3 color-coded chips
+- **Status badges**: active (green), idle (yellow), error (red), completed (gray), discovered (blue)
+- **Type badges**: individual, squadron, swarm, orchestrator — each with a distinct icon
+- **Filter support**: `active_filters` attribute hides non-matching agents without re-mounting the component
+- **Click-to-inspect**: `phx-click="inspect_agent"` with `phx-value-agent-id` for right-panel integration
+
+### AgentPanel Attributes
+
+```elixir
+attr :agent, :map, required: true
+attr :active_filters, :map, default: %{}
+attr :selected_agent_id, :string, default: nil
+```
+
+### AgentPanel Usage
+
+```heex
+<.agent_panel
+  agent={agent}
+  active_filters={@filters}
+  selected_agent_id={@inspector_agent_id}
+/>
+```
+
+## PortPanel Component
+
+**Module**: `ApmV5Web.Components.PortPanel`
+**Extracted from**: `DashboardLive` (v6.2.0)
+
+Reusable component that renders a single port entry card. Highlights clash conditions with inline remediation suggestions.
+
+### PortPanel Features
+
+- **Clash alert banner**: Shown when two or more projects claim the same port number
+- **Remediation display**: Suggests next available port in the project's namespace range
+- **Status dot**: Green (active/in-use), gray (assigned but not active)
+- **Namespace badge**: web / api / service / tool with distinct colors
+
+### PortPanel Attributes
+
+```elixir
+attr :port_entry, :map, required: true
+attr :clashes, :list, default: []
+```
+
+### PortPanel Usage
+
+```heex
+<.port_panel
+  port_entry={entry}
+  clashes={@port_clashes}
+/>
+```
+
+## CcemOverviewLive
+
+**Route**: `/ccem`
+**Module**: `ApmV5Web.CcemOverviewLive`
+**Added**: v6.0.0 | **Updated**: v6.4.0
+
+CCEM Management overview page — the entry point for the CCEM-specific section of the dual-section sidebar nav. Provides quick-access navigation tiles to all CCEM management tools, a Getting Started wizard, and an AG-UI callout chat assistant that accepts natural language commands to update tile styles on the fly.
+
+### CcemOverviewLive Components
+
+- **Tool Grid**: Four quick-access tiles (`id` prefixed `ccem-tile-*`) for Showcase, Ports, Actions, and Scanner. Each tile has a Hero icon, label, and hover transform animation.
+- **Dynamic Header**: Branded "CCEM Management" header with a "Getting Started" button (question-mark icon) that re-triggers the wizard
+- **Status Strip**: Inline footer showing current CCEM version, APM port, links to Notifications and Agents pages
+- **Getting Started Wizard**: Rendered via `<.wizard page={@wizard_page} />` component; shown on first visit, re-triggerable via header button; emits `ccem:wizard_trigger` push event to client
+- **AG-UI Callout Chat**: Fixed bottom-right FAB button (gradient purple-to-indigo) that expands a 400-pixel-tall chat panel. Backed by `ChatStore` at scope `"ccem:overview"`. Processes natural language style commands via `process_ccem_command/1` and pushes `ccem:style_update` events to the `CcemAssistant` JS hook
+
+### CcemOverviewLive Features
+
+- **Dual-section sidebar**: The sidebar splits into two sections at runtime — **CCEM Management** (Showcase, Ports, Actions, Scanner, `/ccem`) and **APM Monitoring** (Dashboard, Agents, Skills, Ralph, Timeline, etc.)
+- **Active page highlighting**: `/ccem` is highlighted in the CCEM Management section of the sidebar
+- **Navigation hub**: Each tile links to a first-class CCEM management page rather than duplicating content inline
+- **AG-UI natural language UI commands**: The callout chat parses commands and pushes CSS style updates to the client without a page reload. Examples: "make the showcase card blue", "set the ports card border color to orange", "reset all"
+- **Streaming AG-UI responses**: Subscribes to `ag_ui:events` topic; forwards `TEXT_MESSAGE_CONTENT` events for agent `"ccem-assistant"` to the client as `ccem:stream_token` events
+
+### CcemOverviewLive Navigation Tiles
+
+| Tile | DOM ID | Route | Description |
+|------|--------|-------|-------------|
+| Showcase | `ccem-tile-showcase` | `/showcase` | Project showcase with live agent/UPM data |
+| Ports | `ccem-tile-ports` | `/ports` | Port registry and conflict detection |
+| Actions | `ccem-tile-actions` | `/actions` | ActionEngine catalog and run history |
+| Scanner | `ccem-tile-scanner` | `/scanner` | Project auto-discovery scanner |
+
+### CcemOverviewLive Key Assigns
+
+```elixir
+:chat_open          # boolean — controls chat panel visibility
+:chat_messages      # list of message maps from ChatStore (last 50)
+:chat_input         # string — current input field value
+:chat_assembling    # map — partial streaming token state
+:wizard_page        # string — current wizard page key (e.g., "welcome")
+:wizard_visible     # boolean — whether wizard modal is open
+```
+
+### CcemOverviewLive PubSub Subscriptions
+
+Topics subscribed to on mount:
+
+```elixir
+subscribe("ag_ui:events")    # AG-UI event stream for ccem-assistant streaming replies
+```
+
+### CcemOverviewLive Event Handlers
+
+User interaction events:
+
+```elixir
+handle_event("toggle_wizard", _params, socket)
+handle_event("chat:toggle", _params, socket)
+handle_event("chat:close", _params, socket)
+handle_event("chat:input", %{"content" => val}, socket)
+handle_event("chat:send", %{"content" => content}, socket)
+```
+
+PubSub handlers:
+
+```elixir
+handle_info({:ag_ui_event, event}, socket)   # streams TEXT_MESSAGE_CONTENT tokens
+```
+
+### CcemOverviewLive JS Hooks
+
+```javascript
+// CcemAssistant hook — applies ccem:style_update events as inline CSS,
+// handles ccem:stream_token for streaming text, ccem:wizard_trigger to show wizard
+Hooks.CcemAssistant
+```
+
+## UsageLive
+
+**Route**: `/usage`
+**Module**: `ApmV5Web.UsageLive`
+**Added**: v6.4.0 (US-042)
+
+Claude model and token usage dashboard. Tracks input tokens, output tokens, cache tokens, and tool call counts across all projects and Claude models. Data is populated by the PostToolUse hook and persisted via `ApmV5.ClaudeUsageStore`. The page auto-refreshes every 10 seconds.
+
+### UsageLive Components
+
+- **Summary Stats Row**: Four stat cards — Input Tokens, Output Tokens, Top Model (monospace truncated), Total Tool Calls. Badge shows project count.
+- **Token Distribution Progress Bars**: Three horizontal progress bars (input=info, output=success, cache=warning) rendered when any tokens are recorded. Max value is the sum of all three token types.
+- **Model Breakdown Table**: Per-model aggregate table sorted descending by input tokens. Columns: Model, Input, Output, Cache, Tool Calls, Sessions, Last Seen. Shown when `summary.model_breakdown` is non-empty.
+- **Per-Project Accordion**: Collapsible rows per project. Header shows project name, effort-level badge (intensive=error, high=warning, medium=info, low=ghost), aggregate token counts, and a "Reset" button. Clicking expands an inner per-model breakdown table for that project.
+- **Empty State**: Shown when `usage_data` is an empty map; instructs the user to activate the PostToolUse hook.
+
+### UsageLive Key Assigns
+
+```elixir
+:summary          # %{total_input_tokens, total_output_tokens, total_cache_tokens,
+                  #   total_tool_calls, top_model, model_breakdown, projects}
+:usage_data       # map of project_name => usage map from ClaudeUsageStore.get_all_usage/0
+:selected_project # nil | string — controls which project accordion is expanded
+```
+
+### UsageLive PubSub Subscriptions
+
+Topics subscribed to on mount:
+
+```elixir
+subscribe("apm:usage")    # Usage record events
+```
+
+A 10-second `:timer.send_interval/3` is also started on mount (connected sockets only) to poll `ClaudeUsageStore` regardless of PubSub events.
+
+### UsageLive Event Handlers
+
+User interaction events:
+
+```elixir
+handle_event("select_project", %{"project" => project}, socket)
+  # Toggles the project accordion; sets :selected_project to nil if re-clicking the same project
+handle_event("reset_project", %{"project" => project}, socket)
+  # Calls ClaudeUsageStore.reset_project/1, refreshes summary and usage_data
+```
+
+PubSub and timer handlers:
+
+```elixir
+handle_info({:usage_updated, data}, socket)   # PubSub push — updates usage_data + summary
+handle_info(:refresh, socket)                 # 10-second timer poll
+```
+
+### UsageLive JS Hooks
+
+None — all rendering is server-side via LiveView assigns. No client-side JavaScript hooks required.
+
+### Usage API Endpoints
+
+The same data is accessible via REST for external consumers:
+
+```
+GET  /api/usage              # all usage data
+GET  /api/usage/summary      # aggregated summary
+GET  /api/usage/project/:name# single project data
+POST /api/usage/record       # record a usage event
+DELETE /api/usage/project/:name # reset project counters
+```
+
 ## Sidebar Navigation
 
-All pages include a consistent sidebar with navigation links to all LiveView pages.
+All pages include a consistent sidebar with navigation links to all LiveView pages. The sidebar is split into two sections since v6.0.0.
 
-Navigation entries and their routes:
+### CCEM Management Section
+
+```text
+CCEM             /ccem        (overview hub)
+Showcase         /showcase
+Ports            /ports
+Actions          /actions
+Scanner          /scanner
+```
+
+### APM Monitoring Section
 
 ```text
 Dashboard        /
@@ -391,7 +771,7 @@ Skills           /skills      (with badge count)
 Ralph            /ralph
 Timeline         /timeline
 Formations       /formation
-Ports            /ports
+Usage            /usage
 Docs             /docs
 ```
 
@@ -456,6 +836,40 @@ end
 ```
 
 See `test/apm_v5_web/live/` for more examples.
+
+### Integration Test Suite (v6.2.0+)
+
+A formal ExUnit integration test suite covering the two most-used LiveViews ships with v6.2.0. Tests live in `test/apm_v5_web/live/`.
+
+**DashboardLive tests (8):**
+
+| Test | Asserts |
+|------|---------|
+| renders agent count stat card | `html =~ "Agents"` |
+| renders session count stat card | `html =~ "Sessions"` |
+| agent list updates on `{:agent_registered, agent}` | new agent name appears |
+| agent card removed on `{:agent_disconnected, id}` | agent name absent |
+| filter by status hides non-matching agents | filtered agent absent |
+| inspector panel opens on `inspect_agent` click | inspector panel visible |
+| notification badge increments on new notification | badge count +1 |
+| project selector reflects config active project | project name highlighted |
+
+**ShowcaseLive tests (6):**
+
+| Test | Asserts |
+|------|---------|
+| renders default active project | active project name visible |
+| switches project on `/showcase/:project` navigate | new project features rendered |
+| feature grid groups features by wave | wave heading present |
+| live agent count updates on `{:agent_registered, _}` | stats bar count updated |
+| fullscreen toggle sets `fullscreen` assign | `phx-value-fullscreen` attribute present |
+| showcase data reload via `{:showcase_data_reloaded, _, _}` | updated feature title visible |
+
+Run the full test suite:
+
+```bash
+mix test test/apm_v5_web/live/
+```
 
 ## Extending with New LiveView Pages
 

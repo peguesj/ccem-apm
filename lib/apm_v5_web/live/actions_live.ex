@@ -1,5 +1,13 @@
 defmodule ApmV5Web.ActionsLive do
+  @moduledoc """
+  LiveView for the Action Engine dashboard at /actions.
+
+  Displays the action catalog, recent run history, and provides a
+  modal to trigger actions against registered projects.
+  """
+
   use ApmV5Web, :live_view
+
 
   alias ApmV5.ActionEngine
   alias ApmV5.ProjectScanner
@@ -596,6 +604,7 @@ defmodule ApmV5Web.ActionsLive do
         </div>
       </div>
     </div>
+    <.wizard page="actions" />
     """
   end
 

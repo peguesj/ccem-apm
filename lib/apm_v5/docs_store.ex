@@ -11,31 +11,37 @@ defmodule ApmV5.DocsStore do
 
   # Client API
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
   @doc "Get rendered HTML for a doc page by slug (e.g. \"user/getting-started\")"
+  @spec get_page(String.t()) :: map() | nil
   def get_page(path) do
     GenServer.call(__MODULE__, {:get_page, path})
   end
 
   @doc "Get the full TOC as a list of categories with icons, ordered pages, and descriptions"
+  @spec get_toc() :: [map()]
   def get_toc do
     GenServer.call(__MODULE__, :get_toc)
   end
 
   @doc "Get JSON metadata for a page by slug"
+  @spec get_page_meta(String.t()) :: map() | nil
   def get_page_meta(slug) do
     GenServer.call(__MODULE__, {:get_page_meta, slug})
   end
 
   @doc "Get previous and next pages for navigation. Returns %{prev: meta | nil, next: meta | nil}"
+  @spec get_adjacent_pages(String.t()) :: %{prev: map() | nil, next: map() | nil}
   def get_adjacent_pages(slug) do
     GenServer.call(__MODULE__, {:get_adjacent_pages, slug})
   end
 
   @doc "Search doc pages by query string, returns [{path, title, snippet}]"
+  @spec search(String.t()) :: [map()]
   def search(query) do
     GenServer.call(__MODULE__, {:search, query})
   end

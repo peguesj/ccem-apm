@@ -224,8 +224,8 @@ defmodule ApmV5Web.V2.ApiV2Controller do
       "openapi" => "3.0.3",
       "info" => %{
         "title" => "CCEM APM API",
-        "version" => "5.2.0",
-        "description" => "Complete REST API for CCEM Agent Performance Monitor. Also available at /api/openapi.json."
+        "version" => "6.2.0",
+        "description" => "Complete REST API for CCEM Agent Performance Monitor v6.2.0. Adds domain-split controllers: UpmApiController, FormationApiController, ShowcaseApiController. CCEM Management routes: /showcase, /ccem, /ports. Also available at /api/openapi.json."
       },
       "servers" => [%{"url" => "http://localhost:3032", "description" => "Local APM server"}],
       "tags" => [
@@ -239,6 +239,7 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         %{"name" => "Tasks", "description" => "Task synchronization and input"},
         %{"name" => "Skills", "description" => "Skill invocation tracking"},
         %{"name" => "UPM", "description" => "Unified Project Management execution"},
+        %{"name" => "Formations", "description" => "Formation management (domain split from UPM)"},
         %{"name" => "Ports", "description" => "Port registry and clash detection"},
         %{"name" => "Environments", "description" => "CCEM environment management"},
         %{"name" => "Config", "description" => "Server configuration"},
@@ -249,7 +250,8 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         %{"name" => "SLOs", "description" => "Service Level Objectives (v2)"},
         %{"name" => "Alerts", "description" => "Alert rules and history (v2)"},
         %{"name" => "Audit", "description" => "Audit log (v2)"},
-        %{"name" => "Export", "description" => "Data export and import (v2)"}
+        %{"name" => "Export", "description" => "Data export and import (v2)"},
+        %{"name" => "CCEM Management", "description" => "CCEM management LiveView pages (Showcase, Ports, CCEM overview)"}
       ],
       "paths" => build_paths(),
       "components" => %{
@@ -405,6 +407,41 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         "get" => %{"operationId" => "upmStatus", "summary" => "Current UPM execution state", "tags" => ["UPM"],
           "responses" => %{"200" => %{"description" => "UPM state"}}}
       },
+      "/api/formations" => %{
+        "get" => %{"operationId" => "listFormations", "summary" => "List all formations", "tags" => ["UPM"],
+          "responses" => %{"200" => %{"description" => "Formation list"}}},
+        "post" => %{"operationId" => "createFormation", "summary" => "Create a formation", "tags" => ["UPM"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"201" => %{"description" => "Created formation"}}}
+      },
+      "/api/formations/{id}" => %{
+        "get" => %{"operationId" => "getFormation", "summary" => "Get a formation by ID", "tags" => ["UPM"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Formation detail"}, "404" => %{"description" => "Not found"}}},
+        "patch" => %{"operationId" => "updateFormation", "summary" => "Update a formation", "tags" => ["UPM"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
+          "responses" => %{"200" => %{"description" => "Updated formation"}, "404" => %{"description" => "Not found"}}}
+      },
+      "/api/formations/{id}/agents" => %{
+        "get" => %{"operationId" => "getFormationAgents", "summary" => "List agents in a formation", "tags" => ["UPM"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Agents list"}}}
+      },
+      "/api/showcase" => %{
+        "get" => %{"operationId" => "listShowcaseProjects", "summary" => "List showcase-eligible projects", "tags" => ["CCEM Management"],
+          "responses" => %{"200" => %{"description" => "Showcase project list"}}}
+      },
+      "/api/showcase/{project}" => %{
+        "get" => %{"operationId" => "getShowcaseData", "summary" => "Get showcase data for a project", "tags" => ["CCEM Management"],
+          "parameters" => [%{"name" => "project", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Showcase data"}, "404" => %{"description" => "Not found"}}}
+      },
+      "/api/showcase/{project}/reload" => %{
+        "post" => %{"operationId" => "reloadShowcaseData", "summary" => "Reload showcase data for a project", "tags" => ["CCEM Management"],
+          "parameters" => [%{"name" => "project", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Reloaded"}}}
+      },
       "/api/ports" => %{
         "get" => %{"operationId" => "listPorts", "summary" => "List registered ports", "tags" => ["Ports"],
           "responses" => %{"200" => %{"description" => "Port registry"}}}
@@ -499,6 +536,43 @@ defmodule ApmV5Web.V2.ApiV2Controller do
       "/api/openapi.json" => %{
         "get" => %{"operationId" => "getOpenApiV1", "summary" => "OpenAPI 3.0.3 spec (v1 alias)", "tags" => ["Health"],
           "responses" => %{"200" => %{"description" => "OpenAPI specification"}}}
+      },
+      "/showcase" => %{
+        "get" => %{
+          "operationId" => "showcaseDashboard",
+          "summary" => "Showcase Dashboard",
+          "description" => "GIMME-style project showcase with live agent/UPM data, feature roadmap, and IP-safe architecture diagrams. Uses active project from apm_config.json.",
+          "tags" => ["CCEM Management"],
+          "responses" => %{"200" => %{"description" => "Showcase LiveView"}}
+        }
+      },
+      "/showcase/{project}" => %{
+        "get" => %{
+          "operationId" => "showcaseDashboardProject",
+          "summary" => "Showcase Dashboard — Named Project",
+          "description" => "Load the showcase for a specific project by name. Switches active showcase data without a full page reload.",
+          "tags" => ["CCEM Management"],
+          "parameters" => [%{"name" => "project", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Project name as registered in apm_config.json"}],
+          "responses" => %{"200" => %{"description" => "Showcase LiveView for named project"}}
+        }
+      },
+      "/ccem" => %{
+        "get" => %{
+          "operationId" => "ccemOverview",
+          "summary" => "CCEM Management Overview",
+          "description" => "CCEM Management hub — entry point for the CCEM section of the dual-section sidebar. Quick-access tiles to Showcase, Ports, Actions, and Scanner.",
+          "tags" => ["CCEM Management"],
+          "responses" => %{"200" => %{"description" => "CCEM Overview LiveView"}}
+        }
+      },
+      "/ports" => %{
+        "get" => %{
+          "operationId" => "portsDashboard",
+          "summary" => "Port Management Dashboard",
+          "description" => "CCEM port registry with conflict visualization, namespace filtering, active-port scanning, and one-click clash reassignment.",
+          "tags" => ["CCEM Management"],
+          "responses" => %{"200" => %{"description" => "Ports LiveView"}}
+        }
       }
     }
   end

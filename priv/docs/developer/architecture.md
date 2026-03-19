@@ -1,4 +1,4 @@
-# System Architecture
+# System Architecture — v6.4.0
 
 CCEM APM v4 is built on Phoenix/Elixir with a supervisor-based OTP architecture. The system uses GenServers for state management, PubSub for real-time events, and ETS for fast data access.
 
@@ -60,10 +60,17 @@ graph LR
         PM["PortManager"]
     end
 
+    subgraph v6stores ["v6.x Stores"]
+        SR["SkillsRegistryStore<br/><small>v4.2.0</small>"]
+        SDS["ShowcaseDataStore<br/><small>v6.0.0</small>"]
+        CUS["ClaudeUsageStore<br/><small>v6.4.0</small>"]
+    end
+
     Root --> infra
     Root --> stores
     Root --> agents
     Root --> analytics
+    Root --> v6stores
 ```
 
 > **Warning:** The supervision tree uses `one_for_one` strategy. If a child crashes, only that child is restarted. Ensure each GenServer can recover its own state on restart.
@@ -382,6 +389,138 @@ API:
   - search/1
 ```
 
+### AgentActivityLog
+
+Ring-buffer event log for real-time agent lifecycle observability. Added in v6.1.0.
+
+GenServer state and API summary:
+
+```elixir
+GenServer: ApmV5.AgentActivityLog
+State:
+  - ring_buffer: :queue of up to 200 events (oldest evicted on overflow)
+  - subscribers: PIDs subscribed to live event pushes
+
+API:
+  - log_event/1
+  - get_recent/0       # last 200 events
+  - get_recent/1       # last N events (1..200)
+
+Subscribes to EventBus:
+  - :agent_lifecycle   # register, update, disconnect
+  - :agent_tool        # tool call start/finish
+  - :agent_thinking    # thinking token events
+  - :agent_text        # text output events
+
+Broadcasts:
+  - {:activity_log_event, event} to "apm:activity_log"
+```
+
+> **Ring buffer**: Implemented with `:queue` — `enqueue` at back, dequeue from front when size exceeds 200. `get_recent/0` returns events in chronological order (oldest first).
+
+### SkillsRegistryStore
+
+Scans `~/.claude/skills/` and computes health scores per skill. Added in v4.2.0.
+
+GenServer state and API summary:
+
+```elixir
+GenServer: ApmV5.SkillsRegistryStore
+State:
+  - last_scanned: DateTime.t() | nil  (ETS-backed, state is minimal)
+
+ETS Table: :skills_registry
+  - keyed by skill_name (string)
+  - value: %{name, description, health_score, has_frontmatter,
+             description_quality, trigger_count, has_examples,
+             has_template, last_modified, file_count, raw_frontmatter}
+
+Health score (0-100):
+  - Full frontmatter (name + description fields): 30 pts
+  - Description quality: good (>100 chars) = 25 pts, truncated = 10 pts
+  - Trigger keywords in content: up to 20 pts (7 pts each)
+  - Has examples/ subdirectory: 15 pts
+  - Has template.md: 10 pts
+
+API:
+  - list_skills/0      # all skills sorted by health_score desc
+  - get_skill/1        # {:ok, skill_map} | {:error, :not_found}
+  - health_score/1     # {:ok, integer} | {:error, :not_found}
+  - refresh_all/0      # trigger async rescan
+
+Scheduled:
+  - Rescan every 10 minutes via Process.send_after/3
+
+Broadcasts:
+  (none — callers poll via list_skills/0 or get_skill/1)
+```
+
+### ShowcaseDataStore
+
+Loads per-project showcase data from disk (features, narratives, design system, redaction rules). ETS-cached, keyed by project name. Added in v6.0.0.
+
+GenServer state and API summary:
+
+```elixir
+GenServer: ApmV5.ShowcaseDataStore
+State:
+  - table: :ets.tid()  (:showcase_data, :set, :protected, read_concurrency: true)
+
+ETS Table: :showcase_data
+  - keyed by project_name (string)
+  - value: %{"features", "narratives", "design_system", "redaction_rules",
+             "speaker_notes", "slides", "version", "path"}
+
+Path resolution order:
+  1. project config showcase_data_path field
+  2. project_root/showcase/data/
+  3. CCEM project name list → ~/Developer/ccem/showcase/data (default)
+  4. ~/Developer/{project_name}/showcase/data (convention)
+
+API:
+  - get_showcase_data/1        # returns full showcase map for project
+  - reload/1                   # reloads from disk, broadcasts update
+  - get_features/1             # shortcut for features list
+  - has_showcase?/1            # boolean — checks if project has showcase data
+  - filter_showcase_projects/1 # filters list to only projects with showcase data
+
+Broadcasts:
+  - {:showcase_data_reloaded, project_name, data} to "apm:showcase"
+```
+
+### ClaudeUsageStore
+
+Tracks Claude model/token usage per project and model combination. Infers effort level from tool_calls:session ratio. Added in v6.4.0.
+
+GenServer state and API summary:
+
+```elixir
+GenServer: ApmV5.ClaudeUsageStore
+State:
+  - table: :ets.tid()  (:claude_usage, :named_table, :set, :public, read_concurrency: true)
+
+ETS Table: :claude_usage
+  - keyed by {project, model} tuple
+  - value: %{input_tokens, output_tokens, cache_tokens, tool_calls, sessions, last_seen}
+
+Effort level inference (tool_calls / sessions ratio):
+  - intensive: > 100
+  - high:      50–100
+  - medium:    10–50
+  - low:       < 10
+
+API:
+  - record_usage/3     # record_usage(project, model, %{input, output, cache, tool_calls})
+  - get_usage/1        # %{model => %{...counters}} for a single project
+  - get_all_usage/0    # %{project => %{model => %{...counters}}} for all projects
+  - get_summary/0      # aggregated summary: totals, top_model, model_breakdown, projects
+  - reset_project/1    # clears all ETS entries for a project
+  - get_effort_level/1 # inferred effort string for a project
+
+Broadcasts:
+  - {:usage_updated, all_usage_map} to "apm:usage"
+```
+
 ### Additional GenServers
 
 - **ApiKeyStore** -- API authentication and key management
@@ -403,6 +542,9 @@ Fast in-memory storage for frequently accessed data.
 | `:notifications` | notification_id | Recent notifications |
 | `:agent_index_by_project` | project_name | Project -> agent mapping |
 | `:agent_index_by_status` | status | Status -> agent mapping |
+| `:skills_registry` | skill_name | Skill health scores (SkillsRegistryStore, v4.2.0) |
+| `:showcase_data` | project_name | Per-project showcase JSON data (ShowcaseDataStore, v6.0.0) |
+| `:claude_usage` | {project, model} | Claude token/tool-call counters (ClaudeUsageStore, v6.4.0) |
 
 > **Pattern:** ETS tables are created in `ConfigLoader.init/1` and cleared on reload. Use `:ets.lookup/2` for O(1) reads and `:ets.insert/2` for writes.
 
@@ -536,6 +678,41 @@ AG-UI Server-Sent Events.
 
 ```elixir
 {:ag_ui_event, event}
+```
+
+### apm:activity_log
+
+Agent activity ring-buffer events (added in v6.1.0).
+
+```elixir
+{:activity_log_event, %{
+  id: String.t(),
+  type: :lifecycle | :tool | :thinking | :text,
+  agent_id: String.t(),
+  timestamp: DateTime.t(),
+  payload: map()
+}}
+```
+
+### apm:usage
+
+Claude model/token usage updates (added in v6.4.0).
+
+```elixir
+{:usage_updated, all_usage_map}
+# all_usage_map shape: %{project => %{model => %{input_tokens, output_tokens,
+#   cache_tokens, tool_calls, sessions, last_seen}}}
+```
+
+### apm:showcase
+
+Showcase data reload events (added in v6.0.0).
+
+```elixir
+{:showcase_data_reloaded, project_name, data}
+# data shape: %{"features" => [...], "narratives" => %{}, "design_system" => %{},
+#               "redaction_rules" => %{}, "speaker_notes" => %{}, "slides" => %{},
+#               "version" => String.t(), "path" => String.t()}
 ```
 
 ## Error Handling

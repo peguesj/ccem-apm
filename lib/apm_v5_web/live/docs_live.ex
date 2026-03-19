@@ -1,11 +1,22 @@
 defmodule ApmV5Web.DocsLive do
   @moduledoc """
-  LiveView for browsing documentation wiki at /docs.
+  LiveView for browsing documentation wiki at /docs (v6.4.0).
+
   Industry-standard documentation viewer with left TOC, content area,
   on-page heading navigation, and search with Cmd+K shortcut.
+
+  Pages are driven dynamically from `priv/docs/docs.json` via `ApmV5.DocsStore`.
+  No slug list is hardcoded here — add new pages to docs.json and create the
+  corresponding markdown file in `priv/docs/`.
+
+  New pages added in v6.4.0:
+    - `user/usage` — Claude Usage Tracking (token/cost per project and session)
+    - `developer/ports` — Port Management (conflict detection, heatmap, smart reassignment)
   """
 
   use ApmV5Web, :live_view
+
+  import ApmV5Web.Components.GettingStartedWizard
 
   alias ApmV5.DocsStore
 
@@ -345,6 +356,7 @@ defmodule ApmV5Web.DocsLive do
         </div>
       </div>
     </div>
+    <.wizard page="welcome" dom_id="ccem-wizard-welcome-docs" />
     """
   end
 

@@ -18,7 +18,7 @@ defmodule ApmV5Web.ApiControllerTest do
       assert is_integer(body["uptime"])
       assert body["agent_count"] == 0
       assert body["session_id"] == "none"
-      assert body["server_version"] == "4.0.0"
+      assert is_binary(body["server_version"])
     end
 
     test "returns correct agent count after registrations", %{conn: conn} do
@@ -117,11 +117,11 @@ defmodule ApmV5Web.ApiControllerTest do
       assert agent.status == "active"
     end
 
-    test "returns 404 when agent not found", %{conn: conn} do
+    test "auto-registers unknown agent on heartbeat", %{conn: conn} do
       conn = post(conn, ~p"/api/heartbeat", %{agent_id: "ghost"})
-      body = json_response(conn, 404)
+      body = json_response(conn, 200)
 
-      assert body["error"] == "Agent not found"
+      assert body["ok"] == true
     end
 
     test "returns 400 when agent_id is missing", %{conn: conn} do

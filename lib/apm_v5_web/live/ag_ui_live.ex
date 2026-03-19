@@ -6,6 +6,7 @@ defmodule ApmV5Web.AgUiLive do
 
   use ApmV5Web, :live_view
 
+
   alias ApmV5.AgUi.EventRouter
   alias ApmV5.AgUi.StateManager
   alias ApmV5.AgentRegistry
@@ -169,6 +170,7 @@ defmodule ApmV5Web.AgUiLive do
         </div>
       </div>
     </div>
+    <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-agui" />
     """
   end
 
@@ -257,31 +259,137 @@ defmodule ApmV5Web.AgUiLive do
   end
   defp format_ts(_), do: ""
 
-  defp summarize_event(%{type: "CUSTOM", data: data}) do
-    data[:message] || data[:title] || inspect(data, limit: 80)
-  end
-  defp summarize_event(%{data: data}) do
-    parts = []
-    parts = if data[:message], do: [data[:message] | parts], else: parts
-    parts = if data[:formation_id], do: ["fmt:#{data[:formation_id]}" | parts], else: parts
-    parts = if data[:story_id], do: [data[:story_id] | parts], else: parts
-    case parts do
-      [] -> inspect(data, limit: 80)
-      _ -> Enum.join(Enum.reverse(parts), " | ")
-    end
+  defp summarize_event(%{type: type, data: data}) when type in ["RUN_STARTED", "RUN_FINISHED", "RUN_ERROR"] do
+    agent = data[:agent_id] || data[:run_id] || ""
+    msg = data[:message] || data[:result] || ""
+    "#{String.downcase(String.replace(type, "_", " "))} #{agent} #{msg}" |> String.trim()
   end
 
+  defp summarize_event(%{type: type, data: data}) when type in ["STEP_STARTED", "STEP_FINISHED"] do
+    step = data[:step_name] || ""
+    wave = if data[:wave], do: " wave=#{data[:wave]}", else: ""
+    "#{step}#{wave}"
+  end
+
+  defp summarize_event(%{type: "TOOL_CALL_START", data: data}) do
+    tool = data[:tool_call_name] || data[:tool_name] || "unknown"
+    agent = data[:agent_id] || ""
+    "[#{agent}] #{tool}"
+  end
+
+  defp summarize_event(%{type: "TOOL_CALL_END", data: data}) do
+    tool = data[:tool_call_name] || data[:tool_name] || ""
+    dur = if data[:duration_ms], do: " (#{data[:duration_ms]}ms)", else: ""
+    "#{tool}#{dur}"
+  end
+
+  defp summarize_event(%{type: "TOOL_CALL_ARGS", data: data}) do
+    delta = data[:delta] || ""
+    String.slice(delta, 0, 100)
+  end
+
+  defp summarize_event(%{type: "TOOL_CALL_RESULT", data: data}) do
+    content = data[:content] || ""
+    String.slice(content, 0, 100)
+  end
+
+  defp summarize_event(%{type: "TEXT_MESSAGE_CONTENT", data: data}) do
+    delta = data[:delta] || ""
+    String.slice(delta, 0, 120)
+  end
+
+  defp summarize_event(%{type: "TEXT_MESSAGE_START", data: data}) do
+    role = data[:role] || "assistant"
+    id = data[:message_id] || ""
+    "role=#{role} id=#{id}"
+  end
+
+  defp summarize_event(%{type: "STATE_DELTA", data: data}) do
+    ops = data[:delta] || []
+    count = if is_list(ops), do: length(ops), else: 0
+    source = data[:source] || ""
+    "#{count} patch ops#{if source != "", do: " from #{source}", else: ""}"
+  end
+
+  defp summarize_event(%{type: "STATE_SNAPSHOT", data: data}) do
+    agent = data[:agent_id] || ""
+    keys = if is_map(data[:snapshot]), do: " #{map_size(data[:snapshot])} keys", else: ""
+    "#{agent}#{keys}"
+  end
+
+  defp summarize_event(%{type: "MESSAGES_SNAPSHOT", data: data}) do
+    count = if is_list(data[:messages]), do: length(data[:messages]), else: 0
+    "#{count} messages"
+  end
+
+  defp summarize_event(%{type: "ACTIVITY_SNAPSHOT", data: data}) do
+    type = data[:activity_type] || ""
+    id = data[:message_id] || ""
+    "#{type} #{id}" |> String.trim()
+  end
+
+  defp summarize_event(%{type: "ACTIVITY_DELTA", data: data}) do
+    patches = if is_list(data[:patch]), do: length(data[:patch]), else: 0
+    "#{data[:activity_type] || ""} #{patches} patches" |> String.trim()
+  end
+
+  defp summarize_event(%{type: "THINKING_START", data: data}) do
+    data[:title] || "thinking..."
+  end
+
+  defp summarize_event(%{type: "THINKING_END", data: _}), do: "thinking complete"
+
+  defp summarize_event(%{type: "CUSTOM", data: data}) do
+    name = data[:name] || "custom"
+    val = data[:value]
+    msg = if is_map(val), do: val[:message] || val[:title] || "", else: inspect(val, limit: 40)
+    "#{name}: #{msg}" |> String.trim_trailing(": ")
+  end
+
+  defp summarize_event(%{type: type, data: data}) when binary_part(type, 0, 9) == "REASONING" do
+    id = data[:message_id] || ""
+    delta = data[:delta] || ""
+    content = if delta != "", do: " — #{String.slice(delta, 0, 60)}", else: ""
+    "#{id}#{content}" |> String.trim()
+  end
+
+  defp summarize_event(%{data: data}) do
+    data[:message] || data[:title] || inspect(data, limit: 60)
+  end
+
+  # Badge classes covering all 33 EventType values
   defp event_badge_class("RUN_STARTED"), do: "badge-success badge-outline"
   defp event_badge_class("RUN_FINISHED"), do: "badge-info badge-outline"
   defp event_badge_class("RUN_ERROR"), do: "badge-error badge-outline"
   defp event_badge_class("STEP_STARTED"), do: "badge-success"
   defp event_badge_class("STEP_FINISHED"), do: "badge-info"
   defp event_badge_class("TOOL_CALL_START"), do: "badge-warning badge-outline"
+  defp event_badge_class("TOOL_CALL_ARGS"), do: "badge-warning"
   defp event_badge_class("TOOL_CALL_END"), do: "badge-warning"
+  defp event_badge_class("TOOL_CALL_CHUNK"), do: "badge-warning opacity-70"
+  defp event_badge_class("TOOL_CALL_RESULT"), do: "badge-warning badge-solid"
+  defp event_badge_class("TEXT_MESSAGE_START"), do: "badge-primary badge-outline"
+  defp event_badge_class("TEXT_MESSAGE_CONTENT"), do: "badge-primary"
+  defp event_badge_class("TEXT_MESSAGE_END"), do: "badge-primary badge-outline opacity-70"
+  defp event_badge_class("TEXT_MESSAGE_CHUNK"), do: "badge-primary opacity-70"
+  defp event_badge_class("THINKING_TEXT_MESSAGE_START"), do: "badge-secondary badge-outline"
+  defp event_badge_class("THINKING_TEXT_MESSAGE_CONTENT"), do: "badge-secondary"
+  defp event_badge_class("THINKING_TEXT_MESSAGE_END"), do: "badge-secondary badge-outline opacity-70"
+  defp event_badge_class("THINKING_START"), do: "badge-secondary badge-outline"
+  defp event_badge_class("THINKING_END"), do: "badge-secondary opacity-70"
   defp event_badge_class("STATE_SNAPSHOT"), do: "badge-accent badge-outline"
   defp event_badge_class("STATE_DELTA"), do: "badge-accent"
-  defp event_badge_class("TEXT_MESSAGE" <> _), do: "badge-primary badge-outline"
-  defp event_badge_class("MESSAGES_SNAPSHOT"), do: "badge-primary"
+  defp event_badge_class("MESSAGES_SNAPSHOT"), do: "badge-primary badge-solid"
+  defp event_badge_class("ACTIVITY_SNAPSHOT"), do: "badge-neutral badge-outline"
+  defp event_badge_class("ACTIVITY_DELTA"), do: "badge-neutral"
+  defp event_badge_class("REASONING_START"), do: "badge-secondary badge-outline"
+  defp event_badge_class("REASONING_MESSAGE_START"), do: "badge-secondary"
+  defp event_badge_class("REASONING_MESSAGE_CONTENT"), do: "badge-secondary"
+  defp event_badge_class("REASONING_MESSAGE_END"), do: "badge-secondary opacity-70"
+  defp event_badge_class("REASONING_MESSAGE_CHUNK"), do: "badge-secondary opacity-70"
+  defp event_badge_class("REASONING_END"), do: "badge-secondary badge-outline opacity-70"
+  defp event_badge_class("REASONING_ENCRYPTED_VALUE"), do: "badge-error badge-outline"
+  defp event_badge_class("RAW"), do: "badge-ghost badge-outline"
   defp event_badge_class("CUSTOM"), do: "badge-secondary badge-outline"
   defp event_badge_class(_), do: "badge-ghost"
 

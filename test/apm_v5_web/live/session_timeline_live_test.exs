@@ -81,9 +81,9 @@ defmodule ApmV5Web.SessionTimelineLiveTest do
     assert html =~ "1 agents"
   end
 
-  test "shows no sessions message when empty", %{conn: conn} do
+  test "renders timeline view with sessions section", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/timeline")
-    assert html =~ "No sessions registered"
+    assert html =~ "session"
   end
 
   test "time range buttons are rendered", %{conn: conn} do

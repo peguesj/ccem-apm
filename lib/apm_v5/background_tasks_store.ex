@@ -10,34 +10,42 @@ defmodule ApmV5.BackgroundTasksStore do
 
   # --- Client API ---
 
+  @spec start_link(keyword()) :: {:ok, pid()} | {:error, term()}
   def start_link(_opts \\ []) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
 
+  @spec register_task(map()) :: {:ok, map()}
   def register_task(attrs) do
     GenServer.call(__MODULE__, {:register_task, attrs})
   end
 
+  @spec update_task(String.t(), map()) :: {:ok, map()} | {:error, term()}
   def update_task(id, attrs) do
     GenServer.call(__MODULE__, {:update_task, id, attrs})
   end
 
+  @spec append_log(String.t(), String.t()) :: :ok
   def append_log(id, line) do
     GenServer.cast(__MODULE__, {:append_log, id, line})
   end
 
+  @spec stop_task(String.t()) :: :ok
   def stop_task(id) do
     GenServer.cast(__MODULE__, {:stop_task, id})
   end
 
+  @spec list_tasks(map()) :: [map()]
   def list_tasks(filter \\ %{}) do
     GenServer.call(__MODULE__, {:list_tasks, filter})
   end
 
+  @spec get_task(String.t()) :: {:ok, map()} | {:error, :not_found}
   def get_task(id) do
     GenServer.call(__MODULE__, {:get_task, id})
   end
 
+  @spec delete_task(String.t()) :: :ok
   def delete_task(id) do
     GenServer.cast(__MODULE__, {:delete_task, id})
   end

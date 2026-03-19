@@ -1,80 +1,758 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en" class="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CCEM — Agentic Performance Monitoring</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SFA v4.6.0-dev — Splice Integration · Sound Forge Alchemy</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-            mono: ['"Fira Code"', '"SF Mono"', 'monospace'],
-          },
-        },
-      },
-    };
+            sans: ['system-ui', '-apple-system', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'monospace'],
+          }
+        }
+      }
+    }
   </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <style>
+    * { font-family: system-ui, -apple-system, sans-serif; }
+    code, pre, .font-mono { font-family: ui-monospace, SFMono-Regular, monospace; }
+    body { background: #09090b; color: #f4f4f5; overflow: hidden; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #18181b; }
+    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+    .col-scroll { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+    @keyframes pulse-badge { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+    .pulse { animation: pulse-badge 1.8s ease-in-out infinite; }
+    @keyframes progress-shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    .progress-shimmer {
+      background: linear-gradient(90deg, #3b82f6 25%, #60a5fa 50%, #3b82f6 75%);
+      background-size: 200% 100%;
+      animation: progress-shimmer 2s linear infinite;
+    }
+    @keyframes apm-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .apm-dot-online { background: #10b981; animation: apm-blink 3s ease-in-out infinite; }
+    .apm-dot-offline { background: #ef4444; }
+    .apm-dot-checking { background: #f59e0b; animation: apm-blink 1s ease-in-out infinite; }
+    .tree-line { color: #52525b; }
+    .story-card {
+      border-left: 2px solid #3f3f46;
+      transition: border-color 0.15s;
+    }
+    .story-card:hover { border-color: #71717a; }
+    .story-card.w1 { border-color: #10b981; }
+    .story-card.w2 { border-color: #3b82f6; }
+    .story-card.w2.in-progress { border-color: #60a5fa; }
+    .story-card.w3 { border-color: #10b981; }
+    .story-card.w5 { border-color: #f59e0b; }
+    .story-card.w5.in-progress { border-color: #fbbf24; }
+    /* Architecture SVG */
+    .arch-node { fill: #18181b; stroke: #3f3f46; }
+    .arch-node-highlight { fill: #1c1917; stroke: #f59e0b; }
+    .arch-node-splice { fill: #1a1209; stroke: #f59e0b; }
+    .arch-text { fill: #a1a1aa; font-size: 9px; font-family: ui-monospace, monospace; }
+    .arch-text-highlight { fill: #fbbf24; font-size: 9px; font-family: ui-monospace, monospace; }
+    .arch-arrow { stroke: #3f3f46; stroke-width: 1; fill: none; marker-end: url(#arrow); }
+    .arch-arrow-splice { stroke: #f59e0b; stroke-width: 1; fill: none; marker-end: url(#arrow-splice); stroke-dasharray: 3 2; }
+  </style>
 </head>
-<body class="h-full bg-zinc-950 text-zinc-100 antialiased">
+<body class="h-screen flex flex-col">
 
-  <!-- Sticky Chrome: Header + Orchestration Bar -->
-  <div class="sticky top-0 z-50">
-    <header class="border-b border-zinc-800 bg-zinc-900/95 px-6 py-3 backdrop-blur-sm">
-      <div class="mx-auto flex max-w-[1600px] items-center justify-between">
-        <div>
-          <div class="flex items-center gap-3">
-            <span class="rounded bg-indigo-500/20 px-2 py-0.5 text-xs font-bold text-indigo-400 ring-1 ring-indigo-500/30" id="version-badge">v5.3.1</span>
-            <h1 class="text-lg font-bold text-zinc-100">CCEM — Agentic Performance Monitoring</h1>
+  <!-- Sticky Header -->
+  <header class="sticky top-0 z-50 h-12 flex items-center justify-between px-4 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur-sm flex-shrink-0">
+    <!-- Left: SFA badge + version -->
+    <div class="flex items-center gap-2">
+      <span class="rounded bg-violet-500/20 px-2 py-0.5 text-xs font-bold text-violet-300 ring-1 ring-violet-500/30">SFA</span>
+      <span class="font-mono text-xs text-amber-400 ring-1 ring-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 rounded">v4.6.0-dev</span>
+      <span class="text-zinc-700 text-xs">·</span>
+      <span class="text-xs text-zinc-500">feature/alchemy2-refactor-2025-12-16</span>
+    </div>
+
+    <!-- Center: summary -->
+    <div class="absolute left-1/2 -translate-x-1/2 text-xs font-medium text-zinc-300">
+      Sound Forge Alchemy
+      <span class="text-zinc-600 mx-1">·</span>
+      35 features
+      <span class="text-zinc-600 mx-1">·</span>
+      780+ tests
+    </div>
+
+    <!-- Right: APM status + wave indicator -->
+    <div class="flex items-center gap-3 text-xs">
+      <div class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full apm-dot-checking" id="apm-status-dot"></span>
+        <span class="text-zinc-500" id="apm-status-label">APM</span>
+      </div>
+      <span class="text-zinc-700">·</span>
+      <span class="text-emerald-400 font-medium">Waves 1-4 ✓</span>
+      <span class="text-zinc-700">·</span>
+      <span class="text-amber-400 font-medium pulse">Wave 5 active</span>
+    </div>
+  </header>
+
+  <!-- 3-Column Body -->
+  <div class="flex-1 grid grid-cols-[260px_1fr_280px] divide-x divide-zinc-800 min-h-0">
+
+    <!-- Left: Feature Tree / Wave Progress -->
+    <aside class="col-scroll h-full p-3">
+      <div class="mb-3">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">SFA Feature Waves</div>
+        <div class="font-mono text-[11px] text-zinc-400 leading-relaxed">
+          <div class="text-zinc-300 font-medium mb-1">sound-forge-alchemy</div>
+
+          <!-- Wave 1 - COMPLETE: Data Layer -->
+          <div class="mt-1.5">
+            <div class="flex items-center gap-1.5 text-emerald-400">
+              <span class="tree-line">├──</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+              <span class="font-medium">Wave 1 — Data Layer</span>
+              <span class="ml-auto text-[10px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded ring-1 ring-emerald-500/25 flex-shrink-0">DONE</span>
+            </div>
+            <div class="ml-5 mt-0.5 space-y-0.5">
+              <div class="story-card w1 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-500">dj_presets migration + schema</span>
+              </div>
+              <div class="story-card w1 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">└──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-500">Rekordbox XML parser</span>
+              </div>
+            </div>
           </div>
-          <p class="mt-0.5 text-xs text-zinc-500">
-            AG-UI Protocol · Formation Orchestration · Real-Time Agent Observability
-          </p>
-        </div>
-        <div class="flex items-center gap-4 text-xs text-zinc-500">
-          <a href="https://docs.ag-ui.com" target="_blank" rel="noopener noreferrer" class="hover:text-zinc-300 transition">AG-UI Docs</a>
-          <a href="http://localhost:3032" target="_blank" rel="noopener noreferrer" class="hover:text-zinc-300 transition" id="apm-link">APM Dashboard</a>
-          <a href="http://localhost:3032/api/docs" target="_blank" rel="noopener noreferrer" class="hover:text-zinc-300 transition">API Docs</a>
-          <span class="font-mono text-zinc-600" id="git-info">loading...</span>
+
+          <!-- Wave 2 - COMPLETE: Context + Parsers -->
+          <div class="mt-2">
+            <div class="flex items-center gap-1.5 text-emerald-400">
+              <span class="tree-line">├──</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+              <span class="font-medium">Wave 2 — Context + Parsers</span>
+              <span class="ml-auto text-[10px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded ring-1 ring-emerald-500/25 flex-shrink-0">DONE</span>
+            </div>
+            <div class="ml-5 mt-0.5 space-y-0.5">
+              <div class="story-card w3 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-500">DJ.PresetsContext CRUD</span>
+              </div>
+              <div class="story-card w3 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-500">Traktor TSI parser v2.x</span>
+              </div>
+              <div class="story-card w3 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">└──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-500">TouchOSC .tosc v2 parser</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Wave 3 - COMPLETE: Live Layout API -->
+          <div class="mt-2">
+            <div class="flex items-center gap-1.5 text-emerald-400">
+              <span class="tree-line">├──</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+              <span class="font-medium">Wave 3 — Live Layout API</span>
+              <span class="ml-auto text-[10px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded ring-1 ring-emerald-500/25 flex-shrink-0">DONE</span>
+            </div>
+            <div class="ml-5 mt-0.5 space-y-0.5">
+              <div class="story-card w3 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-500">save_current_layout/2</span>
+              </div>
+              <div class="story-card w3 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">└──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-500">load_layout/2 + PubSub sync</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Wave 4 - COMPLETE: UI Layer -->
+          <div class="mt-2">
+            <div class="flex items-center gap-1.5 text-emerald-400">
+              <span class="tree-line">├──</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+              <span class="font-medium">Wave 4 — DJ UI Layer</span>
+              <span class="ml-auto text-[10px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded ring-1 ring-emerald-500/25 flex-shrink-0">DONE</span>
+            </div>
+            <div class="ml-5 mt-0.5 space-y-0.5">
+              <div class="story-card w3 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-500">Preset management panel</span>
+              </div>
+              <div class="story-card w3 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-500">Rekordbox import modal</span>
+              </div>
+              <div class="story-card w3 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-500">JSON export</span>
+              </div>
+              <div class="story-card w3 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">└──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-500">Center mixer strip</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Wave 5 - IN PROGRESS: Splice Integration -->
+          <div class="mt-2">
+            <div class="flex items-center gap-1.5 text-amber-400 pulse">
+              <span class="tree-line">└──</span>
+              <span class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"></span>
+              <span class="font-medium">Wave 5 — Splice Integration</span>
+              <span class="ml-auto text-[10px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded ring-1 ring-amber-500/25 flex-shrink-0">ACTIVE</span>
+            </div>
+            <div class="ml-5 mt-0.5 space-y-0.5">
+              <div class="story-card w5 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-400">Splice library scanner GenServer</span>
+              </div>
+              <div class="story-card w5 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-400">Loop vs one-shot classification</span>
+              </div>
+              <div class="story-card w5 pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-emerald-400 ml-1">✓</span>
+                <span class="ml-1 text-zinc-400">Sources nav section (library sidebar)</span>
+              </div>
+              <div class="story-card w5 in-progress pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-amber-400 ml-1 pulse">⟳</span>
+                <span class="ml-1 text-zinc-400">Transient detection + drum category</span>
+              </div>
+              <div class="story-card w5 in-progress pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-amber-400 ml-1 pulse">⟳</span>
+                <span class="ml-1 text-zinc-400">Transient markers (D3 beats hook)</span>
+              </div>
+              <div class="story-card w5 in-progress pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-amber-400 ml-1 pulse">⟳</span>
+                <span class="ml-1 text-zinc-400">Chef AI drum context boosting</span>
+              </div>
+              <div class="story-card w5 in-progress pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-amber-400 ml-1 pulse">⟳</span>
+                <span class="ml-1 text-zinc-400">MIDI extraction from drum events</span>
+              </div>
+              <div class="story-card w5 in-progress pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-amber-400 ml-1 pulse">⟳</span>
+                <span class="ml-1 text-zinc-400">MIDI download endpoint</span>
+              </div>
+              <div class="story-card w5 in-progress pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-amber-400 ml-1 pulse">⟳</span>
+                <span class="ml-1 text-zinc-400">DrumKit schema + pad layout builder</span>
+              </div>
+              <div class="story-card pl-2 py-0.5 rounded-r">
+                <span class="tree-line">├──</span>
+                <span class="text-zinc-600 ml-1">·</span>
+                <span class="ml-1 text-zinc-600">XO-style D3-force node graph (W4)</span>
+              </div>
+              <div class="story-card pl-2 py-0.5 rounded-r">
+                <span class="tree-line">└──</span>
+                <span class="text-zinc-600 ml-1">·</span>
+                <span class="ml-1 text-zinc-600">Drag-and-drop Splice → loop deck (W4)</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </header>
 
-    <!-- Orchestration Status Bar -->
-    <div class="border-b border-zinc-800/60 bg-zinc-900/80 px-6 py-2 backdrop-blur-sm" id="orchestration-bar"></div>
-  </div>
-
-  <!-- 3-Column Layout -->
-  <div class="mx-auto grid max-w-[1600px] grid-cols-[320px_1fr_300px] gap-0 divide-x divide-zinc-800">
-
-    <!-- Left: Feature Cards -->
-    <aside class="sticky top-[98px] h-[calc(100vh-98px)] overflow-y-auto p-5" id="features-panel">
-      <div class="space-y-4" id="features-container"></div>
+      <!-- Legend -->
+      <div class="mt-4 pt-3 border-t border-zinc-800">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 mb-2">Legend</div>
+        <div class="space-y-1 text-[10px]">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span class="text-zinc-500">COMPLETE — shipped</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-500 pulse"></span>
+            <span class="text-zinc-500">IN_PROGRESS — active</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-zinc-600"></span>
+            <span class="text-zinc-500">PENDING — queued</span>
+          </div>
+        </div>
+      </div>
     </aside>
 
-    <!-- Center: Architecture -->
-    <main class="min-h-[calc(100vh-98px)] p-5 space-y-6" id="center-panel">
-      <div id="architecture-container"></div>
+    <!-- Center: Product overview + architecture -->
+    <main class="col-scroll h-full p-4 space-y-5">
+
+      <!-- Product Header Card -->
+      <div class="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Sound Forge Alchemy</span>
+              <span class="text-[10px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded ring-1 ring-amber-500/20 pulse">Splice Integration Active</span>
+            </div>
+            <h1 class="text-base font-bold text-zinc-100">Elixir/Phoenix Audio Intelligence Platform</h1>
+            <p class="text-xs text-zinc-500 mt-0.5 leading-relaxed max-w-xl">
+              Local stem separation (Demucs), multi-LLM agentic system, DJ/DAW/MIDI/OSC integration, audio-to-MIDI pipeline, chord detection, piano roll — and now: Splice library scanner, drum transient detection, MIDI extraction from drum events, and a DrumKit pad layout builder.
+            </p>
+          </div>
+          <div class="text-right flex-shrink-0 ml-4">
+            <div class="text-2xl font-bold text-zinc-100">v4.6.0<span class="text-amber-400 text-sm">-dev</span></div>
+            <div class="text-[10px] text-zinc-500">Splice integration</div>
+            <div class="mt-1 text-[10px] text-zinc-500">780+ tests</div>
+            <div class="mt-0.5 text-[10px] text-zinc-500">35 features</div>
+          </div>
+        </div>
+        <!-- Version history bar -->
+        <div class="mt-3 flex items-center gap-1 flex-wrap">
+          <span class="text-[10px] font-mono text-emerald-400/70 bg-emerald-950/30 px-1.5 py-0.5 rounded ring-1 ring-emerald-800/30">v4.0</span>
+          <span class="text-zinc-700 text-[10px]">→</span>
+          <span class="text-[10px] font-mono text-emerald-400/70 bg-emerald-950/30 px-1.5 py-0.5 rounded ring-1 ring-emerald-800/30">v4.1 lalal.ai</span>
+          <span class="text-zinc-700 text-[10px]">→</span>
+          <span class="text-[10px] font-mono text-emerald-400/70 bg-emerald-950/30 px-1.5 py-0.5 rounded ring-1 ring-emerald-800/30">v4.2 Azure</span>
+          <span class="text-zinc-700 text-[10px]">→</span>
+          <span class="text-[10px] font-mono text-emerald-400/70 bg-emerald-950/30 px-1.5 py-0.5 rounded ring-1 ring-emerald-800/30">v4.3 LLM agents</span>
+          <span class="text-zinc-700 text-[10px]">→</span>
+          <span class="text-[10px] font-mono text-emerald-400/70 bg-emerald-950/30 px-1.5 py-0.5 rounded ring-1 ring-emerald-800/30">v4.4 /prototype</span>
+          <span class="text-zinc-700 text-[10px]">→</span>
+          <span class="text-[10px] font-mono text-emerald-400/70 bg-emerald-950/30 px-1.5 py-0.5 rounded ring-1 ring-emerald-800/30">v4.5 MIDI/chord</span>
+          <span class="text-zinc-700 text-[10px]">→</span>
+          <span class="text-[10px] font-mono text-amber-400 bg-amber-950/30 px-1.5 py-0.5 rounded ring-1 ring-amber-800/40 pulse">v4.6 Splice</span>
+        </div>
+      </div>
+
+      <!-- Architecture SVG -->
+      <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-3">Architecture — GenServer Layer</div>
+        <svg viewBox="0 0 580 200" xmlns="http://www.w3.org/2000/svg" class="w-full" style="max-height:200px;">
+          <defs>
+            <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#3f3f46" />
+            </marker>
+            <marker id="arrow-splice" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#f59e0b" />
+            </marker>
+          </defs>
+
+          <!-- Row 1: Oban Workers -->
+          <text x="10" y="14" class="arch-text" style="fill:#52525b;font-size:8px;letter-spacing:0.05em">OBAN WORKERS</text>
+          <rect x="8" y="20" width="90" height="22" rx="3" class="arch-node"/>
+          <text x="53" y="35" text-anchor="middle" class="arch-text">AnalysisWorker</text>
+          <rect x="108" y="20" width="90" height="22" rx="3" class="arch-node"/>
+          <text x="153" y="35" text-anchor="middle" class="arch-text">StemWorker</text>
+          <rect x="208" y="20" width="90" height="22" rx="3" class="arch-node"/>
+          <text x="253" y="35" text-anchor="middle" class="arch-text">MidiWorker</text>
+          <rect x="308" y="20" width="90" height="22" rx="3" class="arch-node"/>
+          <text x="353" y="35" text-anchor="middle" class="arch-text">DownloadWorker</text>
+          <!-- NEW: Splice scan worker -->
+          <rect x="408" y="20" width="90" height="22" rx="3" class="arch-node-splice"/>
+          <text x="453" y="31" text-anchor="middle" class="arch-text-highlight">SpliceScanWorker</text>
+          <text x="453" y="40" text-anchor="middle" style="fill:#92400e;font-size:8px;font-family:ui-monospace,monospace">NEW</text>
+
+          <!-- Row 2: GenServers -->
+          <text x="10" y="68" class="arch-text" style="fill:#52525b;font-size:8px;letter-spacing:0.05em">GENSERVERS</text>
+          <rect x="8" y="74" width="90" height="22" rx="3" class="arch-node"/>
+          <text x="53" y="89" text-anchor="middle" class="arch-text">MIDI.Dispatcher</text>
+          <rect x="108" y="74" width="90" height="22" rx="3" class="arch-node"/>
+          <text x="153" y="89" text-anchor="middle" class="arch-text">MIDI.DeviceManager</text>
+          <rect x="208" y="74" width="90" height="22" rx="3" class="arch-node"/>
+          <text x="253" y="89" text-anchor="middle" class="arch-text">LLM.HealthWorker</text>
+          <rect x="308" y="74" width="90" height="22" rx="3" class="arch-node"/>
+          <text x="353" y="89" text-anchor="middle" class="arch-text">LogWatcher</text>
+          <!-- NEW: SpliceScanner GenServer -->
+          <rect x="408" y="74" width="90" height="22" rx="3" class="arch-node-splice"/>
+          <text x="453" y="85" text-anchor="middle" class="arch-text-highlight">SpliceScanner</text>
+          <text x="453" y="93" text-anchor="middle" style="fill:#92400e;font-size:8px;font-family:ui-monospace,monospace">GenServer NEW</text>
+
+          <!-- Row 3: Python Layer -->
+          <text x="10" y="122" class="arch-text" style="fill:#52525b;font-size:8px;letter-spacing:0.05em">PYTHON / ML</text>
+          <rect x="8" y="128" width="90" height="22" rx="3" class="arch-node"/>
+          <text x="53" y="143" text-anchor="middle" class="arch-text">analyzer.py</text>
+          <rect x="108" y="128" width="90" height="22" rx="3" class="arch-node"/>
+          <text x="153" y="143" text-anchor="middle" class="arch-text">Demucs (local)</text>
+          <rect x="208" y="128" width="90" height="22" rx="3" class="arch-node"/>
+          <text x="253" y="143" text-anchor="middle" class="arch-text">basic-pitch MIDI</text>
+          <!-- NEW: librosa HPSS -->
+          <rect x="308" y="128" width="90" height="22" rx="3" class="arch-node-splice"/>
+          <text x="353" y="139" text-anchor="middle" class="arch-text-highlight">librosa HPSS</text>
+          <text x="353" y="147" text-anchor="middle" style="fill:#92400e;font-size:8px;font-family:ui-monospace,monospace">transients NEW</text>
+
+          <!-- Row 4: External -->
+          <text x="10" y="176" class="arch-text" style="fill:#52525b;font-size:8px;letter-spacing:0.05em">EXTERNAL / FS</text>
+          <rect x="8" y="182" width="90" height="16" rx="3" class="arch-node"/>
+          <text x="53" y="193" text-anchor="middle" class="arch-text">lalal.ai API</text>
+          <rect x="108" y="182" width="90" height="16" rx="3" class="arch-node"/>
+          <text x="153" y="193" text-anchor="middle" class="arch-text">Spotify OAuth</text>
+          <!-- NEW: ~/Splice/Sounds FS watch -->
+          <rect x="208" y="182" width="100" height="16" rx="3" class="arch-node-splice"/>
+          <text x="258" y="193" text-anchor="middle" class="arch-text-highlight">~/Splice/Sounds (poll)</text>
+
+          <!-- Arrows: SpliceScanner → SpliceScanWorker -->
+          <line x1="453" y1="96" x2="453" y2="118" class="arch-arrow-splice"/>
+          <!-- SpliceScanner → ~/Splice/Sounds -->
+          <line x1="453" y1="118" x2="300" y2="182" class="arch-arrow-splice"/>
+          <!-- librosa HPSS → analyzer.py -->
+          <line x1="308" y1="139" x2="98" y2="139" class="arch-arrow-splice"/>
+        </svg>
+        <div class="mt-2 flex items-center gap-3 text-[10px]">
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-0.5 bg-amber-500" style="border-top:1px dashed #f59e0b"></span><span class="text-amber-400/70">new Splice flow</span></span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-0.5 bg-zinc-600"></span><span class="text-zinc-600">existing flow</span></span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-amber-900/60 ring-1 ring-amber-600/40 inline-block"></span><span class="text-amber-400/70">new node (v4.6)</span></span>
+        </div>
+      </div>
+
+      <!-- Wave 5 Feature Detail -->
+      <div class="rounded-lg border border-amber-800/30 bg-amber-950/10 p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="w-2 h-2 rounded-full bg-amber-500 pulse flex-shrink-0"></span>
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-amber-400">Wave 5 — Splice Integration (v4.6.0-dev)</div>
+          <span class="ml-auto text-[10px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded ring-1 ring-amber-500/25 pulse">IN PROGRESS</span>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div class="bg-zinc-900/60 rounded p-3 border border-zinc-800">
+            <div class="font-semibold text-emerald-400 mb-1">Shipped (Wave 5 W1–W3)</div>
+            <ul class="space-y-0.5 text-zinc-500">
+              <li>· <code class="text-zinc-400">SpliceScanner</code> GenServer — polls <code class="text-zinc-400">~/Splice/Sounds</code></li>
+              <li>· Loop vs one-shot heuristic (<span class="text-zinc-400">&lt;8s = one-shot</span>)</li>
+              <li>· Sources nav section in library sidebar</li>
+            </ul>
+          </div>
+          <div class="bg-zinc-900/60 rounded p-3 border border-amber-800/20">
+            <div class="font-semibold text-amber-400 mb-1 pulse">In Progress (Wave 5 W4–W6)</div>
+            <ul class="space-y-0.5 text-zinc-500">
+              <li>· Transient detection — <code class="text-zinc-400">librosa HPSS</code> + spectral centroid</li>
+              <li>· Drum category classification (kick/snare/hat)</li>
+              <li>· Transient markers on waveform (D3 <code class="text-zinc-400">analysis_beats</code> hook)</li>
+              <li>· Chef AI drum context boosting (confidence near downbeats)</li>
+              <li>· MIDI extraction from drum events (Type 0, 16th-note grid)</li>
+              <li>· MIDI download endpoint <code class="text-zinc-400">/files/midi/:track_id</code></li>
+              <li>· <code class="text-zinc-400">DrumKit</code> schema + pad layout builder</li>
+            </ul>
+          </div>
+          <div class="bg-zinc-900/60 rounded p-3 border border-zinc-800 col-span-2">
+            <div class="font-semibold text-zinc-500 mb-1">Coming (Wave 5 W4 — pending)</div>
+            <ul class="space-y-0.5 text-zinc-600 grid grid-cols-2 gap-x-4">
+              <li>· XO-style D3-force drum sample node graph</li>
+              <li>· Drag-and-drop Splice samples to loop deck pads</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prior Waves Summary -->
+      <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-3">Completed Feature Waves</div>
+        <div class="space-y-3 text-xs">
+          <div>
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span class="font-semibold text-emerald-400">v4.5 — Audio-to-MIDI + Chord Detection</span>
+            </div>
+            <p class="text-zinc-500 leading-relaxed pl-3">
+              <code class="text-zinc-400">basic-pitch</code> MIDI extraction, librosa chroma chord detection, piano roll LiveView, audio warping via <code class="text-zinc-400">pyrubberband</code>, auto-pipeline extensions. 772 tests, PR #14, +4,731 lines.
+            </p>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span class="font-semibold text-emerald-400">v4.3 — Multi-LLM Agentic System</span>
+            </div>
+            <p class="text-zinc-500 leading-relaxed pl-3">
+              6 specialist agents (Orchestrator, Chef, DJ, DAW, MIDI, LLM Health), multi-provider routing (OpenAI / Anthropic / Ollama), agent chat UI, PR #13, +707 tests.
+            </p>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span class="font-semibold text-emerald-400">v4.2 — Azure + lalal.ai</span>
+            </div>
+            <p class="text-zinc-500 leading-relaxed pl-3">
+              Azure Container Apps deployment (PR #10), lalal.ai 9-stem cloud separation (PR #9), MIDI Learn system, OSC bridge, DJ Preset Layouts (Waves 1–4).
+            </p>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span class="font-semibold text-emerald-400">DJ Preset Layouts — Waves 1–4</span>
+            </div>
+            <p class="text-zinc-500 leading-relaxed pl-3">
+              <code class="text-zinc-400">dj_presets</code> Ecto schema + JSONB layout, Rekordbox XML / Traktor TSI / TouchOSC parsers, <code class="text-zinc-400">DJ.PresetsContext</code> CRUD, live <code class="text-zinc-400">save_current_layout/2</code> + <code class="text-zinc-400">load_layout/2</code>, preset management panel, center mixer strip with parametric EQ.
+            </p>
+          </div>
+        </div>
+      </div>
+
     </main>
 
-    <!-- Right: Inspector Panel -->
-    <aside class="sticky top-[98px] h-[calc(100vh-98px)] overflow-y-auto p-5" id="inspector-panel">
-      <div class="space-y-4" id="inspector-container"></div>
+    <!-- Right: Resource Inspector -->
+    <aside class="col-scroll h-full p-3">
+      <div class="mb-3">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Resource Inspector</div>
+        <div class="flex items-center gap-1.5 mb-3">
+          <span class="w-2 h-2 rounded-full apm-dot-checking" id="inspector-dot"></span>
+          <span class="text-[10px] text-zinc-500">Polling APM every 10s</span>
+          <span class="ml-auto text-[10px] font-mono text-zinc-600" id="last-poll-time">—</span>
+        </div>
+      </div>
+
+      <!-- SFA Stats Card -->
+      <div class="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 mb-3">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 mb-2">SFA State</div>
+        <div class="space-y-1.5 text-[11px]">
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-500">Version</span>
+            <span class="text-amber-400 font-mono pulse">v4.6.0-dev</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-500">Branch</span>
+            <span class="text-zinc-400 font-mono text-[10px]">feature/alchemy2-refactor</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-500">Tests</span>
+            <span class="text-zinc-400">780+</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-500">Features</span>
+            <span class="text-zinc-400">~35</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-500">Waves done</span>
+            <span class="text-emerald-400">4 / 5</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-500">Wave 5 (Splice)</span>
+            <span class="text-amber-400 pulse">W1–W3 done</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-500">Azure URL</span>
+            <a href="https://sfa-app.jollyplant-d0a9771d.eastus.azurecontainerapps.io/" target="_blank" class="text-blue-400 hover:text-blue-300 font-mono text-[10px]">sfa-app.jolly…</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- APM Status Card -->
+      <div class="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 mb-3">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 mb-2">APM Health</div>
+        <div class="space-y-2 text-[11px]" id="apm-health-content">
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-500">Status</span>
+            <span class="text-zinc-400 pulse" id="apm-health-status">checking...</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-500">Endpoint</span>
+            <a href="http://localhost:3032" target="_blank" class="text-blue-400 hover:text-blue-300 font-mono text-[10px]">localhost:3032</a>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-500">Version</span>
+            <span class="text-zinc-400 font-mono" id="apm-version">—</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-500">Uptime</span>
+            <span class="text-zinc-400 font-mono" id="apm-uptime">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Wave 5 Progress Card -->
+      <div class="rounded-lg border border-amber-800/30 bg-amber-950/10 p-3 mb-3">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-amber-600 mb-2">Wave 5 Progress</div>
+        <div class="space-y-1.5">
+          <div class="flex items-center gap-2">
+            <div class="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width: 100%"></div>
+            </div>
+            <span class="text-[10px] text-emerald-400 w-20 text-right">W5-W1 · 3/3</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div class="h-full rounded-full" style="background:linear-gradient(90deg,#f59e0b 25%,#fbbf24 50%,#f59e0b 75%);background-size:200% 100%;animation:progress-shimmer 2s linear infinite;width:60%"></div>
+            </div>
+            <span class="text-[10px] text-amber-400 w-20 text-right pulse">W5-W2/3 · 6/7</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex-1 bg-zinc-800 rounded-full h-1.5"></div>
+            <span class="text-[10px] text-zinc-600 w-20 text-right">W5-W4 · 0/2</span>
+          </div>
+        </div>
+        <div class="mt-2 text-[10px] text-zinc-600">DrumKit schema, XO graph, drag-drop pending</div>
+      </div>
+
+      <!-- Story Summary Card -->
+      <div class="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 mb-3">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 mb-2">All Waves Summary</div>
+        <div class="space-y-1.5">
+          <div class="flex items-center gap-2">
+            <div class="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width: 100%"></div>
+            </div>
+            <span class="text-[10px] text-emerald-400 w-16 text-right">W1 · done</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width: 100%"></div>
+            </div>
+            <span class="text-[10px] text-emerald-400 w-16 text-right">W2 · done</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width: 100%"></div>
+            </div>
+            <span class="text-[10px] text-emerald-400 w-16 text-right">W3 · done</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width: 100%"></div>
+            </div>
+            <span class="text-[10px] text-emerald-400 w-16 text-right">W4 · done</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div class="h-full rounded-full" style="background:linear-gradient(90deg,#f59e0b 25%,#fbbf24 50%,#f59e0b 75%);background-size:200% 100%;animation:progress-shimmer 2s linear infinite;width:75%"></div>
+            </div>
+            <span class="text-[10px] text-amber-400 w-16 text-right pulse">W5 · 75%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live APM Poll Data -->
+      <div class="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 mb-2">Live APM Data</div>
+        <pre class="text-[10px] font-mono text-zinc-600 leading-relaxed whitespace-pre-wrap break-all" id="apm-raw-data">Polling…</pre>
+      </div>
+
+      <!-- Quick Links -->
+      <div class="mt-3 space-y-1.5">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 mb-1.5">Quick Links</div>
+        <a href="http://localhost:3032" target="_blank" class="flex items-center gap-2 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
+          <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+          APM Dashboard
+        </a>
+        <a href="http://localhost:3032/api/status" target="_blank" class="flex items-center gap-2 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
+          <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+          /api/status
+        </a>
+        <a href="http://localhost:5000" target="_blank" class="flex items-center gap-2 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          SFA Dev (:5000)
+        </a>
+        <a href="https://sfa-app.jollyplant-d0a9771d.eastus.azurecontainerapps.io/" target="_blank" class="flex items-center gap-2 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
+          <span class="w-1.5 h-1.5 rounded-full bg-violet-500"></span>
+          SFA Azure (prod)
+        </a>
+        <a href="http://localhost:3032/docs/upm/status" target="_blank" class="flex items-center gap-2 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+          APM Showcase (/docs/upm/status)
+        </a>
+      </div>
     </aside>
   </div>
 
-  <!-- Roadmap Modal (rendered by JS) -->
-  <div id="roadmap-modal"></div>
+  <script>
+    // APM polling
+    const APM_BASE = (typeof window.CCEM_APM_BASE_URL !== 'undefined')
+      ? window.CCEM_APM_BASE_URL
+      : 'http://localhost:3032';
 
-  <!-- Bottom Bar (rendered by JS) -->
-  <div id="bottom-bar"></div>
+    const statusDot = document.getElementById('apm-status-dot');
+    const statusLabel = document.getElementById('apm-status-label');
+    const inspectorDot = document.getElementById('inspector-dot');
+    const healthStatus = document.getElementById('apm-health-status');
+    const apmVersion = document.getElementById('apm-version');
+    const apmUptime = document.getElementById('apm-uptime');
+    const rawData = document.getElementById('apm-raw-data');
+    const lastPollTime = document.getElementById('last-poll-time');
 
-  <script type="module" src="showcase.js"></script>
+    function formatUptime(seconds) {
+      if (!seconds) return '—';
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m`;
+    }
+
+    function setOnline() {
+      [statusDot, inspectorDot].forEach(d => {
+        d.classList.remove('apm-dot-offline', 'apm-dot-checking');
+        d.classList.add('apm-dot-online');
+      });
+      statusLabel.textContent = 'APM online';
+      statusLabel.classList.remove('pulse');
+      statusLabel.classList.add('text-emerald-400');
+    }
+
+    function setOffline() {
+      [statusDot, inspectorDot].forEach(d => {
+        d.classList.remove('apm-dot-online', 'apm-dot-checking');
+        d.classList.add('apm-dot-offline');
+      });
+      statusLabel.textContent = 'APM offline';
+      statusLabel.classList.remove('pulse');
+      statusLabel.classList.add('text-red-400');
+      healthStatus.textContent = 'unreachable';
+      healthStatus.classList.add('text-red-400');
+      rawData.textContent = '// APM not reachable at\n// ' + APM_BASE + '/api/status';
+    }
+
+    async function pollAPM() {
+      const now = new Date();
+      lastPollTime.textContent = now.toLocaleTimeString('en-US', { hour12: false });
+
+      try {
+        const res = await fetch(`${APM_BASE}/api/status`, {
+          signal: AbortSignal.timeout(5000)
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        setOnline();
+        healthStatus.textContent = 'online';
+        healthStatus.classList.remove('pulse');
+        healthStatus.classList.add('text-emerald-400');
+
+        // Try to extract version/uptime from common APM response shapes
+        const version = data.version || data.app_version || data.vsn || '—';
+        const uptime = data.uptime_seconds || data.uptime || null;
+        apmVersion.textContent = version;
+        apmUptime.textContent = uptime ? formatUptime(uptime) : '—';
+
+        // Show condensed raw data
+        const condensed = {
+          status: data.status || 'ok',
+          version: version,
+          uptime: uptime,
+          timestamp: data.timestamp || data.time || now.toISOString(),
+        };
+        rawData.textContent = JSON.stringify(condensed, null, 2);
+
+      } catch (err) {
+        setOffline();
+      }
+    }
+
+    // Initial poll + interval
+    pollAPM();
+    setInterval(pollAPM, 10000);
+  </script>
 </body>
 </html>

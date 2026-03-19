@@ -1,614 +1,944 @@
 /**
  * DependencyGraph LiveView JS Hook
  *
- * Collapsible hierarchical tree visualization with:
- * - d3.hierarchy() + d3.tree() layout
- * - d3.linkVertical() curved Bezier connectors
- * - Click-to-expand/collapse group nodes
- * - SVG arrowhead markers for dependency direction
- * - SCADA industrial aesthetic preserved
- * - Keyboard navigation (Enter/Space, Arrow keys)
+ * Renders the CCEM agentic hierarchy as a live D3 top-down tree:
+ *   Session → Formation → Squadron → Swarm → Cluster → Agent → Task
+ *
+ * Data sources (in priority order):
+ *   1. push_event("hierarchy_data", {tree: {...}}) — structured tree from LiveView
+ *   2. push_event("agents_updated", {agents: [...]}) — flat agent list, tree built client-side
+ *   3. Fetch /api/v2/formations + /api/agents on mount — initial state
+ *
+ * View modes (toggle button top-right):
+ *   - "Hierarchy": live agentic formation data (default)
+ *   - "Skills": static skill ecosystem dependency graph
+ *
+ * Features:
+ *   - D3 v7 tree layout (top-down, cubic bezier links)
+ *   - Level-based node colors: Session/Formation/Squadron/Swarm/Cluster/Agent/Task
+ *   - Status dot per node (active=green, complete=blue, failed=red, idle=gray)
+ *   - Hover tooltips with metadata
+ *   - Zoom/pan via d3.zoom()
+ *   - Auto-fit on initial render
+ *   - Legend with level colors
  */
-import * as d3 from "../../vendor/d3.min.js"
 
-// -- Color palette (industrial/SCADA) --
+// D3 lazy loading — only fetched on routes that mount this hook
+let d3 = null
+let _d3LoadPromise = null
+function ensureD3() {
+  if (d3) return Promise.resolve(d3)
+  if (window.d3) { d3 = window.d3; return Promise.resolve(d3) }
+  if (_d3LoadPromise) return _d3LoadPromise
+  _d3LoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script")
+    script.src = "https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"
+    script.onload = () => { d3 = window.d3; resolve(d3) }
+    script.onerror = () => reject(new Error("Failed to load D3 from CDN"))
+    document.head.appendChild(script)
+  })
+  return _d3LoadPromise
+}
+
+// ── Palette ──────────────────────────────────────────────────────────────────
 const PALETTE = {
-  bg:           "#151b28",
-  bgCard:       "#1c2536",
-  bgCardHover:  "#232f44",
-  border:       "#2a3548",
-  borderHover:  "#3d506a",
-  text:         "#e2e8f0",
-  textDim:      "#8899aa",
-  textMuted:    "#556677",
-  dotGrid:      "#364258",
-  accent:       "#7eef6d",
+  bg:        "#0f172a",
+  border:    "#1e293b",
+  text:      "#e2e8f0",
+  textDim:   "#8899aa",
+  textMuted: "#475569",
+  edge:      "#1e293b",
 }
 
-const STATUS_COLORS = {
-  active:     "#7eef6d",
-  idle:       "#6b7b8d",
-  error:      "#ff6b5a",
-  discovered: "#5daaff",
-  completed:  "#c4a0ff",
-  running:    "#7eef6d",
-  complete:   "#c4a0ff",
-  standby:    "#ffaa44",
-  warning:    "#ffaa44",
+// Level → color mapping (Session=purple … Task=yellow)
+const LEVEL_COLORS = {
+  session:   "#7c3aed",
+  formation: "#3b82f6",
+  squadron:  "#06b6d4",
+  swarm:     "#22c55e",
+  cluster:   "#8b5cf6",
+  agent:     "#f97316",
+  task:      "#eab308",
+  unknown:   "#6b7280",
+  // Skill ecosystem node types
+  skill:     "#e879f9",
+  hub:       "#f43f5e",
 }
 
-// Card dimensions
-const NODE_W = 140
-const NODE_H = 44
-const NODE_R = 8
-const TRANSITION_MS = 750
+const LEVEL_ORDER = ["session", "formation", "squadron", "swarm", "cluster", "agent", "task"]
+
+function levelColor(level) {
+  return LEVEL_COLORS[(level || "").toLowerCase()] || LEVEL_COLORS.unknown
+}
+
+function levelLabel(level) {
+  const l = (level || "").toLowerCase()
+  return l ? l.charAt(0).toUpperCase() + l.slice(1) : "Unknown"
+}
 
 function statusColor(status) {
-  return STATUS_COLORS[status] || PALETTE.textDim
+  switch ((status || "").toLowerCase()) {
+    case "active":    return "#22c55e"
+    case "running":   return "#22c55e"
+    case "pass":      return "#22c55e"
+    case "complete":  return "#3b82f6"
+    case "done":      return "#3b82f6"
+    case "failed":    return "#ef4444"
+    case "fail":      return "#ef4444"
+    case "error":     return "#ef4444"
+    case "idle":      return "#94a3b8"
+    case "waiting":   return "#94a3b8"
+    default:          return "#6b7280"
+  }
 }
 
-function aggregateStatus(children) {
-  if (!children || children.length === 0) return "idle"
-  const statuses = children.map(c => c.data?.status || c.status || "idle")
-  if (statuses.includes("error")) return "error"
-  if (statuses.includes("warning")) return "warning"
-  if (statuses.includes("active") || statuses.includes("running")) return "running"
-  if (statuses.every(s => s === "completed" || s === "complete")) return "completed"
+function abbreviate(name, maxLen) {
+  if (!name) return "?"
+  if (name.length <= maxLen) return name
+  // Try camelCase abbreviation first
+  const parts = name.split(/(?=[A-Z])/)
+  if (parts.length >= 3) {
+    return parts.slice(0, -1).map(p => p[0]).join("") + parts[parts.length - 1].substring(0, 3)
+  }
+  return name.substring(0, maxLen - 1) + "…"
+}
+
+// ── Formation-role → hierarchy level ─────────────────────────────────────────
+function roleToLevel(role) {
+  const r = (role || "").toLowerCase()
+  if (r === "orchestrator")   return "formation"
+  if (r === "squadron_lead")  return "squadron"
+  if (r === "swarm_agent")    return "swarm"
+  if (r === "cluster_agent")  return "cluster"
+  return "agent"
+}
+
+// ── Build hierarchy tree from flat agents list ────────────────────────────────
+// Groups by formation_id first, then walks parent_agent_id pointers within each group.
+function buildHierarchyFromAgents(agents) {
+  if (!agents || agents.length === 0) return null
+
+  const byId = {}
+  agents.forEach(a => { byId[a.agent_id || a.id] = a })
+
+  // Group by formation_id
+  const byFormation = {}
+  const noFormation = []
+  agents.forEach(a => {
+    const fid = a.formation_id || a.formationId || ""
+    if (fid) {
+      if (!byFormation[fid]) byFormation[fid] = []
+      byFormation[fid].push(a)
+    } else {
+      noFormation.push(a)
+    }
+  })
+
+  const sessionNode = {
+    id: "session",
+    name: "Session",
+    level: "session",
+    status: "active",
+    children: [],
+  }
+
+  // Build a subtree for each formation
+  Object.entries(byFormation).forEach(([fid, fAgents]) => {
+    const fmtNode = {
+      id: fid,
+      name: fid,
+      level: "formation",
+      status: inferFormationStatus(fAgents),
+      children: [],
+    }
+
+    // Within the formation, build tree via parent_agent_id
+    const aIds = new Set(fAgents.map(a => a.agent_id || a.id))
+    const childrenOf = {}
+    const roots = []
+
+    fAgents.forEach(a => {
+      const pid = a.parent_agent_id
+      if (pid && aIds.has(pid)) {
+        if (!childrenOf[pid]) childrenOf[pid] = []
+        childrenOf[pid].push(a)
+      } else {
+        roots.push(a)
+      }
+    })
+
+    function toNode(a) {
+      const kids = childrenOf[a.agent_id || a.id] || []
+      const level = roleToLevel(a.formation_role || a.role)
+      // If this is a swarm_agent with cluster children, group those under a cluster node
+      if (level === "swarm" && kids.length > 0) {
+        // Check if any kids have cluster_agent role
+        const clusterKids = kids.filter(k => (k.formation_role || k.role || "").toLowerCase() === "cluster_agent")
+        const nonClusterKids = kids.filter(k => (k.formation_role || k.role || "").toLowerCase() !== "cluster_agent")
+        if (clusterKids.length > 0) {
+          // Group cluster_agents by their cluster field
+          const byCluster = {}
+          clusterKids.forEach(k => {
+            const cname = k.cluster || "default"
+            if (!byCluster[cname]) byCluster[cname] = []
+            byCluster[cname].push(k)
+          })
+          const clusterNodes = Object.entries(byCluster).map(([cname, members]) => ({
+            id: `${a.agent_id || a.id}-cluster-${cname}`,
+            name: cname,
+            level: "cluster",
+            status: members.some(m => m.status === "active") ? "active" : members.every(m => m.status === "complete") ? "complete" : "idle",
+            children: members.map(toNode),
+          }))
+          return {
+            id: a.agent_id || a.id,
+            name: a.task_subject || a.agent_id || a.id,
+            level,
+            status: a.status || "unknown",
+            meta: a,
+            children: [...nonClusterKids.map(toNode), ...clusterNodes],
+          }
+        }
+      }
+      return {
+        id: a.agent_id || a.id,
+        name: a.task_subject || a.agent_id || a.id,
+        level,
+        status: a.status || "unknown",
+        meta: a,
+        children: kids.map(toNode),
+      }
+    }
+
+    fmtNode.children = roots.map(toNode)
+    sessionNode.children.push(fmtNode)
+  })
+
+  // Orphaned agents (no formation_id)
+  if (noFormation.length > 0) {
+    const orphanNode = {
+      id: "orphaned",
+      name: "Unassigned",
+      level: "formation",
+      status: "idle",
+      children: noFormation.map(a => ({
+        id: a.agent_id || a.id,
+        name: a.task_subject || a.agent_id || a.id,
+        level: "agent",
+        status: a.status || "unknown",
+        meta: a,
+        children: [],
+      })),
+    }
+    sessionNode.children.push(orphanNode)
+  }
+
+  return sessionNode
+}
+
+// Build from formations + agents (when /api/v2/formations data is available)
+function buildHierarchyFromFormations(formations, agents) {
+  if (!formations || formations.length === 0) {
+    return buildHierarchyFromAgents(agents)
+  }
+
+  const sessionNode = {
+    id: "session",
+    name: "Session",
+    level: "session",
+    status: "active",
+    children: [],
+  }
+
+  // Index agents by formation_id
+  const agentsByFmt = {}
+  ;(agents || []).forEach(a => {
+    const fid = a.formation_id || a.formationId || ""
+    if (!agentsByFmt[fid]) agentsByFmt[fid] = []
+    agentsByFmt[fid].push(a)
+  })
+
+  formations.forEach(fmt => {
+    const fid = fmt.id || fmt.formation_id || "formation"
+    const fmtAgents = agentsByFmt[fid] || fmt.agents || []
+
+    const fmtNode = {
+      id: fid,
+      name: fid,
+      level: "formation",
+      status: fmt.status || inferFormationStatus(fmtAgents),
+      meta: fmt,
+      children: [],
+    }
+
+    // If the formation ships squadrons, use them
+    if (fmt.squadrons && fmt.squadrons.length > 0) {
+      fmt.squadrons.forEach(sq => {
+        const sqNode = {
+          id: sq.id || `${fid}-${sq.name || sq.id}`,
+          name: sq.name || sq.id || "Squadron",
+          level: "squadron",
+          status: sq.status || "unknown",
+          meta: sq,
+          children: [],
+        }
+
+        const swarms = sq.swarms || []
+        if (swarms.length > 0) {
+          swarms.forEach(sw => {
+            const swAgents = sw.agents || []
+            // Group swarm agents by cluster field
+            const clustered = {}
+            const unclustered = []
+            swAgents.forEach(a => {
+              if (a.cluster) {
+                if (!clustered[a.cluster]) clustered[a.cluster] = []
+                clustered[a.cluster].push(a)
+              } else {
+                unclustered.push(a)
+              }
+            })
+            const clusterNodes = Object.entries(clustered).map(([cname, members]) => ({
+              id: `${sw.id || sqNode.id}-cluster-${cname}`,
+              name: cname,
+              level: "cluster",
+              status: members.some(m => m.status === "active") ? "active" : members.every(m => m.status === "complete") ? "complete" : "idle",
+              children: members.map(a => ({
+                id: a.agent_id || a.id,
+                name: a.task_subject || a.agent_id || a.id,
+                level: "agent",
+                status: a.status || "unknown",
+                meta: a,
+                children: [],
+              })),
+            }))
+            const swNode = {
+              id: sw.id || `${sqNode.id}-sw`,
+              name: sw.name || sw.id || "Swarm",
+              level: "swarm",
+              status: sw.status || "unknown",
+              meta: sw,
+              children: [
+                ...unclustered.map(a => ({
+                  id: a.agent_id || a.id,
+                  name: a.task_subject || a.agent_id || a.id,
+                  level: "agent",
+                  status: a.status || "unknown",
+                  meta: a,
+                  children: [],
+                })),
+                ...clusterNodes,
+              ],
+            }
+            sqNode.children.push(swNode)
+          })
+        } else {
+          sqNode.children = (sq.agents || []).map(a => ({
+            id: a.agent_id || a.id,
+            name: a.task_subject || a.agent_id || a.id,
+            level: "agent",
+            status: a.status || "unknown",
+            meta: a,
+            children: [],
+          }))
+        }
+        fmtNode.children.push(sqNode)
+      })
+    } else if (fmtAgents.length > 0) {
+      // Fall back to building from agent parent_agent_id tree
+      const sub = buildHierarchyFromAgents(fmtAgents)
+      // Extract children of the formation node from the sub-tree
+      fmtNode.children = sub ? (sub.children[0] ? sub.children[0].children : []) : []
+    }
+
+    sessionNode.children.push(fmtNode)
+  })
+
+  return sessionNode
+}
+
+function inferFormationStatus(agents) {
+  if (!agents || agents.length === 0) return "idle"
+  if (agents.some(a => (a.status || "").toLowerCase() === "active")) return "active"
+  if (agents.every(a => (a.status || "").toLowerCase() === "complete")) return "complete"
+  if (agents.some(a => (a.status || "").toLowerCase() === "failed")) return "failed"
   return "idle"
 }
 
-function nodeIcon(type) {
-  switch (type) {
-    case "project": return "\u25A3"
-    case "formation": return "\u25C9"
-    case "squadron": return "\u25A0"
-    case "swarm": return "\u25C6"
-    case "cluster": return "\u25B3"
-    case "agent": return "\u25CB"
-    default: return "\u25A1"
-  }
+// ── Skill ecosystem static tree ───────────────────────────────────────────────
+const SKILL_ECOSYSTEM_TREE = {
+  id: "ccem",
+  name: "CCEM",
+  level: "hub",
+  status: "active",
+  children: [
+    {
+      id: "lifecycle",
+      name: "Lifecycle",
+      level: "formation",
+      status: "active",
+      children: [
+        {
+          id: "idea",
+          name: "/idea",
+          level: "squadron",
+          status: "active",
+          meta: { description: "IDEA Framework — discovery through execution" },
+          children: [
+            {
+              id: "ralph",
+              name: "/ralph",
+              level: "swarm",
+              status: "active",
+              meta: { description: "prd.json generation + autonomous fix loop" },
+              children: [
+                {
+                  id: "upm",
+                  name: "/upm",
+                  level: "cluster",
+                  status: "active",
+                  meta: { description: "Unified Project Management orchestrator" },
+                  children: [
+                    {
+                      id: "formation",
+                      name: "/formation",
+                      level: "agent",
+                      status: "active",
+                      meta: { description: "5-level agent hierarchy deployment engine" },
+                      children: [
+                        {
+                          id: "deploy-agents",
+                          name: "/deploy:agents-v2",
+                          level: "task",
+                          status: "active",
+                          meta: { description: "Spawns leaf agents with hook orchestration" },
+                          children: [],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "telemetry",
+      name: "Telemetry",
+      level: "formation",
+      status: "active",
+      children: [
+        {
+          id: "ccem-apm",
+          name: "/ccem-apm",
+          level: "squadron",
+          status: "active",
+          meta: { description: "APM hub — register/heartbeat/event/notify" },
+          children: [
+            {
+              id: "showcase",
+              name: "/showcase",
+              level: "swarm",
+              status: "active",
+              meta: { description: "Consumes: agents, formations, UPM phase, AG-UI stream" },
+              children: [],
+            },
+            {
+              id: "ag-ui",
+              name: "/ag-ui",
+              level: "swarm",
+              status: "active",
+              meta: { description: "33 AG-UI event types — SSE transport" },
+              children: [],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "verification",
+      name: "Verification",
+      level: "formation",
+      status: "active",
+      children: [
+        {
+          id: "live-integration-testing",
+          name: "/live-integration-testing",
+          level: "squadron",
+          status: "active",
+          meta: { description: "Chrome DevTools → Playwright → Puppeteer" },
+          children: [
+            {
+              id: "screenshot",
+              name: "/screenshot",
+              level: "swarm",
+              status: "active",
+              meta: { description: "macOS screenshot capture — HEIC/U+202F aware" },
+              children: [],
+            },
+          ],
+        },
+        {
+          id: "prototype",
+          name: "/prototype",
+          level: "squadron",
+          status: "active",
+          meta: { description: "Rapid prototyping → feeds ralph → upm" },
+          children: [],
+        },
+      ],
+    },
+  ],
 }
 
-// Build a hierarchy from flat agent data (backward compat with agents_updated)
-function buildHierarchyFromFlat(agents, scope) {
-  if (!agents || agents.length === 0) {
-    return { name: "root", type: "root", children: [], status: "idle" }
-  }
-
-  if (scope === "all_projects") {
-    const byProject = d3.group(agents, d => d.project_name || d.projectName || "unknown")
-    const projectNodes = Array.from(byProject, ([projectName, projectAgents]) => {
-      const byFormation = d3.group(projectAgents, d => d.formation_id || d.formationId || "unaffiliated")
-      const formationNodes = Array.from(byFormation, ([fmtId, fmtAgents]) => ({
-        id: `fmt-${projectName}-${fmtId}`,
-        name: fmtId === "unaffiliated" ? "Unaffiliated" : fmtId,
-        type: "formation",
-        status: aggregateStatus(fmtAgents),
-        agent_count: fmtAgents.length,
-        children: fmtAgents.map(a => ({
-          id: a.id,
-          name: a.name || a.id,
-          type: "agent",
-          status: a.status || "idle",
-          data: a
-        }))
-      }))
-      return {
-        id: `proj-${projectName}`,
-        name: projectName,
-        type: "project",
-        status: aggregateStatus(formationNodes),
-        agent_count: projectAgents.length,
-        children: formationNodes
-      }
-    })
-    return { id: "root", name: "All Projects", type: "root", children: projectNodes, status: "idle" }
-  }
-
-  // Single project scope — with squadron/swarm hierarchy
-  const byFormation = d3.group(agents, d => d.formation_id || d.formationId || "unaffiliated")
-  const formationNodes = Array.from(byFormation, ([fmtId, fmtAgents]) => {
-    // Group by squadron if metadata present
-    const bySquadron = d3.group(fmtAgents, d => d.squadron || "default")
-    const hasSquadrons = bySquadron.size > 1 || !bySquadron.has("default")
-
-    const children = hasSquadrons
-      ? Array.from(bySquadron, ([sqName, sqAgents]) => {
-          // Group by swarm within squadron
-          const bySwarm = d3.group(sqAgents, d => d.swarm || "default")
-          const hasSwarms = bySwarm.size > 1 || !bySwarm.has("default")
-
-          const sqChildren = hasSwarms
-            ? Array.from(bySwarm, ([swName, swAgents]) => ({
-                id: `swarm-${fmtId}-${sqName}-${swName}`,
-                name: swName,
-                type: "swarm",
-                status: aggregateStatus(swAgents),
-                agent_count: swAgents.length,
-                children: swAgents.map(a => ({
-                  id: a.id, name: a.name || a.id, type: "agent",
-                  status: a.status || "idle", data: a
-                }))
-              }))
-            : sqAgents.map(a => ({
-                id: a.id, name: a.name || a.id, type: "agent",
-                status: a.status || "idle", data: a
-              }))
-
-          return {
-            id: `sq-${fmtId}-${sqName}`,
-            name: sqName,
-            type: "squadron",
-            status: aggregateStatus(sqAgents),
-            agent_count: sqAgents.length,
-            children: sqChildren
-          }
-        })
-      : fmtAgents.map(a => ({
-          id: a.id, name: a.name || a.id, type: "agent",
-          status: a.status || "idle", data: a
-        }))
-
-    return {
-      id: `fmt-${fmtId}`,
-      name: fmtId === "unaffiliated" ? "Unaffiliated" : fmtId,
-      type: "formation",
-      status: aggregateStatus(fmtAgents),
-      agent_count: fmtAgents.length,
-      children
-    }
-  })
-  return { id: "root", name: "Project", type: "root", children: formationNodes, status: "idle" }
-}
-
+// ── Main Hook ─────────────────────────────────────────────────────────────────
 const DependencyGraph = {
-  mounted() {
+  async mounted() {
+    await ensureD3()
     this._container = d3.select(this.el)
-    this._expandedNodes = new Set(["root"])
-    this._focusedId = null
-    this._scope = this.el.dataset.scope || "single_project"
+    this._treeData  = null
+    this._tooltip   = null
+    this._svg       = null
+    this._mode      = "hierarchy"  // "hierarchy" | "skills"
 
-    this._svg = this._container.append("svg")
-      .attr("width", "100%")
-      .attr("height", "100%")
-      .attr("role", "img")
-      .attr("aria-label", "Agent dependency graph")
+    // Add mode toggle button
+    this._addModeToggle()
 
-    // Dot grid background
-    const defs = this._svg.append("defs")
-    defs.append("pattern")
-      .attr("id", "dotgrid")
-      .attr("width", 20).attr("height", 20)
-      .attr("patternUnits", "userSpaceOnUse")
-      .append("circle")
-      .attr("cx", 10).attr("cy", 10).attr("r", 1)
-      .attr("fill", PALETTE.dotGrid)
+    // Fetch initial data from APM
+    this._fetchInitialData()
 
-    // Arrowhead markers
-    const markerColors = {
-      default: PALETTE.border,
-      active: PALETTE.accent,
-      error: STATUS_COLORS.error,
-      warning: STATUS_COLORS.standby,
-    }
-    Object.entries(markerColors).forEach(([name, color]) => {
-      defs.append("marker")
-        .attr("id", `arrow-${name}`)
-        .attr("viewBox", "0 0 10 10")
-        .attr("refX", 8).attr("refY", 5)
-        .attr("markerWidth", 8).attr("markerHeight", 8)
-        .attr("orient", "auto-start-reverse")
-        .append("path")
-        .attr("d", "M 0 0 L 10 5 L 0 10 z")
-        .attr("fill", color)
-    })
-
-    this._bgRect = this._svg.append("rect")
-      .attr("width", "100%").attr("height", "100%")
-      .attr("fill", `url(#dotgrid)`)
-
-    this._g = this._svg.append("g").attr("class", "graph-content")
-
-    // Zoom behavior
-    this._zoom = d3.zoom()
-      .scaleExtent([0.3, 3])
-      .on("zoom", (event) => this._g.attr("transform", event.transform))
-    this._svg.call(this._zoom)
-
-    this._tooltip = this._container.append("div")
-      .attr("class", "dep-tooltip")
-      .style("position", "absolute")
-      .style("display", "none")
-      .style("background", PALETTE.bgCard)
-      .style("border", `1px solid ${PALETTE.border}`)
-      .style("border-radius", "6px")
-      .style("padding", "8px 12px")
-      .style("color", PALETTE.text)
-      .style("font-size", "12px")
-      .style("pointer-events", "none")
-      .style("z-index", "100")
-      .style("backdrop-filter", "blur(8px)")
-
-    this._hierarchyData = null
-    this._agents = []
-
-    // Handle hierarchy_data from GraphBuilder (preferred)
+    // LiveView sends structured tree
     this.handleEvent("hierarchy_data", (data) => {
-      this._hierarchyData = data.tree || data
-      this._restoreExpandState(this._hierarchyData)
-      this._render()
+      this._treeData = data.tree || data
+      if (this._mode === "hierarchy") this._render()
     })
 
-    // Handle agents_updated (backward compat, build hierarchy client-side)
+    // LiveView sends flat agent list — build tree client-side
     this.handleEvent("agents_updated", (data) => {
-      this._agents = data.agents || []
-      this._hierarchyData = buildHierarchyFromFlat(this._agents, this._scope)
-      this._restoreExpandState(this._hierarchyData)
+      const agents = data.agents || []
+      this._treeData = buildHierarchyFromAgents(agents) || this._treeData
+      if (this._mode === "hierarchy") this._render()
+    })
+
+    // graph_toggle_anon kept for backward compat — re-renders in place
+    this.handleEvent("graph_toggle_anon", () => {
       this._render()
     })
-
-    this.handleEvent("graph_toggle_anon", () => {
-      this._showAnon = !this._showAnon
-      if (this._agents.length > 0) {
-        this._hierarchyData = buildHierarchyFromFlat(this._agents, this._scope)
-        this._restoreExpandState(this._hierarchyData)
-        this._render()
-      }
-    })
-
-    // Keyboard navigation
-    this.el.setAttribute("tabindex", "0")
-    this._keyHandler = (e) => this._handleKey(e)
-    this.el.addEventListener("keydown", this._keyHandler)
   },
 
   destroyed() {
-    this._tooltip?.remove()
-    if (this._keyHandler) {
-      this.el.removeEventListener("keydown", this._keyHandler)
-    }
+    if (this._tooltip) this._tooltip.remove()
+    if (this._svg) this._svg.remove()
+    if (this._toggleBtn) this._toggleBtn.remove()
   },
 
-  // Recursively collapse children beyond depth 1
-  _initCollapseState(node, depth = 0) {
-    if (node.children) {
-      node.children.forEach(child => {
-        if (child.children && child.children.length > 0 && depth >= 1) {
-          if (!this._expandedNodes.has(child.id)) {
-            child._children = child.children
-            child.children = null
-          }
-        }
-        this._initCollapseState(child, depth + 1)
-      })
-    }
-  },
-
-  _restoreExpandState(data) {
-    const walk = (node) => {
-      if (!node) return
-      const id = node.id || node.name
-      if (node._children && this._expandedNodes.has(id)) {
-        node.children = node._children
-        node._children = null
-      } else if (node.children && !this._expandedNodes.has(id) && node.type !== "root") {
-        node._children = node.children
-        node.children = null
+  _addModeToggle() {
+    const wrapper = this.el.closest("[data-graph-wrapper]") || this.el.parentElement
+    const btn = document.createElement("button")
+    btn.textContent = "Skills"
+    btn.title = "Toggle between Agentic Hierarchy and Skill Ecosystem views"
+    Object.assign(btn.style, {
+      position: "absolute",
+      top: "8px",
+      right: "8px",
+      zIndex: "100",
+      padding: "3px 10px",
+      background: "rgba(139,92,246,0.15)",
+      border: "1px solid rgba(139,92,246,0.5)",
+      borderRadius: "6px",
+      color: "#c4b5fd",
+      fontSize: "11px",
+      fontFamily: "monospace",
+      cursor: "pointer",
+    })
+    btn.addEventListener("click", () => {
+      this._mode = this._mode === "hierarchy" ? "skills" : "hierarchy"
+      btn.textContent = this._mode === "hierarchy" ? "Skills" : "Hierarchy"
+      btn.style.color = this._mode === "hierarchy" ? "#c4b5fd" : "#86efac"
+      btn.style.borderColor = this._mode === "hierarchy" ? "rgba(139,92,246,0.5)" : "rgba(34,197,94,0.5)"
+      btn.style.background = this._mode === "hierarchy" ? "rgba(139,92,246,0.15)" : "rgba(34,197,94,0.1)"
+      if (this._mode === "skills") {
+        this._renderSkillTree()
+      } else {
+        if (this._treeData) this._render()
+        else this._renderEmpty()
       }
-      if (node.children) node.children.forEach(walk)
-      if (node._children) node._children.forEach(walk)
-    }
-    // Always expand root
-    this._expandedNodes.add(data.id || "root")
-    this._initCollapseState(data)
-    walk(data)
+    })
+    const container = this.el
+    container.style.position = "relative"
+    container.appendChild(btn)
+    this._toggleBtn = btn
   },
 
-  _toggleNode(d) {
-    const id = d.data.id || d.data.name
-    if (d.data._children) {
-      d.data.children = d.data._children
-      d.data._children = null
-      this._expandedNodes.add(id)
-    } else if (d.data.children) {
-      d.data._children = d.data.children
-      d.data.children = null
-      this._expandedNodes.delete(id)
-    }
-    this._render()
+  _renderSkillTree() {
+    this._renderTreeData(SKILL_ECOSYSTEM_TREE, "SKILL ECOSYSTEM")
+  },
 
-    // Notify LiveView of toggle
-    this.pushEvent("toggle_node", { node_id: id })
+  async _fetchInitialData() {
+    try {
+      const [fmtRes, agentRes] = await Promise.all([
+        fetch("/api/v2/formations").catch(() => null),
+        fetch("/api/agents").catch(() => null),
+      ])
+
+      let formations = []
+      let agents = []
+
+      if (fmtRes && fmtRes.ok) {
+        const j = await fmtRes.json()
+        formations = j.data || j.formations || (Array.isArray(j) ? j : [])
+      }
+      if (agentRes && agentRes.ok) {
+        const j = await agentRes.json()
+        agents = j.agents || j.data || (Array.isArray(j) ? j : [])
+      }
+
+      const tree = buildHierarchyFromFormations(formations, agents)
+      if (tree) {
+        this._treeData = tree
+        this._render()
+      } else {
+        this._renderEmpty()
+      }
+    } catch (e) {
+      console.warn("[DependencyGraph] Fetch failed:", e)
+      if (!this._treeData) this._renderEmpty()
+    }
   },
 
   _render() {
-    if (!this._hierarchyData) return
+    const data = this._treeData
+    if (!data) { this._renderEmpty(); return }
+    this._renderTreeData(data, "AGENTIC HIERARCHY")
+  },
 
+  _renderTreeData(data, modeLabel) {
     const rect = this.el.getBoundingClientRect()
-    const width = rect.width || 800
-    const height = rect.height || 500
+    const W = Math.max(rect.width  || 800, 400)
+    const H = Math.max(rect.height || 600, 350)
 
-    const root = d3.hierarchy(this._hierarchyData, d => d.children)
+    // Clear previous
+    this._container.selectAll("svg").remove()
+    if (this._tooltip) { this._tooltip.remove(); this._tooltip = null }
 
-    // Tree layout
+    const svg = this._container.append("svg")
+      .attr("width",  "100%")
+      .attr("height", "100%")
+      .attr("role", "img")
+      .attr("aria-label", "CCEM agentic hierarchy")
+    this._svg = svg
+
+    // Zoom layer
+    const g = svg.append("g").attr("class", "graph-content")
+    this._g = g
+
+    const zoomBehavior = d3.zoom()
+      .scaleExtent([0.08, 4])
+      .on("zoom", (e) => g.attr("transform", e.transform))
+    svg.call(zoomBehavior)
+
+    // Tooltip (positioned relative to hook element)
+    const tooltip = this._container.append("div")
+      .style("position",       "absolute")
+      .style("display",        "none")
+      .style("background",     "rgba(15,23,42,0.96)")
+      .style("border",         `1px solid ${PALETTE.border}`)
+      .style("border-radius",  "6px")
+      .style("padding",        "8px 12px")
+      .style("color",          PALETTE.text)
+      .style("font-size",      "11px")
+      .style("font-family",    "monospace")
+      .style("pointer-events", "none")
+      .style("z-index",        "200")
+      .style("max-width",      "260px")
+      .style("backdrop-filter","blur(8px)")
+      .style("line-height",    "1.6")
+    this._tooltip = tooltip
+
+    // Build D3 hierarchy (null children = leaf)
+    const root = d3.hierarchy(data, d =>
+      d.children && d.children.length > 0 ? d.children : null
+    )
+
+    const nodeCount = root.descendants().length
+    const depth     = root.height + 1
+
+    // Node separation per level — wider when fewer nodes per level
+    const nodesPerLevel = nodeCount / depth
+    const nodeW = Math.max(48, Math.min(100, W  / Math.max(nodesPerLevel, 2)))
+    const nodeH = Math.max(70, Math.min(130, (H - 80) / Math.max(depth, 2)))
+
     const treeLayout = d3.tree()
-      .nodeSize([NODE_W + 30, NODE_H + 60])
-      .separation((a, b) => a.parent === b.parent ? 1.2 : 1.8)
+      .nodeSize([nodeW, nodeH])
+      .separation((a, b) => a.parent === b.parent ? 1.5 : 2.2)
 
     treeLayout(root)
 
-    // Store previous positions for transition
+    // Extents for centering
+    let minX = Infinity, maxX = -Infinity
+    let minY = Infinity, maxY = -Infinity
     root.each(d => {
-      d.x0 = d.x0 ?? d.x
-      d.y0 = d.y0 ?? d.y
+      if (d.x < minX) minX = d.x
+      if (d.x > maxX) maxX = d.x
+      if (d.y < minY) minY = d.y
+      if (d.y > maxY) maxY = d.y
     })
 
-    // Center the tree
-    const nodes = root.descendants()
-    const links = root.links()
+    const treeW = maxX - minX + nodeW * 2
+    const treeH = maxY - minY + nodeH
 
-    // Compute bounds
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-    nodes.forEach(d => {
-      minX = Math.min(minX, d.x)
-      maxX = Math.max(maxX, d.x)
-      minY = Math.min(minY, d.y)
-      maxY = Math.max(maxY, d.y)
-    })
+    // Fit-to-view transform
+    const scale = Math.min(1.0, (W - 60) / treeW, (H - 80) / treeH)
+    const tx = W / 2 - ((minX + maxX) / 2) * scale
+    const ty = 36
 
-    const treeWidth = maxX - minX + NODE_W * 2
-    const treeHeight = maxY - minY + NODE_H * 2
-    const offsetX = width / 2 - (minX + maxX) / 2
-    const offsetY = 40
+    svg.call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale))
 
-    // ---- LINKS (curved connectors) ----
-    const linkGen = d3.linkVertical()
-      .x(d => d.x + offsetX)
-      .y(d => d.y + offsetY)
+    const NODE_R = 17
 
-    const link = this._g.selectAll(".tree-link")
-      .data(links, d => `${d.source.data.id}-${d.target.data.id}`)
-
-    // Enter
-    const linkEnter = link.enter()
+    // ── Links (cubic bezier, colored by child level) ──────────────────────────
+    g.append("g").attr("class", "links")
+      .selectAll("path")
+      .data(root.links())
+      .enter()
       .append("path")
-      .attr("class", "tree-link")
-      .attr("fill", "none")
-      .attr("stroke", d => {
-        const status = d.target.data.status || "idle"
-        return status === "error" ? STATUS_COLORS.error
-             : status === "running" || status === "active" ? PALETTE.accent
-             : PALETTE.border
+      .attr("d", link => {
+        const sx = link.source.x, sy = link.source.y
+        const tx = link.target.x, ty = link.target.y
+        const midY = (sy + ty) / 2
+        return `M${sx},${sy} C${sx},${midY} ${tx},${midY} ${tx},${ty}`
       })
-      .attr("stroke-width", 1.5)
-      .attr("stroke-opacity", 0.6)
-      .attr("marker-end", d => {
-        const status = d.target.data.status || "idle"
-        return status === "error" ? "url(#arrow-error)"
-             : status === "running" || status === "active" ? "url(#arrow-active)"
-             : "url(#arrow-default)"
+      .attr("fill",         "none")
+      .attr("stroke",       link => {
+        const c = d3.color(levelColor(link.target.data.level))
+        if (c) c.opacity = 0.28
+        return c ? c.toString() : PALETTE.edge
       })
-      .attr("d", d => {
-        const o = { x: d.source.x0 + offsetX, y: d.source.y0 + offsetY }
-        return linkGen({ source: o, target: o })
-      })
+      .attr("stroke-width", 1.6)
 
-    // Update + Enter transition
-    linkEnter.merge(link)
-      .transition()
-      .duration(TRANSITION_MS)
-      .ease(d3.easeCubicInOut)
-      .attr("d", d => linkGen(d))
-
-    // Exit
-    link.exit()
-      .transition()
-      .duration(TRANSITION_MS)
-      .attr("d", d => {
-        const o = { x: d.source.x + offsetX, y: d.source.y + offsetY }
-        return linkGen({ source: o, target: o })
-      })
-      .remove()
-
-    // ---- NODES ----
-    const node = this._g.selectAll(".tree-node")
-      .data(nodes, d => d.data.id || d.data.name)
-
-    // Enter
-    const nodeEnter = node.enter()
+    // ── Nodes ─────────────────────────────────────────────────────────────────
+    const node = g.append("g").attr("class", "nodes")
+      .selectAll("g")
+      .data(root.descendants())
+      .enter()
       .append("g")
-      .attr("class", "tree-node")
-      .attr("transform", d => {
-        const px = d.parent ? d.parent.x0 + offsetX : d.x + offsetX
-        const py = d.parent ? d.parent.y0 + offsetY : d.y + offsetY
-        return `translate(${px},${py})`
-      })
-      .attr("cursor", d => (d.data.children || d.data._children) ? "pointer" : "default")
-      .attr("tabindex", 0)
-      .on("click", (event, d) => {
-        event.stopPropagation()
-        if (d.data.children || d.data._children) {
-          this._toggleNode(d)
-        } else if (d.data.type === "agent") {
-          this.pushEvent("select_agent", { agent_id: d.data.id })
+      .attr("class",     "dg-node")
+      .attr("cursor",    "pointer")
+      .attr("transform", d => `translate(${d.x},${d.y})`)
+      .on("mouseenter", (event, d) => {
+        const nd   = d.data
+        const meta = nd.meta || {}
+        let html = `<strong style="color:${levelColor(nd.level)}">${nd.name || nd.id}</strong><br>`
+        html += `<span style="color:${PALETTE.textDim}">${levelLabel(nd.level)}</span>`
+        if (nd.status) {
+          html += ` · <span style="color:${statusColor(nd.status)}">${nd.status}</span>`
         }
-      })
-      .on("mouseenter", (event, d) => this._showTooltip(event, d))
-      .on("mouseleave", () => this._hideTooltip())
-      .on("keydown", (event, d) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault()
-          if (d.data.children || d.data._children) {
-            this._toggleNode(d)
-          }
+        if (meta.wave)              html += `<br><span style="color:${PALETTE.textDim}">Wave ${meta.wave}</span>`
+        if (meta.formation_id)      html += `<br>Formation: <span style="color:${levelColor("formation")}">${meta.formation_id}</span>`
+        if (meta.formation_role)    html += `<br>Role: ${meta.formation_role}`
+        if (meta.parent_agent_id)   html += `<br>Parent: <span style="color:${PALETTE.textDim}">${meta.parent_agent_id}</span>`
+        if (d.children) {
+          const kids = d.descendants().length - 1
+          html += `<br>${kids} descendant${kids !== 1 ? "s" : ""}`
         }
-      })
 
-    // Card background
-    nodeEnter.append("rect")
-      .attr("x", -NODE_W / 2)
-      .attr("y", -NODE_H / 2)
-      .attr("width", NODE_W)
-      .attr("height", NODE_H)
-      .attr("rx", NODE_R)
-      .attr("fill", PALETTE.bgCard)
-      .attr("stroke", d => statusColor(d.data.status || "idle"))
+        tooltip
+          .style("display", "block")
+          .html(html)
+          .style("left", `${event.offsetX + 16}px`)
+          .style("top",  `${event.offsetY - 10}px`)
+      })
+      .on("mouseleave", () => tooltip.style("display", "none"))
+
+    // Outer glow ring
+    node.append("circle")
+      .attr("r",            NODE_R + 5)
+      .attr("fill",         "none")
+      .attr("stroke",       d => {
+        const c = d3.color(levelColor(d.data.level))
+        if (c) c.opacity = 0.12
+        return c ? c.toString() : "transparent"
+      })
+      .attr("stroke-width", 4)
+
+    // Main circle
+    node.append("circle")
+      .attr("r",            NODE_R)
+      .attr("fill",         d => {
+        const c = d3.color(levelColor(d.data.level))
+        if (c) c.opacity = 0.16
+        return c ? c.toString() : "#333"
+      })
+      .attr("stroke",       d => levelColor(d.data.level))
+      .attr("stroke-width", 1.8)
+
+    // Status dot (bottom-right corner)
+    node.append("circle")
+      .attr("r",            4)
+      .attr("cx",           NODE_R - 2)
+      .attr("cy",           NODE_R - 2)
+      .attr("fill",         d => statusColor(d.data.status))
+      .attr("stroke",       PALETTE.bg)
       .attr("stroke-width", 1.5)
-      .attr("opacity", 0)
 
-    // Icon
-    nodeEnter.append("text")
-      .attr("class", "node-icon")
-      .attr("x", -NODE_W / 2 + 12)
-      .attr("y", 1)
+    // Short label inside node
+    node.append("text")
+      .attr("text-anchor",        "middle")
+      .attr("dominant-baseline",  "central")
+      .attr("fill",               PALETTE.text)
+      .attr("fill-opacity",       0.9)
+      .attr("font-size",          "7px")
+      .attr("font-family",        "monospace")
+      .attr("pointer-events",     "none")
+      .text(d => abbreviate(d.data.name || d.data.id, 8))
+
+    // Full label below node
+    node.append("text")
+      .attr("text-anchor",    "middle")
+      .attr("y",              NODE_R + 13)
+      .attr("fill",           d => levelColor(d.data.level))
+      .attr("fill-opacity",   0.85)
+      .attr("font-size",      "8px")
+      .attr("font-family",    "monospace")
+      .attr("pointer-events", "none")
+      .text(d => {
+        const name = d.data.name || d.data.id || ""
+        return name.length > 18 ? name.substring(0, 17) + "…" : name
+      })
+
+    // ── Legend ────────────────────────────────────────────────────────────────
+    const legendG = svg.append("g")
+      .attr("class",     "dg-legend")
+      .attr("transform", "translate(12, 12)")
+
+    const legendLevels = modeLabel === "SKILL ECOSYSTEM"
+      ? ["hub", "formation", "squadron", "swarm", "cluster", "agent", "task"]
+      : LEVEL_ORDER
+
+    legendG.append("rect")
+      .attr("x",            -4).attr("y", -4)
+      .attr("width",        116)
+      .attr("height",       legendLevels.length * 18 + 24)
+      .attr("rx",           6)
+      .attr("fill",         "rgba(15,23,42,0.88)")
+      .attr("stroke",       PALETTE.border)
+      .attr("stroke-width", 1)
+
+    legendG.append("text")
+      .attr("x",          4).attr("y", 11)
+      .attr("fill",       PALETTE.textDim)
+      .attr("font-size",  "8px")
+      .attr("font-family","monospace")
+      .text(modeLabel === "SKILL ECOSYSTEM" ? "SKILL NODES" : "HIERARCHY LEVELS")
+
+    legendG.selectAll(".legend-item")
+      .data(legendLevels)
+      .enter()
+      .append("g")
+      .attr("class",     "legend-item")
+      .attr("transform", (_, i) => `translate(4, ${i * 18 + 20})`)
+      .each(function(level) {
+        d3.select(this).append("circle")
+          .attr("r",            5)
+          .attr("cx",           5)
+          .attr("cy",           4)
+          .attr("fill",         levelColor(level))
+          .attr("fill-opacity", 0.75)
+
+        d3.select(this).append("text")
+          .attr("x",          14)
+          .attr("y",          8)
+          .attr("fill",       PALETTE.text)
+          .attr("font-size",  "10px")
+          .attr("font-family","monospace")
+          .text(levelLabel(level))
+      })
+
+    // Mode label (top-right, leave space for toggle button)
+    svg.append("text")
+      .attr("x",          W - 90)
+      .attr("y",          18)
+      .attr("text-anchor","end")
+      .attr("fill",       PALETTE.textDim)
+      .attr("font-size",  "9px")
+      .attr("font-family","monospace")
+      .text(modeLabel || "AGENTIC HIERARCHY")
+  },
+
+  _renderEmpty() {
+    const rect = this.el.getBoundingClientRect()
+    const W = Math.max(rect.width  || 800, 400)
+    const H = Math.max(rect.height || 400, 300)
+
+    this._container.selectAll("svg").remove()
+
+    const svg = this._container.append("svg")
+      .attr("width",  "100%")
+      .attr("height", "100%")
+    this._svg = svg
+
+    svg.append("text")
+      .attr("x",           W / 2)
+      .attr("y",           H / 2 - 12)
       .attr("text-anchor", "middle")
-      .attr("dominant-baseline", "central")
-      .attr("fill", d => statusColor(d.data.status || "idle"))
-      .attr("font-size", "14px")
-      .text(d => nodeIcon(d.data.type))
-
-    // Label
-    nodeEnter.append("text")
-      .attr("class", "node-label")
-      .attr("x", -NODE_W / 2 + 24)
-      .attr("y", -4)
-      .attr("fill", PALETTE.text)
-      .attr("font-size", "11px")
+      .attr("fill",        PALETTE.textDim)
+      .attr("font-size",   "14px")
       .attr("font-family", "monospace")
-      .text(d => {
-        const name = d.data.name || "?"
-        return name.length > 16 ? name.substring(0, 14) + ".." : name
-      })
+      .text("No active formation data")
 
-    // Sub-label (agent count or status)
-    nodeEnter.append("text")
-      .attr("class", "node-sub")
-      .attr("x", -NODE_W / 2 + 24)
-      .attr("y", 10)
-      .attr("fill", PALETTE.textDim)
-      .attr("font-size", "9px")
+    svg.append("text")
+      .attr("x",           W / 2)
+      .attr("y",           H / 2 + 14)
+      .attr("text-anchor", "middle")
+      .attr("fill",        PALETTE.textMuted)
+      .attr("font-size",   "11px")
       .attr("font-family", "monospace")
-      .text(d => {
-        if (d.data.agent_count) return `${d.data.agent_count} agents`
-        if (d.data.type === "agent") return d.data.status || "idle"
-        return ""
-      })
+      .text("Register agents or deploy a formation to see the hierarchy")
 
-    // Collapse indicator (+ / -)
-    nodeEnter.append("text")
-      .attr("class", "collapse-indicator")
-      .attr("x", NODE_W / 2 - 14)
-      .attr("y", 1)
-      .attr("text-anchor", "middle")
-      .attr("dominant-baseline", "central")
-      .attr("fill", PALETTE.accent)
-      .attr("font-size", "14px")
-      .attr("font-weight", "bold")
-      .text(d => {
-        if (d.data._children) return "+"
-        if (d.data.children && d.data.children.length > 0 && d.data.type !== "agent") return "\u2212"
-        return ""
-      })
+    // Legend still visible in empty state
+    const legendG = svg.append("g")
+      .attr("class",     "dg-legend")
+      .attr("transform", "translate(12, 12)")
 
-    // Member count badge (for collapsed nodes)
-    nodeEnter.filter(d => d.data._children)
-      .append("circle")
-      .attr("class", "count-badge")
-      .attr("cx", NODE_W / 2 - 4)
-      .attr("cy", -NODE_H / 2 - 4)
-      .attr("r", 10)
-      .attr("fill", PALETTE.accent)
-      .attr("stroke", PALETTE.bgCard)
-      .attr("stroke-width", 2)
+    legendG.append("rect")
+      .attr("x",            -4).attr("y", -4)
+      .attr("width",        116)
+      .attr("height",       LEVEL_ORDER.length * 18 + 24)
+      .attr("rx",           6)
+      .attr("fill",         "rgba(15,23,42,0.88)")
+      .attr("stroke",       PALETTE.border)
+      .attr("stroke-width", 1)
 
-    nodeEnter.filter(d => d.data._children)
-      .append("text")
-      .attr("class", "count-label")
-      .attr("x", NODE_W / 2 - 4)
-      .attr("y", -NODE_H / 2 - 4)
-      .attr("text-anchor", "middle")
-      .attr("dominant-baseline", "central")
-      .attr("fill", PALETTE.bg)
-      .attr("font-size", "9px")
-      .attr("font-weight", "bold")
-      .text(d => {
-        const count = d.data._children ? d.data._children.length : 0
-        return count > 99 ? "99+" : count
-      })
+    legendG.append("text")
+      .attr("x",          4).attr("y", 11)
+      .attr("fill",       PALETTE.textDim)
+      .attr("font-size",  "8px")
+      .attr("font-family","monospace")
+      .text("HIERARCHY LEVELS")
 
-    // Update + Enter merged
-    const nodeUpdate = nodeEnter.merge(node)
+    LEVEL_ORDER.forEach((level, i) => {
+      const item = legendG.append("g")
+        .attr("transform", `translate(4, ${i * 18 + 20})`)
 
-    nodeUpdate.transition()
-      .duration(TRANSITION_MS)
-      .ease(d3.easeCubicInOut)
-      .attr("transform", d => `translate(${d.x + offsetX},${d.y + offsetY})`)
+      item.append("circle")
+        .attr("r",            5)
+        .attr("cx",           5).attr("cy", 4)
+        .attr("fill",         levelColor(level))
+        .attr("fill-opacity", 0.75)
 
-    nodeUpdate.select("rect")
-      .transition()
-      .duration(TRANSITION_MS)
-      .attr("opacity", 1)
-      .attr("stroke", d => statusColor(d.data.status || "idle"))
-
-    nodeUpdate.select(".collapse-indicator")
-      .text(d => {
-        if (d.data._children) return "+"
-        if (d.data.children && d.data.children.length > 0 && d.data.type !== "agent") return "\u2212"
-        return ""
-      })
-
-    // Exit
-    const nodeExit = node.exit()
-      .transition()
-      .duration(TRANSITION_MS)
-      .attr("transform", d => {
-        const px = d.parent ? d.parent.x + offsetX : d.x + offsetX
-        const py = d.parent ? d.parent.y + offsetY : d.y + offsetY
-        return `translate(${px},${py})`
-      })
-      .remove()
-
-    nodeExit.select("rect").attr("opacity", 0)
-
-    // Store positions for next transition
-    nodes.forEach(d => {
-      d.x0 = d.x
-      d.y0 = d.y
+      item.append("text")
+        .attr("x",          14).attr("y", 8)
+        .attr("fill",       PALETTE.text)
+        .attr("font-size",  "10px")
+        .attr("font-family","monospace")
+        .text(levelLabel(level))
     })
+
+    // Update rect height for 7 levels
+    legendG.select("rect").attr("height", LEVEL_ORDER.length * 18 + 24)
   },
-
-  _showTooltip(event, d) {
-    const data = d.data
-    let html = `<strong>${data.name}</strong><br>`
-    html += `<span style="color:${statusColor(data.status)}">${data.status || "idle"}</span>`
-    if (data.type) html += ` | ${data.type}`
-    if (data.agent_count) html += `<br>${data.agent_count} agents`
-    if (data._children) html += `<br><em>Click to expand (${data._children.length} children)</em>`
-    if (data.data?.namespace) html += `<br>NS: ${data.data.namespace}`
-
-    this._tooltip
-      .style("display", "block")
-      .html(html)
-      .style("left", `${event.offsetX + 15}px`)
-      .style("top", `${event.offsetY - 10}px`)
-  },
-
-  _hideTooltip() {
-    this._tooltip.style("display", "none")
-  },
-
-  _handleKey(e) {
-    const focused = this._g.select(".tree-node:focus")
-    if (!focused.empty()) {
-      const d = focused.datum()
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault()
-        if (d.data.children || d.data._children) {
-          this._toggleNode(d)
-        }
-      }
-    }
-  }
 }
 
 export default DependencyGraph

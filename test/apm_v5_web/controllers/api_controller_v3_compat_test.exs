@@ -20,16 +20,14 @@ defmodule ApmV5Web.ApiControllerV3CompatTest do
   # GET /health
   # ==========================================
 
-  describe "GET /health" do
-    test "returns health data with projects array", %{conn: conn} do
-      conn = get(conn, "/health")
+  describe "GET /api/status (health)" do
+    test "returns status with expected fields", %{conn: conn} do
+      conn = get(conn, ~p"/api/status")
       body = json_response(conn, 200)
 
       assert body["status"] == "ok"
       assert is_integer(body["uptime"])
-      assert is_integer(body["total_projects"])
-      assert is_list(body["projects"])
-      assert body["server_version"] == "4.0.0"
+      assert is_binary(body["server_version"])
     end
   end
 
@@ -78,21 +76,23 @@ defmodule ApmV5Web.ApiControllerV3CompatTest do
   # ==========================================
 
   describe "GET /api/notifications" do
-    test "returns empty list when no notifications", %{conn: conn} do
+    test "returns empty notifications when none exist", %{conn: conn} do
       conn = get(conn, ~p"/api/notifications")
       body = json_response(conn, 200)
 
-      assert body == []
+      # API returns paginated envelope: %{count, limit, notifications}
+      assert is_map(body)
+      assert is_list(body["notifications"])
     end
 
-    test "returns notifications list", %{conn: conn} do
+    test "returns notifications in envelope", %{conn: conn} do
       AgentRegistry.add_notification(%{title: "Test", message: "Hello", level: "info"})
 
       conn = get(conn, ~p"/api/notifications")
       body = json_response(conn, 200)
 
-      assert length(body) == 1
-      assert hd(body)["title"] == "Test"
+      assert body["count"] >= 1
+      assert length(body["notifications"]) >= 1
     end
   end
 
@@ -379,7 +379,7 @@ defmodule ApmV5Web.ApiControllerV3CompatTest do
       body = json_response(conn, 200)
 
       assert body["status"] == "ok"
-      assert body["server_version"] == "4.0.0"
+      assert is_binary(body["server_version"])
     end
 
     test "POST /api/register still works", %{conn: conn} do

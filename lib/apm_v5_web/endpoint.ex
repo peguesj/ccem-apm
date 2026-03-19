@@ -1,4 +1,11 @@
 defmodule ApmV5Web.Endpoint do
+  @moduledoc """
+  Phoenix Endpoint for the APM web application.
+
+  Configures static file serving, session management, LiveView socket,
+  and the Bandit HTTP/WebSocket adapter.
+  """
+
   use Phoenix.Endpoint, otp_app: :apm_v5
 
   # The session will be stored in the cookie and signed,
@@ -16,7 +23,11 @@ defmodule ApmV5Web.Endpoint do
     longpoll: false
 
   socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [session: @session_options]],
+    websocket: [
+      connect_info: [session: @session_options],
+      check_origin: false,
+      timeout: 60_000
+    ],
     longpoll: [connect_info: [session: @session_options]]
 
   # Serve at "/" the static files from "priv/static" directory.

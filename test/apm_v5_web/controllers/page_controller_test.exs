@@ -13,7 +13,7 @@ defmodule ApmV5Web.DashboardLiveTest do
 
   test "GET / renders the dashboard LiveView", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "CCEM APM v4"
+    assert html_response(conn, 200) =~ "Agent Performance Monitor"
   end
 
   test "dashboard displays sidebar navigation", %{conn: conn} do

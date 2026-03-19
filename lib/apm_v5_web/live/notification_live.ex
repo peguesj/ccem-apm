@@ -6,6 +6,7 @@ defmodule ApmV5Web.NotificationLive do
 
   use ApmV5Web, :live_view
 
+
   alias ApmV5.AgentRegistry
 
   @tab_categories %{
@@ -33,6 +34,10 @@ defmodule ApmV5Web.NotificationLive do
       |> assign(:active_tab, "all")
       |> assign(:tab_counts, compute_tab_counts(notifications))
       |> assign(:expanded_ids, MapSet.new())
+      |> assign(:expanded_formations, MapSet.new())
+      |> assign(:expanded_upm, MapSet.new())
+      |> assign(:pending_decisions, %{})
+      |> assign(:lazy_context, %{})
       |> assign(:hide_showcase, true)
 
     {:ok, socket}
@@ -86,6 +91,10 @@ defmodule ApmV5Web.NotificationLive do
             :for={notif <- visible_notifications(@notifications, @active_tab, @hide_showcase)}
             notif={notif}
             expanded={MapSet.member?(@expanded_ids, notif.id)}
+            formation_expanded={MapSet.member?(@expanded_formations, notif.id)}
+            upm_expanded={MapSet.member?(@expanded_upm, notif.id)}
+            pending_decision={Map.get(@pending_decisions, notif.id)}
+            lazy_context={Map.get(@lazy_context, notif.id)}
           />
         </div>
       </div>
@@ -119,6 +128,10 @@ defmodule ApmV5Web.NotificationLive do
   # --- Notification card component ---
   attr :notif, :map, required: true
   attr :expanded, :boolean, default: false
+  attr :formation_expanded, :boolean, default: false
+  attr :upm_expanded, :boolean, default: false
+  attr :pending_decision, :any, default: nil
+  attr :lazy_context, :any, default: nil
 
   defp notif_card(assigns) do
     ~H"""
@@ -162,7 +175,7 @@ defmodule ApmV5Web.NotificationLive do
             </span>
           </div>
           <%!-- Action buttons --%>
-          <div class="flex items-center gap-2 mt-2">
+          <div class="flex items-center gap-2 mt-2 flex-wrap">
             <a
               :if={@notif[:action_url]}
               href={@notif.action_url}
@@ -179,6 +192,130 @@ defmodule ApmV5Web.NotificationLive do
             >
               <.icon name="hero-code-bracket" class="size-3" /> Open PR
             </a>
+            <%!-- UPM contextual action buttons --%>
+            <div
+              :if={@notif[:category] in ["upm"] || @notif[:upm_context] != nil}
+              class="flex items-center gap-1 flex-wrap"
+            >
+              <.link
+                :if={@notif[:story_id]}
+                navigate="/upm"
+                class="btn btn-xs btn-ghost text-primary"
+              >
+                <.icon name="hero-document-text" class="size-3" />
+                Story {@notif[:story_id]}
+              </.link>
+              <.link
+                :if={@notif[:wave_number]}
+                navigate="/upm"
+                class="btn btn-xs btn-ghost text-primary"
+              >
+                <.icon name="hero-queue-list" class="size-3" />
+                Wave {@notif[:wave_number]}{if @notif[:wave_total], do: "/#{@notif[:wave_total]}", else: ""}
+              </.link>
+              <.link navigate="/upm" class="btn btn-xs btn-ghost text-primary">
+                <.icon name="hero-book-open" class="size-3" /> View PRD
+              </.link>
+            </div>
+            <%!-- Ralph contextual action buttons --%>
+            <div
+              :if={@notif[:category] == "ralph" || String.contains?(to_string(@notif[:title]), "Ralph")}
+              class="flex items-center gap-1 flex-wrap"
+            >
+              <.link navigate="/ralph" class="btn btn-xs btn-ghost text-warning">
+                <.icon name="hero-chart-bar" class="size-3" /> View Flowchart
+              </.link>
+              <span
+                :if={@notif[:story_id]}
+                class="badge badge-xs badge-warning badge-outline font-mono"
+              >
+                Story {@notif[:story_id]}
+              </span>
+              <span
+                :if={@notif[:event_type] && String.contains?(to_string(@notif[:event_type]), "complete")}
+                class="badge badge-xs badge-success font-mono"
+              >
+                Done
+              </span>
+            </div>
+            <%!-- Formation contextual action buttons --%>
+            <div
+              :if={@notif[:category] in ["formation", "squadron", "swarm"]}
+              class="flex items-center gap-1 flex-wrap"
+            >
+              <.link
+                :if={@notif[:formation_id]}
+                navigate={"/formation?id=#{@notif[:formation_id]}"}
+                class="btn btn-xs btn-ghost text-accent"
+              >
+                <.icon name="hero-rectangle-group" class="size-3" /> Formation →
+              </.link>
+              <span
+                :if={@notif[:wave_number]}
+                class="badge badge-xs badge-accent badge-outline font-mono"
+              >
+                Wave {@notif[:wave_number]}
+              </span>
+              <.link
+                :if={@notif[:agent_id]}
+                navigate="/agents"
+                class="btn btn-xs btn-ghost text-info"
+              >
+                <.icon name="hero-cpu-chip" class="size-3" /> Agents →
+              </.link>
+            </div>
+            <%!-- Skill contextual action button --%>
+            <.link
+              :if={@notif[:category] == "skill"}
+              navigate="/skills"
+              class="btn btn-xs btn-ghost text-secondary"
+            >
+              <.icon name="hero-sparkles" class="size-3" /> Skills →
+            </.link>
+            <%!-- Decision Gate buttons — pending_approval type or decision category --%>
+            <div
+              :if={@notif[:type] == "pending_approval" || @notif[:category] == "decision"}
+              class="flex items-center gap-1"
+            >
+              <button
+                :if={@pending_decision == nil}
+                phx-click="approve_action"
+                phx-value-id={@notif.id}
+                class="btn btn-xs btn-success"
+              >
+                <.icon name="hero-check" class="size-3" /> Approve
+              </button>
+              <button
+                :if={@pending_decision == nil}
+                phx-click="reject_action"
+                phx-value-id={@notif.id}
+                class="btn btn-xs btn-error btn-outline"
+              >
+                <.icon name="hero-x-mark" class="size-3" /> Reject
+              </button>
+              <span :if={@pending_decision == :approved} class="badge badge-xs badge-success font-mono">approved</span>
+              <span :if={@pending_decision == :rejected} class="badge badge-xs badge-error font-mono">rejected</span>
+            </div>
+            <%!-- Formation tree toggle --%>
+            <button
+              :if={@notif[:category] in ["formation", "squadron", "swarm"]}
+              phx-click="toggle_formation_panel"
+              phx-value-id={@notif.id}
+              class="btn btn-xs btn-ghost text-accent"
+            >
+              <.icon name={if @formation_expanded, do: "hero-chevron-up", else: "hero-chevron-right"} class="size-3" />
+              {if @formation_expanded, do: "Hide Formation", else: "Show Formation"}
+            </button>
+            <%!-- UPM story progress toggle --%>
+            <button
+              :if={@notif[:category] in ["upm"] || @notif[:upm_context] != nil}
+              phx-click="toggle_upm_panel"
+              phx-value-id={@notif.id}
+              class="btn btn-xs btn-ghost text-primary"
+            >
+              <.icon name={if @upm_expanded, do: "hero-chevron-up", else: "hero-chevron-right"} class="size-3" />
+              {if @upm_expanded, do: "Hide Story Progress", else: "Show Story Progress"}
+            </button>
             <button
               :if={has_metadata?(@notif)}
               phx-click="toggle_expand"
@@ -197,9 +334,85 @@ defmodule ApmV5Web.NotificationLive do
             <.meta_row :if={@notif[:namespace]} label="Namespace" value={@notif[:namespace]} />
             <.meta_row :if={@notif[:project_name]} label="Project" value={@notif[:project_name]} />
           </div>
+          <%!-- Formation tree panel --%>
+          <div :if={@formation_expanded} class="mt-2 pt-2 border-t border-accent/20">
+            <p class="text-xs font-semibold text-accent mb-1.5">Formation Hierarchy</p>
+            <div :if={@lazy_context == nil} class="text-xs text-base-content/40 italic">
+              Loading...
+              <span phx-hook="LoadContext" id={"ctx-#{@notif.id}"} phx-value-id={@notif.id} phx-value-type="formation" style="display:none" />
+            </div>
+            <div :if={@lazy_context != nil} class="font-mono text-xs">
+              <%!-- Session row --%>
+              <div :if={@lazy_context[:session_id]} class="flex items-center gap-1.5 text-base-content/50">
+                <span class="text-base-content/30">├─</span>
+                <.icon name="hero-circle-stack" class="size-3 text-base-content/40" />
+                <span class="text-base-content/50">session:</span>
+                <span class="text-base-content/60">{@lazy_context[:session_id]}</span>
+              </div>
+              <%!-- Formation row --%>
+              <div :if={@lazy_context[:formation_id]} class="flex items-center gap-1.5 pl-3 text-accent">
+                <span class="text-base-content/30">├─</span>
+                <.icon name="hero-rectangle-group" class="size-3 text-accent" />
+                <span class="text-accent/70">formation:</span>
+                <span class="text-accent font-semibold">{@lazy_context[:formation_id]}</span>
+              </div>
+              <%!-- Squadron rows --%>
+              <div :if={@lazy_context[:squadrons] && @lazy_context[:squadrons] != []} class="pl-6 space-y-0.5">
+                <div :for={sq <- @lazy_context[:squadrons]} class="flex items-center gap-1.5 text-info">
+                  <span class="text-base-content/30">├─</span>
+                  <.icon name="hero-user-group" class="size-3 text-info" />
+                  <span class="text-info/70">squadron:</span>
+                  <span class="text-info">{sq}</span>
+                </div>
+              </div>
+              <%!-- Swarm rows --%>
+              <div :if={@lazy_context[:swarms] && @lazy_context[:swarms] != []} class="pl-9 space-y-0.5">
+                <div :for={sw <- @lazy_context[:swarms]} class="flex items-center gap-1.5 text-warning">
+                  <span class="text-base-content/30">├─</span>
+                  <.icon name="hero-squares-plus" class="size-3 text-warning" />
+                  <span class="text-warning/70">swarm:</span>
+                  <span class="text-warning">{sw}</span>
+                </div>
+              </div>
+              <%!-- Agent rows --%>
+              <div :if={@lazy_context[:agents] && @lazy_context[:agents] != []} class="pl-12 space-y-0.5">
+                <div :for={ag <- @lazy_context[:agents]} class="flex items-center gap-1.5 text-base-content/60">
+                  <span class="text-base-content/30">└─</span>
+                  <.icon name="hero-cpu-chip" class="size-3 text-base-content/50" />
+                  <span class="text-base-content/40">agent:</span>
+                  <span class="text-base-content/70">{ag}</span>
+                </div>
+              </div>
+              <%!-- Empty state --%>
+              <div :if={@lazy_context == %{} || (@lazy_context[:formation_id] == nil && @lazy_context[:squadrons] == [] && @lazy_context[:agents] == [])} class="text-base-content/30 italic">
+                No hierarchy data available
+              </div>
+            </div>
+          </div>
+          <%!-- UPM story progress panel --%>
+          <div :if={@upm_expanded} class="mt-2 pt-2 border-t border-primary/20">
+            <p class="text-xs font-semibold text-primary mb-1.5">Story Progress</p>
+            <div :if={@lazy_context == nil} class="text-xs text-base-content/40 italic">
+              Loading...
+              <span phx-hook="LoadContext" id={"ctx-upm-#{@notif.id}"} phx-value-id={@notif.id} phx-value-type="upm" style="display:none" />
+            </div>
+            <div :if={@lazy_context != nil} class="space-y-1 font-mono text-xs text-base-content/70">
+              <.meta_row :if={@lazy_context[:story_id]} label="Story" value={to_string(@lazy_context[:story_id])} />
+              <.meta_row :if={@lazy_context[:story_title]} label="Title" value={to_string(@lazy_context[:story_title])} />
+              <.meta_row :if={@lazy_context[:feature_name]} label="Feature" value={to_string(@lazy_context[:feature_name])} />
+              <.meta_row :if={@lazy_context[:status]} label="Status" value={to_string(@lazy_context[:status])} />
+              <.meta_row :if={@lazy_context[:wave]} label="Wave" value={to_string(@lazy_context[:wave])} />
+              <.meta_row :if={@lazy_context[:project_name]} label="Project" value={to_string(@lazy_context[:project_name])} />
+              <.meta_row :if={@lazy_context[:upm_session_id]} label="Session" value={to_string(@lazy_context[:upm_session_id])} />
+              <div :if={@lazy_context[:story_id] == nil && @lazy_context[:feature_name] == nil} class="text-base-content/30 italic">
+                No story data available — ensure upm_context is included in POST /api/notify payload
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+    <.wizard page="notifications" />
     """
   end
 
@@ -255,6 +468,47 @@ defmodule ApmV5Web.NotificationLive do
     {:noreply, socket
      |> assign(:notifications, notifications)
      |> assign(:tab_counts, compute_tab_counts(notifications))}
+  end
+
+  def handle_event("approve_action", %{"id" => id_str}, socket) do
+    id = String.to_integer(id_str)
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:decisions", {:decision, id, :approved})
+    pending = Map.put(socket.assigns.pending_decisions, id, :approved)
+    {:noreply, assign(socket, :pending_decisions, pending)}
+  end
+
+  def handle_event("reject_action", %{"id" => id_str}, socket) do
+    id = String.to_integer(id_str)
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:decisions", {:decision, id, :rejected})
+    pending = Map.put(socket.assigns.pending_decisions, id, :rejected)
+    {:noreply, assign(socket, :pending_decisions, pending)}
+  end
+
+  def handle_event("toggle_formation_panel", %{"id" => id_str}, socket) do
+    id = String.to_integer(id_str)
+    expanded = socket.assigns.expanded_formations
+    new_expanded =
+      if MapSet.member?(expanded, id),
+        do: MapSet.delete(expanded, id),
+        else: MapSet.put(expanded, id)
+    {:noreply, assign(socket, :expanded_formations, new_expanded)}
+  end
+
+  def handle_event("toggle_upm_panel", %{"id" => id_str}, socket) do
+    id = String.to_integer(id_str)
+    expanded = socket.assigns.expanded_upm
+    new_expanded =
+      if MapSet.member?(expanded, id),
+        do: MapSet.delete(expanded, id),
+        else: MapSet.put(expanded, id)
+    {:noreply, assign(socket, :expanded_upm, new_expanded)}
+  end
+
+  def handle_event("load_context", %{"id" => id_str, "type" => type}, socket) do
+    id = String.to_integer(id_str)
+    context = lazy_load_context(id, type, socket.assigns.notifications)
+    lazy = Map.put(socket.assigns.lazy_context, id, context)
+    {:noreply, assign(socket, :lazy_context, lazy)}
   end
 
   # --- PubSub ---
@@ -397,4 +651,71 @@ defmodule ApmV5Web.NotificationLive do
     end
   end
   defp relative_time(_), do: ""
+
+  # Lazy-loads context data for a notification panel.
+  # Pulls what it can from the notification itself; falls back to AgentRegistry
+  # for formation hierarchy or UPM story data.
+  defp lazy_load_context(id, "formation", notifications) do
+    notif = Enum.find(notifications, fn n -> n.id == id end)
+    formation_id = notif[:formation_id]
+
+    {session_id, squadrons, swarms, agents} =
+      if formation_id do
+        members = AgentRegistry.list_formation(formation_id)
+        session =
+          members
+          |> Enum.map(& &1[:session_id])
+          |> Enum.reject(&is_nil/1)
+          |> List.first()
+        sq_list =
+          members
+          |> Enum.map(& &1[:squadron])
+          |> Enum.reject(&is_nil/1)
+          |> Enum.uniq()
+        sw_list =
+          members
+          |> Enum.map(& &1[:swarm_id])
+          |> Enum.reject(&is_nil/1)
+          |> Enum.uniq()
+        ag_list =
+          members
+          |> Enum.map(& &1[:agent_id])
+          |> Enum.reject(&is_nil/1)
+        {session, sq_list, sw_list, ag_list}
+      else
+        session = notif[:session_id]
+        fallback_sq = if notif[:squadron_id], do: [notif[:squadron_id]], else: []
+        fallback_sw = if notif[:swarm_id], do: [notif[:swarm_id]], else: []
+        fallback_ag = if notif[:agent_id], do: [notif[:agent_id]], else: []
+        {session, fallback_sq, fallback_sw, fallback_ag}
+      end
+
+    %{
+      session_id: session_id,
+      formation_id: formation_id,
+      squadrons: squadrons,
+      swarms: swarms,
+      agents: agents
+    }
+  end
+
+  defp lazy_load_context(id, "upm", notifications) do
+    notif = Enum.find(notifications, fn n -> n.id == id end)
+    upm_ctx = notif[:upm_context] || %{}
+
+    # upm_context may have string keys (decoded JSON) or atom keys
+    get_ctx = fn keys -> Enum.find_value(keys, fn k -> upm_ctx[k] end) end
+
+    %{
+      story_id: get_ctx.([:story_id, "story_id"]) || notif[:story_id],
+      story_title: get_ctx.([:story_title, "story_title"]),
+      status: get_ctx.([:status, "status"]),
+      wave: get_ctx.([:wave, "wave", :wave_number, "wave_number"]) || notif[:wave_number],
+      project_name: get_ctx.([:project_name, "project_name"]) || notif[:project_name],
+      feature_name: get_ctx.([:feature_name, "feature_name"]),
+      upm_session_id: get_ctx.([:upm_session_id, "upm_session_id"])
+    }
+  end
+
+  defp lazy_load_context(_id, _type, _notifications), do: %{}
 end

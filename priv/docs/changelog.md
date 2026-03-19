@@ -1,8 +1,80 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file.
+All notable changes to CCEM APM are documented in this file. Latest: v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [6.4.0] - 2026-03-18
+
+Skills UX overhaul — WCAG 2.1 AA compliance, guided Fix Wizard, card grid layout, slide-in detail drawer, Session invocation timeline, AG-UI health indicators, and SkillsHook JS.
+
+### Added
+- `SkillsLive` full rewrite — WCAG AA: skip links, ARIA landmarks (`main`, `complementary`, `banner`, tablist/tab/tabpanel roles), `aria-live="polite"` for search result announcements
+- Card grid layout with health-ring SVG indicator (green ≥80 / yellow 50–79 / red <50), tier badge (Healthy / Needs Attention / Critical), trigger pills
+- Slide-in detail drawer (`#skill-drawer`) with keyboard focus trap — Escape navigates back through wizard steps or closes
+- Fix Wizard 4-step flow: `:diagnose → :select → :preview → :done` with `MapSet`-backed repair type selection; invokes `ActionEngine` for `fix_skill_frontmatter`, `complete_skill_description`, `add_skill_triggers`
+- Session tab: vertical invocation timeline sorted by `last_seen` descending, absolute-positioned colored dots, methodology badge, relative timestamp
+- AG-UI tab: summary stats row (Connected/Degraded/Broken counts), per-skill health dot + border + text color helpers, Repair button for critical skills
+- `assets/js/hooks/skills.js` — `SkillsHook` LiveView hook: `/` shortcut focuses search input, focus trap management for drawer, previous-focus restoration on drawer close
+- Search + filter bar: debounced text search (300ms), tier dropdown filter, real-time `phx-change`
+
+### Changed
+- `app.js`: `SkillsHook` registered in `Hooks` map
+- `mix.exs`: version bumped 6.3.0 → 6.4.0
+
+---
+
+## [6.3.0] - 2026-03-18
+
+Claude usage management — track model/token usage at user and project scope, surfaced in LiveView, CCEM skills, hooks, and CCEMAgent menubar.
+
+### Added
+- `ClaudeUsageStore` GenServer — ETS-backed token/model usage tracking per `{project, model}` key; broadcasts on `"apm:usage"` PubSub after each `record_usage/4` call; effort level inference (low/medium/high/intensive) from tool_calls:session ratio
+- `UsageController` — REST controller at `/api/usage/*`: `GET /api/usage`, `GET /api/usage/summary`, `GET /api/usage/project/:name`, `POST /api/usage/record`, `DELETE /api/usage/project/:name`
+- `UsageLive` LiveView at `/usage` — 10s auto-refresh, PubSub subscription, summary bar with token progress bars, per-model breakdown table, per-project accordion with effort badges and Reset buttons
+- `claude_usage_record.sh` — PostToolUse hook: fire-and-forget to `POST /api/usage/record` on every Claude Code tool invocation
+- `claude_usage_check.sh` — PreToolUse hook: warns to stderr when project effort_level is `intensive` (>100 tool_calls/session)
+- Usage section added to sidebar nav (under APM Monitoring, `hero-cpu-chip` icon)
+- `UsageModels.swift`, `fetchUsageSummary()` in `APMClient`, `usageSummary` in `EnvironmentMonitor`, `usageSection` in `MenuBarView` — CCEMAgent menubar shows tokens, top model, effort badge
+- Usage Management section added to `ccem-apm` SKILL.md with API quick reference and effort level table
+- `usage_constraints.md` memory file with model selection guidance, effort thresholds, and hook references
+
+### Changed
+- `application.ex` — `ClaudeUsageStore` added to supervision tree before `ApmV5Web.Endpoint`
+- `~/.claude/settings.json` — PostToolUse and PreToolUse hooks registered for usage recording and threshold checking
+
+---
+
+## [6.2.0] - 2026-03-18
+
+Architecture consolidation — domain controller extraction, reusable LiveView components, LiveView integration test suite.
+
+### Added
+- `UpmApiController` — domain controller extracted from `ApiController` for UPM execution tracking endpoints
+- `FormationApiController` — domain controller for formation CRUD (list, get, create, update, agents)
+- `ShowcaseApiController` — domain controller for showcase data REST API (index, show, reload)
+- `AgentPanel` component — extracted from `DashboardLive`; renders agent cards with tier/status/type badges and filter support
+- `PortPanel` component — extracted from `DashboardLive`; renders port cards with clash alerts and remediation display
+- LiveView integration test suite — 14 ExUnit tests: 8 `DashboardLive` tests + 6 `ShowcaseLive` tests
+
+### Changed
+- `ApiController` responsibility reduced — UPM, formation, and showcase routes delegated to dedicated domain controllers
+- `DashboardLive` simplified — `AgentPanel` and `PortPanel` extracted as independent components
+
+---
+
+## [6.1.0] - 2026-03-17
+
+Observability — agent activity log, showcase activity tab, feature inspector, template system, project dropdown UX.
+
+### Added
+- `AgentActivityLog` GenServer — ring buffer (200 events), lifecycle/tool/thinking/text EventBus topics, PubSub on `apm:activity_log`, REST at `GET /api/agents/activity-log`
+- Showcase Activity Tab — D3.js force-directed agent graph, anime.js pulse rings for active agents, 30-event pull-down log
+- Showcase Feature Inspector — right-column panel with acceptance criteria checklist, related agents by `story_id`, status mini-timeline
+- Showcase Template System — `TEMPLATES` registry (engine/formation layouts), `applyTemplate(id)` via `showcase:template-changed` event
+- Project Dropdown UX — `Active`, `Recently Active`, and `Other` sections in project selector, `categorize_projects/2` helper function
 
 ---
 
@@ -241,4 +313,4 @@ CCEM APM built with Elixir/Phoenix, LiveView, D3.js, daisyUI, and Swift. Designe
 
 ---
 
-*Last Updated: 2026-03-12*
+*Last Updated: 2026-03-18*

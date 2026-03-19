@@ -7,6 +7,7 @@ defmodule ApmV5Web.SessionTimelineLive do
   use ApmV5Web, :live_view
 
   import ApmV5Web.Accessibility
+  import ApmV5Web.Components.GettingStartedWizard
 
   alias ApmV5.AgentRegistry
 
@@ -103,6 +104,7 @@ defmodule ApmV5Web.SessionTimelineLive do
         </div>
       </div>
     </div>
+    <.wizard page="agents" dom_id="ccem-wizard-agents-sessions" />
     """
   end
 

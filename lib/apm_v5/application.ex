@@ -20,19 +20,16 @@ defmodule ApmV5.Application do
       {Phoenix.PubSub, name: ApmV5.PubSub},
       ApmV5.ConfigLoader,
       ApmV5.DashboardStore,
-      ApmV5.ApiKeyStore,
       ApmV5.AuditLog,
       ApmV5.ProjectStore,
       ApmV5.AgentRegistry,
       ApmV5.UpmStore,
       ApmV5.SkillTracker,
-      ApmV5.AlertRulesEngine,
       ApmV5.MetricsCollector,
       ApmV5.SloEngine,
-      ApmV5.EventStream,
       ApmV5.AgentDiscovery,
       ApmV5.EnvironmentScanner,
-      ApmV5.CommandRunner,
+      ApmV5.IntakeSupervisor,
       ApmV5.DocsStore,
       ApmV5.PortManager,
       ApmV5.WorkflowSchemaStore,
@@ -47,16 +44,17 @@ defmodule ApmV5.Application do
       ApmV5.PluginScanner,
       ApmV5.BackfillStore,
       ApmV5.SkillsRegistryStore,
+      ApmV5.ShowcaseDataStore,
+      ApmV5.AgUiSupervisor,
       ApmV5.AgUi.StateManager,
-      ApmV5.AgUi.EventBus,
-      ApmV5.AgUi.EventRouter,
-      ApmV5.AgUi.V4Compat,
       # Wave 2: Tool call lifecycle (US-010)
       ApmV5.AgUi.ToolCallTracker,
       # Wave 2: Dashboard state sync (US-015)
       ApmV5.AgUi.DashboardStateSync,
       # Wave 2: Activity tracking (US-016)
       ApmV5.AgUi.ActivityTracker,
+      # Activity log ring buffer (showcase Activity tab)
+      ApmV5.AgentActivityLog,
       # Wave 2: Metrics bridge (US-039)
       ApmV5.AgUi.MetricsBridge,
       # Wave 2: Audit bridge (US-040)
@@ -70,7 +68,8 @@ defmodule ApmV5.Application do
       # Wave 4: A2A messaging router (US-031)
       ApmV5.AgUi.A2A.Router,
       ApmV5.ChatStore,
-      {ApmV5.Intake.Store, []},
+      # Claude usage tracking (US-042)
+      ApmV5.ClaudeUsageStore,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]
