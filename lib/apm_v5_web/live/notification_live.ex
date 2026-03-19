@@ -192,6 +192,86 @@ defmodule ApmV5Web.NotificationLive do
             >
               <.icon name="hero-code-bracket" class="size-3" /> Open PR
             </a>
+            <%!-- UPM contextual action buttons --%>
+            <div
+              :if={@notif[:category] in ["upm"] || @notif[:upm_context] != nil}
+              class="flex items-center gap-1 flex-wrap"
+            >
+              <.link
+                :if={@notif[:story_id]}
+                navigate="/upm"
+                class="btn btn-xs btn-ghost text-primary"
+              >
+                <.icon name="hero-document-text" class="size-3" />
+                Story {@notif[:story_id]}
+              </.link>
+              <.link
+                :if={@notif[:wave_number]}
+                navigate="/upm"
+                class="btn btn-xs btn-ghost text-primary"
+              >
+                <.icon name="hero-queue-list" class="size-3" />
+                Wave {@notif[:wave_number]}{if @notif[:wave_total], do: "/#{@notif[:wave_total]}", else: ""}
+              </.link>
+              <.link navigate="/upm" class="btn btn-xs btn-ghost text-primary">
+                <.icon name="hero-book-open" class="size-3" /> View PRD
+              </.link>
+            </div>
+            <%!-- Ralph contextual action buttons --%>
+            <div
+              :if={@notif[:category] == "ralph" || String.contains?(to_string(@notif[:title]), "Ralph")}
+              class="flex items-center gap-1 flex-wrap"
+            >
+              <.link navigate="/ralph" class="btn btn-xs btn-ghost text-warning">
+                <.icon name="hero-chart-bar" class="size-3" /> View Flowchart
+              </.link>
+              <span
+                :if={@notif[:story_id]}
+                class="badge badge-xs badge-warning badge-outline font-mono"
+              >
+                Story {@notif[:story_id]}
+              </span>
+              <span
+                :if={@notif[:event_type] && String.contains?(to_string(@notif[:event_type]), "complete")}
+                class="badge badge-xs badge-success font-mono"
+              >
+                Done
+              </span>
+            </div>
+            <%!-- Formation contextual action buttons --%>
+            <div
+              :if={@notif[:category] in ["formation", "squadron", "swarm"]}
+              class="flex items-center gap-1 flex-wrap"
+            >
+              <.link
+                :if={@notif[:formation_id]}
+                navigate={"/formation?id=#{@notif[:formation_id]}"}
+                class="btn btn-xs btn-ghost text-accent"
+              >
+                <.icon name="hero-rectangle-group" class="size-3" /> Formation →
+              </.link>
+              <span
+                :if={@notif[:wave_number]}
+                class="badge badge-xs badge-accent badge-outline font-mono"
+              >
+                Wave {@notif[:wave_number]}
+              </span>
+              <.link
+                :if={@notif[:agent_id]}
+                navigate="/agents"
+                class="btn btn-xs btn-ghost text-info"
+              >
+                <.icon name="hero-cpu-chip" class="size-3" /> Agents →
+              </.link>
+            </div>
+            <%!-- Skill contextual action button --%>
+            <.link
+              :if={@notif[:category] == "skill"}
+              navigate="/skills"
+              class="btn btn-xs btn-ghost text-secondary"
+            >
+              <.icon name="hero-sparkles" class="size-3" /> Skills →
+            </.link>
             <%!-- Decision Gate buttons — pending_approval type or decision category --%>
             <div
               :if={@notif[:type] == "pending_approval" || @notif[:category] == "decision"}
