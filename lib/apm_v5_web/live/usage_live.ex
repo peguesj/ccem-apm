@@ -1,4 +1,5 @@
 defmodule ApmV5Web.UsageLive do
+  # Author: Jeremiah Pegues <jeremiah@pegues.io>
   @moduledoc """
   LiveView dashboard for Claude model/token usage tracking.
 

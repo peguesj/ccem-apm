@@ -1,4 +1,5 @@
 defmodule ApmV5Web.SkillsLive do
+  # Author: Jeremiah Pegues <jeremiah@pegues.io>
   @moduledoc """
   LiveView for skills tracking, UEBA analytics, and Skills Registry health dashboard.
 

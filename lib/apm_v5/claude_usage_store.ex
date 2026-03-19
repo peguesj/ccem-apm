@@ -1,4 +1,5 @@
 defmodule ApmV5.ClaudeUsageStore do
+  # Author: Jeremiah Pegues <jeremiah@pegues.io>
   @moduledoc """
   GenServer tracking Claude model/token usage at user and project scope.
 

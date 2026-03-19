@@ -1,4 +1,5 @@
 defmodule ApmV5.ShowcaseDataStore do
+  # Author: Jeremiah Pegues <jeremiah@pegues.io>
   @moduledoc """
   GenServer that loads per-project showcase data from disk.
   Provides feature lists, narratives, design system, and redaction rules
@@ -12,6 +13,8 @@ defmodule ApmV5.ShowcaseDataStore do
 
   # --- Client API ---
 
+  @doc "Start the ShowcaseDataStore GenServer."
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
