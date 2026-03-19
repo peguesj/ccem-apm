@@ -2,13 +2,24 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/drtw_discovery.sh"
+            "command": "bash ~/.claude/hooks/drtw_discovery.sh",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "bash /Users/jeremiah/Developer/ccem/apm-v4/.claude/hooks/update_packages.sh --check-only 2>/dev/null &",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
       }
     ]
   }
