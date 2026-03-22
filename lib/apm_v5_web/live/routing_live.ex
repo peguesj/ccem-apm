@@ -98,11 +98,15 @@ defmodule ApmV5Web.RoutingLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen bg-base-100">
-      <div class="p-6">
-        <div class="flex justify-between items-center mb-4">
-          <h1 class="text-2xl font-bold">Authorization Routing Graph</h1>
-          <div class="flex gap-2">
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path="/routing" />
+
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">Authorization Routing Graph</h2>
+          </div>
+          <div class="flex items-center gap-2">
             <span class="badge badge-success badge-sm gap-1">
               <span class="w-2 h-2 rounded-full bg-success"></span> Authorized
             </span>
@@ -113,9 +117,10 @@ defmodule ApmV5Web.RoutingLive do
               <span class="w-2 h-2 rounded-full bg-warning"></span> Pending
             </span>
           </div>
-        </div>
+        </header>
 
-        <div class="flex gap-4">
+        <main class="flex-1 overflow-y-auto p-4">
+        <div class="flex gap-4 h-full">
           <!-- Graph Canvas -->
           <div class="flex-1 bg-base-200 rounded-lg" style="min-height: 600px;">
             <div id="routing-graph" phx-hook="RoutingGraph" phx-update="ignore" class="w-full h-full" style="min-height: 600px;"></div>
@@ -145,6 +150,7 @@ defmodule ApmV5Web.RoutingLive do
             </div>
           <% end %>
         </div>
+        </main>
       </div>
     </div>
     """

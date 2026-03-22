@@ -50,12 +50,24 @@ defmodule ApmV5Web.AuthorizationLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen bg-base-100">
-      <div class="p-6">
-        <h1 class="text-2xl font-bold mb-4">AgentLock Authorization</h1>
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path="/authorization" />
+
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">AgentLock Authorization</h2>
+            <div class="badge badge-sm badge-ghost">{@summary.registered_tools} tools</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-base-content/40">Auto-refresh 5s</span>
+          </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-4 space-y-4">
 
         <!-- Tabs -->
-        <div class="tabs tabs-boxed mb-6">
+        <div class="tabs tabs-boxed mb-4">
           <button class={"tab #{if @active_tab == "overview", do: "tab-active"}"} phx-click="switch_tab" phx-value-tab="overview">Overview</button>
           <button class={"tab #{if @active_tab == "sessions", do: "tab-active"}"} phx-click="switch_tab" phx-value-tab="sessions">Sessions</button>
           <button class={"tab #{if @active_tab == "audit", do: "tab-active"}"} phx-click="switch_tab" phx-value-tab="audit">Audit Log</button>
@@ -188,6 +200,8 @@ defmodule ApmV5Web.AuthorizationLive do
             </table>
           </div>
         <% end %>
+
+        </main>
       </div>
     </div>
     """
