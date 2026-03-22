@@ -70,6 +70,12 @@ defmodule ApmV5.Application do
       ApmV5.ChatStore,
       # Claude usage tracking (US-042)
       ApmV5.ClaudeUsageStore,
+      # AgentLock authorization layer (v7.0.0)
+      ApmV5.Auth.SessionStore,
+      ApmV5.Auth.TokenStore,
+      ApmV5.Auth.RateLimiter,
+      ApmV5.Auth.ContextTracker,
+      ApmV5.Auth.AuthorizationGate,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]
