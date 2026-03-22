@@ -94,7 +94,7 @@ defmodule ApmV5Web.Components.SidebarNav do
 
   defp version do
     case Application.spec(:apm_v5, :vsn) do
-      nil -> "5.2.0"
+      nil -> "7.0.0"
       vsn -> to_string(vsn)
     end
   end
