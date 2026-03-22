@@ -713,7 +713,7 @@ defmodule ApmV5.ActionEngine do
     results =
       Enum.map(projects, fn project ->
         name = Map.get(project, "name", "unknown")
-        root = Map.get(project, "project_root", "")
+        root = Map.get(project, "project_root", Map.get(project, "root", ""))
 
         cond do
           root == "" ->

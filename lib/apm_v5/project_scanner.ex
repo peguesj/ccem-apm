@@ -154,6 +154,7 @@ defmodule ApmV5.ProjectScanner do
         stack: stack,
         ports: detect_ports(path),
         has_claude_config: has_claude_config(path),
+        has_showcase: has_showcase_dir(path),
         agent_count: count_agents(path),
         formation_count: count_formations(path),
         last_modified: last_modified(path)
@@ -210,6 +211,11 @@ defmodule ApmV5.ProjectScanner do
     File.exists?(Path.join(path, ".claude")) or
       File.exists?(Path.join(path, ".claude/CLAUDE.md")) or
       File.exists?(Path.join(path, ".claude/apm_config.json"))
+  end
+
+  defp has_showcase_dir(path) do
+    showcase_data = Path.join(path, "showcase/data")
+    File.dir?(showcase_data) and File.exists?(Path.join(showcase_data, "features.json"))
   end
 
   defp count_agents(path) do

@@ -39,7 +39,7 @@ defmodule ApmV5Web.ShowcaseLive do
       socket
       |> assign(:page_title, "Showcase")
       |> assign(:all_projects, all_projects)
-      |> assign(:showcase_projects, showcase_projects)
+      |> assign(:showcase_projects, ensure_ccem_in_list(showcase_projects))
       |> assign(:active_project, nil)
       |> assign(:showcase_data, %{})
       |> assign(:features, [])
@@ -192,7 +192,7 @@ defmodule ApmV5Web.ShowcaseLive do
     {:noreply,
      socket
      |> assign(:all_projects, all_projects)
-     |> assign(:showcase_projects, showcase_projects)}
+     |> assign(:showcase_projects, ensure_ccem_in_list(showcase_projects))}
   end
 
   def handle_info({:showcase_data_reloaded, project, data}, socket) do
@@ -367,6 +367,23 @@ defmodule ApmV5Web.ShowcaseLive do
     hours = div(elapsed, 3600)
     minutes = div(rem(elapsed, 3600), 60)
     "#{hours}h #{minutes}m"
+  end
+
+  # Ensures the default CCEM showcase is always present in the project list.
+  # Also deduplicates by name.
+  defp ensure_ccem_in_list(projects) do
+    names = MapSet.new(projects, fn p -> p["name"] end)
+
+    base =
+      if MapSet.member?(names, "ccem") do
+        projects
+      else
+        [%{"name" => "ccem", "source" => "default"} | projects]
+      end
+
+    # Deduplicate by name, keeping first occurrence
+    base
+    |> Enum.uniq_by(fn p -> p["name"] end)
   end
 
   defp safe_get_config do

@@ -147,6 +147,17 @@ defmodule ApmV5.ShowcaseDataStoreTest do
              })
     end
 
+    test "returns true for root key (apm_config format) with showcase/data dir" do
+      assert ShowcaseDataStore.has_showcase?(%{
+               "root" => "~/Developer/ccem"
+             })
+    end
+
+    test "returns true for project name matching showcase/data/projects/ subdir" do
+      # ccem-apm has a subdir at showcase/data/projects/ccem-apm/
+      assert ShowcaseDataStore.has_showcase?(%{"name" => "ccem-apm"})
+    end
+
     test "returns false for empty map" do
       refute ShowcaseDataStore.has_showcase?(%{})
     end
@@ -179,19 +190,69 @@ defmodule ApmV5.ShowcaseDataStoreTest do
       assert Enum.any?(filtered, &(&1["name"] == "ccem"))
     end
 
-    test "returns all projects as graceful degradation when no showcase projects found" do
+    test "returns all input projects plus discovered projects when no input projects have showcase data" do
       projects = [
         %{"name" => "no-showcase-1"},
         %{"name" => "no-showcase-2"}
       ]
 
       filtered = ShowcaseDataStore.filter_showcase_projects(projects)
-      # When nothing passes, returns all as fallback
-      assert length(filtered) == 2
+      # Discovered projects from showcase/data/projects/ subdirs are included
+      # even when no input projects match, so total >= discovered count
+      assert length(filtered) >= 1
+      # Input projects without showcase data are NOT included when discovered projects exist
+      discovered_names = Enum.map(filtered, & &1["name"])
+      assert Enum.any?(discovered_names, fn n -> n not in ["no-showcase-1", "no-showcase-2"] end)
     end
 
-    test "handles empty list" do
-      assert ShowcaseDataStore.filter_showcase_projects([]) == []
+    test "handles empty list by returning discovered projects" do
+      filtered = ShowcaseDataStore.filter_showcase_projects([])
+      # When input is empty, discovered showcase/data/projects/ subdirs are returned
+      assert is_list(filtered)
+      # Each discovered project should have a name
+      Enum.each(filtered, fn p -> assert is_binary(p["name"]) end)
+    end
+  end
+
+  describe "list_showcase_projects/0" do
+    test "returns list of projects with showcase data" do
+      projects = ShowcaseDataStore.list_showcase_projects()
+      assert is_list(projects)
+      # At minimum, ccem should be present
+      names = Enum.map(projects, & &1["name"])
+      assert "ccem" in names
+    end
+
+    test "each entry has name, feature_count, and has_data" do
+      projects = ShowcaseDataStore.list_showcase_projects()
+
+      Enum.each(projects, fn p ->
+        assert is_binary(p["name"])
+        assert is_integer(p["feature_count"])
+        assert p["has_data"] == true
+      end)
+    end
+  end
+
+  describe "scan_showcase_project_dirs/0" do
+    test "discovers project subdirectories with features.json" do
+      dirs = ShowcaseDataStore.scan_showcase_project_dirs()
+      assert is_list(dirs)
+      names = Enum.map(dirs, & &1["name"])
+      # ccem-apm, sfa, and yjmosaic all have features.json
+      assert "ccem-apm" in names
+      assert "sfa" in names
+      assert "yjmosaic" in names
+    end
+
+    test "each entry has name, showcase_data_path, and source" do
+      dirs = ShowcaseDataStore.scan_showcase_project_dirs()
+
+      Enum.each(dirs, fn d ->
+        assert is_binary(d["name"])
+        assert is_binary(d["showcase_data_path"])
+        assert d["source"] == "showcase_subdir"
+      end)
     end
   end
 end
