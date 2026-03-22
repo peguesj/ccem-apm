@@ -18,20 +18,15 @@ defmodule ApmV5.Application do
       ApmV5Web.Telemetry,
       {DNSCluster, query: Application.get_env(:apm_v5, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ApmV5.PubSub},
-      ApmV5.ConfigLoader,
-      ApmV5.DashboardStore,
-      ApmV5.AuditLog,
-      ApmV5.ProjectStore,
-      ApmV5.AgentRegistry,
-      ApmV5.UpmStore,
+      # Sub-supervisor: core infrastructure (ConfigLoader, DashboardStore, AuditLog, etc.)
+      ApmV5.Supervisors.CoreSupervisor,
+      # Remaining top-level GenServers (no logical grouping)
       ApmV5.SkillTracker,
       ApmV5.MetricsCollector,
       ApmV5.SloEngine,
       ApmV5.AgentDiscovery,
       ApmV5.EnvironmentScanner,
       ApmV5.IntakeSupervisor,
-      ApmV5.DocsStore,
-      ApmV5.PortManager,
       ApmV5.WorkflowSchemaStore,
       ApmV5.SkillHookDeployer,
       ApmV5.VerifyStore,
@@ -45,37 +40,12 @@ defmodule ApmV5.Application do
       ApmV5.BackfillStore,
       ApmV5.SkillsRegistryStore,
       ApmV5.ShowcaseDataStore,
-      ApmV5.AgUiSupervisor,
-      ApmV5.AgUi.StateManager,
-      # Wave 2: Tool call lifecycle (US-010)
-      ApmV5.AgUi.ToolCallTracker,
-      # Wave 2: Dashboard state sync (US-015)
-      ApmV5.AgUi.DashboardStateSync,
-      # Wave 2: Activity tracking (US-016)
-      ApmV5.AgUi.ActivityTracker,
-      # Activity log ring buffer (showcase Activity tab)
-      ApmV5.AgentActivityLog,
-      # Wave 2: Metrics bridge (US-039)
-      ApmV5.AgUi.MetricsBridge,
-      # Wave 2: Audit bridge (US-040)
-      ApmV5.AgUi.AuditBridge,
-      # Wave 2: EventBus health (US-041)
-      ApmV5.AgUi.EventBusHealth,
-      # Wave 3: Generative UI registry (US-022)
-      ApmV5.AgUi.GenerativeUI.Registry,
-      # Wave 3: Approval gate (US-026)
-      ApmV5.AgUi.ApprovalGate,
-      # Wave 4: A2A messaging router (US-031)
-      ApmV5.AgUi.A2A.Router,
-      ApmV5.ChatStore,
+      # Sub-supervisor: AG-UI protocol layer
+      ApmV5.Supervisors.AgUiSupervisorGroup,
       # Claude usage tracking (US-042)
       ApmV5.ClaudeUsageStore,
-      # AgentLock authorization layer (v7.0.0)
-      ApmV5.Auth.SessionStore,
-      ApmV5.Auth.TokenStore,
-      ApmV5.Auth.RateLimiter,
-      ApmV5.Auth.ContextTracker,
-      ApmV5.Auth.AuthorizationGate,
+      # Sub-supervisor: AgentLock authorization layer (v7.0.0)
+      ApmV5.Supervisors.AuthSupervisor,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]
