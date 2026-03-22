@@ -1,8 +1,43 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file. Latest: v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management.
+All notable changes to CCEM APM are documented in this file. Latest: v7.0.0 AgentLock authorization protocol, v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [7.0.0] - 2026-03-21
+
+AgentLock authorization protocol integration -- 3-layer security model (Agent -> Gate -> Execution), 10 new auth modules, 19 new REST endpoints, 2 new LiveViews, CCEMHelper rename.
+
+### Added
+- **AgentLock Authorization Protocol** -- 3-layer authorization model: Agent (identity + capabilities), Gate (policy evaluation + rate limiting), Execution (context tracking + memory isolation)
+- 10 new modules under `lib/apm_v5/auth/`:
+  - `Types` -- shared type definitions for authorization domain (tokens, policies, contexts)
+  - `PolicyEngine` -- rule-based policy evaluation engine with allow/deny/conditional outcomes
+  - `TokenStore` -- ETS-backed token issuance, validation, and revocation with TTL expiry
+  - `SessionStore` -- authorization session lifecycle management with ETS persistence
+  - `RateLimiter` -- per-agent and per-scope rate limiting with sliding window counters
+  - `ContextTracker` -- execution context tracking with scope inheritance and audit trail
+  - `MemoryGate` -- memory access control enforcing read/write/execute permissions per scope
+  - `RedactionEngine` -- content redaction pipeline with configurable rules and audit logging
+  - `AuthorizationGate` -- central gate combining policy, rate limit, and context checks into a single authorize/2 call
+  - `AgentLifecycle` -- agent identity registration, capability grants, and lifecycle state machine
+- 19 new REST endpoints under `/api/v2/auth/*` -- token CRUD, policy management, session control, rate limit queries, context inspection, redaction preview
+- `AuthorizationLive` LiveView at `/authorization` -- real-time authorization dashboard with token status, policy browser, rate limit gauges, and session inspector
+- `RoutingLive` LiveView at `/routing` -- endpoint routing visualization with auth requirement indicators and middleware chain display
+- 5 new `ActionEngine` actions in the `authorization` category: `rotate_tokens`, `audit_permissions`, `enforce_policy_set`, `reset_rate_limits`, `redact_scope`
+- 6 new ETS tables: `auth_tokens`, `auth_sessions`, `auth_policies`, `auth_rate_limits`, `auth_contexts`, `auth_redactions`
+- 4 new PubSub topics: `apm:auth:tokens`, `apm:auth:policies`, `apm:auth:sessions`, `apm:auth:rate_limits`
+- AG-UI EventBus `CUSTOM` event emission for all authorization events (token issued/revoked, policy evaluated, rate limit hit, context created)
+
+### Changed
+- **CCEMAgent renamed to CCEMHelper** -- the macOS menubar companion app is now called CCEMHelper to avoid confusion with AI agents managed by APM; all source paths, bundle identifiers, documentation references, and build commands updated accordingly
+- `mix.exs`: version bumped 6.4.0 -> 7.0.0
+- `application.ex`: 10 new auth GenServers added to supervision tree
+
+### Fixed
+- **Duplicate Getting Started modal** -- the GettingStartedWizard modal no longer re-appears on every LiveView navigation; dismissed state is persisted in localStorage
 
 ---
 
@@ -313,4 +348,4 @@ CCEM APM built with Elixir/Phoenix, LiveView, D3.js, daisyUI, and Swift. Designe
 
 ---
 
-*Last Updated: 2026-03-18*
+*Last Updated: 2026-03-21*

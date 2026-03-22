@@ -227,12 +227,66 @@ curl http://localhost:3032/api/agents | jq '.agents'
 
 > **Tip:** If agents register but do not appear, confirm the `project` field in the registration payload matches the active project in `apm_config.json`.
 
+## Authorization (v7.0.0)
+
+CCEM APM v7.0.0 introduces the AgentLock authorization protocol, providing 3-layer security for agent operations.
+
+### Authorization Dashboard
+
+Access the authorization dashboard at:
+
+```text
+http://localhost:3032/authorization
+```
+
+The dashboard provides:
+
+- **Token Status** -- View active, expired, and revoked tokens across all agents
+- **Policy Browser** -- Browse and manage authorization policies with rule previews
+- **Rate Limit Gauges** -- Real-time per-agent rate limit consumption
+- **Session Inspector** -- Active authorization sessions with scope and permission details
+
+### Routing Dashboard
+
+View endpoint routing and auth requirements at:
+
+```text
+http://localhost:3032/routing
+```
+
+### Quick Authorization Test
+
+Issue a token and test authorization:
+
+```bash
+# Issue a token
+curl -X POST http://localhost:3032/api/v2/auth/tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-abc123",
+    "scope": ["read", "write"],
+    "ttl_seconds": 3600
+  }'
+
+# Test authorization
+curl -X POST http://localhost:3032/api/v2/auth/authorize \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-abc123",
+    "token_id": "tok-xyz789",
+    "action": "read",
+    "resource": "agents"
+  }'
+```
+
+See [Authorization](/docs/user/authorization) for the full guide and [API Reference](/docs/developer/api-reference) for all 19 auth endpoints.
+
 ## Architecture Overview
 
 CCEM APM is built on Phoenix (Elixir) with:
 
 - **LiveView** for real-time web UI
-- **GenServers** for state management (agents, config, notifications)
+- **GenServers** for state management (agents, config, notifications, authorization)
 - **PubSub** for event broadcasting
 - **ETS** for in-memory caching
 - **REST API** for agent integration
@@ -244,6 +298,7 @@ See [Architecture](/docs/developer/architecture) for details.
 - Read the [Dashboard Guide](/docs/user/dashboard) to explore the UI
 - Set up [Multi-Project Support](/docs/user/projects)
 - Learn about the [Agent Fleet](/docs/user/agents)
+- Explore [Authorization](/docs/user/authorization) to configure AgentLock policies
 - Configure the [CCEMHelper SwiftUI Menubar App](/docs/developer/swift-agent)
 
 ---

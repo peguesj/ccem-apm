@@ -1,6 +1,8 @@
-# SwiftUI Menubar Agent (CCEMHelper)
+# SwiftUI Menubar Helper (CCEMHelper)
 
-CCEMHelper is a native macOS application providing real-time monitoring and control of CCEM APM from the menu bar.
+CCEMHelper is a native macOS companion application providing real-time monitoring and control of CCEM APM from the menu bar.
+
+> **Note (v7.0.0):** This app was renamed from CCEMAgent to CCEMHelper to avoid confusion with AI agents managed by APM. All bundle identifiers, source paths, and build commands have been updated accordingly. The Swift package directory is now `~/Developer/ccem/CCEMHelper/`.
 
 ## Overview
 
@@ -510,7 +512,7 @@ When UPM is active, shows:
 Build a release binary:
 
 ```bash
-cd /Users/jeremiah/Developer/ccem/CCEMHelper
+cd ~/Developer/ccem/CCEMHelper
 swift build -c release
 ```
 
@@ -535,7 +537,7 @@ cp -r .build/Release/CCEMHelper.app /Applications/
 
 ### Menubar App Not Connecting
 
-1. Verify APM server running on port 3031
+1. Verify APM server running on port 3032
 2. Check network connectivity: `curl http://localhost:3032/health`
 3. Review CCEMHelper logs in Console.app
 

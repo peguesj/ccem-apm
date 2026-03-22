@@ -1,7 +1,9 @@
 # REST API Reference
 
-Complete API endpoint documentation for CCEM APM v6.4.0. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
+Complete API endpoint documentation for CCEM APM v7.0.0. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
 
+> **v7.0.0 additions**: AgentLock Authorization API (`/api/v2/auth/*`) with 19 endpoints for token management, policy CRUD, session control, rate limiting, context inspection, and redaction preview.
+>
 > **v6.4.0 additions**: Claude Usage API (`/api/usage/*`) with per-project effort tracking and Ports API (`/api/ports/register`, `/api/ports/conflicts`) for service-name registration and conflict checking.
 
 ## Health and Status Endpoints
@@ -1779,6 +1781,323 @@ Inferred from `tool_calls / sessions` ratio per project:
 | `intensive` | >100 calls/session | PreToolUse hook emits warning |
 
 > **PubSub**: Every `POST /api/usage/record` and `DELETE /api/usage/project/:name` broadcasts `{:usage_updated, all_usage}` on `"apm:usage"` so `UsageLive` updates in real time.
+
+---
+
+## AgentLock Authorization Endpoints (v7.0.0)
+
+19 endpoints for the AgentLock authorization protocol. All under `/api/v2/auth/*`.
+
+### Token Management
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| POST | `/api/v2/auth/tokens` | Issue a new authorization token |
+| GET | `/api/v2/auth/tokens` | List all active tokens |
+| GET | `/api/v2/auth/tokens/:token_id` | Get token details |
+| DELETE | `/api/v2/auth/tokens/:token_id` | Revoke a token |
+| POST | `/api/v2/auth/tokens/:token_id/refresh` | Refresh a token's TTL |
+
+#### POST /api/v2/auth/tokens
+
+Issue a new authorization token for an agent.
+
+```bash
+curl -X POST http://localhost:3032/api/v2/auth/tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-abc123",
+    "scope": ["read", "write"],
+    "ttl_seconds": 3600,
+    "metadata": {"project": "ccem"}
+  }'
+```
+
+Response (201):
+
+```json
+{
+  "ok": true,
+  "token": {
+    "id": "tok-xyz789",
+    "agent_id": "agent-abc123",
+    "scope": ["read", "write"],
+    "issued_at": "2026-03-21T10:00:00Z",
+    "expires_at": "2026-03-21T11:00:00Z",
+    "status": "active"
+  }
+}
+```
+
+#### GET /api/v2/auth/tokens
+
+List all active tokens. Supports optional `agent_id` filter.
+
+```bash
+curl 'http://localhost:3032/api/v2/auth/tokens?agent_id=agent-abc123'
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "tokens": [
+    {
+      "id": "tok-xyz789",
+      "agent_id": "agent-abc123",
+      "scope": ["read", "write"],
+      "issued_at": "2026-03-21T10:00:00Z",
+      "expires_at": "2026-03-21T11:00:00Z",
+      "status": "active"
+    }
+  ],
+  "total": 1
+}
+```
+
+#### DELETE /api/v2/auth/tokens/:token_id
+
+Revoke an active token immediately.
+
+```bash
+curl -X DELETE http://localhost:3032/api/v2/auth/tokens/tok-xyz789
+```
+
+Response:
+
+```json
+{"ok": true, "token_id": "tok-xyz789", "status": "revoked"}
+```
+
+### Policy Management
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| GET | `/api/v2/auth/policies` | List all policies |
+| POST | `/api/v2/auth/policies` | Create a new policy |
+| GET | `/api/v2/auth/policies/:policy_id` | Get policy details |
+| PUT | `/api/v2/auth/policies/:policy_id` | Update a policy |
+| DELETE | `/api/v2/auth/policies/:policy_id` | Delete a policy |
+
+#### POST /api/v2/auth/policies
+
+Create a new authorization policy.
+
+```bash
+curl -X POST http://localhost:3032/api/v2/auth/policies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "read-only-agents",
+    "description": "Restricts agents to read-only operations",
+    "rules": [
+      {"action": "allow", "scope": "read", "resource": "*"},
+      {"action": "deny", "scope": "write", "resource": "*"}
+    ],
+    "priority": 10
+  }'
+```
+
+Response (201):
+
+```json
+{
+  "ok": true,
+  "policy": {
+    "id": "pol-abc123",
+    "name": "read-only-agents",
+    "rules": [...],
+    "priority": 10,
+    "created_at": "2026-03-21T10:00:00Z"
+  }
+}
+```
+
+#### GET /api/v2/auth/policies
+
+List all policies, ordered by priority.
+
+```bash
+curl http://localhost:3032/api/v2/auth/policies
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "policies": [...],
+  "total": 3
+}
+```
+
+### Session Control
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| POST | `/api/v2/auth/sessions` | Create an authorization session |
+| GET | `/api/v2/auth/sessions/:session_id` | Get session details |
+| DELETE | `/api/v2/auth/sessions/:session_id` | Terminate a session |
+
+#### POST /api/v2/auth/sessions
+
+Create a new authorization session binding an agent to a set of policies.
+
+```bash
+curl -X POST http://localhost:3032/api/v2/auth/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-abc123",
+    "token_id": "tok-xyz789",
+    "policy_ids": ["pol-abc123"],
+    "context": {"project": "ccem", "environment": "dev"}
+  }'
+```
+
+Response (201):
+
+```json
+{
+  "ok": true,
+  "session": {
+    "id": "auth-sess-001",
+    "agent_id": "agent-abc123",
+    "token_id": "tok-xyz789",
+    "status": "active",
+    "created_at": "2026-03-21T10:00:00Z"
+  }
+}
+```
+
+### Rate Limiting
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| GET | `/api/v2/auth/rate-limits` | Get current rate limit status for all agents |
+| GET | `/api/v2/auth/rate-limits/:agent_id` | Get rate limit status for a specific agent |
+
+#### GET /api/v2/auth/rate-limits/:agent_id
+
+Get rate limit counters and remaining quota for an agent.
+
+```bash
+curl http://localhost:3032/api/v2/auth/rate-limits/agent-abc123
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "agent_id": "agent-abc123",
+  "limits": {
+    "requests_per_minute": {"limit": 60, "remaining": 45, "resets_at": "2026-03-21T10:01:00Z"},
+    "tokens_per_hour": {"limit": 100000, "remaining": 78000, "resets_at": "2026-03-21T11:00:00Z"}
+  }
+}
+```
+
+### Context and Redaction
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| GET | `/api/v2/auth/contexts/:agent_id` | Get execution context for an agent |
+| POST | `/api/v2/auth/redact/preview` | Preview content redaction without applying |
+| POST | `/api/v2/auth/authorize` | Evaluate authorization for an action |
+
+#### POST /api/v2/auth/authorize
+
+Evaluate whether an agent is authorized to perform an action. Combines policy evaluation, rate limit checks, and context validation.
+
+```bash
+curl -X POST http://localhost:3032/api/v2/auth/authorize \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-abc123",
+    "token_id": "tok-xyz789",
+    "action": "write",
+    "resource": "config/apm_config.json",
+    "context": {"project": "ccem"}
+  }'
+```
+
+Authorized response:
+
+```json
+{
+  "ok": true,
+  "authorized": true,
+  "agent_id": "agent-abc123",
+  "action": "write",
+  "resource": "config/apm_config.json",
+  "evaluated_policies": ["pol-abc123"],
+  "decision": "allow"
+}
+```
+
+Denied response (403):
+
+```json
+{
+  "ok": false,
+  "authorized": false,
+  "agent_id": "agent-abc123",
+  "action": "write",
+  "resource": "config/apm_config.json",
+  "decision": "deny",
+  "reason": "Policy 'read-only-agents' denies write access to resource"
+}
+```
+
+#### POST /api/v2/auth/redact/preview
+
+Preview what content redaction would produce for a given input and scope.
+
+```bash
+curl -X POST http://localhost:3032/api/v2/auth/redact/preview \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "API key: sk-abc123-secret",
+    "scope": "external",
+    "rules": ["api_keys", "credentials"]
+  }'
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "original_length": 26,
+  "redacted": "API key: [REDACTED]",
+  "redactions_applied": 1,
+  "rules_matched": ["api_keys"]
+}
+```
+
+#### GET /api/v2/auth/contexts/:agent_id
+
+Get the current execution context for an agent, including scope inheritance chain and active permissions.
+
+```bash
+curl http://localhost:3032/api/v2/auth/contexts/agent-abc123
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "agent_id": "agent-abc123",
+  "context": {
+    "scope": "project:ccem",
+    "inherited_scopes": ["global", "project:ccem"],
+    "active_permissions": ["read", "write"],
+    "memory_access": {"read": true, "write": true, "execute": false},
+    "created_at": "2026-03-21T10:00:00Z"
+  }
+}
+```
 
 ---
 
