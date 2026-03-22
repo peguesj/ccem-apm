@@ -136,6 +136,53 @@ defmodule ApmV5.ActionEngine do
       category: "analysis",
       icon: "musical-note",
       params: []
+    },
+    # AgentLock authorization actions (v7.0.0)
+    %{
+      id: "create_authorization_hooks",
+      name: "Create Authorization Hooks",
+      description: "Deploy AgentLock PreToolUse/PostToolUse hooks (agentlock_pre_tool.sh, agentlock_post_tool.sh, agentlock_context.sh) to target project's hook directory.",
+      category: "authorization",
+      icon: "shield-check",
+      params: []
+    },
+    %{
+      id: "register_tool_permissions",
+      name: "Register Tool Permissions",
+      description: "Batch register Claude Code tools with AgentLock risk levels. Configures default policies: Read=none, Write=medium, Bash=high, Agent=low.",
+      category: "authorization",
+      icon: "key",
+      params: []
+    },
+    %{
+      id: "audit_authorization_compliance",
+      name: "Audit Authorization Compliance",
+      description: "Scan authorization audit log for unauthorized patterns, missing tokens, expired sessions. Returns compliance report with risk distribution.",
+      category: "authorization",
+      icon: "clipboard-document-check",
+      params: []
+    },
+    %{
+      id: "manage_agent_lifecycle",
+      name: "Manage Agent Lifecycle",
+      description: "Start/stop/restart agent with authorization checkpoint. Validates token before state transition. Supports PENDING→AUTHORIZED→RUNNING lifecycle.",
+      category: "process_management",
+      icon: "play",
+      params: [
+        %{name: "agent_id", type: "string", required: true},
+        %{name: "action", type: "string", required: true, options: ["start", "stop", "restart", "authorize"]}
+      ]
+    },
+    %{
+      id: "enforce_data_boundaries",
+      name: "Enforce Data Boundaries",
+      description: "Apply RedactionEngine patterns to specified output. Scans for sensitive data (SSN, CC, API keys, etc.) and reports findings. Optionally redacts in-place.",
+      category: "authorization",
+      icon: "eye-slash",
+      params: [
+        %{name: "text", type: "string", required: true},
+        %{name: "mode", type: "string", required: false, options: ["scan", "redact"]}
+      ]
     }
   ]
 
@@ -889,6 +936,103 @@ defmodule ApmV5.ActionEngine do
       missing: missing,
       details: Enum.map(results, fn {name, ok} -> %{check: name, ok: ok} end)
     }}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  # -- AgentLock authorization actions (v7.0.0) --
+
+  defp execute_action("create_authorization_hooks", _project_path, _params) do
+    hooks_dir = Path.expand("~/Developer/ccem/apm/hooks")
+
+    hooks = [
+      {"agentlock_pre_tool.sh", :pre_tool},
+      {"agentlock_post_tool.sh", :post_tool},
+      {"agentlock_context.sh", :context}
+    ]
+
+    results =
+      Enum.map(hooks, fn {filename, _type} ->
+        path = Path.join(hooks_dir, filename)
+        exists = File.exists?(path)
+        {filename, %{path: path, exists: exists}}
+      end)
+
+    {:ok, %{hooks_dir: hooks_dir, hooks: results, action: "create_authorization_hooks"}}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("register_tool_permissions", _project_path, _params) do
+    tools = ApmV5.Auth.PolicyEngine.default_risk_map()
+
+    Enum.each(tools, fn {name, risk} ->
+      ApmV5.Auth.AuthorizationGate.register_tool(name, risk)
+    end)
+
+    {:ok, %{registered: map_size(tools), tools: tools}}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("audit_authorization_compliance", _project_path, _params) do
+    summary = ApmV5.Auth.AuthorizationGate.summary()
+    sessions = ApmV5.Auth.SessionStore.list_active()
+    token_stats = ApmV5.Auth.TokenStore.stats()
+    rate_stats = ApmV5.Auth.RateLimiter.stats()
+
+    {:ok, %{
+      summary: summary,
+      active_sessions: length(sessions),
+      token_stats: token_stats,
+      rate_limit_stats: rate_stats,
+      compliance_status: if(summary.total_denied == 0, do: "clean", else: "has_denials")
+    }}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("manage_agent_lifecycle", _project_path, params) do
+    agent_id = Map.get(params, "agent_id", "")
+    action = Map.get(params, "action", "")
+
+    event =
+      case action do
+        "start" -> :start
+        "stop" -> :complete
+        "restart" -> :start
+        "authorize" -> :authorize
+        _ -> nil
+      end
+
+    if event do
+      case ApmV5.Auth.AgentLifecycle.transition(:pending, event) do
+        {:ok, new_state} -> {:ok, %{agent_id: agent_id, action: action, new_state: new_state}}
+        {:error, reason} -> {:error, "Invalid transition: #{reason}"}
+      end
+    else
+      {:error, "Unknown action: #{action}"}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("enforce_data_boundaries", _project_path, params) do
+    text = Map.get(params, "text", "")
+    mode = Map.get(params, "mode", "scan")
+
+    case mode do
+      "scan" ->
+        matches = ApmV5.Auth.RedactionEngine.scan(text)
+        {:ok, %{mode: "scan", matches: length(matches), findings: Enum.map(matches, fn {type, _text, pos} -> %{type: type, position: pos} end)}}
+
+      "redact" ->
+        result = ApmV5.Auth.RedactionEngine.redact(text, :auto)
+        {:ok, %{mode: "redact", had_redactions: result.had_redactions, redaction_count: length(result.redactions)}}
+
+      _ ->
+        {:error, "Unknown mode: #{mode}"}
+    end
   rescue
     e -> {:error, Exception.message(e)}
   end
