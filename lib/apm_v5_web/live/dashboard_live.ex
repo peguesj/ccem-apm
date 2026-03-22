@@ -34,6 +34,9 @@ defmodule ApmV5Web.DashboardLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:upm")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:ports")
 
+      # Subscribe to chat PubSub for live updates (initial scope: global)
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, ChatStore.topic("global"))
+
       # US-017: EventBus subscriptions for AG-UI integration
       ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
       ApmV5.AgUi.EventBus.subscribe("state:*")
@@ -879,8 +882,15 @@ defmodule ApmV5Web.DashboardLive do
   def handle_event("chat:send", _params, socket), do: {:noreply, socket}
   def handle_event("chat:input", %{"content" => val}, socket), do: {:noreply, assign(socket, :chat_input, val)}
 
-  # Scope navigation
+  # Scope navigation — re-subscribe to new chat scope PubSub topic
   def handle_event("scope:set", %{"scope" => scope}, socket) do
+    old_scope = socket.assigns.chat_scope
+
+    if connected?(socket) && old_scope != scope do
+      Phoenix.PubSub.unsubscribe(ApmV5.PubSub, ChatStore.topic(old_scope))
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, ChatStore.topic(scope))
+    end
+
     messages = ChatStore.list_messages(scope, 50)
     {:noreply, socket |> assign(:chat_scope, scope) |> assign(:chat_messages, messages)}
   end
@@ -1054,7 +1064,14 @@ defmodule ApmV5Web.DashboardLive do
           end
 
         scope = "agent:#{agent_id}"
+        old_scope = socket.assigns.chat_scope
         messages = ChatStore.list_messages(scope, 50)
+
+        # Re-subscribe to new chat scope PubSub topic
+        if connected?(socket) && old_scope != scope do
+          Phoenix.PubSub.unsubscribe(ApmV5.PubSub, ChatStore.topic(old_scope))
+          Phoenix.PubSub.subscribe(ApmV5.PubSub, ChatStore.topic(scope))
+        end
 
         socket
         |> assign(:active_tab, :inspector)
@@ -1291,6 +1308,20 @@ defmodule ApmV5Web.DashboardLive do
   end
 
   def handle_info({:event_bus, _, _}, socket), do: {:noreply, socket}
+
+  # Chat PubSub — live message updates from ChatStore
+  def handle_info({:chat_event, scope, {:new_message, _message}}, socket) do
+    if scope == socket.assigns.chat_scope do
+      messages = ChatStore.list_messages(scope, 50)
+      {:noreply, assign(socket, :chat_messages, messages)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:chat_event, _scope, :cleared}, socket) do
+    {:noreply, assign(socket, :chat_messages, [])}
+  end
 
   def handle_info(_msg, socket) do
     {:noreply, socket}
