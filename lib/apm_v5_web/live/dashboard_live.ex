@@ -22,7 +22,6 @@ defmodule ApmV5Web.DashboardLive do
   alias ApmV5.ChatStore
 
   import ApmV5Web.Components.GettingStartedShowcase
-  import ApmV5Web.Components.GettingStartedWizard
 
   @impl true
   def mount(_params, _session, socket) do
@@ -852,7 +851,6 @@ defmodule ApmV5Web.DashboardLive do
       <%!-- Getting Started Showcase --%>
       <.showcase show={@show_showcase} />
     </div>
-    <.wizard page="dashboard" dom_id="ccem-wizard-dashboard-main" />
     """
   end
 
@@ -942,12 +940,6 @@ defmodule ApmV5Web.DashboardLive do
 
     {:noreply, socket}
   end
-
-  # Wizard events (legacy)
-  def handle_event("wizard:dismiss", _params, socket), do: {:noreply, socket}
-  def handle_event("wizard:next", _params, socket), do: {:noreply, push_event(socket, "wizard:next", %{})}
-  def handle_event("wizard:prev", _params, socket), do: {:noreply, push_event(socket, "wizard:prev", %{})}
-  def handle_event("wizard:goto", %{"slide" => slide}, socket), do: {:noreply, push_event(socket, "wizard:goto", %{slide: slide})}
 
   def handle_event("set_graph_view", %{"view" => view}, socket) do
     socket = assign(socket, :graph_view, String.to_existing_atom(view))

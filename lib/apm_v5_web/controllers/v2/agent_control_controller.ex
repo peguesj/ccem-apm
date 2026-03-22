@@ -3,7 +3,7 @@ defmodule ApmV5Web.V2.AgentControlController do
   V2 REST controller for agent connect/disconnect/restart actions.
 
   Provides POST /api/v2/agents/:id/connect|disconnect|restart endpoints
-  used by CCEMAgent and the dashboard control panel.
+  used by CCEMHelper and the dashboard control panel.
   """
 
   use ApmV5Web, :controller

@@ -420,11 +420,11 @@ curl http://localhost:3032/health
 
 ---
 
-## CCEMAgent (Menubar App) Issues
+## CCEMHelper (Menubar App) Issues
 
 ### Issue: Menubar App Won't Connect
 
-**Symptoms:** CCEMAgent icon shows disconnected status.
+**Symptoms:** CCEMHelper icon shows disconnected status.
 
 **Cause:** APM server is not running or not reachable on the configured port.
 
@@ -435,10 +435,10 @@ curl http://localhost:3032/health
 curl http://localhost:3032/health
 
 # Check app logs (macOS)
-log show --predicate 'process == "CCEMAgent"' --last 1h
+log show --predicate 'process == "CCEMHelper"' --last 1h
 ```
 
-If server is running but app still disconnected, quit and relaunch CCEMAgent.
+If server is running but app still disconnected, quit and relaunch CCEMHelper.
 
 ### Issue: Agent List Not Updating in Menubar
 
@@ -450,7 +450,7 @@ If server is running but app still disconnected, quit and relaunch CCEMAgent.
 
 1. Click the refresh icon in the menubar
 2. Verify polling is working: `tail -f /var/log/ccem-apm/stdout.log | grep "GET /api/agents"`
-3. Quit and relaunch CCEMAgent
+3. Quit and relaunch CCEMHelper
 
 ---
 

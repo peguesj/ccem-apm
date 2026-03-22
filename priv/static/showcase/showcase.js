@@ -68,7 +68,7 @@ const FEATURES = [
   { id: 'US-015', wave: 3, title: 'Conversation Monitor', description: 'Real-time conversation tracking across scopes. Message history viewer.', packages: [{ name: 'ChatStore', url: '#' }] },
 
   // Wave 4: Tools
-  { id: 'US-016', wave: 4, title: 'CCEMAgent', description: 'Native macOS menubar companion. Swift/AppKit. Telemetry charts, task management, start/stop APM.', packages: [{ name: 'Swift', url: 'https://swift.org' }, { name: 'AppKit', url: 'https://developer.apple.com/documentation/appkit' }] },
+  { id: 'US-016', wave: 4, title: 'CCEMHelper', description: 'Native macOS menubar companion. Swift/AppKit. Telemetry charts, task management, start/stop APM.', packages: [{ name: 'Swift', url: 'https://swift.org' }, { name: 'AppKit', url: 'https://developer.apple.com/documentation/appkit' }] },
   { id: 'US-017', wave: 4, title: 'Skill Health Monitor', description: 'SkillsRegistryStore with health scoring. Audit engine. Fix frontmatter/triggers.', packages: [{ name: 'SkillsLive', url: '#' }] },
   { id: 'US-018', wave: 4, title: 'Project Scanner', description: 'Auto-discovery of projects, stacks, ports, hooks, MCPs, CLAUDE.md sections.', packages: [{ name: 'ProjectScanner', url: '#' }] },
   { id: 'US-019', wave: 4, title: 'Background Task Manager', description: 'Track Claude Code background tasks. Logs, stop, delete. 5s auto-refresh.', packages: [{ name: 'BackgroundTasksStore', url: '#' }] },
@@ -585,7 +585,7 @@ function renderInspector() {
   const services = [
     { label: 'CCEM APM', status: apmState.connected ? 'green' : 'red', detail: apmState.connected ? 'localhost:3032' : 'unreachable' },
     { label: 'AG-UI EventRouter', status: apmState.connected ? 'green' : 'unknown', detail: apmState.connected ? 'routing' : 'unknown' },
-    { label: 'CCEMAgent', status: 'amber', detail: 'menubar app' },
+    { label: 'CCEMHelper', status: 'amber', detail: 'menubar app' },
   ];
   html += inspectorSection('Services', services.map(s => `<div class="flex items-center justify-between py-1.5"><div class="flex items-center gap-2 min-w-0"><span class="inline-block h-2 w-2 flex-shrink-0 rounded-full ${STATUS_COLORS[s.status].dot}"></span><span class="text-xs text-zinc-300 truncate">${s.label}</span></div><span class="text-[10px] font-mono ${STATUS_COLORS[s.status].text} truncate max-w-[140px]">${s.detail}</span></div>`).join(''));
 

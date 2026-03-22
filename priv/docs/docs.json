@@ -170,9 +170,9 @@
         },
         {
           "slug": "developer/swift-agent",
-          "title": "SwiftUI Menubar Agent (CCEMAgent)",
+          "title": "SwiftUI Menubar Agent (CCEMHelper)",
           "file": "developer/swift-agent.md",
-          "description": "CCEMAgent SwiftUI menubar app: APMClient actor, EnvironmentMonitor, UPM status, models",
+          "description": "CCEMHelper SwiftUI menubar app: APMClient actor, EnvironmentMonitor, UPM status, models",
           "icon": "hero-computer-desktop",
           "order": 5,
           "tags": ["swift", "macos", "menubar", "native"]

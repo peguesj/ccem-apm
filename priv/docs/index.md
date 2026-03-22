@@ -22,7 +22,7 @@ A real-time monitoring and orchestration platform for Claude Code AI agent sessi
 - **UsageLive Dashboard** -- `/usage` LiveView with summary bar, model breakdown table, project accordion, and 10-second refresh
 - **Usage REST API** -- `UsageController` at `/api/usage/*` (5 endpoints: record, summary, by-project, by-model, clear)
 - **PostToolUse/PreToolUse Hooks** -- `claude_usage_record.sh` (fire-and-forget recording) and `claude_usage_check.sh` (intensive usage warning)
-- **CCEMAgent Usage Section** -- `UsageModels.swift`, `fetchUsageSummary()`, and `usageSection` in MenuBarView
+- **CCEMHelper Usage Section** -- `UsageModels.swift`, `fetchUsageSummary()`, and `usageSection` in MenuBarView
 
 ## What's New in v6.0.0
 
@@ -109,7 +109,7 @@ Configuration, deployment, hooks, and troubleshooting.
 
 - **Multi-project Support** -- Project switching with isolated namespaces and subdirectory-scoped sessions
 - **UPM Integration** -- Unified Project Management bridging Plane, Linear, and local task tracking
-- **SwiftUI Menubar Agent** -- Native macOS CCEMAgent for at-a-glance status via AppKit and URLSession
+- **SwiftUI Menubar Agent** -- Native macOS CCEMHelper for at-a-glance status via AppKit and URLSession
 
 ### Development
 

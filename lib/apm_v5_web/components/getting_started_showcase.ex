@@ -6,6 +6,10 @@ defmodule ApmV5Web.Components.GettingStartedShowcase do
   Slides cover: /upm, /upm sync plan build, /live-integration-testing,
   /double-verify, /pr ship.
 
+  Also provides `lottie_wizard/1` — the dashboard-specific onboarding modal
+  that renders at `/` (DashboardLive). Uses the GettingStartedDashboard JS hook
+  and storage key `ccem_dashboard_onboarding_v2`.
+
   Uses lottie-web (loaded from CDN) for animated illustrations.
   WCAG AA compliant with prefers-reduced-motion support.
   Keyboard navigable (Arrow keys, Escape).
@@ -151,6 +155,31 @@ defmodule ApmV5Web.Components.GettingStartedShowcase do
           </div>
         </div>
       </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders the Dashboard Lottie onboarding wizard.
+
+  Displays on first visit at `/` using LocalStorage key `ccem_dashboard_onboarding_v2`.
+  Four slides with detailed APM viewport animations: Dashboard Layout, Agent Fleet,
+  Formation Graph, Live Event Stream. Managed entirely by the GettingStartedDashboard
+  JS hook — this component is a thin mount point.
+
+  ## Attributes
+    * `id` - DOM element ID (default: "getting-started-dashboard")
+  """
+  attr :id, :string, default: "getting-started-dashboard"
+
+  def lottie_wizard(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      phx-hook="GettingStartedDashboard"
+      style="display:none;"
+      aria-live="polite"
+    >
     </div>
     """
   end

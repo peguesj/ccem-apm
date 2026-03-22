@@ -28,7 +28,7 @@ Skills UX overhaul — WCAG 2.1 AA compliance, guided Fix Wizard, card grid layo
 
 ## [6.3.0] - 2026-03-18
 
-Claude usage management — track model/token usage at user and project scope, surfaced in LiveView, CCEM skills, hooks, and CCEMAgent menubar.
+Claude usage management — track model/token usage at user and project scope, surfaced in LiveView, CCEM skills, hooks, and CCEMHelper menubar.
 
 ### Added
 - `ClaudeUsageStore` GenServer — ETS-backed token/model usage tracking per `{project, model}` key; broadcasts on `"apm:usage"` PubSub after each `record_usage/4` call; effort level inference (low/medium/high/intensive) from tool_calls:session ratio
@@ -37,7 +37,7 @@ Claude usage management — track model/token usage at user and project scope, s
 - `claude_usage_record.sh` — PostToolUse hook: fire-and-forget to `POST /api/usage/record` on every Claude Code tool invocation
 - `claude_usage_check.sh` — PreToolUse hook: warns to stderr when project effort_level is `intensive` (>100 tool_calls/session)
 - Usage section added to sidebar nav (under APM Monitoring, `hero-cpu-chip` icon)
-- `UsageModels.swift`, `fetchUsageSummary()` in `APMClient`, `usageSummary` in `EnvironmentMonitor`, `usageSection` in `MenuBarView` — CCEMAgent menubar shows tokens, top model, effort badge
+- `UsageModels.swift`, `fetchUsageSummary()` in `APMClient`, `usageSummary` in `EnvironmentMonitor`, `usageSection` in `MenuBarView` — CCEMHelper menubar shows tokens, top model, effort badge
 - Usage Management section added to `ccem-apm` SKILL.md with API quick reference and effort level table
 - `usage_constraints.md` memory file with model selection guidance, effort thresholds, and hook references
 
@@ -110,7 +110,7 @@ E2E stabilization — unified sidebar, notification overhaul, AG-UI visualizer, 
 
 ## [5.1.0] - 2026-03-11
 
-Interactive management suite — contextual AG-UI chat, agent controls, getting started wizard, CCEMAgent v3.0.0.
+Interactive management suite — contextual AG-UI chat, agent controls, getting started wizard, CCEMHelper v3.0.0.
 
 ### Added
 - InspectorChatLive, AgentControlPanel, ScopeBreadcrumb components
@@ -161,7 +161,7 @@ Complete rewrite from Python to Phoenix/Elixir with multi-project support.
 - **UPM (Unified Project Management)**: Wave-based organization, story tracking with estimates, event logging, dynamic agent allocation, Ralph integration, status reporting
 - **Skills Tracking System**: Skill catalog, co-occurrence matrix heatmap, methodology detection (TDD, refactor-max, fix-loop), UEBA analytics, trending analysis, anomaly detection
 - **Session Timeline Visualization**: Chronological event log, interactive timeline navigation, filtering by event type/agent/date, JSON export, immutable audit trail
-- **SwiftUI Menubar Agent (CCEMAgent)**: Native macOS AppKit system tray app, real-time agent count and health display, quick actions, token tracking progress bar, health monitoring, login item auto-launch, URLSession polling
+- **SwiftUI Menubar Agent (CCEMHelper)**: Native macOS AppKit system tray app, real-time agent count and health display, quick actions, token tracking progress bar, health monitoring, login item auto-launch, URLSession polling
 - **UPM Execution Tracking API**: `POST /api/upm/register`, `POST /api/upm/agent`, `POST /api/upm/event`, `GET /api/upm/status`
 - **Port Management API**: `GET /api/ports`, `POST /api/ports/scan`, `POST /api/ports/assign`, `GET /api/ports/clashes`, `POST /api/ports/set-primary`
 - **REST API**: Backward-compatible v1 API, new v2 API with OpenAPI spec, 50+ endpoints, server-sent events at `/api/ag-ui/events`, data import/export, rate limiting with Retry-After headers

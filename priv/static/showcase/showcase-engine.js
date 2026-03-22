@@ -1260,7 +1260,7 @@
       const services = [
         { label: 'CCEM APM', status: this.apmState.connected ? 'green' : 'red', detail: this.apmState.connected ? 'localhost:3032' : 'unreachable' },
         { label: 'AG-UI EventRouter', status: this.apmState.connected ? 'green' : 'unknown', detail: this.apmState.connected ? 'routing' : 'unknown' },
-        { label: 'CCEMAgent', status: 'amber', detail: 'menubar app' },
+        { label: 'CCEMHelper', status: 'amber', detail: 'menubar app' },
       ];
       html += this._inspectorSection('Services', services.map(s => `<div class="flex items-center justify-between py-1.5"><div class="flex items-center gap-2 min-w-0"><span class="inline-block h-2 w-2 flex-shrink-0 rounded-full ${STATUS_COLORS[s.status].dot}"></span><span class="text-xs text-zinc-300 truncate">${s.label}</span></div><span class="text-[10px] font-mono ${STATUS_COLORS[s.status].text} truncate max-w-[140px]">${s.detail}</span></div>`).join(''));
 

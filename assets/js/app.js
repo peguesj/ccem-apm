@@ -37,6 +37,7 @@ import ShiftSelect from "./hooks/shift_select"
 import TooltipOverlay from "./hooks/tooltip_overlay"
 import InspectorChat from "./hooks/inspector_chat"
 import GettingStartedShowcase from "./hooks/getting_started_showcase"
+import GettingStartedDashboard from "./hooks/getting_started_dashboard"
 import ShowcaseHook from "./hooks/showcase"
 import LoadContext from "./hooks/load_context"
 import CcemAssistant from "./hooks/ccem_assistant"
@@ -67,6 +68,7 @@ const Hooks = {
   TooltipOverlay,
   InspectorChat,
   GettingStartedShowcase,
+  GettingStartedDashboard,
   ShowcaseHook,
   LoadContext,
   CcemAssistant,

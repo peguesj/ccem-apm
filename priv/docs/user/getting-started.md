@@ -9,7 +9,7 @@ This guide walks you through installing and launching CCEM APM for the first tim
 - Elixir 1.14+ and Erlang/OTP 25+
 - Git
 - A terminal/shell environment
-- macOS (for CCEMAgent menubar app, optional)
+- macOS (for CCEMHelper menubar app, optional)
 
 ## Installation
 
@@ -244,7 +244,7 @@ See [Architecture](/docs/developer/architecture) for details.
 - Read the [Dashboard Guide](/docs/user/dashboard) to explore the UI
 - Set up [Multi-Project Support](/docs/user/projects)
 - Learn about the [Agent Fleet](/docs/user/agents)
-- Configure the [CCEMAgent SwiftUI Menubar App](/docs/developer/swift-agent)
+- Configure the [CCEMHelper SwiftUI Menubar App](/docs/developer/swift-agent)
 
 ---
 

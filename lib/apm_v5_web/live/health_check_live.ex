@@ -3,7 +3,7 @@ defmodule ApmV5Web.HealthCheckLive do
   LiveView for system health status at /health.
 
   Shows the latest health check results for all registered services,
-  including APM server, CCEMAgent, and external integrations.
+  including APM server, CCEMHelper, and external integrations.
   """
 
   use ApmV5Web, :live_view
