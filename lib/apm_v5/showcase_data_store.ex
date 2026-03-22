@@ -172,7 +172,7 @@ defmodule ApmV5.ShowcaseDataStore do
       "redaction_rules" => load_json(Path.join(path, "redaction-rules.json"), %{}),
       "speaker_notes" => load_json(Path.join(path, "speaker-notes.json"), %{}),
       "slides" => load_json(Path.join(path, "slides.json"), %{}),
-      "version" => "5.5.0",
+      "version" => "7.0.0",
       "path" => path
     }
   end
