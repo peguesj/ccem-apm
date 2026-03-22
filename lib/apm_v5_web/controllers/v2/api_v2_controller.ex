@@ -251,7 +251,8 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         %{"name" => "Alerts", "description" => "Alert rules and history (v2)"},
         %{"name" => "Audit", "description" => "Audit log (v2)"},
         %{"name" => "Export", "description" => "Data export and import (v2)"},
-        %{"name" => "CCEM Management", "description" => "CCEM management LiveView pages (Showcase, Ports, CCEM overview)"}
+        %{"name" => "CCEM Management", "description" => "CCEM management LiveView pages (Showcase, Ports, CCEM overview)"},
+        %{"name" => "AgentLock Authorization", "description" => "AgentLock authorization protocol — session, token, policy, context, memory, and rate-limit management (v7.0.0)"}
       ],
       "paths" => build_paths(),
       "components" => %{
@@ -650,6 +651,133 @@ defmodule ApmV5Web.V2.ApiV2Controller do
       "/api/v2/openapi.json" => %{
         "get" => %{"operationId" => "v2GetOpenApi", "summary" => "OpenAPI 3.0.3 specification", "tags" => ["Health"],
           "responses" => %{"200" => %{"description" => "OpenAPI spec"}}}
+      },
+      # AgentLock Authorization endpoints (v7.0.0)
+      "/api/v2/auth/authorize" => %{
+        "post" => %{"operationId" => "authAuthorize", "summary" => "Request authorization for a tool invocation", "tags" => ["AgentLock Authorization"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["agent_id", "session_id", "tool_name"],
+            "properties" => %{"agent_id" => %{"type" => "string"}, "session_id" => %{"type" => "string"},
+              "tool_name" => %{"type" => "string"}, "params" => %{"type" => "object"}}}}}},
+          "responses" => %{"200" => %{"description" => "Authorization decision (permit/deny/escalate)",
+            "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/AuthDecision"}}}},
+            "400" => %{"$ref" => "#/components/schemas/Error"}}}
+      },
+      "/api/v2/auth/execute" => %{
+        "post" => %{"operationId" => "authExecute", "summary" => "Execute a pre-authorized tool invocation using a token", "tags" => ["AgentLock Authorization"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["token_id"],
+            "properties" => %{"token_id" => %{"type" => "string"}, "result" => %{"type" => "object"}}}}}},
+          "responses" => %{"200" => %{"description" => "Execution recorded"}, "404" => %{"description" => "Token not found"}}}
+      },
+      "/api/v2/auth/summary" => %{
+        "get" => %{"operationId" => "authSummary", "summary" => "Authorization system summary — tools, sessions, tokens, risk distribution", "tags" => ["AgentLock Authorization"],
+          "responses" => %{"200" => %{"description" => "Authorization summary",
+            "content" => %{"application/json" => %{"schema" => %{"type" => "object",
+              "properties" => %{"registered_tools" => %{"type" => "integer"}, "active_sessions" => %{"type" => "integer"},
+                "tokens" => %{"type" => "object"}, "total_authorized" => %{"type" => "integer"},
+                "total_denied" => %{"type" => "integer"}, "total_escalated" => %{"type" => "integer"},
+                "risk_distribution" => %{"type" => "object"}}}}}}}}
+      },
+      "/api/v2/auth/tools" => %{
+        "get" => %{"operationId" => "authListTools", "summary" => "List registered tools with risk levels and policies", "tags" => ["AgentLock Authorization"],
+          "responses" => %{"200" => %{"description" => "Tool registry list",
+            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/AuthTool"}}}}}}},
+        "post" => %{"operationId" => "authRegisterTool", "summary" => "Register a new tool with risk level and policy", "tags" => ["AgentLock Authorization"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["name", "risk_level"],
+            "properties" => %{"name" => %{"type" => "string"},
+              "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]},
+              "description" => %{"type" => "string"}, "requires_approval" => %{"type" => "boolean"},
+              "metadata" => %{"type" => "object"}}}}}},
+          "responses" => %{"200" => %{"description" => "Tool registered"}, "400" => %{"$ref" => "#/components/schemas/Error"}}}
+      },
+      "/api/v2/auth/sessions" => %{
+        "post" => %{"operationId" => "authCreateSession", "summary" => "Create an authorization session", "tags" => ["AgentLock Authorization"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["user_id", "role"],
+            "properties" => %{"user_id" => %{"type" => "string"}, "role" => %{"type" => "string"},
+              "ttl_seconds" => %{"type" => "integer"}, "scope" => %{"type" => "string"},
+              "metadata" => %{"type" => "object"}}}}}},
+          "responses" => %{"200" => %{"description" => "Session created", "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "properties" => %{"ok" => %{"type" => "boolean"}, "session_id" => %{"type" => "string"}}}}}}}},
+        "get" => %{"operationId" => "authListSessions", "summary" => "List active authorization sessions", "tags" => ["AgentLock Authorization"],
+          "responses" => %{"200" => %{"description" => "Active sessions",
+            "content" => %{"application/json" => %{"schema" => %{"type" => "object",
+              "properties" => %{"ok" => %{"type" => "boolean"}, "sessions" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/AuthSession"}},
+                "count" => %{"type" => "integer"}}}}}}}}
+      },
+      "/api/v2/auth/sessions/{id}" => %{
+        "get" => %{"operationId" => "authGetSession", "summary" => "Get authorization session by ID", "tags" => ["AgentLock Authorization"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Session detail"}, "404" => %{"description" => "Session not found"}}},
+        "delete" => %{"operationId" => "authDestroySession", "summary" => "Destroy an authorization session", "tags" => ["AgentLock Authorization"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Session destroyed"}}}
+      },
+      "/api/v2/auth/tokens/{id}" => %{
+        "get" => %{"operationId" => "authGetToken", "summary" => "Get token status and metadata", "tags" => ["AgentLock Authorization"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Token detail"}, "404" => %{"description" => "Token not found"}}}
+      },
+      "/api/v2/auth/tokens/{id}/revoke" => %{
+        "post" => %{"operationId" => "authRevokeToken", "summary" => "Revoke an authorization token", "tags" => ["AgentLock Authorization"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Token revoked"}, "404" => %{"description" => "Token not found"}}}
+      },
+      "/api/v2/auth/context/write" => %{
+        "post" => %{"operationId" => "authRecordContext", "summary" => "Record a context write event for trust tracking", "tags" => ["AgentLock Authorization"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["session_id", "scope", "path"],
+            "properties" => %{"session_id" => %{"type" => "string"}, "scope" => %{"type" => "string"},
+              "path" => %{"type" => "string"}, "sensitivity" => %{"type" => "string"},
+              "metadata" => %{"type" => "object"}}}}}},
+          "responses" => %{"200" => %{"description" => "Context recorded"}}}
+      },
+      "/api/v2/auth/context/trust" => %{
+        "get" => %{"operationId" => "authGetTrust", "summary" => "Get trust state for a session", "tags" => ["AgentLock Authorization"],
+          "parameters" => [%{"name" => "session_id", "in" => "query", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Trust state with ceiling and write history"}}}
+      },
+      "/api/v2/auth/memory/authorize-write" => %{
+        "post" => %{"operationId" => "authMemoryAuthorizeWrite", "summary" => "Authorize a memory write operation", "tags" => ["AgentLock Authorization"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["session_id", "path"],
+            "properties" => %{"session_id" => %{"type" => "string"}, "path" => %{"type" => "string"},
+              "content_hash" => %{"type" => "string"}, "sensitivity" => %{"type" => "string"}}}}}},
+          "responses" => %{"200" => %{"description" => "Write authorization decision"}}}
+      },
+      "/api/v2/auth/memory/authorize-read" => %{
+        "post" => %{"operationId" => "authMemoryAuthorizeRead", "summary" => "Authorize a memory read operation", "tags" => ["AgentLock Authorization"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["session_id", "path"],
+            "properties" => %{"session_id" => %{"type" => "string"}, "path" => %{"type" => "string"},
+              "sensitivity" => %{"type" => "string"}}}}}},
+          "responses" => %{"200" => %{"description" => "Read authorization decision"}}}
+      },
+      "/api/v2/auth/rate-limits" => %{
+        "get" => %{"operationId" => "authRateLimits", "summary" => "Get current rate limit state for agents and tools", "tags" => ["AgentLock Authorization"],
+          "parameters" => [%{"name" => "agent_id", "in" => "query", "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Rate limit state"}}}
+      },
+      "/api/v2/auth/redact" => %{
+        "post" => %{"operationId" => "authRedact", "summary" => "Apply redaction rules to content", "tags" => ["AgentLock Authorization"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object", "required" => ["content"],
+            "properties" => %{"content" => %{"type" => "string"}, "rules" => %{"type" => "array", "items" => %{"type" => "string"}},
+              "sensitivity" => %{"type" => "string"}}}}}},
+          "responses" => %{"200" => %{"description" => "Redacted content",
+            "content" => %{"application/json" => %{"schema" => %{"type" => "object",
+              "properties" => %{"ok" => %{"type" => "boolean"}, "redacted" => %{"type" => "string"},
+                "redactions_applied" => %{"type" => "integer"}}}}}}}}
+      },
+      "/api/v2/auth/audit" => %{
+        "get" => %{"operationId" => "authAuditLog", "summary" => "AgentLock authorization audit log", "tags" => ["AgentLock Authorization"],
+          "parameters" => [
+            %{"name" => "limit", "in" => "query", "schema" => %{"type" => "integer"}},
+            %{"name" => "event_type", "in" => "query", "schema" => %{"type" => "string"}},
+            %{"name" => "agent_id", "in" => "query", "schema" => %{"type" => "string"}}],
+          "responses" => %{"200" => %{"description" => "Authorization audit entries"}}}
       }
     }
   end
@@ -699,7 +827,22 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         "data" => %{"type" => "array", "items" => %{}},
         "next_cursor" => %{"type" => "string"}, "total" => %{"type" => "integer"}}},
       "Error" => %{"type" => "object", "properties" => %{
-        "error" => %{"type" => "string"}, "message" => %{"type" => "string"}}}
+        "error" => %{"type" => "string"}, "message" => %{"type" => "string"}}},
+      "AuthDecision" => %{"type" => "object", "properties" => %{
+        "ok" => %{"type" => "boolean"}, "decision" => %{"type" => "string", "enum" => ["permit", "deny", "escalate"]},
+        "token_id" => %{"type" => "string"}, "reason" => %{"type" => "string"},
+        "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]}}},
+      "AuthTool" => %{"type" => "object", "properties" => %{
+        "name" => %{"type" => "string"}, "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]},
+        "description" => %{"type" => "string"}, "requires_approval" => %{"type" => "boolean"},
+        "registered_at" => %{"type" => "string", "format" => "date-time"}}},
+      "AuthSession" => %{"type" => "object", "properties" => %{
+        "session_id" => %{"type" => "string"}, "user_id" => %{"type" => "string"},
+        "role" => %{"type" => "string"}, "trust_ceiling" => %{"type" => "string"},
+        "scope" => %{"type" => "string"}, "tool_calls" => %{"type" => "integer"},
+        "denied_count" => %{"type" => "integer"},
+        "created_at" => %{"type" => "string", "format" => "date-time"},
+        "expires_at" => %{"type" => "string", "format" => "date-time"}}}
     }
   end
 
