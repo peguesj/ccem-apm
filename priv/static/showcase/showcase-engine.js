@@ -20,9 +20,13 @@
     3: { hex: '#a855f7', stroke: '#c084fc', fill: '#a855f7', text: 'text-purple-400', bg: 'bg-purple-500/10', ring: 'ring-purple-500/30', pill: 'text-purple-400 bg-purple-500/10 ring-purple-500/30', border: 'border-purple-500/20', bar: 'bg-purple-500' },
     4: { hex: '#f59e0b', stroke: '#fbbf24', fill: '#f59e0b', text: 'text-amber-400', bg: 'bg-amber-500/10', ring: 'ring-amber-500/30', pill: 'text-amber-400 bg-amber-500/10 ring-amber-500/30', border: 'border-amber-500/20', bar: 'bg-amber-500' },
     5: { hex: '#ef4444', stroke: '#f87171', fill: '#ef4444', text: 'text-rose-400', bg: 'bg-rose-500/10', ring: 'ring-rose-500/30', pill: 'text-rose-400 bg-rose-500/10 ring-rose-500/30', border: 'border-rose-500/20', bar: 'bg-rose-500' },
+    6: { hex: '#06b6d4', stroke: '#22d3ee', fill: '#06b6d4', text: 'text-cyan-400', bg: 'bg-cyan-500/10', ring: 'ring-cyan-500/30', pill: 'text-cyan-400 bg-cyan-500/10 ring-cyan-500/30', border: 'border-cyan-500/20', bar: 'bg-cyan-500' },
+    7: { hex: '#8b5cf6', stroke: '#a78bfa', fill: '#8b5cf6', text: 'text-violet-400', bg: 'bg-violet-500/10', ring: 'ring-violet-500/30', pill: 'text-violet-400 bg-violet-500/10 ring-violet-500/30', border: 'border-violet-500/20', bar: 'bg-violet-500' },
+    8: { hex: '#ec4899', stroke: '#f472b6', fill: '#ec4899', text: 'text-pink-400', bg: 'bg-pink-500/10', ring: 'ring-pink-500/30', pill: 'text-pink-400 bg-pink-500/10 ring-pink-500/30', border: 'border-pink-500/20', bar: 'bg-pink-500' },
   };
 
-  const WAVE_LABELS = { 1: 'Foundation', 2: 'Core', 3: 'Dashboard', 4: 'Tools', 5: 'Integration' };
+
+  const WAVE_LABELS = { 1: 'Foundation', 2: 'Core', 3: 'Dashboard', 4: 'Tools', 5: 'Integration', 6: 'Advanced', 7: 'Extended', 8: 'Final' };
 
   // ─── Template Registry ───────────────────────────────────────────────────────
 
@@ -598,7 +602,7 @@
           <div class="flex flex-wrap gap-1 mb-1.5">
             <button type="button" data-sc-wave="" class="text-[9px] font-mono px-2 py-0.5 rounded-full ring-1 transition ${this.waveFilter === null ? 'text-zinc-200 bg-zinc-700 ring-zinc-600' : 'text-zinc-500 bg-transparent ring-zinc-700 hover:text-zinc-300'}">All waves</button>
             ${waves.map(w => {
-              const c = WAVE_COLORS[w];
+              const c = WAVE_COLORS[w] || WAVE_COLORS[1];
               const active = this.waveFilter === w;
               return `<button type="button" data-sc-wave="${w}" class="text-[9px] font-semibold px-2 py-0.5 rounded-full ring-1 transition ${active ? c.pill : 'text-zinc-600 ring-zinc-700 hover:text-zinc-300'}">W${w}</button>`;
             }).join('')}
@@ -615,7 +619,7 @@
       } else if (this.viewMode === 'card') {
         html += '<div class="space-y-2.5">';
         filtered.forEach(f => {
-          const c = WAVE_COLORS[f.wave];
+          const c = WAVE_COLORS[f.wave] || WAVE_COLORS[1];
           const pkgs = (f.packages || []).map(pkg => `<span class="inline-flex items-center gap-1 rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-400">${pkg.name || pkg}${pkg.stars ? ` <span class="text-zinc-600">${pkg.stars}</span>` : ''}</span>`).join('');
           const isSelected = this.selectedFeature && this.selectedFeature.id === f.id;
           html += `
@@ -638,7 +642,7 @@
         waves.filter(w => this.waveFilter === null || w === this.waveFilter).forEach(w => {
           const wFeatures = filtered.filter(f => f.wave === w);
           if (wFeatures.length === 0) return;
-          const c = WAVE_COLORS[w];
+          const c = WAVE_COLORS[w] || WAVE_COLORS[1];
           const doneCt = wFeatures.filter(f => f.liveStatus === 'done').length;
           const allDone = doneCt === wFeatures.length;
 
