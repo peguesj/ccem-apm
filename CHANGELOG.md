@@ -1,5 +1,22 @@
 # Changelog
 
+## v7.1.1 (2026-03-24)
+
+CCEM APM v7.1.1 — Notification schema expansion, CCEMAgent daemon, showcase stability hardening.
+
+### Added
+- `AgentRegistry.add_notification/1`: new fields `refs`, `trace`, `metadata`, `actions` — full referential integrity
+- `NotificationLive`: expanded detail panel with refs grid, trace tree, metadata, action buttons
+- CCEMHelper launchd daemon: `io.pegues.agent-j.labs.ccem.helper.plist` auto-restarts on boot
+
+### Fixed
+- `ShowcaseHook`: DOM guard + try/catch prevents "view crashed" on first WebSocket
+- `ShowcaseHook._loadIframe()`: CSS injection suppresses duplicate standalone headers
+
+### Changed
+- `mix.exs`: version bumped 7.1.0 → 7.1.1
+
+
 ## v7.1.0 (2026-03-24)
 
 CCEM APM v7.1.0 — Showcase UX fixes: project dropdown now fully syncs the content area on project switch, roadmap modal handles empty-feature projects gracefully, and the standalone showcase is renamed to "ccem" with pull-tab section navigation.
