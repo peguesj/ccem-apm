@@ -1,0 +1,97 @@
+{
+  "version": "7.2.0",
+  "formation_id": "fmt-ccem-v720-20260324",
+  "created": "2026-03-24",
+  "waves": [
+    {
+      "wave": 1,
+      "name": "Security + Foundation",
+      "stories": [
+        {
+          "id": "US-047",
+          "title": "API endpoint authentication — bearer token middleware for /api/*",
+          "description": "All /api/* routes are currently unauthenticated. Add a configurable auth plug (bearer token or session-based) that fails-open when no token is configured (dev mode) but enforces in production.",
+          "plane_issue_id": null,
+          "priority": "urgent",
+          "type": "security",
+          "files": ["lib/apm_v5_web/plugs/auth_plug.ex", "lib/apm_v5_web/router.ex"]
+        },
+        {
+          "id": "US-048",
+          "title": "AgentLock auth gate status in Skills inspector",
+          "description": "Surface auth_gated boolean and auth_missing_tools list in SkillsLive inspector drawer. Add Fix button that calls create_authorization_hooks action.",
+          "plane_issue_id": null,
+          "priority": "high",
+          "type": "feature",
+          "files": ["lib/apm_v5/skills_registry_store.ex", "lib/apm_v5_web/live/skills_live.ex"]
+        },
+        {
+          "id": "US-049",
+          "title": "Skills UX: merge pagination/dry-run/shift-select branch",
+          "description": "Merge feat/skills-ux-dry-run-pagination into main. Page size 25, dry-run modal with diff preview, shift-click range selection, sticky filter row.",
+          "plane_issue_id": null,
+          "priority": "high",
+          "type": "feature",
+          "files": ["lib/apm_v5_web/live/skills_live.ex", "assets/js/hooks/skills.js", "assets/css/skills.css"]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "name": "Showcase + Notifications",
+      "stories": [
+        {
+          "id": "US-050",
+          "title": "Showcase pull-tab CCEM/APM/Both/Last Version — filtering + state persistence",
+          "description": "The pull-tab bar added to showcase/client/index.html needs state persistence via localStorage and correct feature filtering by version/category.",
+          "plane_issue_id": null,
+          "priority": "high",
+          "type": "feature",
+          "files": ["showcase/client/index.html", "showcase/client/showcase.js"]
+        },
+        {
+          "id": "US-051",
+          "title": "GET /api/notifications/:id endpoint + Plane tracking",
+          "description": "Add GET /api/notifications/:id to surface a single notification with full refs/trace/metadata/actions payload. Update OpenAPI spec.",
+          "plane_issue_id": null,
+          "priority": "medium",
+          "type": "feature",
+          "files": ["lib/apm_v5_web/controllers/api_controller.ex", "lib/apm_v5_web/router.ex"]
+        },
+        {
+          "id": "US-052",
+          "title": "CCEMHelper: Skills health summary in MenuBarView",
+          "description": "Add a skills section in CCEMHelper MenuBarView showing top unhealthy skills count and a link to /skills.",
+          "plane_issue_id": null,
+          "priority": "medium",
+          "type": "feature",
+          "files": ["CCEMHelper/Sources/CCEMAgent/MenuBarView.swift", "CCEMHelper/Sources/CCEMAgent/Services/APMClient.swift"]
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "name": "Release Prep",
+      "stories": [
+        {
+          "id": "US-053",
+          "title": "OpenAPI spec update — auth security scheme + new endpoints",
+          "description": "Add bearer security scheme to OpenAPI 3.0.3 spec. Document GET /api/notifications/:id and any new auth endpoints.",
+          "plane_issue_id": null,
+          "priority": "medium",
+          "type": "refactor",
+          "files": ["lib/apm_v5_web/controllers/v2/openapi_controller.ex"]
+        },
+        {
+          "id": "US-054",
+          "title": "v7.2.0 release — CHANGELOG, version bump, CCEMHelper rebuild",
+          "description": "Bump mix.exs to 7.2.0, update CHANGELOG, rebuild CCEMHelper, git tag v7.2.0.",
+          "plane_issue_id": null,
+          "priority": "medium",
+          "type": "refactor",
+          "files": ["mix.exs", "CHANGELOG.md", "CCEMHelper/Sources/CCEMAgent/"]
+        }
+      ]
+    }
+  ]
+}

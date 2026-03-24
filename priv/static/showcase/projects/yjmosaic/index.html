@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YJMosaic — iOS/macOS Port Showcase</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; background: #09090b; overflow: hidden; }
+    iframe { width: 100%; height: 100vh; border: none; display: block; }
+    .fallback {
+      display: none;
+      position: fixed; inset: 0; align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px; background: #09090b; color: #a1a1aa;
+      font-family: ui-monospace, monospace; font-size: 12px;
+    }
+    .fallback.show { display: flex; }
+    .fallback a { color: #6366f1; text-decoration: none; }
+    .fallback a:hover { color: #818cf8; }
+  </style>
+</head>
+<body>
+  <iframe
+    id="showcase-frame"
+    src="http://localhost:8082/?project=yjmosaic"
+    title="YJMosaic iOS/macOS Port Showcase"
+    sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+    loading="lazy"
+  ></iframe>
+  <div class="fallback" id="fallback">
+    <span style="color:#ef4444">showcase server offline</span>
+    <span>standalone showcase not running on <code>localhost:8082</code></span>
+    <span>start with: <code>cd ~/Developer/ccem/showcase/client && python3 -m http.server 8082</code></span>
+    <a href="http://localhost:8082/?project=yjmosaic" target="_blank">open directly →</a>
+  </div>
+  <script>
+    const frame = document.getElementById('showcase-frame');
+    const fallback = document.getElementById('fallback');
+    frame.addEventListener('error', () => { frame.style.display = 'none'; fallback.classList.add('show'); });
+    // Detect if iframe fails to load within 3s
+    const t = setTimeout(() => {
+      try {
+        // Try to access contentDocument — cross-origin will throw, same-origin will succeed
+        const doc = frame.contentDocument;
+        if (!doc || !doc.body) throw new Error('empty');
+      } catch (e) {
+        // Cross-origin means it loaded (CORS block), same-origin failure = server down
+        // Safe heuristic: if we get SecurityError, server is up
+        if (e.name !== 'SecurityError') {
+          frame.style.display = 'none';
+          fallback.classList.add('show');
+        }
+      }
+    }, 4000);
+    frame.addEventListener('load', () => clearTimeout(t));
+  </script>
+</body>
+</html>
