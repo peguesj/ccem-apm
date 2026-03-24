@@ -484,7 +484,7 @@
       this.features.forEach(f => { byWave[f.wave] = [...(byWave[f.wave] || []), f]; });
       const waves = Object.keys(byWave).map(Number).sort((a, b) => a - b);
       const totalDone = this.features.filter(f => this._resolveStatus(f.id) === 'done').length;
-      const pct = Math.round((totalDone / this.features.length) * 100);
+      const pct = this.features.length > 0 ? Math.round((totalDone / this.features.length) * 100) : 0;
 
       const self = this;
 
@@ -549,7 +549,7 @@
                   <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700" style="width:${pct}%"></div>
                 </div>
               </div>
-              <div class="px-5 py-4 overflow-y-auto max-h-[70vh]">${waveGroups}</div>
+              <div class="px-5 py-4 overflow-y-auto max-h-[70vh]">${waveGroups || '<p class="text-[11px] font-mono text-zinc-600 text-center py-8">No feature data available for this project.<br><span class="text-zinc-700">Select a project with showcase data to view its roadmap.</span></p>'}</div>
               <div class="px-5 py-2.5 border-t border-zinc-800/60 flex items-center justify-between">
                 <span class="text-[9px] font-mono text-zinc-700">main</span>
                 <span class="text-[9px] font-mono text-zinc-700">Live &middot; PubSub</span>
