@@ -1,0 +1,74 @@
+defmodule ApmV5Web.V2.PluginController do
+  @moduledoc """
+  REST API controller for the APM Plugin Engine.
+
+  Routes under /api/v2/plugins:
+    GET  /api/v2/plugins             — list all registered plugins
+    GET  /api/v2/plugins/:name       — get plugin metadata by name
+    POST /api/v2/plugins/:name/action — invoke a plugin action
+  """
+
+  use ApmV5Web, :controller
+
+  alias ApmV5.Plugins.PluginRegistry
+
+  @doc "GET /api/v2/plugins — list all registered plugins"
+  def index(conn, _params) do
+    plugins = PluginRegistry.list_plugins()
+
+    json(conn, %{
+      data: plugins,
+      count: length(plugins)
+    })
+  end
+
+  @doc "GET /api/v2/plugins/:name — get a single plugin by name"
+  def show(conn, %{"name" => name}) do
+    case PluginRegistry.get_plugin(name) do
+      {:ok, plugin} ->
+        json(conn, %{data: plugin})
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "Plugin not found", name: name})
+    end
+  end
+
+  @doc "POST /api/v2/plugins/:name/action — invoke a plugin action"
+  def action(conn, %{"name" => name} = params) do
+    action_name = params["action"] || ""
+    action_params = params["params"] || %{}
+
+    if action_name == "" do
+      conn
+      |> put_status(:bad_request)
+      |> json(%{error: "Missing required field: action"})
+    else
+      case PluginRegistry.call_plugin_action(name, action_name, action_params) do
+        {:ok, result} ->
+          json(conn, %{data: result, plugin: name, action: action_name})
+
+        {:error, {:not_found, _}} ->
+          conn
+          |> put_status(:not_found)
+          |> json(%{error: "Plugin not found", name: name})
+
+        {:error, {:unknown_action, action}} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: "Unknown action", action: action, plugin: name})
+
+        {:error, {:missing_param, msg}} ->
+          conn
+          |> put_status(:bad_request)
+          |> json(%{error: msg})
+
+        {:error, reason} ->
+          conn
+          |> put_status(:internal_server_error)
+          |> json(%{error: inspect(reason)})
+      end
+    end
+  end
+end
