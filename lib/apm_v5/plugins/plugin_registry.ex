@@ -76,38 +76,39 @@ defmodule ApmV5.Plugins.PluginRegistry do
 
   @impl true
   def handle_info(:register_defaults, state) do
-    Enum.each(@default_plugins, fn mod ->
-      GenServer.call(__MODULE__, {:register, mod})
-    end)
+    Enum.each(@default_plugins, &do_register/1)
     {:noreply, state}
   end
 
   @impl true
   def handle_call({:register, module}, _from, state) do
-    result =
-      with true <- function_exported?(module, :plugin_name, 0),
-           true <- function_exported?(module, :plugin_description, 0),
-           true <- function_exported?(module, :plugin_version, 0),
-           true <- function_exported?(module, :list_endpoints, 0),
-           true <- function_exported?(module, :handle_action, 3) do
-        name = module.plugin_name()
+    {:reply, do_register(module), state}
+  end
 
-        meta = %{
-          name: name,
-          description: module.plugin_description(),
-          version: module.plugin_version(),
-          endpoints: module.list_endpoints(),
-          module: module,
-          registered_at: DateTime.utc_now() |> DateTime.to_iso8601()
-        }
+  # ── Private ──────────────────────────────────────────────────────────────────
 
-        :ets.insert(@table, {name, {module, meta}})
-        Logger.info("[PluginRegistry] Registered plugin: #{name} v#{meta.version}")
-        :ok
-      else
-        false -> {:error, :invalid_plugin_behaviour}
-      end
+  defp do_register(module) do
+    with true <- function_exported?(module, :plugin_name, 0),
+         true <- function_exported?(module, :plugin_description, 0),
+         true <- function_exported?(module, :plugin_version, 0),
+         true <- function_exported?(module, :list_endpoints, 0),
+         true <- function_exported?(module, :handle_action, 3) do
+      name = module.plugin_name()
 
-    {:reply, result, state}
+      meta = %{
+        name: name,
+        description: module.plugin_description(),
+        version: module.plugin_version(),
+        endpoints: module.list_endpoints(),
+        module: module,
+        registered_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+
+      :ets.insert(@table, {name, {module, meta}})
+      Logger.info("[PluginRegistry] Registered plugin: #{name} v#{meta.version}")
+      :ok
+    else
+      false -> {:error, :invalid_plugin_behaviour}
+    end
   end
 end
