@@ -55,6 +55,12 @@ defmodule ApmV5Web.SkillsLive do
       |> assign(:collapsed_tiers, %{healthy: true, needs_attention: false, critical: false})
       |> assign(:fix_wizard_step, nil)
       |> assign(:fix_wizard_selected_repairs, MapSet.new())
+      |> assign(:page, 1)
+      |> assign(:per_page, 25)
+      |> assign(:selected_skills, MapSet.new())
+      |> assign(:show_dry_run_modal, false)
+      |> assign(:dry_run_skill, nil)
+      |> assign(:dry_run_preview, "")
 
     {:ok, socket}
   end
@@ -937,6 +943,27 @@ defmodule ApmV5Web.SkillsLive do
     </div>
 
     <.wizard page="skills" />
+
+    <%!-- Dry-run fix preview modal --%>
+    <div :if={@show_dry_run_modal} class="modal modal-open" role="dialog" aria-modal="true">
+      <div class="modal-box w-11/12 max-w-2xl">
+        <h3 class="font-bold text-lg mb-1">Fix Preview</h3>
+        <p class="text-sm text-base-content/60 mb-4">
+          Review proposed changes for <strong class="text-base-content">{@dry_run_skill && @dry_run_skill.name}</strong>
+        </p>
+        <div class="bg-base-300 rounded-lg p-4 font-mono text-xs whitespace-pre-wrap overflow-auto max-h-64 border border-base-300">
+          {@dry_run_preview}
+        </div>
+        <div class="modal-action mt-4">
+          <button class="btn btn-ghost btn-sm" phx-click="cancel_dry_run">Cancel</button>
+          <button class="btn btn-warning btn-sm gap-1" phx-click="confirm_fix">
+            <.icon name="hero-wrench-screwdriver" class="size-3.5" />
+            Confirm & Apply Fix
+          </button>
+        </div>
+      </div>
+      <div class="modal-backdrop" phx-click="cancel_dry_run"></div>
+    </div>
     """
   end
 
@@ -968,6 +995,60 @@ defmodule ApmV5Web.SkillsLive do
 
   def handle_event("close_drawer", _params, socket) do
     {:noreply, assign(socket, selected_skill: nil, fix_wizard_step: nil)}
+  end
+
+  def handle_event("change_page", %{"page" => page_str}, socket) do
+    page = String.to_integer(page_str)
+    total = total_pages(socket.assigns.filtered_skills, socket.assigns.per_page)
+    clamped = max(1, min(page, total))
+    {:noreply, assign(socket, page: clamped, selected_skills: MapSet.new())}
+  end
+
+  def handle_event("toggle_select_skill", %{"skill" => name}, socket) do
+    selected =
+      if MapSet.member?(socket.assigns.selected_skills, name),
+        do: MapSet.delete(socket.assigns.selected_skills, name),
+        else: MapSet.put(socket.assigns.selected_skills, name)
+
+    {:noreply, assign(socket, selected_skills: selected)}
+  end
+
+  def handle_event("select_all", _params, socket) do
+    page_skills = paginated_skills(socket.assigns.filtered_skills, socket.assigns.page, socket.assigns.per_page)
+    names = Enum.map(page_skills, & &1.name) |> MapSet.new()
+
+    selected =
+      if MapSet.subset?(names, socket.assigns.selected_skills),
+        do: MapSet.difference(socket.assigns.selected_skills, names),
+        else: MapSet.union(socket.assigns.selected_skills, names)
+
+    {:noreply, assign(socket, selected_skills: selected)}
+  end
+
+  def handle_event("show_dry_run", %{"skill" => skill_name}, socket) do
+    skill = Enum.find(socket.assigns.registry_skills, &(&1.name == skill_name))
+    preview = build_dry_run_preview(skill)
+
+    {:noreply,
+     socket
+     |> assign(:show_dry_run_modal, true)
+     |> assign(:dry_run_skill, skill)
+     |> assign(:dry_run_preview, preview)}
+  end
+
+  def handle_event("cancel_dry_run", _params, socket) do
+    {:noreply, assign(socket, show_dry_run_modal: false, dry_run_skill: nil, dry_run_preview: "")}
+  end
+
+  def handle_event("confirm_fix", _params, socket) do
+    socket =
+      if socket.assigns.dry_run_skill do
+        assign(socket, fix_wizard_step: :diagnose, fix_wizard_selected_repairs: MapSet.new(), selected_skill: socket.assigns.dry_run_skill)
+      else
+        socket
+      end
+
+    {:noreply, assign(socket, show_dry_run_modal: false, dry_run_skill: nil, dry_run_preview: "")}
   end
 
   def handle_event("gate_with_agentlock", %{"skill" => skill_name}, socket) do
@@ -1475,4 +1556,36 @@ defmodule ApmV5Web.SkillsLive do
   defp ag_ui_text_class(score) when score >= 80, do: "text-success"
   defp ag_ui_text_class(score) when score >= 50, do: "text-warning"
   defp ag_ui_text_class(_), do: "text-error"
+
+  defp total_pages(skills, per_page) when per_page > 0, do: max(1, ceil(length(skills) / per_page))
+  defp total_pages(_, _), do: 1
+
+  defp paginated_skills(skills, page, per_page) do
+    start = (page - 1) * per_page
+    Enum.slice(skills, start, per_page)
+  end
+
+  defp build_dry_run_preview(nil), do: "No skill selected."
+
+  defp build_dry_run_preview(skill) do
+    issues =
+      []
+      |> then(fn acc -> if skill.has_frontmatter, do: acc, else: ["- Add YAML frontmatter (name, description, version)" | acc] end)
+      |> then(fn acc -> if skill.description_quality == "good", do: acc, else: ["- Expand description to 100+ chars with trigger keywords" | acc] end)
+      |> then(fn acc -> if skill.has_examples, do: acc, else: ["- Create examples/ subdirectory with sample invocations" | acc] end)
+      |> then(fn acc -> if skill.has_template, do: acc, else: ["- Create template.md file" | acc] end)
+      |> then(fn acc ->
+          missing = skill.auth_missing_tools || []
+          if skill.auth_gated or missing == [], do: acc, else: ["- Gate high-risk tools (#{Enum.join(missing, ", ")}) with AgentLock" | acc]
+        end)
+      |> Enum.reverse()
+
+    header = "Proposed changes for: #{skill.name} (score: #{skill.health_score}/100)\n\n"
+
+    if issues == [] do
+      header <> "No fixes required — skill health is good."
+    else
+      header <> Enum.join(issues, "\n")
+    end
+  end
 end
