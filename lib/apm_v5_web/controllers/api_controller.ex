@@ -393,12 +393,54 @@ defmodule ApmV5Web.ApiController do
         _ -> nil
       end
 
+    type = params["type"] || params["level"] || "info"
+    category = params["category"]
+
+    upm_workflow_action = %{
+      "label" => "View Workflow",
+      "url" => "/workflow/upm",
+      "target" => "_self"
+    }
+
+    is_upm_notification =
+      (is_binary(type) and String.starts_with?(type, "upm:")) or category == "upm"
+
+    raw_actions =
+      case params["actions"] do
+        nil ->
+          []
+
+        acts when is_list(acts) ->
+          acts
+
+        acts when is_binary(acts) ->
+          case Jason.decode(acts) do
+            {:ok, decoded} when is_list(decoded) -> decoded
+            _ -> []
+          end
+
+        _ ->
+          []
+      end
+
+    actions =
+      if is_upm_notification do
+        already_has_workflow =
+          Enum.any?(raw_actions, fn a ->
+            is_map(a) and Map.get(a, "url") == "/workflow/upm"
+          end)
+
+        if already_has_workflow, do: raw_actions, else: raw_actions ++ [upm_workflow_action]
+      else
+        raw_actions
+      end
+
     notification =
       %{
         title: params["title"] || "Notification",
         message: params["message"] || params["body"] || "",
-        type: params["type"] || params["level"] || "info",
-        category: params["category"],
+        type: type,
+        category: category,
         project_name: params["project_name"] || params["project"],
         namespace: params["namespace"],
         formation_id: params["formation_id"],
@@ -409,7 +451,8 @@ defmodule ApmV5Web.ApiController do
         story_id: params["story_id"],
         wave_number: params["wave_number"] || params["wave"],
         wave_total: params["wave_total"],
-        upm_context: upm_context
+        upm_context: upm_context,
+        actions: actions
       }
 
     id = AgentRegistry.add_notification(notification)
