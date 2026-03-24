@@ -326,13 +326,68 @@ defmodule ApmV5Web.NotificationLive do
               {if @expanded, do: "Less", else: "More"}
             </button>
           </div>
-          <%!-- Expanded metadata --%>
+          <%!-- Expanded metadata + refs + trace + actions --%>
           <div :if={@expanded && has_metadata?(@notif)} class="mt-2 pt-2 border-t border-base-300 space-y-1">
             <.meta_row :if={@notif[:wave_number]} label="Wave" value={"#{@notif[:wave_number]} / #{@notif[:wave_total]}"} />
             <.meta_row :if={@notif[:story_id]} label="Story" value={@notif[:story_id]} />
             <.meta_row :if={@notif[:squadron_id]} label="Squadron" value={@notif[:squadron_id]} />
             <.meta_row :if={@notif[:namespace]} label="Namespace" value={@notif[:namespace]} />
             <.meta_row :if={@notif[:project_name]} label="Project" value={@notif[:project_name]} />
+            <%!-- refs: linked APM object references --%>
+            <div :if={map_size(@notif[:refs] || %{}) > 0} class="mt-1.5 space-y-0.5">
+              <p class="text-[10px] uppercase tracking-widest text-base-content/30 font-semibold">References</p>
+              <%= for {key, val} <- (@notif[:refs] || %{}), not is_nil(val) do %>
+                <div class="flex items-center gap-2 text-xs font-mono">
+                  <span class="text-base-content/40 min-w-[7rem]"><%= humanize_key(key) %></span>
+                  <.ref_link_tag key={key} val={val} />
+                  <span class="text-base-content/20 text-[10px] italic"><%= ref_endpoint_hint(key, val) %></span>
+                </div>
+              <% end %>
+            </div>
+            <%!-- trace: causal / distributed trace context --%>
+            <div :if={is_map(@notif[:trace]) && map_size(@notif[:trace]) > 0} class="mt-1.5 space-y-0.5">
+              <p class="text-[10px] uppercase tracking-widest text-base-content/30 font-semibold">Trace</p>
+              <div :if={@notif[:trace][:parent_event_id]} class="flex items-center gap-2 text-xs">
+                <span class="text-base-content/40 min-w-[7rem]">Triggered by</span>
+                <a href={"/ag-ui?event_id=#{@notif[:trace][:parent_event_id]}"} class="font-mono text-info hover:underline"><%= @notif[:trace][:parent_event_id] %></a>
+              </div>
+              <div :if={@notif[:trace][:correlation_id]} class="flex items-center gap-2 text-xs">
+                <span class="text-base-content/40 min-w-[7rem]">Correlation</span>
+                <span class="font-mono text-base-content/70"><%= @notif[:trace][:correlation_id] %></span>
+              </div>
+              <div :if={is_list(@notif[:trace][:caused_by]) && @notif[:trace][:caused_by] != []} class="flex items-start gap-2 text-xs">
+                <span class="text-base-content/40 min-w-[7rem]">Caused by</span>
+                <div class="flex flex-wrap gap-1">
+                  <a :for={id <- @notif[:trace][:caused_by]} href={"/agents?id=#{id}"} class="badge badge-xs badge-ghost font-mono hover:badge-info"><%= id %></a>
+                </div>
+              </div>
+              <div :if={is_list(@notif[:trace][:affects]) && @notif[:trace][:affects] != []} class="flex items-start gap-2 text-xs">
+                <span class="text-base-content/40 min-w-[7rem]">Affects</span>
+                <div class="flex flex-wrap gap-1">
+                  <a :for={id <- @notif[:trace][:affects]} href={"/agents?id=#{id}"} class="badge badge-xs badge-ghost font-mono hover:badge-success"><%= id %></a>
+                </div>
+              </div>
+            </div>
+            <%!-- extra metadata key-value --%>
+            <div :if={map_size(@notif[:metadata] || %{}) > 0} class="mt-1.5 space-y-0.5">
+              <p class="text-[10px] uppercase tracking-widest text-base-content/30 font-semibold">Metadata</p>
+              <%= for {key, val} <- (@notif[:metadata] || %{}) do %>
+                <div class="flex items-center gap-2 text-xs font-mono">
+                  <span class="text-base-content/40 min-w-[7rem]"><%= key %></span>
+                  <span class="text-base-content/70"><%= inspect_meta(val) %></span>
+                </div>
+              <% end %>
+            </div>
+            <%!-- actions: CTA buttons --%>
+            <div :if={length(@notif[:actions] || []) > 0} class="mt-2 flex flex-wrap gap-1.5">
+              <%= for action <- (@notif[:actions] || []) do %>
+                <a
+                  href={action[:href] || action["href"] || "#"}
+                  target={if (action[:method] || action["method"]) == "navigate", do: "_self", else: "_blank"}
+                  class="btn btn-xs btn-outline btn-primary"
+                ><%= action[:label] || action["label"] %></a>
+              <% end %>
+            </div>
           </div>
           <%!-- Formation tree panel --%>
           <div :if={@formation_expanded} class="mt-2 pt-2 border-t border-accent/20">
@@ -413,6 +468,25 @@ defmodule ApmV5Web.NotificationLive do
       </div>
     </div>
     <.wizard page="notifications" />
+    """
+  end
+
+  attr :key, :any, required: true
+  attr :val, :any, required: true
+
+  defp ref_link_tag(%{key: key, val: val} = assigns) do
+    href = case key do
+      :agent_id     -> "/agents?id=#{val}"
+      :formation_id -> "/formation?id=#{val}"
+      :session_id   -> "/agents?session=#{val}"
+      :task_id      -> "/tasks?id=#{val}"
+      :event_id     -> "/ag-ui?event_id=#{val}"
+      _             -> nil
+    end
+    assigns = assign(assigns, href: href)
+    ~H"""
+    <a :if={@href} href={@href} class="font-mono text-info text-xs hover:underline">{@val}</a>
+    <span :if={!@href} class="font-mono text-base-content/70 text-xs">{@val}</span>
     """
   end
 
@@ -598,8 +672,27 @@ defmodule ApmV5Web.NotificationLive do
 
   defp has_metadata?(notif) do
     notif[:wave_number] || notif[:story_id] || notif[:squadron_id] ||
-    notif[:namespace] || notif[:project_name] || notif[:action_url] || notif[:pr_url]
+    notif[:namespace] || notif[:project_name] || notif[:action_url] || notif[:pr_url] ||
+    (is_map(notif[:refs]) && map_size(notif[:refs]) > 0) ||
+    (is_map(notif[:trace]) && map_size(notif[:trace]) > 0) ||
+    (is_map(notif[:metadata]) && map_size(notif[:metadata]) > 0) ||
+    (is_list(notif[:actions]) && length(notif[:actions]) > 0)
   end
+
+  defp humanize_key(key) when is_atom(key), do: key |> Atom.to_string() |> String.replace("_", " ") |> String.capitalize()
+  defp humanize_key(key), do: to_string(key)
+
+  defp ref_endpoint_hint(:agent_id, id),     do: "GET /api/agents/#{id}"
+  defp ref_endpoint_hint(:formation_id, id), do: "GET /api/v2/formations/#{id}"
+  defp ref_endpoint_hint(:session_id, id),   do: "GET /api/agents?session_id=#{id}"
+  defp ref_endpoint_hint(:task_id, id),      do: "GET /api/bg-tasks/#{id}"
+  defp ref_endpoint_hint(:event_id, id),     do: "GET /api/v2/ag-ui/events/#{id}"
+  defp ref_endpoint_hint(_, _),             do: ""
+
+  defp inspect_meta(val) when is_binary(val), do: val
+  defp inspect_meta(val) when is_number(val), do: to_string(val)
+  defp inspect_meta(val) when is_boolean(val), do: to_string(val)
+  defp inspect_meta(val), do: inspect(val)
 
   defp format_message(msg) when is_binary(msg) do
     trimmed = String.trim(msg)

@@ -314,6 +314,11 @@ defmodule ApmV5.AgentRegistry do
         wave_number: get_any(notification, [:wave_number, "wave_number", :wave, "wave"]),
         wave_total: get_any(notification, [:wave_total, "wave_total"]),
         upm_context: get_any(notification, [:upm_context, "upm_context"]),
+        # Rich referential integrity fields (v7.1+)
+        refs: build_refs(notification),
+        trace: build_trace(notification),
+        metadata: get_any(notification, [:metadata, "metadata"]) || %{},
+        actions: normalize_actions(get_any(notification, [:actions, "actions"]) || []),
         timestamp: now,
         read: false
       }
@@ -462,6 +467,61 @@ defmodule ApmV5.AgentRegistry do
 
   defp get_any(map, keys) do
     Enum.find_value(keys, fn key -> Map.get(map, key) end)
+  end
+
+  # Build refs map: merges explicit `refs` key with top-level shorthand fields.
+  # Callers may pass either `refs: %{agent_id: "..."}` or top-level `agent_id: "..."`.
+  defp build_refs(notification) do
+    raw = get_any(notification, [:refs, "refs"]) || %{}
+
+    raw
+    |> atomize_safe()
+    |> Map.merge(
+         %{
+           agent_id:     get_any(notification, [:agent_id, "agent_id"]),
+           formation_id: get_any(notification, [:formation_id, "formation_id"]),
+           session_id:   get_any(notification, [:session_id, "session_id"]),
+           project:      get_any(notification, [:project_name, "project_name", :project, "project"]),
+           wave:         get_any(notification, [:wave_number, "wave_number", :wave, "wave"]),
+           task_id:      get_any(notification, [:task_id, "task_id"]),
+           event_id:     get_any(notification, [:event_id, "event_id"]),
+           issue_id:     get_any(notification, [:issue_id, "issue_id"]),
+           checkpoint:   get_any(notification, [:checkpoint, "checkpoint"])
+         },
+         fn _k, existing, fallback -> existing || fallback end
+       )
+    |> Map.reject(fn {_, v} -> is_nil(v) end)
+  end
+
+  defp build_trace(notification) do
+    case get_any(notification, [:trace, "trace"]) do
+      nil -> nil
+      t when is_map(t) -> t |> atomize_safe() |> Map.reject(fn {_, v} -> is_nil(v) end)
+      _ -> nil
+    end
+  end
+
+  defp normalize_actions(actions) when is_list(actions) do
+    Enum.map(actions, fn a ->
+      %{
+        label:  Map.get(a, :label,  Map.get(a, "label",  "")),
+        href:   Map.get(a, :href,   Map.get(a, "href",   "#")),
+        method: Map.get(a, :method, Map.get(a, "method", "navigate"))
+      }
+    end)
+  end
+  defp normalize_actions(_), do: []
+
+  defp atomize_safe(map) when is_map(map) do
+    Map.new(map, fn
+      {k, v} when is_binary(k) ->
+        try do
+          {String.to_existing_atom(k), v}
+        rescue
+          _ -> {k, v}
+        end
+      {k, v} -> {k, v}
+    end)
   end
 
   defp filter_notifications(notifications, []), do: notifications
