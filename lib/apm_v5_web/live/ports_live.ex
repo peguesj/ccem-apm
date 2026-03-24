@@ -88,11 +88,19 @@ defmodule ApmV5Web.PortsLive do
   end
 
   @impl true
-  def handle_info(:refresh, socket) do
-    ApmV5.PortManager.scan_active_ports()
+  def handle_info({:ports_updated, _active}, socket) do
     port_map = ApmV5.PortManager.get_port_map()
     clashes = ApmV5.PortManager.detect_clashes()
     {:noreply, socket |> assign(:port_map, port_map) |> assign(:clashes, clashes) |> assign_derived(port_map, clashes)}
+  end
+
+  @impl true
+  def handle_info(:refresh, socket) do
+    # scan_active_ports/0 dispatches an async Task that casts {:scan_result, active}
+    # back to the GenServer. The LiveView will receive a {:ports_updated, _} PubSub
+    # broadcast once the scan completes, so no immediate get_port_map/0 call is needed.
+    ApmV5.PortManager.scan_active_ports()
+    {:noreply, socket}
   end
 
   def handle_info(_msg, socket), do: {:noreply, socket}

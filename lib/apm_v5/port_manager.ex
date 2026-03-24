@@ -245,13 +245,19 @@ defmodule ApmV5.PortManager do
 
   @impl true
   def handle_cast({:scan_result, active}, state) do
+    # Enrich the port_map entries with up-to-date active status from the fresh scan
+    enriched_port_map =
+      Map.new(state.port_map, fn {port, info} ->
+        {port, Map.put(info, :active, Map.has_key?(active, port))}
+      end)
+
     try do
       Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:ports", {:ports_updated, active})
     rescue
       _ -> :ok
     end
 
-    {:noreply, %{state | active_ports: active, last_scan: DateTime.utc_now()}}
+    {:noreply, %{state | active_ports: active, port_map: enriched_port_map, last_scan: DateTime.utc_now()}}
   end
 
   # Private
