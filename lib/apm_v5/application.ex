@@ -44,6 +44,8 @@ defmodule ApmV5.Application do
       ApmV5.Supervisors.AgUiSupervisorGroup,
       # Claude usage tracking (US-042)
       ApmV5.ClaudeUsageStore,
+      # Plugin Engine registry (v7.3.0)
+      ApmV5.Plugins.PluginRegistry,
       # Sub-supervisor: AgentLock authorization layer (v7.0.0)
       ApmV5.Supervisors.AuthSupervisor,
       # Start to serve requests, typically the last entry

@@ -71,4 +71,42 @@ defmodule ApmV5Web.V2.PluginController do
       end
     end
   end
+
+  @doc "GET /api/v2/plugins/:name/board — Kanban board state shortcut"
+  def board(conn, %{"name" => name} = params) do
+    action_params = params |> Map.take(["project_id"]) |> drop_nils()
+
+    case PluginRegistry.call_plugin_action(name, "board_state", action_params) do
+      {:ok, result} ->
+        json(conn, %{data: result, plugin: name})
+
+      {:error, {:not_found, _}} ->
+        conn |> put_status(:not_found) |> json(%{error: "Plugin not found", name: name})
+
+      {:error, {:unknown_action, _}} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Plugin does not support board_state"})
+
+      {:error, reason} ->
+        conn |> put_status(:internal_server_error) |> json(%{error: inspect(reason)})
+    end
+  end
+
+  @doc "GET /api/v2/plugins/:name/issues — list or search issues shortcut"
+  def issues(conn, %{"name" => name} = params) do
+    action_params = params |> Map.take(["project_id", "query", "state_name"]) |> drop_nils()
+    action_name = if Map.has_key?(action_params, "query"), do: "search_issues", else: "list_issues"
+
+    case PluginRegistry.call_plugin_action(name, action_name, action_params) do
+      {:ok, result} ->
+        json(conn, %{data: result, plugin: name})
+
+      {:error, {:not_found, _}} ->
+        conn |> put_status(:not_found) |> json(%{error: "Plugin not found", name: name})
+
+      {:error, reason} ->
+        conn |> put_status(:internal_server_error) |> json(%{error: inspect(reason)})
+    end
+  end
+
+  defp drop_nils(map), do: Enum.reject(map, fn {_k, v} -> is_nil(v) end) |> Map.new()
 end

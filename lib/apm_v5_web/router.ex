@@ -323,6 +323,8 @@ defmodule ApmV5Web.Router do
     get "/plugins", PluginController, :index
     get "/plugins/:name", PluginController, :show
     post "/plugins/:name/action", PluginController, :action
+    get "/plugins/:name/board", PluginController, :board
+    get "/plugins/:name/issues", PluginController, :issues
 
     # Agent control (US-012)
     post "/agents/:id/control", AgentControlController, :control_agent

@@ -64,10 +64,22 @@ defmodule ApmV5.Plugins.PluginRegistry do
 
   # ── GenServer Callbacks ──────────────────────────────────────────────────────
 
+  @default_plugins [ApmV5.Plugins.Plane.PlanePlugin]
+
   @impl true
   def init(_opts) do
     table = :ets.new(@table, [:named_table, :public, read_concurrency: true])
+    # Auto-register bundled plugins after init
+    send(self(), :register_defaults)
     {:ok, %{table: table}}
+  end
+
+  @impl true
+  def handle_info(:register_defaults, state) do
+    Enum.each(@default_plugins, fn mod ->
+      GenServer.call(__MODULE__, {:register, mod})
+    end)
+    {:noreply, state}
   end
 
   @impl true
