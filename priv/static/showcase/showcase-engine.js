@@ -230,9 +230,15 @@
       // Bust dirty-check caches so renders are not skipped
       this._lastOrchHash = null;
       this._lastAgentsHash = null;
-      // Surgical in-place update — only touch header bar and left column
+      this._lastApmHash = null;
+      // Reset selected feature when switching projects to avoid stale inspector state
+      this.selectedFeature = null;
+      this.selectedFeatureId = null;
+      // Full re-render: center and right panels must reflect the new project's data
       this._renderOrchestrationStatus();
       this._renderFeatureCards();
+      this._renderCenterColumn();
+      this._renderRightColumn();
     }
 
     /**

@@ -47,7 +47,6 @@ defmodule ApmV5Web.ShowcaseLive do
       |> assign(:slides, %{})
       |> assign(:design_system, %{})
       |> assign(:version, "7.0.0")
-      |> assign(:showcase_initialized, false)
       |> assign(:activity_log, [])
 
     {:ok, socket}
@@ -230,7 +229,6 @@ defmodule ApmV5Web.ShowcaseLive do
   # --- Private ---
 
   defp load_project(project, socket) do
-    was_initialized = socket.assigns.showcase_initialized
     showcase_data = ShowcaseDataStore.get_showcase_data(project)
     features = Map.get(showcase_data, "features", [])
     narratives = Map.get(showcase_data, "narratives", %{})
@@ -248,24 +246,23 @@ defmodule ApmV5Web.ShowcaseLive do
       |> assign(:slides, slides)
       |> assign(:design_system, design_system)
       |> assign(:version, version)
-      |> assign(:showcase_initialized, true)
 
-    # Only push project-changed event on subsequent navigations (not initial mount)
-    # On initial mount the hook reads data-attributes directly from the DOM
+    # Always push project-changed so the engine syncs with the server-side data.
+    # On initial mount the hook reads data-attributes from the DOM, but push_event
+    # is buffered and delivered once the client is connected — the hook's handleEvent
+    # guard (engine present check) prevents double-init. This also ensures direct URL
+    # navigation to /showcase/:project correctly loads that project's features into
+    # the engine, not just the LiveView header dropdown.
     socket =
-      if was_initialized do
-        push_event(socket, "showcase:project-changed", %{
-          project: project,
-          version: version,
-          features: features,
-          narratives: narratives,
-          slides: slides,
-          designSystem: design_system,
-          staticPath: static_path
-        })
-      else
-        socket
-      end
+      push_event(socket, "showcase:project-changed", %{
+        project: project,
+        version: version,
+        features: features,
+        narratives: narratives,
+        slides: slides,
+        designSystem: design_system,
+        staticPath: static_path
+      })
 
     {:noreply, socket}
   end
