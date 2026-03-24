@@ -1,5 +1,18 @@
 # Changelog
 
+## v7.1.0 (2026-03-24)
+
+CCEM APM v7.1.0 — Showcase UX fixes: project dropdown now fully syncs the content area on project switch, roadmap modal handles empty-feature projects gracefully, and the standalone showcase is renamed to "ccem" with pull-tab section navigation.
+
+### Fixed
+- `ShowcaseLive`: removed `was_initialized` guard from `load_project/2` — `showcase:project-changed` is now always pushed, ensuring the engine syncs on direct URL navigation to `/showcase/:project` and on all subsequent project switches
+- `ShowcaseEngine.updateProject/1`: now calls `_renderCenterColumn()` and `_renderRightColumn()` in addition to the orchestration bar and feature cards, so switching projects updates the architecture panel, inspector, and all center content
+- `ShowcaseEngine._renderRoadmapModal/0`: divide-by-zero guard when `features.length === 0` (was producing `NaN%` in the progress bar); adds empty-state message instead of a visually blank modal body
+- `ShowcaseEngine.updateProject/1`: resets `selectedFeature` and `selectedFeatureId` on project switch to clear stale inspector state
+
+### Changed
+- `mix.exs`: version bumped 7.0.0 → 7.1.0
+
 ## v6.4.0 (2026-03-18)
 
 CCEM APM v6.4.0 — Skills UX overhaul: WCAG 2.1 AA compliance, guided Fix Wizard, card grid layout, slide-in detail drawer, Session invocation timeline, AG-UI health indicators, and SkillsHook JS.
