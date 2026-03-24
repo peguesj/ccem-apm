@@ -156,6 +156,8 @@ defmodule ApmV5.SkillsRegistryStore do
         has_template
       )
 
+    auth_gate = compute_auth_gate(name, content)
+
     %{
       name: name,
       description: description,
@@ -167,7 +169,9 @@ defmodule ApmV5.SkillsRegistryStore do
       has_template: has_template,
       last_modified: last_modified_iso(skill_dir),
       file_count: count_files(skill_dir),
-      raw_frontmatter: frontmatter
+      raw_frontmatter: frontmatter,
+      auth_gated: auth_gate.auth_gated,
+      auth_missing_tools: auth_gate.auth_missing_tools
     }
   end
 
@@ -212,6 +216,32 @@ defmodule ApmV5.SkillsRegistryStore do
       _ ->
         nil
     end
+  end
+
+  # Checks whether high-risk tools used by this skill are covered by AgentLock hooks.
+  # "auth_gated" = the pre_tool hook exists AND the skill doesn't reference ungated tools.
+  @agentlock_hook Path.expand("~/Developer/ccem/apm/hooks/agentlock_pre_tool.sh")
+  @gatable_tools ~w(Write Edit Bash MultiEdit NotebookEdit Task)
+
+  defp compute_auth_gate(_name, content) do
+    hook_present = File.exists?(@agentlock_hook)
+
+    referenced_tools =
+      Enum.filter(@gatable_tools, fn tool ->
+        Regex.match?(~r/\b#{tool}\b/, content)
+      end)
+
+    missing_tools =
+      if hook_present do
+        []
+      else
+        referenced_tools
+      end
+
+    %{
+      auth_gated: hook_present and referenced_tools != [],
+      auth_missing_tools: missing_tools
+    }
   end
 
   defp compute_health(has_full_frontmatter, desc_quality, trigger_count, has_examples, has_template) do

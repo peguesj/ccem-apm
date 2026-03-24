@@ -727,6 +727,42 @@ defmodule ApmV5Web.SkillsLive do
           </section>
         </div>
 
+        <%!-- AgentLock Authorization Gate --%>
+        <section class="px-5 pt-3 pb-4 border-t border-base-300" aria-label="Authorization gate status">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">
+            AgentLock Authorization
+          </h3>
+          <div :if={@selected_skill.auth_gated} class="flex items-center gap-2">
+            <span class="badge badge-success badge-sm gap-1">
+              <.icon name="hero-shield-check" class="size-3" />
+              Auth Gated
+            </span>
+            <span class="text-xs text-base-content/50">agentlock_pre_tool.sh active</span>
+          </div>
+          <div :if={not @selected_skill.auth_gated} class="space-y-2">
+            <span class="badge badge-warning badge-sm gap-1">
+              <.icon name="hero-shield-exclamation" class="size-3" />
+              Auth Missing
+            </span>
+            <div :if={length(@selected_skill.auth_missing_tools || []) > 0} class="flex flex-wrap gap-1 mt-1">
+              <span
+                :for={tool <- @selected_skill.auth_missing_tools || []}
+                class="badge badge-ghost badge-xs font-mono"
+              >
+                {tool}
+              </span>
+            </div>
+            <button
+              class="btn btn-xs btn-outline btn-warning w-full mt-1"
+              phx-click="gate_with_agentlock"
+              phx-value-skill={@selected_skill.name}
+            >
+              <.icon name="hero-shield-exclamation" class="size-3" />
+              Gate with AgentLock
+            </button>
+          </div>
+        </section>
+
         <%!-- Drawer footer / actions --%>
         <div class="p-4 border-t border-base-300 flex-shrink-0">
           <%!-- Step: nil — Fix button or healthy indicator --%>
@@ -932,6 +968,18 @@ defmodule ApmV5Web.SkillsLive do
 
   def handle_event("close_drawer", _params, socket) do
     {:noreply, assign(socket, selected_skill: nil, fix_wizard_step: nil)}
+  end
+
+  def handle_event("gate_with_agentlock", %{"skill" => skill_name}, socket) do
+    Task.start(fn ->
+      body = Jason.encode!(%{action_type: "create_authorization_hooks", params: %{skill_name: skill_name}})
+      url = ~c"http://localhost:3032/api/actions/run"
+      headers = [{~c"content-type", ~c"application/json"}]
+      :httpc.request(:post, {url, headers, ~c"application/json", String.to_charlist(body)}, [{:timeout, 5_000}], [])
+    end)
+
+    {:noreply,
+     put_flash(socket, :info, "AgentLock gating initiated for #{skill_name} — check Actions for status")}
   end
 
   def handle_event("start_fix_wizard", _params, socket) do
