@@ -319,6 +319,13 @@ defmodule ApmV5Web.Router do
     post "/auth/redact", AuthController, :redact
     get "/auth/audit", AuthController, :audit_log
 
+    # Plugin Engine (v7.3.0)
+    get "/plugins", PluginController, :index
+    get "/plugins/:name", PluginController, :show
+    post "/plugins/:name/action", PluginController, :action
+    get "/plugins/:name/board", PluginController, :board
+    get "/plugins/:name/issues", PluginController, :issues
+
     # Agent control (US-012)
     post "/agents/:id/control", AgentControlController, :control_agent
     get "/agents/:id/messages", AgentControlController, :list_messages

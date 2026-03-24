@@ -22,6 +22,11 @@ defmodule ApmV5.PlaneClient do
     get("/projects/#{project_id}/issues/?per_page=100")
   end
 
+  @spec get_issue(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
+  def get_issue(project_id \\ @ccem_project_id, issue_id) do
+    get("/projects/#{project_id}/issues/#{issue_id}/")
+  end
+
   @spec create_issue(String.t(), map()) :: {:ok, map()} | {:error, term()}
   def create_issue(project_id \\ @ccem_project_id, attrs) do
     post("/projects/#{project_id}/issues/", attrs)
