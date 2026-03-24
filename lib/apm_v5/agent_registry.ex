@@ -140,6 +140,15 @@ defmodule ApmV5.AgentRegistry do
     |> filter_notifications(filters)
   end
 
+  @doc "Get a single notification by id. Returns `{:ok, notif}` or `{:error, :not_found}`."
+  @spec get_notification(String.t()) :: {:ok, map()} | {:error, :not_found}
+  def get_notification(id) do
+    case :ets.lookup(@notifications_table, id) do
+      [{^id, notif}] -> {:ok, notif}
+      [] -> {:error, :not_found}
+    end
+  end
+
   @doc "Mark all notifications as read."
   @spec mark_all_read() :: :ok
   def mark_all_read do

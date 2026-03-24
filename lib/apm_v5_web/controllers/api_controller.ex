@@ -141,6 +141,14 @@ defmodule ApmV5Web.ApiController do
     json(conn, %{notifications: notifs, count: length(notifs), limit: limit})
   end
 
+  @doc "GET /api/notifications/:id -- single notification with full refs/trace/metadata/actions"
+  def get_notification(conn, %{"id" => id}) do
+    case AgentRegistry.get_notification(id) do
+      {:ok, notif} -> json(conn, %{notification: notif})
+      {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "not_found"})
+    end
+  end
+
   @doc "GET /api/ralph -- Ralph methodology data for active project"
   def ralph(conn, params) do
     project_name = params["project"] || active_project_name()

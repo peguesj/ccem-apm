@@ -95,6 +95,7 @@ defmodule ApmV5Web.Router do
     # v3-compatible endpoints (new)
     get "/data", ApiController, :data
     get "/notifications", ApiController, :notifications
+    get "/notifications/:id", ApiController, :get_notification
     post "/notifications/add", ApiController, :add_notification
     post "/notifications/read-all", ApiController, :read_all_notifications
     get "/ralph", ApiController, :ralph
