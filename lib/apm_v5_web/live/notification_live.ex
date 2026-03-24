@@ -8,6 +8,7 @@ defmodule ApmV5Web.NotificationLive do
 
 
   alias ApmV5.AgentRegistry
+  alias ApmV5.UpmStore
 
   @tab_categories %{
     "all" => nil,
@@ -194,7 +195,7 @@ defmodule ApmV5Web.NotificationLive do
             </a>
             <%!-- UPM contextual action buttons --%>
             <div
-              :if={@notif[:category] in ["upm"] || @notif[:upm_context] != nil}
+              :if={String.contains?(to_string(@notif[:category]), "upm") || String.starts_with?(to_string(@notif[:type]), "upm:") || @notif[:upm_context] != nil}
               class="flex items-center gap-1 flex-wrap"
             >
               <.link
@@ -308,7 +309,7 @@ defmodule ApmV5Web.NotificationLive do
             </button>
             <%!-- UPM story progress toggle --%>
             <button
-              :if={@notif[:category] in ["upm"] || @notif[:upm_context] != nil}
+              :if={String.contains?(to_string(@notif[:category]), "upm") || String.starts_with?(to_string(@notif[:type]), "upm:") || @notif[:upm_context] != nil}
               phx-click="toggle_upm_panel"
               phx-value-id={@notif.id}
               class="btn btn-xs btn-ghost text-primary"
@@ -316,14 +317,25 @@ defmodule ApmV5Web.NotificationLive do
               <.icon name={if @upm_expanded, do: "hero-chevron-up", else: "hero-chevron-right"} class="size-3" />
               {if @upm_expanded, do: "Hide Story Progress", else: "Show Story Progress"}
             </button>
+            <%!-- Inline action buttons (shown always, not just in expanded) --%>
+            <%= for action <- Enum.take(@notif[:actions] || [], 2) do %>
+              <a
+                href={action[:url] || action["url"] || action[:href] || action["href"] || "#"}
+                target={action[:target] || action["target"] || "_self"}
+                class="btn btn-xs btn-ghost text-info gap-1"
+              >
+                <.icon name="hero-arrow-top-right-on-square" class="size-3" />
+                <%= action[:label] || action["label"] %>
+              </a>
+            <% end %>
             <button
               :if={has_metadata?(@notif)}
               phx-click="toggle_expand"
               phx-value-id={@notif.id}
-              class="btn btn-xs btn-ghost text-base-content/40 ml-auto"
+              class="btn btn-xs btn-ghost text-base-content/30 ml-auto"
             >
               <.icon name={if @expanded, do: "hero-chevron-up", else: "hero-chevron-down"} class="size-3" />
-              {if @expanded, do: "Less", else: "More"}
+              {if @expanded, do: "Less", else: "Details"}
             </button>
           </div>
           <%!-- Expanded metadata + refs + trace + actions --%>
@@ -382,10 +394,14 @@ defmodule ApmV5Web.NotificationLive do
             <div :if={length(@notif[:actions] || []) > 0} class="mt-2 flex flex-wrap gap-1.5">
               <%= for action <- (@notif[:actions] || []) do %>
                 <a
-                  href={action[:href] || action["href"] || "#"}
-                  target={if (action[:method] || action["method"]) == "navigate", do: "_self", else: "_blank"}
-                  class="btn btn-xs btn-outline btn-primary"
-                ><%= action[:label] || action["label"] %></a>
+                  href={action[:url] || action["url"] || action[:href] || action["href"] || "#"}
+                  target={action[:target] || action["target"] || "_self"}
+                  class="btn btn-xs btn-outline btn-primary gap-1"
+                >
+                  <.icon :if={(action[:label] || action["label"]) =~ ~r/[Ww]orkflow/} name="hero-arrow-path" class="size-3" />
+                  <.icon :if={(action[:label] || action["label"]) =~ ~r/[Pp][Rr][Dd]/} name="hero-document-text" class="size-3" />
+                  <%= action[:label] || action["label"] %>
+                </a>
               <% end %>
             </div>
           </div>
@@ -459,8 +475,8 @@ defmodule ApmV5Web.NotificationLive do
               <.meta_row :if={@lazy_context[:wave]} label="Wave" value={to_string(@lazy_context[:wave])} />
               <.meta_row :if={@lazy_context[:project_name]} label="Project" value={to_string(@lazy_context[:project_name])} />
               <.meta_row :if={@lazy_context[:upm_session_id]} label="Session" value={to_string(@lazy_context[:upm_session_id])} />
-              <div :if={@lazy_context[:story_id] == nil && @lazy_context[:feature_name] == nil} class="text-base-content/30 italic">
-                No story data available — ensure upm_context is included in POST /api/notify payload
+              <div :if={@lazy_context[:story_id] == nil && @lazy_context[:feature_name] == nil && @lazy_context[:status] == nil} class="text-base-content/30 italic text-xs">
+                No active UPM session — start a session to see story progress
               </div>
             </div>
           </div>
@@ -799,15 +815,46 @@ defmodule ApmV5Web.NotificationLive do
     # upm_context may have string keys (decoded JSON) or atom keys
     get_ctx = fn keys -> Enum.find_value(keys, fn k -> upm_ctx[k] end) end
 
-    %{
-      story_id: get_ctx.([:story_id, "story_id"]) || notif[:story_id],
+    story_id = get_ctx.([:story_id, "story_id"]) || notif[:story_id]
+    feature_name = get_ctx.([:feature_name, "feature_name"])
+
+    # If no embedded context, pull from live UpmStore
+    live_upm =
+      if story_id == nil and feature_name == nil do
+        try do
+          status = UpmStore.get_status()
+          session = (status[:session] || status["session"] || %{})
+          %{
+            story_id: session[:current_story_id] || session["current_story_id"],
+            story_title: session[:current_story_title] || session["current_story_title"],
+            status: session[:phase] || session["phase"],
+            wave: session[:wave] || session["wave"],
+            project_name: session[:project_name] || session["project_name"],
+            feature_name: nil,
+            upm_session_id: session[:id] || session["id"]
+          }
+        catch
+          :exit, _ -> %{}
+          _, _ -> %{}
+        end
+      else
+        %{}
+      end
+
+    base = %{
+      story_id: story_id,
       story_title: get_ctx.([:story_title, "story_title"]),
       status: get_ctx.([:status, "status"]),
       wave: get_ctx.([:wave, "wave", :wave_number, "wave_number"]) || notif[:wave_number],
       project_name: get_ctx.([:project_name, "project_name"]) || notif[:project_name],
-      feature_name: get_ctx.([:feature_name, "feature_name"]),
+      feature_name: feature_name,
       upm_session_id: get_ctx.([:upm_session_id, "upm_session_id"])
     }
+
+    # Merge live data for nil fields only
+    Map.merge(live_upm, base, fn _k, live_val, base_val ->
+      if base_val == nil, do: live_val, else: base_val
+    end)
   end
 
   defp lazy_load_context(_id, _type, _notifications), do: %{}
