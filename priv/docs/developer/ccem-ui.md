@@ -644,7 +644,7 @@ Then pass `my_feature_count` as an attribute to `sidebar_nav/1` and thread it th
 ### Step 4 — Verify
 
 ```bash
-cd ~/Developer/ccem/apm-v4
+cd ~/Developer/ccem/apm-v4  # (directory name; app module namespace is ApmV5 → transitioning to Apm)
 mix compile --warnings-as-errors
 mix test
 ```

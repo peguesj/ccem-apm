@@ -16,7 +16,7 @@ defmodule ApmV5.ShowcaseDataStore do
   require Logger
 
   @default_showcase_path Path.expand("~/Developer/ccem/showcase/data")
-  @ccem_project_names ["ccem", "CCEM APM", "apm-v4"]
+  @ccem_project_names ["ccem", "CCEM APM", "apm-v4", "apm"]
 
   # --- Client API ---
 

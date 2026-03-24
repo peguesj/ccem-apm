@@ -408,7 +408,7 @@ curl -s -X POST "${APM_URL}/api/notify" \
 | `formation_role` | `"individual"` | Leaf-level formation role |
 | `wave` | `1` | Wave number within the formation |
 | `task_subject` | `"docs: <relative-doc-path>"` | Human-readable description of the written file |
-| `project` | `"ccem/apm-v4"` | Project namespace |
+| `project` | `"ccem/apm"` | Project namespace |
 
 **Using this hook in formations:**
 

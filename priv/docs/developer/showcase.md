@@ -29,7 +29,7 @@ The `ShowcaseDataStore` is an ETS-backed GenServer that caches showcase data per
 2. `project.project_root/showcase/data/` — conventional relative path
 3. `~/Developer/{project_name}/showcase/data/` — convention-based discovery
 
-CCEM projects (`"ccem"`, `"CCEM APM"`, `"apm-v4"`) always use `~/Developer/ccem/showcase/data/`. All other projects resolve independently — if no data directory is found, an empty showcase state is returned with zero features.
+CCEM projects (`"ccem"`, `"CCEM APM"`, `"apm"`, `"apm-v4"`) always use `~/Developer/ccem/showcase/data/`. All other projects resolve independently — if no data directory is found, an empty showcase state is returned with zero features.
 
 ## Project Switching
 
