@@ -27,6 +27,7 @@ defmodule ApmV5Web.PortsLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:ports")
+      :timer.send_interval(10_000, self(), :refresh)
     end
 
     port_map = ApmV5.PortManager.get_port_map()
@@ -81,6 +82,14 @@ defmodule ApmV5Web.PortsLive do
 
   @impl true
   def handle_info({:port_assigned, _, _}, socket) do
+    port_map = ApmV5.PortManager.get_port_map()
+    clashes = ApmV5.PortManager.detect_clashes()
+    {:noreply, socket |> assign(:port_map, port_map) |> assign(:clashes, clashes) |> assign_derived(port_map, clashes)}
+  end
+
+  @impl true
+  def handle_info(:refresh, socket) do
+    ApmV5.PortManager.scan_active_ports()
     port_map = ApmV5.PortManager.get_port_map()
     clashes = ApmV5.PortManager.detect_clashes()
     {:noreply, socket |> assign(:port_map, port_map) |> assign(:clashes, clashes) |> assign_derived(port_map, clashes)}
