@@ -1,5 +1,21 @@
 # Changelog
 
+## v7.2.0 (2026-03-24)
+
+CCEM APM v7.2.0 — AgentLock skills inspection, UPM workflow deep-link, showcase scope tabs, notification GET endpoint.
+
+### Added
+- `SkillsRegistryStore.compute_auth_gate/2`: detects high-risk tools (Write/Edit/Bash/MultiEdit/NotebookEdit/Task) referenced in SKILL.md and checks for agentlock_pre_tool.sh presence; exposes `auth_gated` + `auth_missing_tools` per skill
+- `SkillsLive`: AgentLock authorization section in inspector drawer — green "Auth Gated" badge or yellow "Auth Missing" badge with tool chips + "Gate with AgentLock" CTA button
+- `GET /api/notifications/:id`: new endpoint returning single notification with full refs/trace/metadata/actions payload; backed by `AgentRegistry.get_notification/1`
+- `WorkflowLive /workflow/upm`: pill-tab bar with "Default" (standard UPM diagram) and "Current" (live UPM phase, active wave/story, stack-specific TSC gate, formation status) tabs
+- `ApiController.notify/2`: auto-enriches UPM notifications (`type` starts with "upm:" or `category == "upm"`) with "View Workflow" action pointing to `/workflow/upm`
+- Showcase scope pull-tabs (All/CCEM/APM/Latest) with `localStorage` persistence; filters feature cards by project scope
+
+### Changed
+- `mix.exs`: version bumped 7.1.1 → 7.2.0
+
+
 ## v7.1.1 (2026-03-24)
 
 CCEM APM v7.1.1 — Notification schema expansion, CCEMAgent daemon, showcase stability hardening.
