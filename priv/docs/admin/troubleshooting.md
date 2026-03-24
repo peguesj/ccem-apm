@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Common issues and solutions for CCEM APM v4.
+Common issues and solutions for CCEM APM.
 
 > **Important:** Always back up `apm_config.json` before attempting fixes that modify configuration.
 
@@ -420,11 +420,11 @@ curl http://localhost:3032/health
 
 ---
 
-## CCEMAgent (Menubar App) Issues
+## CCEMHelper (Menubar App) Issues
 
 ### Issue: Menubar App Won't Connect
 
-**Symptoms:** CCEMAgent icon shows disconnected status.
+**Symptoms:** CCEMHelper icon shows disconnected status.
 
 **Cause:** APM server is not running or not reachable on the configured port.
 
@@ -435,10 +435,10 @@ curl http://localhost:3032/health
 curl http://localhost:3032/health
 
 # Check app logs (macOS)
-log show --predicate 'process == "CCEMAgent"' --last 1h
+log show --predicate 'process == "CCEMHelper"' --last 1h
 ```
 
-If server is running but app still disconnected, quit and relaunch CCEMAgent.
+If server is running but app still disconnected, quit and relaunch CCEMHelper.
 
 ### Issue: Agent List Not Updating in Menubar
 
@@ -450,7 +450,148 @@ If server is running but app still disconnected, quit and relaunch CCEMAgent.
 
 1. Click the refresh icon in the menubar
 2. Verify polling is working: `tail -f /var/log/ccem-apm/stdout.log | grep "GET /api/agents"`
-3. Quit and relaunch CCEMAgent
+3. Quit and relaunch CCEMHelper
+
+---
+
+## AgentLock Authorization Issues
+
+### Issue: Token Expired or Revoked
+
+**Symptoms:** API returns HTTP 401 or 403 with `"reason": "token_expired"` or `"reason": "token_revoked"`.
+
+**Cause:** The authorization token has exceeded its TTL or was explicitly revoked.
+
+**Fix:**
+
+```bash
+# Check token status
+curl http://localhost:3032/api/v2/auth/tokens/tok-xyz789
+
+# Issue a new token
+curl -X POST http://localhost:3032/api/v2/auth/tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-abc123",
+    "scope": ["read", "write"],
+    "ttl_seconds": 3600
+  }'
+
+# Or refresh an existing token
+curl -X POST http://localhost:3032/api/v2/auth/tokens/tok-xyz789/refresh
+```
+
+### Issue: Agent Denied by Policy
+
+**Symptoms:** `POST /api/v2/auth/authorize` returns `"authorized": false` with `"decision": "deny"`.
+
+**Cause:** A policy rule explicitly denies the requested action on the specified resource.
+
+**Fix:**
+
+```bash
+# Check which policies are evaluated
+curl -X POST http://localhost:3032/api/v2/auth/authorize \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-abc123",
+    "token_id": "tok-xyz789",
+    "action": "write",
+    "resource": "config/apm_config.json"
+  }'
+# Response includes "evaluated_policies" and "reason"
+
+# List all policies to find the blocking rule
+curl http://localhost:3032/api/v2/auth/policies
+
+# Update the policy if needed
+curl -X PUT http://localhost:3032/api/v2/auth/policies/pol-abc123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "updated-policy",
+    "rules": [
+      {"action": "allow", "scope": "read", "resource": "*"},
+      {"action": "allow", "scope": "write", "resource": "config/*"}
+    ],
+    "priority": 10
+  }'
+```
+
+### Issue: Rate Limit Exceeded
+
+**Symptoms:** API returns HTTP 429 with `"reason": "rate_limit_exceeded"` and a `Retry-After` header.
+
+**Cause:** The agent has exceeded its configured rate limit (requests per minute or tokens per hour).
+
+**Fix:**
+
+```bash
+# Check current rate limit status
+curl http://localhost:3032/api/v2/auth/rate-limits/agent-abc123
+
+# Wait for the rate limit window to reset (check "resets_at" field)
+# Or reset rate limits via ActionEngine
+curl -X POST http://localhost:3032/api/actions/run \
+  -H "Content-Type: application/json" \
+  -d '{"action": "reset_rate_limits", "params": {"agent_id": "agent-abc123"}}'
+```
+
+### Issue: Authorization Session Not Found
+
+**Symptoms:** Authorization checks fail with `"reason": "session_not_found"`.
+
+**Cause:** The authorization session expired or was never created.
+
+**Fix:**
+
+```bash
+# Check if session exists
+curl http://localhost:3032/api/v2/auth/sessions/auth-sess-001
+
+# Create a new session
+curl -X POST http://localhost:3032/api/v2/auth/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-abc123",
+    "token_id": "tok-xyz789",
+    "policy_ids": ["pol-abc123"],
+    "context": {"project": "ccem"}
+  }'
+```
+
+### Issue: Memory Gate Denying Access
+
+**Symptoms:** Agent cannot read or write to expected memory scopes, receiving `"reason": "memory_access_denied"`.
+
+**Cause:** The MemoryGate module does not grant the required permission (read/write/execute) for the target scope.
+
+**Fix:**
+
+```bash
+# Inspect the agent's execution context and permissions
+curl http://localhost:3032/api/v2/auth/contexts/agent-abc123
+
+# Verify memory_access field shows correct permissions
+# Update the policy to grant the needed scope if required
+```
+
+### Issue: Authorization Dashboard Not Loading
+
+**Symptoms:** Navigating to `/authorization` shows a blank page or error.
+
+**Cause:** The auth GenServers may not be started, or there is a JavaScript error in the LiveView.
+
+**Fix:**
+
+```bash
+# Verify the server is running and auth modules are loaded
+curl http://localhost:3032/api/status
+
+# Check server logs for auth module startup errors
+tail -50 ~/Developer/ccem/apm/hooks/apm_server.log
+
+# Hard-reload the page: Cmd+Shift+R (macOS)
+```
 
 ---
 

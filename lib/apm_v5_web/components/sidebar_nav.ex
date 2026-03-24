@@ -51,6 +51,8 @@ defmodule ApmV5Web.Components.SidebarNav do
         <.nav_item icon="hero-bell" label="Notifications" href="/notifications" current_path={@current_path} badge={@notification_count} />
         <.nav_item icon="hero-chart-bar" label="Analytics" href="/analytics" current_path={@current_path} />
         <.nav_item icon="hero-cpu-chip" label="Usage" href="/usage" current_path={@current_path} />
+        <.nav_item icon="hero-shield-check" label="Authorization" href="/authorization" current_path={@current_path} />
+        <.nav_item icon="hero-map" label="Routing" href="/routing" current_path={@current_path} />
         <.nav_item icon="hero-arrow-path" label="Ralph" href="/ralph" current_path={@current_path} />
         <.nav_item icon="hero-clock" label="Timeline" href="/timeline" current_path={@current_path} />
         <.nav_item icon="hero-beaker" label="UAT" href="/uat" current_path={@current_path} />
@@ -92,7 +94,7 @@ defmodule ApmV5Web.Components.SidebarNav do
 
   defp version do
     case Application.spec(:apm_v5, :vsn) do
-      nil -> "5.2.0"
+      nil -> "7.0.0"
       vsn -> to_string(vsn)
     end
   end

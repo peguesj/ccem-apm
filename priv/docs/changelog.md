@@ -1,8 +1,43 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file. Latest: v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management.
+All notable changes to CCEM APM are documented in this file. Latest: v7.0.0 AgentLock authorization protocol, v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [7.0.0] - 2026-03-21
+
+AgentLock authorization protocol integration -- 3-layer security model (Agent -> Gate -> Execution), 10 new auth modules, 19 new REST endpoints, 2 new LiveViews, CCEMHelper rename.
+
+### Added
+- **AgentLock Authorization Protocol** -- 3-layer authorization model: Agent (identity + capabilities), Gate (policy evaluation + rate limiting), Execution (context tracking + memory isolation)
+- 10 new modules under `lib/apm_v5/auth/`:
+  - `Types` -- shared type definitions for authorization domain (tokens, policies, contexts)
+  - `PolicyEngine` -- rule-based policy evaluation engine with allow/deny/conditional outcomes
+  - `TokenStore` -- ETS-backed token issuance, validation, and revocation with TTL expiry
+  - `SessionStore` -- authorization session lifecycle management with ETS persistence
+  - `RateLimiter` -- per-agent and per-scope rate limiting with sliding window counters
+  - `ContextTracker` -- execution context tracking with scope inheritance and audit trail
+  - `MemoryGate` -- memory access control enforcing read/write/execute permissions per scope
+  - `RedactionEngine` -- content redaction pipeline with configurable rules and audit logging
+  - `AuthorizationGate` -- central gate combining policy, rate limit, and context checks into a single authorize/2 call
+  - `AgentLifecycle` -- agent identity registration, capability grants, and lifecycle state machine
+- 19 new REST endpoints under `/api/v2/auth/*` -- token CRUD, policy management, session control, rate limit queries, context inspection, redaction preview
+- `AuthorizationLive` LiveView at `/authorization` -- real-time authorization dashboard with token status, policy browser, rate limit gauges, and session inspector
+- `RoutingLive` LiveView at `/routing` -- endpoint routing visualization with auth requirement indicators and middleware chain display
+- 5 new `ActionEngine` actions in the `authorization` category: `rotate_tokens`, `audit_permissions`, `enforce_policy_set`, `reset_rate_limits`, `redact_scope`
+- 6 new ETS tables: `auth_tokens`, `auth_sessions`, `auth_policies`, `auth_rate_limits`, `auth_contexts`, `auth_redactions`
+- 4 new PubSub topics: `apm:auth:tokens`, `apm:auth:policies`, `apm:auth:sessions`, `apm:auth:rate_limits`
+- AG-UI EventBus `CUSTOM` event emission for all authorization events (token issued/revoked, policy evaluated, rate limit hit, context created)
+
+### Changed
+- **CCEMAgent renamed to CCEMHelper** -- the macOS menubar companion app is now called CCEMHelper to avoid confusion with AI agents managed by APM; all source paths, bundle identifiers, documentation references, and build commands updated accordingly
+- `mix.exs`: version bumped 6.4.0 -> 7.0.0
+- `application.ex`: 10 new auth GenServers added to supervision tree
+
+### Fixed
+- **Duplicate Getting Started modal** -- the GettingStartedWizard modal no longer re-appears on every LiveView navigation; dismissed state is persisted in localStorage
 
 ---
 
@@ -28,7 +63,7 @@ Skills UX overhaul — WCAG 2.1 AA compliance, guided Fix Wizard, card grid layo
 
 ## [6.3.0] - 2026-03-18
 
-Claude usage management — track model/token usage at user and project scope, surfaced in LiveView, CCEM skills, hooks, and CCEMAgent menubar.
+Claude usage management — track model/token usage at user and project scope, surfaced in LiveView, CCEM skills, hooks, and CCEMHelper menubar.
 
 ### Added
 - `ClaudeUsageStore` GenServer — ETS-backed token/model usage tracking per `{project, model}` key; broadcasts on `"apm:usage"` PubSub after each `record_usage/4` call; effort level inference (low/medium/high/intensive) from tool_calls:session ratio
@@ -37,7 +72,7 @@ Claude usage management — track model/token usage at user and project scope, s
 - `claude_usage_record.sh` — PostToolUse hook: fire-and-forget to `POST /api/usage/record` on every Claude Code tool invocation
 - `claude_usage_check.sh` — PreToolUse hook: warns to stderr when project effort_level is `intensive` (>100 tool_calls/session)
 - Usage section added to sidebar nav (under APM Monitoring, `hero-cpu-chip` icon)
-- `UsageModels.swift`, `fetchUsageSummary()` in `APMClient`, `usageSummary` in `EnvironmentMonitor`, `usageSection` in `MenuBarView` — CCEMAgent menubar shows tokens, top model, effort badge
+- `UsageModels.swift`, `fetchUsageSummary()` in `APMClient`, `usageSummary` in `EnvironmentMonitor`, `usageSection` in `MenuBarView` — CCEMHelper menubar shows tokens, top model, effort badge
 - Usage Management section added to `ccem-apm` SKILL.md with API quick reference and effort level table
 - `usage_constraints.md` memory file with model selection guidance, effort thresholds, and hook references
 
@@ -110,7 +145,7 @@ E2E stabilization — unified sidebar, notification overhaul, AG-UI visualizer, 
 
 ## [5.1.0] - 2026-03-11
 
-Interactive management suite — contextual AG-UI chat, agent controls, getting started wizard, CCEMAgent v3.0.0.
+Interactive management suite — contextual AG-UI chat, agent controls, getting started wizard, CCEMHelper v3.0.0.
 
 ### Added
 - InspectorChatLive, AgentControlPanel, ScopeBreadcrumb components
@@ -161,7 +196,7 @@ Complete rewrite from Python to Phoenix/Elixir with multi-project support.
 - **UPM (Unified Project Management)**: Wave-based organization, story tracking with estimates, event logging, dynamic agent allocation, Ralph integration, status reporting
 - **Skills Tracking System**: Skill catalog, co-occurrence matrix heatmap, methodology detection (TDD, refactor-max, fix-loop), UEBA analytics, trending analysis, anomaly detection
 - **Session Timeline Visualization**: Chronological event log, interactive timeline navigation, filtering by event type/agent/date, JSON export, immutable audit trail
-- **SwiftUI Menubar Agent (CCEMAgent)**: Native macOS AppKit system tray app, real-time agent count and health display, quick actions, token tracking progress bar, health monitoring, login item auto-launch, URLSession polling
+- **SwiftUI Menubar Agent (CCEMHelper)**: Native macOS AppKit system tray app, real-time agent count and health display, quick actions, token tracking progress bar, health monitoring, login item auto-launch, URLSession polling
 - **UPM Execution Tracking API**: `POST /api/upm/register`, `POST /api/upm/agent`, `POST /api/upm/event`, `GET /api/upm/status`
 - **Port Management API**: `GET /api/ports`, `POST /api/ports/scan`, `POST /api/ports/assign`, `GET /api/ports/clashes`, `POST /api/ports/set-primary`
 - **REST API**: Backward-compatible v1 API, new v2 API with OpenAPI spec, 50+ endpoints, server-sent events at `/api/ag-ui/events`, data import/export, rate limiting with Retry-After headers
@@ -313,4 +348,4 @@ CCEM APM built with Elixir/Phoenix, LiveView, D3.js, daisyUI, and Swift. Designe
 
 ---
 
-*Last Updated: 2026-03-18*
+*Last Updated: 2026-03-21*

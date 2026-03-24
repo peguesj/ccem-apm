@@ -60,12 +60,12 @@ defmodule ApmV5Web.Components.ShowcaseDiagrams do
             font-family="Inter, system-ui, sans-serif">Agents</text>
         </g>
 
-        <%!-- External: CCEMAgent --%>
+        <%!-- External: CCEMHelper --%>
         <g class="diagram-node" data-anim-delay="150" opacity="0">
           <rect x="690" y="180" width="100" height="70" rx="8"
             fill="url(#grad-secondary)" stroke="#a6adc8" stroke-width="1.5" filter="url(#shadow-sm)" />
           <text x="740" y="210" text-anchor="middle" fill="#cdd6f4" font-size="11"
-            font-family="Inter, system-ui, sans-serif" font-weight="600">CCEMAgent</text>
+            font-family="Inter, system-ui, sans-serif" font-weight="600">CCEMHelper</text>
           <text x="740" y="228" text-anchor="middle" fill="#a6adc8" font-size="9"
             font-family="Inter, system-ui, sans-serif">macOS Menu Bar</text>
         </g>
@@ -134,7 +134,7 @@ defmodule ApmV5Web.Components.ShowcaseDiagrams do
         <g class="diagram-edge" data-anim-delay="800" opacity="0">
           <%!-- Agents → REST API --%>
           <line x1="110" y1="215" x2="145" y2="190" stroke="#a6adc8" stroke-width="1.5" />
-          <%!-- CCEMAgent → AG-UI --%>
+          <%!-- CCEMHelper → AG-UI --%>
           <line x1="690" y1="215" x2="655" y2="190" stroke="#a6adc8" stroke-width="1.5" />
           <%!-- REST → GenServers --%>
           <line x1="220" y1="210" x2="260" y2="240" stroke="#6366f1" stroke-width="1" stroke-dasharray="4,3" />

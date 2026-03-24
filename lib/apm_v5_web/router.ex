@@ -68,6 +68,8 @@ defmodule ApmV5Web.Router do
     live "/showcase/:project", ShowcaseLive, :project
     live "/ccem", CcemOverviewLive, :index
     live "/usage", UsageLive, :index
+    live "/authorization", AuthorizationLive, :index
+    live "/routing", RoutingLive, :index
 
     # /upm redirects to workflow UPM view
     get "/upm", PageController, :upm_redirect
@@ -295,6 +297,26 @@ defmodule ApmV5Web.Router do
 
     # Migration guide (US-037)
     get "/ag-ui/migration", MigrationController, :migration_status
+
+    # AgentLock Authorization (v7.0.0)
+    post "/auth/authorize", AuthController, :authorize
+    post "/auth/execute", AuthController, :execute
+    get "/auth/summary", AuthController, :summary
+    get "/auth/tools", AuthController, :list_tools
+    post "/auth/tools", AuthController, :register_tool
+    post "/auth/sessions", AuthController, :create_session
+    get "/auth/sessions", AuthController, :list_sessions
+    get "/auth/sessions/:id", AuthController, :get_session
+    delete "/auth/sessions/:id", AuthController, :destroy_session
+    get "/auth/tokens/:id", AuthController, :get_token
+    post "/auth/tokens/:id/revoke", AuthController, :revoke_token
+    post "/auth/context/write", AuthController, :record_context
+    get "/auth/context/trust", AuthController, :get_trust
+    post "/auth/memory/authorize-write", AuthController, :authorize_memory_write
+    post "/auth/memory/authorize-read", AuthController, :authorize_memory_read
+    get "/auth/rate-limits", AuthController, :rate_limits
+    post "/auth/redact", AuthController, :redact
+    get "/auth/audit", AuthController, :audit_log
 
     # Agent control (US-012)
     post "/agents/:id/control", AgentControlController, :control_agent

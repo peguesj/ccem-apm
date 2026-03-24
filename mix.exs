@@ -4,7 +4,7 @@ defmodule ApmV5.MixProject do
   def project do
     [
       app: :apm_v5,
-      version: "6.4.0",
+      version: "7.0.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -63,7 +63,8 @@ defmodule ApmV5.MixProject do
       {:bandit, "~> 1.5"},
       {:earmark, "~> 1.4"},
       {:ag_ui_ex, "~> 0.1.0"},
-      {:credo, "~> 1.7", only: [:dev], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false}
     ]
   end

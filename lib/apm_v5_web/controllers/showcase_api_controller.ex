@@ -21,8 +21,19 @@ defmodule ApmV5Web.ShowcaseApiController do
     all_projects = Map.get(config, "projects", [])
     showcase_projects = ShowcaseDataStore.filter_showcase_projects(all_projects)
 
+    projects_list =
+      showcase_projects
+      |> Enum.map(fn p ->
+        %{
+          name: p["name"],
+          source: p["source"] || "config",
+          has_data: true
+        }
+      end)
+
     json(conn, %{
       projects: Enum.map(showcase_projects, fn p -> p["name"] end),
+      details: projects_list,
       count: length(showcase_projects)
     })
   end

@@ -1,10 +1,12 @@
-# SwiftUI Menubar Agent (CCEMAgent)
+# SwiftUI Menubar Helper (CCEMHelper)
 
-CCEMAgent is a native macOS application providing real-time monitoring and control of CCEM APM from the menu bar.
+CCEMHelper is a native macOS companion application providing real-time monitoring and control of CCEM APM from the menu bar.
+
+> **Note (v7.0.0):** This app was renamed from CCEMAgent to CCEMHelper to avoid confusion with AI agents managed by APM. All bundle identifiers, source paths, and build commands have been updated accordingly. The Swift package directory is now `~/Developer/ccem/CCEMHelper/`.
 
 ## Overview
 
-CCEMAgent runs as a persistent menubar app (system tray on macOS) with:
+CCEMHelper runs as a persistent menubar app (system tray on macOS) with:
 
 - **Real-time Project Status**: Live display of all CCEM projects with agent counts and session activity
 - **UPM Monitoring**: Wave progress, story status, and session tracking
@@ -13,7 +15,7 @@ CCEMAgent runs as a persistent menubar app (system tray on macOS) with:
 - **Drift Detection**: Per-project drift status monitoring
 - **Login Item**: Auto-launch on system startup via ServiceManagement
 
-## CCEMAgent Architecture
+## CCEMHelper Architecture
 
 The following diagram shows the three-layer architecture from UI down to the APM server.
 
@@ -510,7 +512,7 @@ When UPM is active, shows:
 Build a release binary:
 
 ```bash
-cd /Users/jeremiah/Developer/ccem/CCEMAgent
+cd ~/Developer/ccem/CCEMHelper
 swift build -c release
 ```
 
@@ -519,7 +521,7 @@ swift build -c release
 Open the project and build:
 
 ```bash
-open CCEMAgent.xcodeproj
+open CCEMHelper.xcodeproj
 # Build and run with Cmd+R
 ```
 
@@ -528,16 +530,16 @@ open CCEMAgent.xcodeproj
 Copy the built app to Applications:
 
 ```bash
-cp -r .build/Release/CCEMAgent.app /Applications/
+cp -r .build/Release/CCEMHelper.app /Applications/
 ```
 
 ## Troubleshooting
 
 ### Menubar App Not Connecting
 
-1. Verify APM server running on port 3031
+1. Verify APM server running on port 3032
 2. Check network connectivity: `curl http://localhost:3032/health`
-3. Review CCEMAgent logs in Console.app
+3. Review CCEMHelper logs in Console.app
 
 ### Environment List Not Updating
 
@@ -572,12 +574,12 @@ private let pollInterval: TimeInterval = 30  // Slower polling for battery life
 
 ## Integration with Claude Code
 
-When a Claude Code session starts, CCEMAgent automatically:
+When a Claude Code session starts, CCEMHelper automatically:
 
 1. Detects the session via health check polling (projects show updated session counts)
 2. Displays active environments for the current session
 3. Shows UPM progress when a UPM session is active
 
-The CCEM APM `SessionStart` hook at `~/Developer/ccem/apm/hooks/session_init.sh` updates the APM config, which the server picks up and reflects in the health endpoint that CCEMAgent polls.
+The CCEM APM `SessionStart` hook at `~/Developer/ccem/apm/hooks/session_init.sh` updates the APM config, which the server picks up and reflects in the health endpoint that CCEMHelper polls.
 
 See [Getting Started](../user/getting-started.md) for session integration.

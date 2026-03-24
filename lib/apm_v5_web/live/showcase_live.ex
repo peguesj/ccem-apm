@@ -39,14 +39,14 @@ defmodule ApmV5Web.ShowcaseLive do
       socket
       |> assign(:page_title, "Showcase")
       |> assign(:all_projects, all_projects)
-      |> assign(:showcase_projects, showcase_projects)
+      |> assign(:showcase_projects, ensure_ccem_in_list(showcase_projects))
       |> assign(:active_project, nil)
       |> assign(:showcase_data, %{})
       |> assign(:features, [])
       |> assign(:narratives, %{})
       |> assign(:slides, %{})
       |> assign(:design_system, %{})
-      |> assign(:version, "6.2.0")
+      |> assign(:version, "7.0.0")
       |> assign(:showcase_initialized, false)
       |> assign(:activity_log, [])
 
@@ -192,7 +192,7 @@ defmodule ApmV5Web.ShowcaseLive do
     {:noreply,
      socket
      |> assign(:all_projects, all_projects)
-     |> assign(:showcase_projects, showcase_projects)}
+     |> assign(:showcase_projects, ensure_ccem_in_list(showcase_projects))}
   end
 
   def handle_info({:showcase_data_reloaded, project, data}, socket) do
@@ -201,7 +201,7 @@ defmodule ApmV5Web.ShowcaseLive do
       narratives = Map.get(data, "narratives", %{})
       slides = Map.get(data, "slides", %{})
       design_system = Map.get(data, "design_system", %{})
-      version = Map.get(data, "version", "6.2.0") || "6.2.0"
+      version = Map.get(data, "version", "7.0.0") || "7.0.0"
 
       {:noreply,
        socket
@@ -236,7 +236,7 @@ defmodule ApmV5Web.ShowcaseLive do
     narratives = Map.get(showcase_data, "narratives", %{})
     slides = Map.get(showcase_data, "slides", %{})
     design_system = Map.get(showcase_data, "design_system", %{})
-    version = Map.get(showcase_data, "version", "6.2.0") || "6.2.0"
+    version = Map.get(showcase_data, "version", "7.0.0") || "7.0.0"
     static_path = static_showcase_path(project)
 
     socket =
@@ -367,6 +367,23 @@ defmodule ApmV5Web.ShowcaseLive do
     hours = div(elapsed, 3600)
     minutes = div(rem(elapsed, 3600), 60)
     "#{hours}h #{minutes}m"
+  end
+
+  # Ensures the default CCEM showcase is always present in the project list.
+  # Also deduplicates by name.
+  defp ensure_ccem_in_list(projects) do
+    names = MapSet.new(projects, fn p -> p["name"] end)
+
+    base =
+      if MapSet.member?(names, "ccem") do
+        projects
+      else
+        [%{"name" => "ccem", "source" => "default"} | projects]
+      end
+
+    # Deduplicate by name, keeping first occurrence
+    base
+    |> Enum.uniq_by(fn p -> p["name"] end)
   end
 
   defp safe_get_config do

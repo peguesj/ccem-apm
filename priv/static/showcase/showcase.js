@@ -68,7 +68,7 @@ const FEATURES = [
   { id: 'US-015', wave: 3, title: 'Conversation Monitor', description: 'Real-time conversation tracking across scopes. Message history viewer.', packages: [{ name: 'ChatStore', url: '#' }] },
 
   // Wave 4: Tools
-  { id: 'US-016', wave: 4, title: 'CCEMAgent', description: 'Native macOS menubar companion. Swift/AppKit. Telemetry charts, task management, start/stop APM.', packages: [{ name: 'Swift', url: 'https://swift.org' }, { name: 'AppKit', url: 'https://developer.apple.com/documentation/appkit' }] },
+  { id: 'US-016', wave: 4, title: 'CCEMHelper', description: 'Native macOS menubar companion. Swift/AppKit. Telemetry charts, task management, start/stop APM.', packages: [{ name: 'Swift', url: 'https://swift.org' }, { name: 'AppKit', url: 'https://developer.apple.com/documentation/appkit' }] },
   { id: 'US-017', wave: 4, title: 'Skill Health Monitor', description: 'SkillsRegistryStore with health scoring. Audit engine. Fix frontmatter/triggers.', packages: [{ name: 'SkillsLive', url: '#' }] },
   { id: 'US-018', wave: 4, title: 'Project Scanner', description: 'Auto-discovery of projects, stacks, ports, hooks, MCPs, CLAUDE.md sections.', packages: [{ name: 'ProjectScanner', url: '#' }] },
   { id: 'US-019', wave: 4, title: 'Background Task Manager', description: 'Track Claude Code background tasks. Logs, stop, delete. 5s auto-refresh.', packages: [{ name: 'BackgroundTasksStore', url: '#' }] },
@@ -585,7 +585,7 @@ function renderInspector() {
   const services = [
     { label: 'CCEM APM', status: apmState.connected ? 'green' : 'red', detail: apmState.connected ? 'localhost:3032' : 'unreachable' },
     { label: 'AG-UI EventRouter', status: apmState.connected ? 'green' : 'unknown', detail: apmState.connected ? 'routing' : 'unknown' },
-    { label: 'CCEMAgent', status: 'amber', detail: 'menubar app' },
+    { label: 'CCEMHelper', status: 'amber', detail: 'menubar app' },
   ];
   html += inspectorSection('Services', services.map(s => `<div class="flex items-center justify-between py-1.5"><div class="flex items-center gap-2 min-w-0"><span class="inline-block h-2 w-2 flex-shrink-0 rounded-full ${STATUS_COLORS[s.status].dot}"></span><span class="text-xs text-zinc-300 truncate">${s.label}</span></div><span class="text-[10px] font-mono ${STATUS_COLORS[s.status].text} truncate max-w-[140px]">${s.detail}</span></div>`).join(''));
 
@@ -621,6 +621,71 @@ function inspectorRow(label, value, dot) {
 
 // ─── Bottom Bar ─────────────────────────────────────────────────────────────────
 
+// ─── AG-UI Chat State ────────────────────────────────────────────────────────
+
+let chatMessages = [];
+const CHAT_SCOPE = 'dashboard';
+const CHAT_MAX_DISPLAY = 50;
+
+function formatChatTime(ts) {
+  if (!ts) return '';
+  try {
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch { return ''; }
+}
+
+function renderChatMessages() {
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+
+  if (chatMessages.length === 0) {
+    container.innerHTML = '<div class="text-center text-zinc-600 text-xs py-2">No messages yet. Type below to start.</div>';
+    return;
+  }
+
+  container.innerHTML = chatMessages.slice().reverse().map(msg => {
+    const isUser = msg.role === 'user';
+    const roleBadge = isUser
+      ? '<span class="rounded px-1.5 py-0.5 text-[9px] font-bold bg-emerald-500/20 text-emerald-400">user</span>'
+      : `<span class="rounded px-1.5 py-0.5 text-[9px] font-bold bg-zinc-700 text-zinc-400">${msg.role || 'system'}</span>`;
+    const agentTag = msg.agent_id
+      ? `<span class="text-[9px] text-zinc-600 font-mono truncate max-w-[120px]">${msg.agent_id}</span>`
+      : '';
+    return `<div class="flex flex-col gap-0.5 px-2 py-1 ${isUser ? 'items-end' : 'items-start'}">
+      <div class="flex items-center gap-1.5">${roleBadge}${agentTag}<span class="text-[9px] text-zinc-700">${formatChatTime(msg.timestamp)}</span></div>
+      <div class="rounded-lg px-3 py-1.5 text-xs max-w-[85%] whitespace-pre-wrap break-words ${isUser ? 'bg-emerald-500/10 text-emerald-200 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}">${msg.content || ''}</div>
+    </div>`;
+  }).join('');
+
+  container.scrollTop = container.scrollHeight;
+}
+
+async function loadChatMessages() {
+  try {
+    const res = await fetch(`${APM_BASE}/api/v2/chat/${CHAT_SCOPE}?limit=${CHAT_MAX_DISPLAY}`);
+    if (res.ok) {
+      const json = await res.json();
+      chatMessages = json.data || [];
+      renderChatMessages();
+    }
+  } catch { /* APM offline */ }
+}
+
+async function sendChatMessage(content) {
+  if (!content.trim()) return;
+  try {
+    const res = await fetch(`${APM_BASE}/api/v2/chat/${CHAT_SCOPE}/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: content.trim(), role: 'user' })
+    });
+    if (res.ok) {
+      await loadChatMessages();
+    }
+  } catch { /* APM offline */ }
+}
+
 function renderBottomBar() {
   const bar = document.getElementById('bottom-bar');
   if (!bar) return;
@@ -628,8 +693,13 @@ function renderBottomBar() {
   bar.innerHTML = `
     <div class="mx-auto flex w-full max-w-[1600px] items-center gap-3 px-6 py-3">
       <span class="flex-shrink-0 rounded bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-500 ring-1 ring-emerald-500/20">AG-UI</span>
-      <input type="text" disabled placeholder="AG-UI chat coming soon — roadmap US-047 (WebSocket channel)" class="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none disabled:opacity-50"/>
-      <button type="button" disabled class="flex-shrink-0 rounded-lg bg-zinc-700 px-4 py-2 text-xs font-bold text-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed">Send</button>
+      <div class="flex-1 flex flex-col">
+        <div id="chat-messages" class="max-h-[120px] overflow-y-auto mb-1.5 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent"></div>
+        <form id="chat-form" class="flex gap-2">
+          <input type="text" id="chat-input" placeholder="Send a message..." class="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition"/>
+          <button type="submit" class="flex-shrink-0 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white transition">Send</button>
+        </form>
+      </div>
     </div>
     <div class="border-t border-zinc-800/60 bg-zinc-950/60">
       <div class="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-2 px-6 py-2">
@@ -654,6 +724,22 @@ function renderBottomBar() {
       </div>
     </div>
   `;
+
+  // Wire up chat form
+  const form = document.getElementById('chat-form');
+  const input = document.getElementById('chat-input');
+  if (form && input) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const val = input.value;
+      if (!val.trim()) return;
+      input.value = '';
+      await sendChatMessage(val);
+    });
+  }
+
+  // Load initial messages
+  loadChatMessages();
 }
 
 // ─── Init ───────────────────────────────────────────────────────────────────────

@@ -1,10 +1,21 @@
 # CCEM APM Documentation
 
-**Version 6.4.0** | Phoenix/Elixir Agentic Performance Monitor
+**Version 7.0.0** | Phoenix/Elixir Agentic Performance Monitor
 
 A real-time monitoring and orchestration platform for Claude Code AI agent sessions, providing fleet visualization, multi-project tracking, and autonomous workflow management.
 
 ---
+
+## What's New in v7.0.0
+
+- **AgentLock Authorization Protocol** -- 3-layer security model (Agent -> Gate -> Execution) with 10 new auth modules under `lib/apm_v5/auth/`
+- **19 New Auth Endpoints** -- Full REST API at `/api/v2/auth/*` for token management, policy CRUD, session control, rate limits, context inspection, and redaction preview
+- **Authorization Dashboard** -- `AuthorizationLive` at `/authorization` with token status, policy browser, rate limit gauges, and session inspector
+- **Routing Dashboard** -- `RoutingLive` at `/routing` with endpoint routing visualization and auth requirement indicators
+- **5 New ActionEngine Actions** -- `rotate_tokens`, `audit_permissions`, `enforce_policy_set`, `reset_rate_limits`, `redact_scope` in the authorization category
+- **AG-UI Auth Events** -- EventBus CUSTOM event emission for token, policy, rate limit, and context authorization events
+- **CCEMHelper Rename** -- macOS companion app renamed from CCEMAgent to CCEMHelper to avoid confusion with AI agents
+- **Getting Started Modal Fix** -- Duplicate modal display bug resolved with localStorage persistence
 
 ## What's New in v6.4.0
 
@@ -22,7 +33,7 @@ A real-time monitoring and orchestration platform for Claude Code AI agent sessi
 - **UsageLive Dashboard** -- `/usage` LiveView with summary bar, model breakdown table, project accordion, and 10-second refresh
 - **Usage REST API** -- `UsageController` at `/api/usage/*` (5 endpoints: record, summary, by-project, by-model, clear)
 - **PostToolUse/PreToolUse Hooks** -- `claude_usage_record.sh` (fire-and-forget recording) and `claude_usage_check.sh` (intensive usage warning)
-- **CCEMAgent Usage Section** -- `UsageModels.swift`, `fetchUsageSummary()`, and `usageSection` in MenuBarView
+- **CCEMHelper Usage Section** -- `UsageModels.swift`, `fetchUsageSummary()`, and `usageSection` in MenuBarView
 
 ## What's New in v6.0.0
 
@@ -53,7 +64,7 @@ See the full [Changelog](changelog.md) for version history and release notes.
 
 ## Documentation
 
-### User Guide (9 pages)
+### User Guide (10 pages)
 
 Learn to use the dashboard, manage projects, and monitor agents.
 
@@ -61,13 +72,14 @@ Learn to use the dashboard, manage projects, and monitor agents.
 - [Dashboard Guide](user/dashboard.md) -- Using the web interface
 - [Multi-Project Setup](user/projects.md) -- Managing multiple projects
 - [Agent Fleet](user/agents.md) -- Understanding agent types and statuses
+- [Authorization](user/authorization.md) -- AgentLock authorization protocol, policies, and token management
 - [Ralph Methodology](user/ralph.md) -- Autonomous workflow execution
 - [UPM Integration](user/upm.md) -- Project management tracking
 - [Skills Analytics](user/skills.md) -- Skill usage and co-occurrence
 - [Claude Usage Tracking](user/usage.md) -- Token and model usage tracking by project and effort level
 - [Notifications](user/notifications.md) -- Alert system overview
 
-### Developer (9 pages)
+### Developer (11 pages)
 
 Architecture, API reference, and extending the platform.
 
@@ -76,9 +88,11 @@ Architecture, API reference, and extending the platform.
 - [LiveView Pages](developer/liveview-pages.md) -- Frontend components
 - [PubSub Events](developer/pubsub-events.md) -- Real-time event system
 - [AG-UI Protocol](developer/ag-ui-protocol.md) -- Event types, SSE streaming, and state management
+- [Authorization](developer/authorization.md) -- AgentLock auth modules, policy engine, token lifecycle, and rate limiting
 - [Showcase](developer/showcase.md) -- Project-scoped dashboard, ShowcaseDataStore, and IP-safe presentation
 - [CCEM UI](developer/ccem-ui.md) -- Dual-section sidebar, port management dashboard, and CCEM branding
 - [Port Management](developer/ports.md) -- Port registry, conflict detection, utilization heatmaps, and smart reassignment
+- [SwiftUI Menubar Helper (CCEMHelper)](developer/swift-agent.md) -- Native macOS menubar companion app
 - [Extending CCEM](developer/extending.md) -- Adding new features
 
 ### Administration (4 pages)
@@ -105,11 +119,19 @@ Configuration, deployment, hooks, and troubleshooting.
 - **Skills Analytics** -- UEBA-powered skill usage tracking with co-occurrence analysis and methodology detection; WCAG 2.1 AA card grid with Fix Wizard
 - **Claude Usage Tracking** -- Token consumption and model usage dashboards at user and project scope, with effort-level inference
 
+### Authorization
+
+- **AgentLock Protocol** -- 3-layer authorization model (Agent -> Gate -> Execution) with policy-based access control
+- **Token Management** -- ETS-backed token issuance, validation, revocation, and TTL expiry
+- **Rate Limiting** -- Per-agent and per-scope sliding window rate limiting
+- **Memory Gate** -- Scope-based memory access control with read/write/execute permissions
+- **Redaction Engine** -- Content redaction pipeline with configurable rules and audit logging
+
 ### Integration
 
 - **Multi-project Support** -- Project switching with isolated namespaces and subdirectory-scoped sessions
 - **UPM Integration** -- Unified Project Management bridging Plane, Linear, and local task tracking
-- **SwiftUI Menubar Agent** -- Native macOS CCEMAgent for at-a-glance status via AppKit and URLSession
+- **SwiftUI Menubar Helper** -- Native macOS CCEMHelper for at-a-glance status via AppKit and URLSession
 
 ### Development
 
@@ -127,7 +149,7 @@ Configuration, deployment, hooks, and troubleshooting.
 graph TD
     A["Phoenix LiveView<br/><small>Dashboard, Projects, Skills, Ralph<br/>Real-time updates via WebSocket</small>"]
     B["REST API & WebSocket Routes<br/><small>Agent registration, heartbeats<br/>Notifications, tasks, commands</small>"]
-    C["GenServer Stores — OTP Supervision<br/><small>ConfigLoader, AgentRegistry, UpmStore<br/>SkillTracker, MetricsCollector<br/>ClaudeUsageStore, ShowcaseDataStore</small>"]
+    C["GenServer Stores — OTP Supervision<br/><small>ConfigLoader, AgentRegistry, UpmStore<br/>SkillTracker, MetricsCollector<br/>ClaudeUsageStore, ShowcaseDataStore<br/>TokenStore, PolicyEngine, SessionStore</small>"]
     D["Data Layer — ETS + Files<br/><small>apm_config.json, session JSONs<br/>ETS tables for fast queries</small>"]
 
     A --> B --> C --> D

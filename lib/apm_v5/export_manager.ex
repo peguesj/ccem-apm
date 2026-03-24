@@ -5,7 +5,7 @@ defmodule ApmV5.ExportManager do
   CSV export for tabular sections, and validated imports.
   """
 
-  @version "5.3.0"
+  @version "7.0.0"
   @all_sections [:agents, :sessions, :metrics, :slos, :alert_rules, :alert_history, :audit_log]
 
   @doc """

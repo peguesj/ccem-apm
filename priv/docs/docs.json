@@ -1,5 +1,5 @@
 {
-  "version": "6.4.0",
+  "version": "7.0.0",
   "title": "CCEM APM Documentation",
   "categories": [
     {
@@ -21,7 +21,7 @@
           "slug": "changelog",
           "title": "Changelog",
           "file": "changelog.md",
-          "description": "Version history: v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management",
+          "description": "Version history: v7.0.0 AgentLock authorization protocol, v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management",
           "icon": "hero-clipboard-document-list",
           "order": 1,
           "tags": ["changelog", "releases", "history"]
@@ -71,12 +71,21 @@
           "tags": ["agents", "fleet", "monitoring"]
         },
         {
+          "slug": "user/authorization",
+          "title": "Authorization (AgentLock)",
+          "file": "user/authorization.md",
+          "description": "AgentLock authorization protocol: 3-layer model (Agent/Gate/Execution), token management, policy engine, rate limiting, memory gate, redaction, /authorization dashboard",
+          "icon": "hero-shield-check",
+          "order": 4,
+          "tags": ["authorization", "agentlock", "security", "tokens", "policies"]
+        },
+        {
           "slug": "user/ralph",
           "title": "Ralph Methodology",
           "file": "user/ralph.md",
           "description": "Ralph autonomous methodology: PRD-driven execution, story states, escalation rules, flowchart visualization",
           "icon": "hero-arrow-path",
-          "order": 4,
+          "order": 5,
           "tags": ["ralph", "methodology", "fix-loop", "autonomous"]
         },
         {
@@ -85,7 +94,7 @@
           "file": "user/upm.md",
           "description": "UPM execution tracking: session registration, agent-story binding, wave progress, lifecycle events",
           "icon": "hero-rectangle-group",
-          "order": 5,
+          "order": 6,
           "tags": ["upm", "project-management", "tracking"]
         },
         {
@@ -94,7 +103,7 @@
           "file": "user/skills.md",
           "description": "Skills dashboard v6.4.0: three-tier health card grid, Fix Wizard (diagnose→select→preview→done), Session Timeline, AG-UI Health tab, WCAG 2.1 AA, SkillsHook JS",
           "icon": "hero-academic-cap",
-          "order": 6,
+          "order": 7,
           "tags": ["skills", "analytics", "ueba", "tracking"]
         },
         {
@@ -103,7 +112,7 @@
           "file": "user/usage.md",
           "description": "Claude model/token usage per project: effort levels (low/medium/high/intensive), token counters (input/output/cache), real-time PubSub updates, usage recording API",
           "icon": "hero-chart-bar-square",
-          "order": 7,
+          "order": 8,
           "tags": ["usage", "tokens", "claude", "analytics", "effort"]
         },
         {
@@ -112,7 +121,7 @@
           "file": "user/notifications.md",
           "description": "Toast notification system: levels, categories, duration, built-in types, formation/UPM events",
           "icon": "hero-bell",
-          "order": 8,
+          "order": 9,
           "tags": ["notifications", "alerts", "events"]
         }
       ]
@@ -127,7 +136,7 @@
           "slug": "developer/architecture",
           "title": "System Architecture",
           "file": "developer/architecture.md",
-          "description": "OTP supervision tree, GenServer stores (ClaudeUsageStore v6.4.0, ShowcaseDataStore v6.0.0, SkillsRegistryStore v4.2.0, AgentActivityLog v6.1.0), ETS tables, PubSub topics, data flow",
+          "description": "OTP supervision tree, GenServer stores (auth modules v7.0.0, ClaudeUsageStore v6.4.0, ShowcaseDataStore v6.0.0, SkillsRegistryStore v4.2.0, AgentActivityLog v6.1.0), ETS tables, PubSub topics, data flow",
           "icon": "hero-building-library",
           "order": 0,
           "tags": ["architecture", "otp", "genserver", "design"]
@@ -136,16 +145,16 @@
           "slug": "developer/api-reference",
           "title": "REST API Reference",
           "file": "developer/api-reference.md",
-          "description": "Complete REST API: agents, notifications, UPM, formations, showcase, activity log (v6.1.0), domain controllers (v6.2.0), ports, usage (v6.4.0), skills, config, export/import",
+          "description": "Complete REST API: authorization (v7.0.0), agents, notifications, UPM, formations, showcase, activity log (v6.1.0), domain controllers (v6.2.0), ports, usage (v6.4.0), skills, config, export/import",
           "icon": "hero-globe-alt",
           "order": 1,
-          "tags": ["api", "rest", "endpoints", "websocket"]
+          "tags": ["api", "rest", "endpoints", "websocket", "authorization"]
         },
         {
           "slug": "developer/liveview-pages",
           "title": "LiveView Pages",
           "file": "developer/liveview-pages.md",
-          "description": "All LiveView pages including UsageLive (/usage v6.4.0), SkillsLive (v6.4.0 redesign), PortsLive, CcemOverviewLive; AgentPanel, PortPanel components; integration test suite",
+          "description": "All LiveView pages including AuthorizationLive (/authorization v7.0.0), RoutingLive (/routing v7.0.0), UsageLive (/usage v6.4.0), SkillsLive (v6.4.0 redesign), PortsLive, CcemOverviewLive; AgentPanel, PortPanel components; integration test suite",
           "icon": "hero-window",
           "order": 2,
           "tags": ["liveview", "phoenix", "pages", "ui"]
@@ -169,12 +178,21 @@
           "tags": ["ag-ui", "protocol", "events", "sse", "streaming"]
         },
         {
-          "slug": "developer/swift-agent",
-          "title": "SwiftUI Menubar Agent (CCEMAgent)",
-          "file": "developer/swift-agent.md",
-          "description": "CCEMAgent SwiftUI menubar app: APMClient actor, EnvironmentMonitor, UPM status, models",
-          "icon": "hero-computer-desktop",
+          "slug": "developer/authorization",
+          "title": "Authorization (AgentLock)",
+          "file": "developer/authorization.md",
+          "description": "AgentLock authorization protocol: Types, PolicyEngine, TokenStore, SessionStore, RateLimiter, ContextTracker, MemoryGate, RedactionEngine, AuthorizationGate, AgentLifecycle modules; ETS tables; PubSub topics",
+          "icon": "hero-shield-check",
           "order": 5,
+          "tags": ["authorization", "agentlock", "security", "tokens", "policies", "rate-limiting"]
+        },
+        {
+          "slug": "developer/swift-agent",
+          "title": "SwiftUI Menubar Helper (CCEMHelper)",
+          "file": "developer/swift-agent.md",
+          "description": "CCEMHelper SwiftUI menubar app: APMClient actor, EnvironmentMonitor, UPM status, models",
+          "icon": "hero-computer-desktop",
+          "order": 6,
           "tags": ["swift", "macos", "menubar", "native"]
         },
         {
@@ -183,7 +201,7 @@
           "file": "developer/extending.md",
           "description": "Adding GenServers, API endpoints, LiveView pages, PubSub topics to the APM codebase",
           "icon": "hero-puzzle-piece",
-          "order": 6,
+          "order": 7,
           "tags": ["extending", "plugins", "customization"]
         },
         {
@@ -192,7 +210,7 @@
           "file": "developer/showcase.md",
           "description": "ShowcaseLive: project switching, ShowcaseDataStore resolution, IP-safe diagram engine, fullscreen mode, activity tab, feature inspector, template system, project dropdown UX (v6.1.0)",
           "icon": "hero-presentation-chart-bar",
-          "order": 7,
+          "order": 8,
           "tags": ["showcase", "gimme", "diagrams", "project-switching"]
         },
         {
@@ -201,7 +219,7 @@
           "file": "developer/ccem-ui.md",
           "description": "CCEM UI v6.0.0: dual-section sidebar nav (CCEM Management + APM Monitoring), CcemOverviewLive /ccem hub, CCEM Assistant AG-UI callout, dynamic header branding, icon convention, adding new pages",
           "icon": "hero-squares-2x2",
-          "order": 8,
+          "order": 9,
           "tags": ["ccem", "sidebar", "navigation", "ui", "management"]
         },
         {
@@ -210,7 +228,7 @@
           "file": "developer/ports.md",
           "description": "PortManager GenServer: session-file discovery, conflict detection, namespace ranges, ActionEngine port actions (register_all_ports, smart_reassign_ports), PortsLive dashboard",
           "icon": "hero-signal",
-          "order": 9,
+          "order": 10,
           "tags": ["ports", "portmanager", "conflicts", "namespacing", "liveview"]
         }
       ]
@@ -252,7 +270,7 @@
           "slug": "admin/troubleshooting",
           "title": "Troubleshooting Guide",
           "file": "admin/troubleshooting.md",
-          "description": "Common issues: connection failures, config errors, agent registration, performance",
+          "description": "Common issues: connection failures, config errors, agent registration, performance, AgentLock authorization troubleshooting",
           "icon": "hero-wrench-screwdriver",
           "order": 3,
           "tags": ["troubleshooting", "debugging", "issues", "fixes"]

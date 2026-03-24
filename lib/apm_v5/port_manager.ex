@@ -155,11 +155,16 @@ defmodule ApmV5.PortManager do
     case Map.get(state.project_configs, project_name) do
       nil ->
         {:reply, {:error, :project_not_found}, state}
+
       _config ->
-        # For now, just update in-memory state. Config file editing would be phase 2.
-        project_configs = build_project_configs()
-        port_map = port_map_from_configs(project_configs)
-        {:reply, {:ok, new_port}, %{state | project_configs: project_configs, port_map: port_map}}
+        # Rebuild config asynchronously to avoid blocking the GenServer on file I/O
+        Task.start(fn ->
+          project_configs = build_project_configs()
+          port_map = port_map_from_configs(project_configs)
+          GenServer.cast(@server, {:config_rebuild, project_configs, port_map})
+        end)
+
+        {:reply, {:ok, new_port}, state}
     end
   end
 
@@ -188,10 +193,14 @@ defmodule ApmV5.PortManager do
       "port_ownership" => ownership
     }) do
       {:ok, _config} ->
-        # Rebuild state to pick up changes
-        project_configs = build_project_configs()
-        port_map = port_map_from_configs(project_configs)
-        {:reply, :ok, %{state | project_configs: project_configs, port_map: port_map}}
+        # Rebuild state asynchronously to avoid blocking on file I/O
+        Task.start(fn ->
+          project_configs = build_project_configs()
+          port_map = port_map_from_configs(project_configs)
+          GenServer.cast(@server, {:config_rebuild, project_configs, port_map})
+        end)
+
+        {:reply, :ok, state}
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}
@@ -227,6 +236,11 @@ defmodule ApmV5.PortManager do
       end
 
     {:reply, result, state}
+  end
+
+  @impl true
+  def handle_cast({:config_rebuild, project_configs, port_map}, state) do
+    {:noreply, %{state | project_configs: project_configs, port_map: port_map}}
   end
 
   @impl true
