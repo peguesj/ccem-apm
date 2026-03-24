@@ -1,5 +1,26 @@
 # Changelog
 
+## v7.3.0 (2026-03-24)
+
+CCEM APM v7.3.0 — Modularized Plugin Engine + Plane PM first-class integration.
+
+### Added
+- `ApmV5.Plugins.PluginBehaviour`: `@behaviour` contract for all APM plugins — `plugin_name/0`, `plugin_description/0`, `plugin_version/0`, `list_endpoints/0`, `handle_action/3`, optional `inspector_section/1`
+- `ApmV5.Plugins.PluginRegistry`: GenServer + ETS `:plugin_registry` — `register_plugin/1`, `list_plugins/0`, `get_plugin/1`, `call_plugin_action/3`; auto-registers bundled default plugins on init
+- `ApmV5.Plugins.Plane.PlanePlugin`: Plane PM plugin — `list_issues`, `get_issue`, `list_projects`, `board_state`, `search_issues` actions; backed by existing `ApmV5.PlaneClient`; CCEM project pre-configured; state normalization (Backlog/Todo/In Progress/Done/Cancelled)
+- `ApmV5Web.V2.PluginController`: REST API under `/api/v2/plugins/*` — index, show, action (POST), board (GET shortcut), issues (GET shortcut)
+- `GET /api/v2/plugins` — list all registered plugins with metadata + endpoint descriptors
+- `GET /api/v2/plugins/:name` — get single plugin
+- `POST /api/v2/plugins/:name/action` — invoke named action with params
+- `GET /api/v2/plugins/:name/board` — Kanban board state shortcut
+- `GET /api/v2/plugins/:name/issues` — list/search issues shortcut (auto-selects `search_issues` when `?query=` present)
+- `PluginDashboardLive /plugins`: tabbed UI — MCP Servers, Discovered Plugins, Registered Plugins (engine), Plane PM board with Kanban columns + issue inspector pull-out drawer; PubSub `"apm:plugins"` for live registration events
+- `application.ex`: `ApmV5.Plugins.PluginRegistry` added to supervision tree before AuthSupervisor
+
+### Changed
+- `mix.exs`: version bumped 7.2.0 → 7.3.0
+
+
 ## v7.2.0 (2026-03-24)
 
 CCEM APM v7.2.0 — AgentLock skills inspection, UPM workflow deep-link, showcase scope tabs, notification GET endpoint.
