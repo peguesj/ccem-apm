@@ -183,6 +183,17 @@ defmodule ApmV5.ActionEngine do
         %{name: "text", type: "string", required: true},
         %{name: "mode", type: "string", required: false, options: ["scan", "redact"]}
       ]
+    },
+    %{
+      id: "align_skill_paths",
+      name: "Align Skill Path Resolution",
+      description: "Scans user-scope skill definitions (~/.claude/skills/) for path resolution issues. Detects skills that reference state files (prd.json, progress.txt, upm_config.json) using user-level paths (~/.claude/skills/) instead of the project-level .claude directory. Emits AG-UI event with findings and optionally writes corrected path instructions.",
+      category: "skill_audit",
+      icon: "folder-arrow-down",
+      params: [
+        %{name: "skill_name", type: "string", required: false},
+        %{name: "fix", type: "boolean", required: false}
+      ]
     }
   ]
 
@@ -1037,6 +1048,124 @@ defmodule ApmV5.ActionEngine do
     e -> {:error, Exception.message(e)}
   end
 
+  defp execute_action("align_skill_paths", _project_path, params) do
+    skills_root = Path.expand("~/.claude/skills")
+    target_skill = Map.get(params, "skill_name")
+    fix_mode = Map.get(params, "fix", false)
+
+    state_file_skills = %{
+      "ralph" => ["prd.json", "progress.txt"],
+      "upm" => ["upm_config.json", "plan.json", "sync_state.json"],
+      "formation" => ["formation.json", "formation_state.json"]
+    }
+
+    skills_to_check =
+      if target_skill, do: Map.take(state_file_skills, [target_skill]), else: state_file_skills
+
+    findings =
+      Enum.map(skills_to_check, fn {skill, state_files} ->
+        skill_dir = Path.join(skills_root, skill)
+        skill_md = Path.join(skill_dir, "SKILL.md")
+
+        misrouted_files =
+          Enum.filter(state_files, fn file ->
+            File.exists?(Path.join(skill_dir, file))
+          end)
+
+        skill_md_issues =
+          if File.exists?(skill_md) do
+            content = File.read!(skill_md)
+            []
+            |> then(fn issues ->
+              if Regex.match?(~r/~\/\.claude\/skills\/#{skill}\/prd\.json/, content) ||
+                   Regex.match?(~r/~\/\.claude\/skills\/#{skill}\/progress\.txt/, content),
+                 do: ["SKILL.md hardcodes user-level state path" | issues],
+                 else: issues
+            end)
+            |> then(fn issues ->
+              if Regex.match?(~r/current directory/, content) &&
+                   !Regex.match?(~r/\{project_root\}|\.claude\/|project root/, content),
+                 do: ["SKILL.md says 'current directory' without project-root context" | issues],
+                 else: issues
+            end)
+          else
+            ["SKILL.md not found"]
+          end
+
+        projects_root = Path.expand("~/Developer")
+        claude_md_issues =
+          case File.ls(projects_root) do
+            {:ok, dirs} ->
+              dirs
+              |> Enum.take(20)
+              |> Enum.flat_map(fn dir ->
+                claude_md = Path.join([projects_root, dir, "CLAUDE.md"])
+                if File.exists?(claude_md) do
+                  content = File.read!(claude_md)
+                  if String.contains?(content, "prd.json in the current directory"),
+                    do: ["#{dir}/CLAUDE.md: 'prd.json in the current directory' without explicit path"],
+                    else: []
+                else
+                  []
+                end
+              end)
+            _ -> []
+          end
+
+        corrected_instruction =
+          if fix_mode && target_skill == skill,
+            do: "Alignment fix: state files must resolve to {project_root}/.claude/#{skill}/ not ~/.claude/skills/#{skill}/",
+            else: nil
+
+        %{
+          skill: skill,
+          state_files_at_user_level: misrouted_files,
+          skill_md_issues: skill_md_issues,
+          claude_md_issues: claude_md_issues,
+          status: if(misrouted_files == [] && skill_md_issues == [] && claude_md_issues == [], do: "aligned", else: "misaligned"),
+          corrected_instruction: corrected_instruction,
+          recommended_path: "{project_root}/.claude/#{skill}/prd.json"
+        }
+      end)
+
+    misaligned = Enum.filter(findings, &(&1.status == "misaligned"))
+    aligned = Enum.filter(findings, &(&1.status == "aligned"))
+    summary = %{total_checked: length(findings), misaligned: length(misaligned), aligned: length(aligned), findings: findings, fix_mode: fix_mode}
+
+    try do
+      ApmV5.AgUi.EventBus.publish("special:custom", %{
+        type: "CUSTOM",
+        name: "skill_alignment_complete",
+        data: %{summary: summary, timestamp: DateTime.utc_now() |> DateTime.to_iso8601()}
+      })
+    rescue
+      _ -> :ok
+    catch
+      _, _ -> :ok
+    end
+
+    try do
+      Phoenix.PubSub.broadcast(ApmV5.PubSub, "notifications", {:new_notification, %{
+        type: if(length(misaligned) > 0, do: "warning", else: "success"),
+        title: "Skill Path Alignment",
+        message: "#{length(misaligned)} misaligned / #{length(aligned)} aligned across #{length(findings)} skills",
+        category: "skill_alignment",
+        data: Jason.encode!(summary)
+      }})
+    rescue
+      _ -> :ok
+    catch
+      _, _ -> :ok
+    end
+
+    msg = if length(misaligned) > 0,
+      do: "#{length(misaligned)} misaligned: #{Enum.map(misaligned, & &1.skill) |> Enum.join(", ")}",
+      else: "All #{length(aligned)} skills aligned."
+    {:ok, "Checked #{length(findings)} skills. #{msg}"}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
   defp detect_project_stack(path) do
     stack_files = %{
       "package.json" => "node",
@@ -1260,4 +1389,5 @@ defmodule ApmV5.ActionEngine do
         {:ok, copied}
     end
   end
+
 end
