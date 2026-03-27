@@ -71,6 +71,8 @@ defmodule ApmV5Web.Router do
     live "/usage", UsageLive, :index
     live "/authorization", AuthorizationLive, :index
     live "/routing", RoutingLive, :index
+    live "/sessions", SessionManagerLive, :index
+    live "/sessions/:id", SessionManagerLive, :show
 
     # /upm redirects to workflow UPM view
     get "/upm", PageController, :upm_redirect

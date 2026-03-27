@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [8.1.0] - 2026-03-27
+
+Session Management LiveView + CCEMHelper Help/About/Settings — CCEM↔APM session connector.
+
+### Added
+- **`ApmV5.SessionManager`** GenServer — polls `~/Developer/ccem/apm/sessions/*.json` every 30s, enriches sessions with agents, ports, plugins, and claude config directory counts. Broadcasts `"apm:sessions"` PubSub on changes.
+- **`/sessions` LiveView** (`SessionManagerLive`) — split-panel view: session list (left) with active/inactive badges + pulse animation; 5-tab detail panel (right): Overview, Claude Config, Agents, Ports, Plugins. 10s auto-refresh.
+- **Sessions nav item** in sidebar (APM Monitoring section) using `hero-computer-desktop` icon.
+- **`/sessions/:id` route** for direct deep-link to specific session.
+- **CCEMHelper Settings panel** (`SettingsView`) — APM URL with live connection test, notification toggles, Launch at Login, Open Dashboard on Connect. `@AppStorage` with `io.pegues.ccem.*` key prefix.
+- **CCEMHelper About panel** (`AboutView`) — version/build from bundle, GitHub link, Open APM Dashboard.
+- **CCEMHelper Help panel** (`HelpView`) — Quick Start, Keyboard Shortcuts, Troubleshooting sections.
+- **MenuBarView footer section** — Settings..., About CCEMHelper, Help buttons with `.sheet` presentation.
+
+### Changed
+- Supervision tree: `ApmV5.SessionManager` added after `ClaudeUsageStore`.
+- Router: `/sessions` and `/sessions/:id` live routes added to `live_session :default`.
+- Sidebar: Sessions nav item added in APM Monitoring section.
+
+---
+
 ## [7.0.0] - 2026-03-21
 
 AgentLock authorization protocol integration -- 3-layer security model (Agent -> Gate -> Execution), 10 new auth modules, 19 new REST endpoints, 2 new LiveViews, CCEMHelper rename.

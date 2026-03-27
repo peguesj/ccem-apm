@@ -44,6 +44,8 @@ defmodule ApmV5.Application do
       ApmV5.Supervisors.AgUiSupervisorGroup,
       # Claude usage tracking (US-042)
       ApmV5.ClaudeUsageStore,
+      # Session Manager — polls session JSON files, enriches with agents/ports/plugins
+      ApmV5.SessionManager,
       # Plugin Engine (v8.0.0) — supervisor before registry
       ApmV5.Plugins.PluginSupervisor,
       ApmV5.Plugins.PluginRegistry,
