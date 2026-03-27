@@ -239,12 +239,14 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         %{"name" => "Tasks", "description" => "Task synchronization and input"},
         %{"name" => "Skills", "description" => "Skill invocation tracking"},
         %{"name" => "UPM", "description" => "Unified Project Management execution"},
+        %{"name" => "UPM Decision Gate", "description" => "Human-in-the-loop approval gates for UPM formation deployments (v8.4.0)"},
         %{"name" => "Formations", "description" => "Formation management (domain split from UPM)"},
         %{"name" => "Ports", "description" => "Port registry and clash detection"},
         %{"name" => "Environments", "description" => "CCEM environment management"},
         %{"name" => "Config", "description" => "Server configuration"},
         %{"name" => "Projects", "description" => "Multi-project management"},
         %{"name" => "AG-UI", "description" => "AG-UI SSE event stream"},
+        %{"name" => "Agent Context", "description" => "Real-time AG-UI context per agent — activity, events, tool calls (v8.4.0)"},
         %{"name" => "A2UI", "description" => "A2UI declarative component specs"},
         %{"name" => "Metrics", "description" => "Performance metrics (v2)"},
         %{"name" => "SLOs", "description" => "Service Level Objectives (v2)"},
@@ -252,7 +254,8 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         %{"name" => "Audit", "description" => "Audit log (v2)"},
         %{"name" => "Export", "description" => "Data export and import (v2)"},
         %{"name" => "CCEM Management", "description" => "CCEM management LiveView pages (Showcase, Ports, CCEM overview)"},
-        %{"name" => "AgentLock Authorization", "description" => "AgentLock authorization protocol — session, token, policy, context, memory, and rate-limit management (v7.0.0)"}
+        %{"name" => "AgentLock Authorization", "description" => "AgentLock authorization protocol — session, token, policy, context, memory, and rate-limit management (v7.0.0)"},
+        %{"name" => "Coalesce", "description" => "Skill Logic Engine — ingest sources, plan skill diffs, gate-controlled apply (v8.4.0)"}
       ],
       "paths" => build_paths(),
       "components" => %{
@@ -778,6 +781,275 @@ defmodule ApmV5Web.V2.ApiV2Controller do
             %{"name" => "event_type", "in" => "query", "schema" => %{"type" => "string"}},
             %{"name" => "agent_id", "in" => "query", "schema" => %{"type" => "string"}}],
           "responses" => %{"200" => %{"description" => "Authorization audit entries"}}}
+      },
+
+      # UPM Decision Gate (v8.4.0) — human-in-the-loop approval before formation deploy
+      "/api/v2/upm/gate" => %{
+        "post" => %{
+          "operationId" => "upmCreateGate",
+          "summary" => "Create a blocking UPM decision gate",
+          "description" => "Creates a decision gate and blocks up to timeout_ms (default 120s) waiting for approval via CCEMHelper notification or osascript dialog.",
+          "tags" => ["UPM Decision Gate"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object",
+            "properties" => %{
+              "question" => %{"type" => "string", "description" => "Decision question shown to the user", "example" => "Proceed with formation deployment?"},
+              "context" => %{"type" => "string", "description" => "Additional context for the decision"},
+              "options" => %{"type" => "array", "items" => %{"type" => "string"}, "description" => "Response options", "example" => ["Deploy", "Cancel"]},
+              "timeout_ms" => %{"type" => "integer", "description" => "Maximum wait time in milliseconds", "default" => 120_000}
+            }}}}},
+          "responses" => %{
+            "200" => %{"description" => "Decision received", "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/GateDecision"}}}},
+            "408" => %{"description" => "Gate timed out without a decision"}
+          }
+        }
+      },
+      "/api/v2/upm/gates" => %{
+        "get" => %{
+          "operationId" => "upmListGates",
+          "summary" => "List all UPM decision gates (pending + resolved)",
+          "tags" => ["UPM Decision Gate"],
+          "responses" => %{"200" => %{"description" => "Gate list with pending count",
+            "content" => %{"application/json" => %{"schema" => %{
+              "type" => "object",
+              "properties" => %{
+                "gates" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Gate"}},
+                "pending_count" => %{"type" => "integer"}
+              }}}}}}
+        }
+      },
+      "/api/v2/upm/gate/{id}" => %{
+        "get" => %{
+          "operationId" => "upmGetGate",
+          "summary" => "Get a specific UPM decision gate by ID",
+          "tags" => ["UPM Decision Gate"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{
+            "200" => %{"description" => "Gate detail", "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/Gate"}}}},
+            "404" => %{"description" => "Gate not found"}
+          }
+        }
+      },
+      "/api/v2/upm/gate/{id}/approve" => %{
+        "post" => %{
+          "operationId" => "upmApproveGate",
+          "summary" => "Approve a pending UPM decision gate",
+          "tags" => ["UPM Decision Gate"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{
+            "200" => %{"description" => "Gate approved"},
+            "404" => %{"description" => "Gate not found"},
+            "409" => %{"description" => "Gate is not in pending state"}
+          }
+        }
+      },
+      "/api/v2/upm/gate/{id}/reject" => %{
+        "post" => %{
+          "operationId" => "upmRejectGate",
+          "summary" => "Reject a pending UPM decision gate",
+          "tags" => ["UPM Decision Gate"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "requestBody" => %{"required" => false, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object",
+            "properties" => %{"reason" => %{"type" => "string", "description" => "Rejection reason"}}}}}},
+          "responses" => %{
+            "200" => %{"description" => "Gate rejected"},
+            "404" => %{"description" => "Gate not found"},
+            "409" => %{"description" => "Gate is not in pending state"}
+          }
+        }
+      },
+
+      # Agent Context (v8.4.0) — real-time AG-UI context per agent
+      "/api/v2/agents/contexts" => %{
+        "get" => %{
+          "operationId" => "listAgentContexts",
+          "summary" => "List all agent AG-UI contexts",
+          "description" => "Returns a map of agent_id => context for all agents with active AG-UI context.",
+          "tags" => ["Agent Context"],
+          "responses" => %{"200" => %{"description" => "Agent context map",
+            "content" => %{"application/json" => %{"schema" => %{
+              "type" => "object",
+              "properties" => %{"contexts" => %{"type" => "object", "additionalProperties" => %{"$ref" => "#/components/schemas/AgentContext"}}}
+            }}}}}
+        }
+      },
+      "/api/v2/agents/{id}/context" => %{
+        "get" => %{
+          "operationId" => "getAgentContext",
+          "summary" => "Get AG-UI context for a specific agent",
+          "tags" => ["Agent Context"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Agent ID"}],
+          "responses" => %{"200" => %{"description" => "Agent context with activity label and recent tool calls",
+            "content" => %{"application/json" => %{"schema" => %{
+              "type" => "object",
+              "properties" => %{
+                "agent_id" => %{"type" => "string"},
+                "context" => %{"$ref" => "#/components/schemas/AgentContext"},
+                "activity_label" => %{"type" => "string"},
+                "recent_tool_calls" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/ToolCallSummary"}}
+              }}}}}}
+        }
+      },
+      "/api/v2/agents/{id}/context/events" => %{
+        "get" => %{
+          "operationId" => "getAgentContextEvents",
+          "summary" => "Get recent AG-UI events for a specific agent",
+          "tags" => ["Agent Context"],
+          "parameters" => [
+            %{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Agent ID"},
+            %{"name" => "limit", "in" => "query", "required" => false, "schema" => %{"type" => "integer", "default" => 10, "maximum" => 50}, "description" => "Max events to return"}
+          ],
+          "responses" => %{"200" => %{"description" => "Recent AG-UI events",
+            "content" => %{"application/json" => %{"schema" => %{
+              "type" => "object",
+              "properties" => %{
+                "agent_id" => %{"type" => "string"},
+                "events" => %{"type" => "array", "items" => %{"type" => "object"}},
+                "count" => %{"type" => "integer"}
+              }}}}}}
+        }
+      },
+
+      # Coalesce — Skill Logic Engine (v8.4.0)
+      "/api/v2/coalesce" => %{
+        "get" => %{
+          "operationId" => "coalesceListRuns",
+          "summary" => "List all Coalesce runs",
+          "description" => "Returns all runs with summary info and total pending gate count.",
+          "tags" => ["Coalesce"],
+          "responses" => %{"200" => %{"description" => "Run list with pending gate count",
+            "content" => %{"application/json" => %{"schema" => %{
+              "type" => "object",
+              "properties" => %{
+                "runs" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/CoalesceRunSummary"}},
+                "total" => %{"type" => "integer"},
+                "pending_gates" => %{"type" => "integer"}
+              }}}}}}
+        }
+      },
+      "/api/v2/coalesce/start" => %{
+        "post" => %{
+          "operationId" => "coalesceStartRun",
+          "summary" => "Start a new Coalesce run",
+          "description" => "Initiates source ingestion, skill analysis, formation deploy, diff generation, and gated apply. Returns run_id immediately (async). Monitor at /coalesce or poll GET /api/v2/coalesce/:id.",
+          "tags" => ["Coalesce"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object",
+            "properties" => %{
+              "sources" => %{"type" => "array", "items" => %{"type" => "string"}, "description" => "URLs, file paths, or VIKI keys to ingest"},
+              "scope" => %{"type" => "string", "description" => "Skill scope filter", "example" => "product management"},
+              "dry_run" => %{"type" => "boolean", "description" => "Preview diffs without writing files", "default" => false},
+              "auto_approve" => %{"type" => "boolean", "description" => "Skip human gates G2/G3 automatically", "default" => false},
+              "squadrons" => %{"type" => "integer", "description" => "Number of agent squadrons", "default" => 6},
+              "agent_count" => %{"type" => "integer", "description" => "Total agents in formation", "default" => 64}
+            }}}}},
+          "responses" => %{
+            "202" => %{"description" => "Run accepted and started",
+              "content" => %{"application/json" => %{"schema" => %{
+                "type" => "object",
+                "properties" => %{
+                  "run_id" => %{"type" => "string"},
+                  "status" => %{"type" => "string"},
+                  "formation_id" => %{"type" => "string"},
+                  "dry_run" => %{"type" => "boolean"},
+                  "scope" => %{"type" => "string"},
+                  "source_count" => %{"type" => "integer"},
+                  "dashboard_url" => %{"type" => "string"},
+                  "message" => %{"type" => "string"}
+                }}}}},
+            "422" => %{"description" => "Invalid run parameters"}
+          }
+        }
+      },
+      "/api/v2/coalesce/preview" => %{
+        "post" => %{
+          "operationId" => "coalescePreview",
+          "summary" => "Preview a Coalesce run without starting it",
+          "description" => "Analyzes sources and returns formation plan, affected skills, gate schedule, and estimated duration. No files are written.",
+          "tags" => ["Coalesce"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object",
+            "properties" => %{
+              "sources" => %{"type" => "array", "items" => %{"type" => "string"}},
+              "scope" => %{"type" => "string"}
+            }}}}},
+          "responses" => %{"200" => %{"description" => "Preview with formation plan and gate schedule"}}
+        }
+      },
+      "/api/v2/coalesce/{id}" => %{
+        "get" => %{
+          "operationId" => "coalesceGetRun",
+          "summary" => "Get Coalesce run status and gates",
+          "tags" => ["Coalesce"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{
+            "200" => %{"description" => "Run detail with gates"},
+            "404" => %{"description" => "Run not found"}
+          }
+        },
+        "delete" => %{
+          "operationId" => "coalesceCancelRun",
+          "summary" => "Cancel a Coalesce run",
+          "tags" => ["Coalesce"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{
+            "200" => %{"description" => "Run cancelled"},
+            "404" => %{"description" => "Run not found"},
+            "409" => %{"description" => "Run already completed or cancelled"}
+          }
+        }
+      },
+      "/api/v2/coalesce/{id}/diff" => %{
+        "get" => %{
+          "operationId" => "coalesceGetDiff",
+          "summary" => "Get proposed skill diffs for a Coalesce run",
+          "tags" => ["Coalesce"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{
+            "200" => %{"description" => "Diff list with skill impact and confidence"},
+            "404" => %{"description" => "Run not found"}
+          }
+        }
+      },
+      "/api/v2/coalesce/{id}/gate/{gate_id}/decide" => %{
+        "post" => %{
+          "operationId" => "coalesceGateDecide",
+          "summary" => "Approve, reject, or defer a Coalesce gate",
+          "tags" => ["Coalesce"],
+          "parameters" => [
+            %{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Run ID"},
+            %{"name" => "gate_id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Gate ID (e.g. G1, G2, G3, G4)"}
+          ],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object",
+            "properties" => %{
+              "decision" => %{"type" => "string", "enum" => ["approve", "reject", "defer"], "default" => "approve"},
+              "reason" => %{"type" => "string"},
+              "approver" => %{"type" => "string", "default" => "api"}
+            }}}}},
+          "responses" => %{
+            "200" => %{"description" => "Gate decision accepted"},
+            "404" => %{"description" => "Gate not found"},
+            "409" => %{"description" => "Gate is not in pending state"},
+            "422" => %{"description" => "Invalid decision value"}
+          }
+        }
+      },
+      "/api/v2/coalesce/{id}/apply" => %{
+        "post" => %{
+          "operationId" => "coalesceApplyRun",
+          "summary" => "Apply approved Coalesce diffs to skill files",
+          "description" => "Writes approved skill diff additions to disk. Run must be in :awaiting_gate status with G3 approved.",
+          "tags" => ["Coalesce"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{
+            "200" => %{"description" => "Diffs applied"},
+            "404" => %{"description" => "Run not found"},
+            "409" => %{"description" => "Run is not in correct state to apply"},
+            "422" => %{"description" => "Apply failed"}
+          }
+        }
       }
     }
   end
@@ -842,7 +1114,48 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         "scope" => %{"type" => "string"}, "tool_calls" => %{"type" => "integer"},
         "denied_count" => %{"type" => "integer"},
         "created_at" => %{"type" => "string", "format" => "date-time"},
-        "expires_at" => %{"type" => "string", "format" => "date-time"}}}
+        "expires_at" => %{"type" => "string", "format" => "date-time"}}},
+      # v8.4.0 schemas
+      "Gate" => %{"type" => "object", "description" => "UPM decision gate record", "properties" => %{
+        "gate_id" => %{"type" => "string"},
+        "question" => %{"type" => "string"},
+        "context" => %{"type" => "string"},
+        "options" => %{"type" => "array", "items" => %{"type" => "string"}},
+        "status" => %{"type" => "string", "enum" => ["pending", "approved", "rejected", "timeout"]},
+        "decision" => %{"type" => "string"},
+        "method" => %{"type" => "string"},
+        "requested_at" => %{"type" => "string", "format" => "date-time"},
+        "resolved_at" => %{"type" => "string", "format" => "date-time"}}},
+      "GateDecision" => %{"type" => "object", "description" => "Result of a blocking gate request", "properties" => %{
+        "decision" => %{"type" => "string", "enum" => ["approved", "rejected", "timeout"]},
+        "method" => %{"type" => "string"},
+        "reason" => %{"type" => "string"},
+        "gate_id" => %{"type" => "string"},
+        "question" => %{"type" => "string"}}},
+      "AgentContext" => %{"type" => "object", "description" => "Real-time AG-UI context for an agent (v8.4.0)", "properties" => %{
+        "agent_id" => %{"type" => "string"},
+        "current_tool" => %{"type" => "string"},
+        "current_phase" => %{"type" => "string"},
+        "formation_id" => %{"type" => "string"},
+        "squadron_id" => %{"type" => "string"},
+        "upm_story_id" => %{"type" => "string"},
+        "last_event_type" => %{"type" => "string"},
+        "updated_at" => %{"type" => "string", "format" => "date-time"}}},
+      "ToolCallSummary" => %{"type" => "object", "description" => "Abbreviated tool call for context endpoints", "properties" => %{
+        "tool_call_id" => %{"type" => "string"},
+        "tool_name" => %{"type" => "string"},
+        "status" => %{"type" => "string", "enum" => ["pending", "running", "completed", "failed"]},
+        "started_at" => %{"type" => "string", "format" => "date-time"},
+        "duration_ms" => %{"type" => "integer"}}},
+      "CoalesceRunSummary" => %{"type" => "object", "description" => "Summary of a Coalesce run", "properties" => %{
+        "run_id" => %{"type" => "string"},
+        "status" => %{"type" => "string"},
+        "scope" => %{"type" => "string"},
+        "dry_run" => %{"type" => "boolean"},
+        "affected_skill_count" => %{"type" => "integer"},
+        "diff_count" => %{"type" => "integer"},
+        "started_at" => %{"type" => "string", "format" => "date-time"},
+        "completed_at" => %{"type" => "string", "format" => "date-time"}}}
     }
   end
 
