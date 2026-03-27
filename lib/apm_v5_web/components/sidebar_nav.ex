@@ -53,10 +53,12 @@ defmodule ApmV5Web.Components.SidebarNav do
         <.nav_item icon="hero-cpu-chip" label="Usage" href="/usage" current_path={@current_path} />
         <.nav_item icon="hero-shield-check" label="Authorization" href="/authorization" current_path={@current_path} />
         <.nav_item icon="hero-map" label="Routing" href="/routing" current_path={@current_path} />
+        <.nav_item icon="hero-computer-desktop" label="Sessions" href="/sessions" current_path={@current_path} />
         <.nav_item icon="hero-arrow-path" label="Ralph" href="/ralph" current_path={@current_path} />
         <.nav_item icon="hero-clock" label="Timeline" href="/timeline" current_path={@current_path} />
         <.nav_item icon="hero-beaker" label="UAT" href="/uat" current_path={@current_path} />
         <.nav_item icon="hero-puzzle-piece" label="Plugins" href="/plugins" current_path={@current_path} />
+        <.nav_item icon="hero-circle-stack" label="Integrations" href="/integrations" current_path={@current_path} />
         <.nav_item icon="hero-book-open" label="Docs" href="/docs" current_path={@current_path} />
       </nav>
     </aside>
@@ -92,10 +94,6 @@ defmodule ApmV5Web.Components.SidebarNav do
     """
   end
 
-  defp version do
-    case Application.spec(:apm_v5, :vsn) do
-      nil -> "7.0.0"
-      vsn -> to_string(vsn)
-    end
-  end
+  @app_version "8.3.0"
+  defp version, do: @app_version
 end

@@ -8,11 +8,16 @@ defmodule ApmV5Web.UsageController do
     GET    /api/usage/project/:name    — per-project breakdown
     POST   /api/usage/record           — record a usage event
     DELETE /api/usage/project/:name    — reset counters for a project
+
+  Broadcasts PubSub events on mutations to `"apm:usage"` topic.
   """
 
   use ApmV5Web, :controller
 
   alias ApmV5.ClaudeUsageStore
+
+  @pubsub ApmV5.PubSub
+  @topic "apm:usage"
 
   @doc "GET /api/usage — return all usage data keyed by project then model."
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
@@ -70,6 +75,14 @@ defmodule ApmV5Web.UsageController do
     updated = ClaudeUsageStore.get_usage(project)
     effort = ClaudeUsageStore.get_effort_level(project)
 
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:usage_recorded, %{
+      project: project,
+      model: model,
+      effort_level: effort,
+      input_tokens: usage.input,
+      output_tokens: usage.output
+    }})
+
     conn
     |> put_status(201)
     |> json(%{
@@ -85,6 +98,9 @@ defmodule ApmV5Web.UsageController do
   @spec reset(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def reset(conn, %{"name" => name}) do
     :ok = ClaudeUsageStore.reset_project(name)
+
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:usage_reset, %{project: name}})
+
     json(conn, %{ok: true, project: name, message: "Usage data reset"})
   end
 

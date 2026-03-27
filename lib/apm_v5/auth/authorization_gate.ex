@@ -25,7 +25,8 @@ defmodule ApmV5.Auth.AuthorizationGate do
 
   alias ApmV5.Auth.Types
   alias ApmV5.Auth.Types.AuthTool
-  alias ApmV5.Auth.{PolicyEngine, TokenStore, SessionStore, RateLimiter, ContextTracker}
+  alias ApmV5.Auth.{PolicyEngine, TokenStore, SessionStore, RateLimiter, ContextTracker,
+                     PolicyRulesStore, PendingDecisions}
 
   @tool_registry :agentlock_tool_registry
 
@@ -143,82 +144,129 @@ defmodule ApmV5.Auth.AuthorizationGate do
     # 1. Get tool (or use defaults)
     tool = get_tool(tool_name)
 
-    # 2. Build evaluation context
-    trust_ceiling = get_trust_ceiling(session_id)
+    # 2. Check rate limits before policy evaluation
+    case RateLimiter.check(agent_id, tool_name) do
+      {:error, :rate_limited, retry_after_ms} ->
+        broadcast({:auth_rate_limited, %{tool_name: tool_name, agent_id: agent_id, retry_after_ms: retry_after_ms}})
+        broadcast_decision(tool_name, :rate_limited, :medium, session_id)
 
-    context =
-      Map.merge(params, %{
-        trust_ceiling: trust_ceiling,
-        tool_registry: tool,
-        data_boundary: Map.get(params, :data_boundary, :authenticated_user_only)
-      })
+        log_audit("auth:rate_limited", tool_name, %{
+          agent_id: agent_id,
+          retry_after_ms: retry_after_ms
+        })
 
-    # 3. Evaluate policy
-    decision = PolicyEngine.evaluate(tool_name, role, context)
+        result = {:error, :rate_limited, "Rate limit exceeded. Retry after #{retry_after_ms}ms"}
+        new_state = %{state | total_denied: state.total_denied + 1}
+        {:reply, result, new_state}
 
-    # 4. Process decision
-    {result, new_state} =
-      case {decision.allowed, decision.needs_approval} do
-        {true, false} ->
-          # Permitted — issue token
-          case TokenStore.generate(agent_id, session_id, tool_name, params) do
-            {:ok, token_id} ->
-              RateLimiter.record(agent_id, tool_name)
-              SessionStore.increment_tool_calls(session_id)
-              broadcast({:auth_granted, %{token_id: token_id, tool_name: tool_name, agent_id: agent_id}})
+      :ok ->
+        # 3a. Check permanent policy rules (always_allow / always_deny override)
+        policy_rule = PolicyRulesStore.check_rule(tool_name)
 
-              log_audit("auth:authorization_granted", tool_name, %{
+        # 3b. Build evaluation context
+        trust_ceiling = get_trust_ceiling(session_id)
+
+        context =
+          Map.merge(params, %{
+            trust_ceiling: trust_ceiling,
+            tool_registry: tool,
+            data_boundary: Map.get(params, :data_boundary, :authenticated_user_only),
+            policy_rule: policy_rule
+          })
+
+        # 4. Evaluate policy (policy_rule override may short-circuit)
+        decision = PolicyEngine.evaluate(tool_name, role, context)
+
+        # 5. Process decision
+        {result, new_state} =
+          case {decision.allowed, decision.needs_approval} do
+            {true, false} ->
+              # Permitted — issue token
+              case TokenStore.generate(agent_id, session_id, tool_name, params) do
+                {:ok, token_id} ->
+                  RateLimiter.record(agent_id, tool_name)
+                  SessionStore.increment_tool_calls(session_id)
+
+                  broadcast({:auth_granted, %{
+                    token_id: token_id,
+                    tool_name: tool_name,
+                    agent_id: agent_id,
+                    risk_level: decision.risk_level
+                  }})
+                  broadcast_decision(tool_name, :granted, decision.risk_level, session_id)
+
+                  log_audit("auth:authorization_granted", tool_name, %{
+                    agent_id: agent_id,
+                    token_id: token_id,
+                    risk_level: decision.risk_level
+                  })
+
+                  {{:ok, token_id}, %{state | total_authorized: state.total_authorized + 1}}
+              end
+
+            {false, true} ->
+              # Needs approval — queue in PendingDecisions + escalate to ApprovalGate
+              {:ok, request_id} =
+                PendingDecisions.add(tool_name, session_id, decision.risk_level, agent_id, params)
+
+              gate_id =
+                try do
+                  case ApmV5.AgUi.ApprovalGate.request_approval(agent_id, %{
+                    tool_name: tool_name,
+                    risk_level: decision.risk_level,
+                    reason: decision.detail
+                  }) do
+                    {:ok, gid} -> gid
+                    _ -> request_id
+                  end
+                rescue
+                  _ -> request_id
+                end
+
+              broadcast({:auth_escalated, %{
+                gate_id: gate_id,
+                request_id: request_id,
+                tool_name: tool_name,
                 agent_id: agent_id,
-                token_id: token_id,
+                risk_level: decision.risk_level
+              }})
+              broadcast_decision(tool_name, :escalated, decision.risk_level, session_id)
+
+              log_audit("auth:authorization_escalated", tool_name, %{
+                agent_id: agent_id,
+                gate_id: gate_id,
+                request_id: request_id,
                 risk_level: decision.risk_level
               })
 
-              {{:ok, token_id}, %{state | total_authorized: state.total_authorized + 1}}
-          end
+              {{:error, :approval_required,
+                "Pending approval queued: #{request_id}. Use /authorization to approve."},
+               %{state | total_escalated: state.total_escalated + 1}}
 
-        {false, true} ->
-          # Needs approval — escalate to ApprovalGate
-          try do
-            {:ok, gate_id} =
-              ApmV5.AgUi.ApprovalGate.request_approval(agent_id, %{
+            {false, false} ->
+              # Denied
+              SessionStore.increment_denied(session_id)
+
+              broadcast({:auth_denied, %{
                 tool_name: tool_name,
-                risk_level: decision.risk_level,
-                reason: decision.detail
+                agent_id: agent_id,
+                reason: decision.reason,
+                risk_level: decision.risk_level
+              }})
+              broadcast_decision(tool_name, :denied, decision.risk_level, session_id)
+
+              log_audit("auth:authorization_denied", tool_name, %{
+                agent_id: agent_id,
+                reason: decision.reason,
+                detail: decision.detail
               })
 
-            broadcast(
-              {:auth_escalated, %{gate_id: gate_id, tool_name: tool_name, agent_id: agent_id}}
-            )
-
-            log_audit("auth:authorization_escalated", tool_name, %{
-              agent_id: agent_id,
-              gate_id: gate_id
-            })
-
-            {{:error, :approval_required, "Approval gate #{gate_id} created: #{decision.detail}"},
-             %{state | total_escalated: state.total_escalated + 1}}
-          rescue
-            _ ->
-              {{:error, :approval_required, decision.detail},
-               %{state | total_escalated: state.total_escalated + 1}}
+              {{:error, decision.reason, decision.detail},
+               %{state | total_denied: state.total_denied + 1}}
           end
 
-        {false, false} ->
-          # Denied
-          SessionStore.increment_denied(session_id)
-          broadcast({:auth_denied, %{tool_name: tool_name, agent_id: agent_id, reason: decision.reason}})
-
-          log_audit("auth:authorization_denied", tool_name, %{
-            agent_id: agent_id,
-            reason: decision.reason,
-            detail: decision.detail
-          })
-
-          {{:error, decision.reason, decision.detail},
-           %{state | total_denied: state.total_denied + 1}}
-      end
-
-    {:reply, result, new_state}
+        {:reply, result, new_state}
+    end
   end
 
   @impl true
@@ -285,6 +333,17 @@ defmodule ApmV5.Auth.AuthorizationGate do
     end
   end
 
+  defp broadcast_decision(tool_name, status, risk_level, session_id) do
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:agentlock", %{
+      event: "authorization_decision",
+      tool: tool_name,
+      status: status,
+      risk_level: risk_level,
+      session_id: session_id,
+      timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+    })
+  end
+
   defp broadcast(event) do
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", event)
 
@@ -295,6 +354,7 @@ defmodule ApmV5.Auth.AuthorizationGate do
           {:auth_granted, _} -> "auth_granted"
           {:auth_denied, _} -> "auth_denied"
           {:auth_escalated, _} -> "auth_escalated"
+          {:auth_rate_limited, _} -> "auth_rate_limited"
           {:token_consumed, _} -> "auth_token_consumed"
           _ -> nil
         end

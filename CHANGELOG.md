@@ -1,5 +1,78 @@
 # Changelog
 
+## v8.3.0 (2026-03-27)
+
+CCEM APM v8.3.0 — AgentLock macOS notifications: end-to-end fix.
+
+### Fixed
+- `PendingDecisions.list_pending/0`: excludes expired entries (TTL=120s) — eliminates stale backlog that blocked new notification delivery
+- `AuthAuditEntry` (CCEMHelper): stable `id` field decoded from JSON, falls back to UUID — eliminates silent dedup drops for repeated denial events
+- `APMClient` port key mismatch: aligned to `io.pegues.ccem.apmPort` — Settings port field now works correctly
+- `EnvironmentMonitor`: removed duplicate `setNotificationCategories` from `requestNotificationPermission()` — eliminates race with `CCEMHelperApp.init()` category registration
+- `postAgentLockNotification`: embeds `request_id` in `content.userInfo` — Approve/Deny buttons on audit-path escalation banners now call `submitDecision` correctly
+- `APMNotificationReceiver`: approve/deny actions + banner tap both deep-link to `/authorization` dashboard
+
+### Added
+- `CCEMHelperApp.init()`: `UserDefaults.standard.register(defaults:)` — all 4 notification toggles default to `true` on fresh install (no setup required)
+- `APMClient`: host key support (`io.pegues.ccem.apmHost`) — base URL built from host + port
+- `POST /api/v2/notifications/test`: inject test pending decision for CCEMHelper notification testing (CCEM-281)
+- `EnvironmentMonitor`: UserDefaults gating wired — `notifyAgentLock`, `notifyAgentLifecycle`, `notifyFormation`, `notifySystem` toggles in Settings now actually gate notifications
+
+### Changed
+- `mix.exs`: version bumped 8.2.0 → 8.3.0
+
+## v8.2.0 (2026-03-27)
+
+CCEM APM v8.2.0 — AgentLock Gap9 fix, CoWork awareness, CCEMHelper Settings window.
+
+### Added
+- `ApmV5.Auth.PendingDecisions`: Gap 9 fix — `decide(:approve)` now calls `TokenStore.generate/4` and stores `token_id` on approved entry; broadcasts include `token_id`; HTTP poll response returns `token_id` so hooks can receive their authorization token without re-authorization
+- `ApmV5.SessionManager`: CoWork awareness — `cowork_context/0` reads `~/.claude/teams/` and `~/.claude/tasks/`; enriched sessions include `:cowork` map with `teams` list and `tasks` count (`total`/`active`)
+- `agentlock_pre_tool.sh`: approval polling loop — when `reason: approval_required`, hook polls `GET /api/v2/auth/pending/:id?wait=30` up to 2× (60s total); on approval stores token and exits 0; on deny or timeout exits 2
+- `CCEMHelper`: `@Environment(\.openSettings)` gear icon in menu header — always visible regardless of menu height; replaces broken `NSApp.sendAction(Selector("showSettingsWindow:"))` approach
+
+### Changed
+- `ApmV5Web.V2.AuthController`: `pending_to_json/1` includes `token_id`; `decide/2` action returns `token_id` on approve; `get_pending/2` threads full entry through poll result
+- `ApmV5.Auth.PendingDecisions`: `poll/2` + `do_poll/2` return `{:decided, entry}` (full map) instead of `{:decided, decision atom}` — carries `token_id` through to HTTP layer
+- `CCEMHelper/Views/MenuBarView.swift`: `@Environment(\.openSettings)` declared; both header gear and "Notification Settings…" menu item use `openSettings()` call
+- `mix.exs`: version bumped 8.1.0 → 8.2.0
+
+## v8.1.0 (2026-03-27)
+
+CCEM APM v8.1.0 — Session Manager + CCEMHelper Settings/About/Help.
+
+### Added
+- `ApmV5.SessionManager` GenServer: polls `~/Developer/ccem/apm/sessions/*.json` every 30s, ETS `:session_manager_cache`, broadcasts `"apm:sessions"` PubSub on hash change
+- `SessionManagerLive` at `/sessions` + `/sessions/:id`: left panel session list, right panel 5 tabs (Overview/Claude Config/Agents/Ports/Plugins), 10s auto-refresh
+- `CCEMHelper/Views/SettingsView.swift`: APM URL config, notification toggles (AgentLock/Formation/System), connection test
+- `CCEMHelper/Views/AboutView.swift`: version/build from bundle, GitHub link
+- `CCEMHelper/Views/HelpView.swift`: Quick Start, Keyboard Shortcuts, Troubleshooting
+
+### Changed
+- `mix.exs`: version bumped 8.0.0 → 8.1.0
+
+## v8.0.0 (2026-03-27)
+
+CCEM APM v8.0.0 — Plugin/Integration Engine Standard.
+
+### Added
+- `ApmV5.Plugins.PluginBehaviour` v2: extended with `supervisor_children/0`, `inspector_component/0`, `default_enabled?/0`, `on_enable/0`, `on_disable/0`, `live_views/0` optional callbacks
+- `ApmV5.Integrations.IntegrationBehaviour`: new behaviour contract for external protocol bridges — `integration_name/0`, `protocol/0`, `connect/1`, `disconnect/0`, `status/0`, `handle_event/3`, `supervisor_children/0`
+- `ApmV5.Plugins.PluginSupervisor`: DynamicSupervisor for plugin-owned child processes
+- `ApmV5.Integrations.IntegrationSupervisor`: DynamicSupervisor for integration-owned child processes
+- `ApmV5.Integrations.IntegrationRegistry`: GenServer + ETS `:integration_registry` — `register/1`, `list_integrations/0`, `get_integration/1`, `call_integration_event/3`, `reload_defaults/0`
+- 8 new plugins extracted: `ralph`, `formations`, `uat`, `skills`, `ports`, `usage`, `devops`, `alerting`
+- 2 new integrations: `agentlock` (auth pipeline — PolicyEngine/TokenStore/RateLimiter/AuthorizationGate), `ag_ui` (AG-UI protocol — EventBus publish/subscribe/replay)
+- `ApmV5Web.V2.IntegrationController`: 5 REST endpoints at `/api/v2/integrations/*` — index, show, invoke_action, status, reload
+- `PluginDashboardLive`: Integrations tab with protocol/status/version badges; subscribes to `"apm:integrations"` PubSub
+- `application.ex`: `PluginSupervisor` before `PluginRegistry`, `IntegrationSupervisor` + `IntegrationRegistry` added to supervision tree
+
+### Changed
+- `mix.exs`: version bumped 7.3.0 → 8.0.0
+- `PluginRegistry @default_plugins`: expanded from 1 (Plane) to 9 (all bundled plugins)
+- `IntegrationRegistry @default_integrations`: populated with AgentLock + AG-UI integrations
+
+
 ## v7.3.0 (2026-03-24)
 
 CCEM APM v7.3.0 — Modularized Plugin Engine + Plane PM first-class integration.

@@ -51,30 +51,38 @@ defmodule ApmV5Web.GenerativeUILive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="space-y-6">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold">Generative UI</h1>
-        <div class="badge badge-lg badge-primary"><%= length(@components) %> components</div>
-      </div>
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path="/generative-ui" />
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <%= for comp <- filtered_components(@components, @agent_filter) do %>
-          <div class="card bg-base-200 shadow-xl">
-            <div class="card-body">
-              <h3 class="card-title text-sm">
-                <span class={type_badge(comp.type)}><%= comp.type %></span>
-                <%= comp.title || comp.id %>
-              </h3>
-              <p class="text-xs opacity-60">Agent: <%= comp.agent_id %></p>
-              <%= render_component(comp, assigns) %>
-            </div>
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">Generative UI</h2>
+            <div class="badge badge-sm badge-primary"><%= length(@components) %> components</div>
           </div>
-        <% end %>
-        <%= if Enum.empty?(@components) do %>
-          <div class="col-span-full text-center py-12 opacity-50">
-            <p>No components registered. Agents can register dynamic UI via POST /api/v2/generative-ui/components</p>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <%= for comp <- filtered_components(@components, @agent_filter) do %>
+              <div class="card bg-base-200 shadow-xl">
+                <div class="card-body">
+                  <h3 class="card-title text-sm">
+                    <span class={type_badge(comp.type)}><%= comp.type %></span>
+                    <%= comp.title || comp.id %>
+                  </h3>
+                  <p class="text-xs opacity-60">Agent: <%= comp.agent_id %></p>
+                  <%= render_component(comp, assigns) %>
+                </div>
+              </div>
+            <% end %>
+            <%= if Enum.empty?(@components) do %>
+              <div class="col-span-full text-center py-12 opacity-50">
+                <p>No components registered. Agents can register dynamic UI via POST /api/v2/generative-ui/components</p>
+              </div>
+            <% end %>
           </div>
-        <% end %>
+        </div>
       </div>
     </div>
     <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-genui" />

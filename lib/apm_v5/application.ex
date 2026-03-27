@@ -44,8 +44,14 @@ defmodule ApmV5.Application do
       ApmV5.Supervisors.AgUiSupervisorGroup,
       # Claude usage tracking (US-042)
       ApmV5.ClaudeUsageStore,
-      # Plugin Engine registry (v7.3.0)
+      # Session Manager — polls session JSON files, enriches with agents/ports/plugins
+      ApmV5.SessionManager,
+      # Plugin Engine (v8.0.0) — supervisor before registry
+      ApmV5.Plugins.PluginSupervisor,
       ApmV5.Plugins.PluginRegistry,
+      # Integration Engine (v8.0.0) — supervisor before registry
+      ApmV5.Integrations.IntegrationSupervisor,
+      ApmV5.Integrations.IntegrationRegistry,
       # Sub-supervisor: AgentLock authorization layer (v7.0.0)
       ApmV5.Supervisors.AuthSupervisor,
       # Start to serve requests, typically the last entry

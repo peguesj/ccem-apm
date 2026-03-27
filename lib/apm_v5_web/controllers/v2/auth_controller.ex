@@ -16,7 +16,9 @@ defmodule ApmV5Web.V2.AuthController do
     ContextTracker,
     MemoryGate,
     RedactionEngine,
-    RateLimiter
+    RateLimiter,
+    PolicyRulesStore,
+    PendingDecisions
   }
 
   # ---------------------------------------------------------------------------
@@ -275,6 +277,7 @@ defmodule ApmV5Web.V2.AuthController do
           event_type = Map.get(entry, :event_type, "")
           String.starts_with?(event_type, "auth:")
         end)
+        |> Enum.map(&audit_to_json/1)
       rescue
         _ -> []
       end
@@ -283,8 +286,183 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   # ---------------------------------------------------------------------------
+  # Pending Decisions
+  # ---------------------------------------------------------------------------
+
+  @doc "GET /api/v2/auth/pending — List pending escalation requests"
+  def list_pending(conn, _params) do
+    pending = PendingDecisions.list_pending()
+    |> Enum.map(&pending_to_json/1)
+    json(conn, %{ok: true, pending: pending, count: length(pending)})
+  end
+
+  @doc "GET /api/v2/auth/pending/:id — Get/poll a single pending decision"
+  def get_pending(conn, %{"id" => request_id} = params) do
+    wait_ms = params |> Map.get("wait", "0") |> to_integer() |> Kernel.*(1000) |> min(45_000)
+
+    result =
+      if wait_ms > 0 do
+        PendingDecisions.poll(request_id, wait_ms)
+      else
+        case PendingDecisions.get(request_id) do
+          nil -> :not_found
+          entry -> {:immediate, entry}
+        end
+      end
+
+    case result do
+      {:decided, entry} ->
+        json(conn, %{
+          ok: true,
+          status: "decided",
+          decision: entry.decision,
+          entry: pending_to_json(entry)
+        })
+
+      {:immediate, entry} ->
+        json(conn, %{ok: true, entry: pending_to_json(entry)})
+
+      {:timeout, :pending} ->
+        json(conn, %{ok: true, status: "pending", decision: nil})
+
+      :not_found ->
+        conn |> put_status(404) |> json(%{ok: false, error: "Not found"})
+    end
+  end
+
+  @doc "POST /api/v2/auth/decide — Approve or deny a pending escalation"
+  def decide(conn, params) do
+    request_id = Map.get(params, "request_id", "")
+    raw_decision = Map.get(params, "decision", "")
+
+    decision =
+      case raw_decision do
+        "approve" -> :approve
+        "deny" -> :deny
+        _ -> nil
+      end
+
+    if is_nil(decision) do
+      conn |> put_status(400) |> json(%{ok: false, error: "decision must be 'approve' or 'deny'"})
+    else
+      case PendingDecisions.decide(request_id, decision) do
+        {:ok, token_id} ->
+          json(conn, %{ok: true, decided: request_id, decision: raw_decision, token_id: token_id})
+
+        :ok ->
+          json(conn, %{ok: true, decided: request_id, decision: raw_decision})
+
+        {:error, :not_found} ->
+          conn |> put_status(404) |> json(%{ok: false, error: "Pending request not found"})
+      end
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Policy Rules
+  # ---------------------------------------------------------------------------
+
+  @doc "GET /api/v2/auth/policy/rules — List permanent allow/deny rules"
+  def list_policy_rules(conn, _params) do
+    rules = PolicyRulesStore.list_rules()
+    json(conn, %{ok: true, rules: rules, count: length(rules)})
+  end
+
+  @doc "POST /api/v2/auth/policy/rules — Add permanent allow/deny rule"
+  def add_policy_rule(conn, params) do
+    tool_name = Map.get(params, "tool_name", "")
+    raw_action = Map.get(params, "action", "")
+
+    action =
+      case raw_action do
+        "always_allow" -> :always_allow
+        "always_deny" -> :always_deny
+        _ -> nil
+      end
+
+    cond do
+      tool_name == "" ->
+        conn |> put_status(400) |> json(%{ok: false, error: "tool_name required"})
+
+      is_nil(action) ->
+        conn |> put_status(400) |> json(%{ok: false, error: "action must be 'always_allow' or 'always_deny'"})
+
+      true ->
+        PolicyRulesStore.add_rule(tool_name, action)
+        json(conn, %{ok: true, tool_name: tool_name, action: raw_action})
+    end
+  end
+
+  @doc "DELETE /api/v2/auth/policy/rules/:tool_name — Remove a permanent rule"
+  def remove_policy_rule(conn, %{"tool_name" => tool_name}) do
+    PolicyRulesStore.remove_rule(tool_name)
+    json(conn, %{ok: true, removed: tool_name})
+  end
+
+  # ---------------------------------------------------------------------------
+  # Notification Testing
+  # ---------------------------------------------------------------------------
+
+  @doc "POST /api/v2/notifications/test — Inject a test audit entry for CCEMHelper notification testing"
+  def test_notification(conn, params) do
+    tool_name = Map.get(params, "tool_name", "Bash")
+    risk_level_str = Map.get(params, "risk_level", "high")
+
+    risk_level =
+      case risk_level_str do
+        "critical" -> :critical
+        "high" -> :high
+        "medium" -> :medium
+        _ -> :high
+      end
+
+    # Create a fake pending decision so CCEMHelper sees a real pending escalation
+    {:ok, request_id} =
+      PendingDecisions.add(
+        tool_name,
+        "test-session",
+        risk_level,
+        "test-agent",
+        %{"command" => "echo test notification"}
+      )
+
+    # Also log an audit entry for visibility in the audit tab
+    ApmV5.AuditLog.log("auth:test_notification", "agentlock", tool_name, %{
+      tool_name: tool_name,
+      risk_level: risk_level_str,
+      request_id: request_id
+    })
+
+    # Broadcast on agentlock channel so any LiveView subscribers see it immediately
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:test_notification, %{
+      tool_name: tool_name,
+      risk_level: risk_level,
+      request_id: request_id
+    }})
+
+    json(conn, %{ok: true, request_id: request_id, message: "Test notification injected"})
+  end
+
+  # ---------------------------------------------------------------------------
   # Private Helpers
   # ---------------------------------------------------------------------------
+
+  defp pending_to_json(%{} = entry) do
+    %{
+      request_id: entry.request_id,
+      tool_name: entry.tool_name,
+      session_id: entry.session_id,
+      agent_id: entry.agent_id,
+      risk_level: entry.risk_level,
+      params: entry.params,
+      status: entry.status,
+      decision: entry.decision,
+      token_id: Map.get(entry, :token_id),
+      decided_at: if(entry.decided_at, do: DateTime.to_iso8601(entry.decided_at)),
+      inserted_at: DateTime.to_iso8601(entry.inserted_at),
+      expires_at: DateTime.to_iso8601(entry.expires_at)
+    }
+  end
 
   defp tool_to_json(%{} = tool) do
     %{
@@ -322,4 +500,28 @@ defmodule ApmV5Web.V2.AuthController do
 
   defp to_integer(val) when is_integer(val), do: val
   defp to_integer(_), do: 50
+
+  defp audit_to_json(%{} = entry) do
+    raw_id = Map.get(entry, :id)
+
+    stable_id =
+      cond do
+        is_integer(raw_id) -> "audit-#{raw_id}"
+        is_binary(raw_id) -> raw_id
+        true ->
+          tool = Map.get(entry, :event_type, "unknown")
+          ts = Map.get(entry, :timestamp, "0")
+          "audit-#{tool}-#{ts}"
+      end
+
+    %{
+      id: stable_id,
+      timestamp: Map.get(entry, :timestamp),
+      event_type: Map.get(entry, :event_type),
+      actor: Map.get(entry, :actor),
+      resource: Map.get(entry, :resource),
+      details: Map.get(entry, :details, %{}),
+      correlation_id: Map.get(entry, :correlation_id)
+    }
+  end
 end

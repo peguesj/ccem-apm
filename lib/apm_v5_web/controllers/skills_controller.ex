@@ -7,10 +7,15 @@ defmodule ApmV5Web.SkillsController do
     GET  /api/skills/:name          — single skill detail
     GET  /api/skills/:name/health   — health score breakdown
     POST /api/skills/audit          — trigger full rescan
+
+  Broadcasts PubSub events on mutations to `"apm:skills"` topic.
   """
   use ApmV5Web, :controller
 
   alias ApmV5.SkillsRegistryStore
+
+  @pubsub ApmV5.PubSub
+  @topic "apm:skills"
 
   @doc "GET /api/skills/registry"
   def registry(conn, _params) do
@@ -72,6 +77,11 @@ defmodule ApmV5Web.SkillsController do
   @doc "POST /api/skills/audit"
   def audit(conn, _params) do
     SkillsRegistryStore.refresh_all()
+
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:skills_audit_started, %{
+      triggered_at: DateTime.utc_now() |> DateTime.to_iso8601()
+    }})
+
     json(conn, %{status: "scanning"})
   end
 end

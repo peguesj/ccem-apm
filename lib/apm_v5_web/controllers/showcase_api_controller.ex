@@ -7,12 +7,17 @@ defmodule ApmV5Web.ShowcaseApiController do
   Reads project showcase data via ShowcaseDataStore and exposes it as JSON
   for external consumers or mobile clients.
   All routes mounted at /api/showcase/* in the router.
+
+  Broadcasts PubSub events on mutations to `"apm:showcase"` topic.
   """
 
   use ApmV5Web, :controller
 
   alias ApmV5.ShowcaseDataStore
   alias ApmV5.ConfigLoader
+
+  @pubsub ApmV5.PubSub
+  @topic "apm:showcase"
 
   @doc "GET /api/showcase -- list all showcase-eligible projects"
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
@@ -58,6 +63,9 @@ defmodule ApmV5Web.ShowcaseApiController do
   @spec reload(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def reload(conn, %{"project" => project}) do
     :ok = ShowcaseDataStore.reload(project)
+
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:showcase_reloaded, %{project: project}})
+
     json(conn, %{ok: true, project: project})
   end
 

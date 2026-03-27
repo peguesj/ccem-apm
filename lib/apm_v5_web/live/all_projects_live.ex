@@ -556,9 +556,8 @@ defmodule ApmV5Web.AllProjectsLive do
     {:noreply, assign(socket, :widgets, widgets)}
   end
 
-  def handle_event("inspect_agent", _params, socket) do
-    # Navigate to main dashboard with agent selected — just redirect
-    {:noreply, redirect(socket, to: "/")}
+  def handle_event("inspect_agent", %{"id" => agent_id}, socket) do
+    {:noreply, redirect(socket, to: "/?agent_id=#{agent_id}")}
   end
 
   def handle_event("switch_inspector_tab", %{"tab" => tab}, socket) do

@@ -269,6 +269,99 @@ const anim_ship = lottieBase([
 
 const ANIMATIONS = [anim_upm, anim_pipeline, anim_testing, anim_verify, anim_ship];
 
+// --- SVG Fallback Illustrations ---
+// Shown immediately (before Lottie loads from CDN) and replaced once Lottie is ready.
+// Each SVG mirrors its slide's conceptual theme using the same color palette.
+
+const SVG_FALLBACKS = [
+  // Slide 0: /upm — orchestration network (hub + nodes)
+  `<svg viewBox="0 0 360 280" width="360" height="280" aria-hidden="true" style="display:block;">
+    <circle cx="180" cy="140" r="28" fill="#6366f1" opacity="0.9"/>
+    <circle cx="80"  cy="80"  r="18" fill="#818cf8" opacity="0.75"/>
+    <circle cx="280" cy="80"  r="18" fill="#818cf8" opacity="0.75"/>
+    <circle cx="80"  cy="200" r="18" fill="#818cf8" opacity="0.75"/>
+    <circle cx="280" cy="200" r="18" fill="#818cf8" opacity="0.75"/>
+    <circle cx="180" cy="40"  r="14" fill="#34d399" opacity="0.8"/>
+    <circle cx="180" cy="240" r="14" fill="#34d399" opacity="0.8"/>
+    <line x1="180" y1="140" x2="80"  y2="80"  stroke="#a6adc8" stroke-width="1.5" opacity="0.4"/>
+    <line x1="180" y1="140" x2="280" y2="80"  stroke="#a6adc8" stroke-width="1.5" opacity="0.4"/>
+    <line x1="180" y1="140" x2="80"  y2="200" stroke="#a6adc8" stroke-width="1.5" opacity="0.4"/>
+    <line x1="180" y1="140" x2="280" y2="200" stroke="#a6adc8" stroke-width="1.5" opacity="0.4"/>
+    <line x1="180" y1="140" x2="180" y2="40"  stroke="#a6adc8" stroke-width="1.5" opacity="0.4"/>
+    <line x1="180" y1="140" x2="180" y2="240" stroke="#a6adc8" stroke-width="1.5" opacity="0.4"/>
+    <circle cx="180" cy="140" r="42" fill="none" stroke="#6366f1" stroke-width="1" opacity="0.25"/>
+    <text x="180" y="145" text-anchor="middle" font-size="11" fill="#e2e8f0" font-family="monospace" font-weight="600">UPM</text>
+  </svg>`,
+
+  // Slide 1: /upm sync plan build — pipeline stages
+  `<svg viewBox="0 0 360 280" width="360" height="280" aria-hidden="true" style="display:block;">
+    <rect x="20"  y="100" width="70" height="50" rx="8" fill="#6366f1" opacity="0.85"/>
+    <rect x="110" y="100" width="70" height="50" rx="8" fill="#818cf8" opacity="0.8"/>
+    <rect x="200" y="100" width="70" height="50" rx="8" fill="#34d399" opacity="0.8"/>
+    <rect x="290" y="100" width="50" height="50" rx="8" fill="#fbbf24" opacity="0.8"/>
+    <line x1="90"  y1="125" x2="110" y2="125" stroke="#e2e8f0" stroke-width="2" opacity="0.7"/>
+    <line x1="180" y1="125" x2="200" y2="125" stroke="#e2e8f0" stroke-width="2" opacity="0.7"/>
+    <line x1="270" y1="125" x2="290" y2="125" stroke="#e2e8f0" stroke-width="2" opacity="0.7"/>
+    <text x="55"  y="130" text-anchor="middle" font-size="10" fill="#e2e8f0" font-family="monospace">sync</text>
+    <text x="145" y="130" text-anchor="middle" font-size="10" fill="#e2e8f0" font-family="monospace">plan</text>
+    <text x="235" y="130" text-anchor="middle" font-size="10" fill="#e2e8f0" font-family="monospace">build</text>
+    <text x="315" y="130" text-anchor="middle" font-size="10" fill="#1e1e2e" font-family="monospace">gate</text>
+    <rect x="20" y="185" width="320" height="6" rx="3" fill="#6366f1" opacity="0.15"/>
+    <rect x="20" y="185" width="110" height="6" rx="3" fill="#6366f1" opacity="0.8"/>
+  </svg>`,
+
+  // Slide 2: /live-integration-testing — browser frame with checkmarks
+  `<svg viewBox="0 0 360 280" width="360" height="280" aria-hidden="true" style="display:block;">
+    <rect x="40"  y="30"  width="280" height="200" rx="8" fill="#1e1e2e" stroke="#45475a" stroke-width="1"/>
+    <rect x="40"  y="30"  width="280" height="24"  rx="8" fill="#313244" opacity="0.9"/>
+    <circle cx="58"  cy="42" r="5" fill="#34d399"/>
+    <circle cx="72"  cy="42" r="5" fill="#fbbf24"/>
+    <circle cx="86"  cy="42" r="5" fill="#f87171" opacity="0.6"/>
+    <rect x="60" y="68" width="240" height="28" rx="4" fill="#34d399" opacity="0.12"/>
+    <rect x="60" y="104" width="240" height="28" rx="4" fill="#34d399" opacity="0.12"/>
+    <rect x="60" y="140" width="240" height="28" rx="4" fill="#34d399" opacity="0.12"/>
+    <rect x="60" y="176" width="240" height="28" rx="4" fill="#fbbf24" opacity="0.1"/>
+    <polyline points="70,84 76,90 88,76"  fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="70,120 76,126 88,112" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="70,156 76,162 88,148" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="74" cy="190" r="6" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0.7"/>
+    <rect x="40" y="238" width="280" height="20" rx="4" fill="#34d399" opacity="0.2"/>
+  </svg>`,
+
+  // Slide 3: /double-verify — dual verification circles
+  `<svg viewBox="0 0 360 280" width="360" height="280" aria-hidden="true" style="display:block;">
+    <circle cx="120" cy="130" r="55" fill="#6366f1" opacity="0.12"/>
+    <circle cx="120" cy="130" r="40" fill="#6366f1" opacity="0.22"/>
+    <polyline points="102,130 116,144 138,116" fill="none" stroke="#34d399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="240" cy="130" r="55" fill="#34d399" opacity="0.1"/>
+    <circle cx="240" cy="130" r="40" fill="#34d399" opacity="0.2"/>
+    <polyline points="222,130 236,144 258,116" fill="none" stroke="#34d399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="160" y1="130" x2="200" y2="130" stroke="#818cf8" stroke-width="2" opacity="0.6"/>
+    <circle cx="180" cy="210" r="20" fill="#34d399" opacity="0.85"/>
+    <polyline points="170,210 177,217 191,203" fill="none" stroke="#1e1e2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="120" y="190" text-anchor="middle" font-size="9" fill="#818cf8" font-family="monospace">Agent A</text>
+    <text x="240" y="190" text-anchor="middle" font-size="9" fill="#34d399" font-family="monospace">Agent B</text>
+  </svg>`,
+
+  // Slide 4: /pr ship — rocket on launch pad
+  `<svg viewBox="0 0 360 280" width="360" height="280" aria-hidden="true" style="display:block;">
+    <rect x="100" y="220" width="160" height="8" rx="4" fill="#45475a" opacity="0.7"/>
+    <rect x="155" y="120" width="50"  height="80" rx="6" fill="#6366f1" opacity="0.9"/>
+    <ellipse cx="180" cy="118" rx="25" ry="22" fill="#818cf8" opacity="0.85"/>
+    <polygon points="145,180 155,200 145,200" fill="#6366f1" opacity="0.7"/>
+    <polygon points="215,180 205,200 215,200" fill="#6366f1" opacity="0.7"/>
+    <ellipse cx="175" cy="220" rx="10" ry="6"  fill="#fbbf24" opacity="0.8"/>
+    <ellipse cx="185" cy="226" rx="8"  ry="5"  fill="#fbbf24" opacity="0.55"/>
+    <ellipse cx="180" cy="234" rx="6"  ry="4"  fill="#fbbf24" opacity="0.35"/>
+    <circle cx="60"  cy="60"  r="3" fill="#e2e8f0" opacity="0.6"/>
+    <circle cx="300" cy="50"  r="3" fill="#e2e8f0" opacity="0.6"/>
+    <circle cx="40"  cy="160" r="2" fill="#e2e8f0" opacity="0.4"/>
+    <circle cx="320" cy="140" r="2" fill="#e2e8f0" opacity="0.4"/>
+    <circle cx="300" cy="80"  r="18" fill="#34d399" opacity="0.85"/>
+    <polyline points="292,80 298,86 310,72" fill="none" stroke="#1e1e2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`
+];
+
 // --- Slide Content ---
 const SLIDES = [
   {
@@ -446,10 +539,10 @@ const GettingStartedShowcase = {
 
     slidesContainer.innerHTML = `
       <div class="flex gap-6 h-full" role="group" aria-label="Slide ${idx + 1} of ${this.total}: ${slide.title}">
-        <!-- Left: Lottie animation -->
+        <!-- Left: illustration (SVG fallback shown immediately; replaced by Lottie once CDN loads) -->
         <div class="w-[360px] flex-shrink-0 flex items-center justify-center rounded-xl bg-base-300/50 border border-base-300">
-          <div data-lottie-target="${idx}" class="w-full h-[280px]"
-               role="img" aria-label="${slide.title} animation"></div>
+          <div data-lottie-target="${idx}" class="w-full h-[280px] flex items-center justify-center"
+               role="img" aria-label="${slide.title} illustration">${SVG_FALLBACKS[idx] || ""}</div>
         </div>
         <!-- Right: Content -->
         <div class="flex-1 flex flex-col justify-center min-w-0">
