@@ -33,11 +33,15 @@ defmodule ApmV5Web.FormationLive do
       socket
       |> assign(:page_title, "Formations")
       |> assign(:agents, agents)
+      |> assign(:all_agents, agents)
       |> assign(:formations, formations)
       |> assign(:active_formation, active_formation)
       |> assign(:selected_node, nil)
       |> assign(:wave_progress, %{current_wave: 0, total_waves: 0, agents_in_wave: 0, agents_complete: 0})
       |> assign(:active_skill_count, skill_count())
+      |> assign(:view_mode, "graph_td")
+      |> assign(:agent_filter, "")
+      |> assign(:role_filter, "")
       |> push_formation_graph(formations)
 
     {:ok, socket}
@@ -63,6 +67,37 @@ defmodule ApmV5Web.FormationLive do
             </div>
           </div>
           <div class="flex items-center gap-2">
+            <%!-- View mode toggle --%>
+            <div class="flex gap-0.5 bg-base-300 rounded-lg p-0.5" role="tablist" aria-label="Formation view mode">
+              <button
+                phx-click="set_view_mode" phx-value-mode="graph_td"
+                class={["btn btn-xs gap-1", if(@view_mode == "graph_td", do: "btn-primary", else: "btn-ghost")]}
+                role="tab" aria-selected={@view_mode == "graph_td"}
+              >
+                <.icon name="hero-arrow-down" class="size-3" /> TD
+              </button>
+              <button
+                phx-click="set_view_mode" phx-value-mode="graph_lr"
+                class={["btn btn-xs gap-1", if(@view_mode == "graph_lr", do: "btn-primary", else: "btn-ghost")]}
+                role="tab" aria-selected={@view_mode == "graph_lr"}
+              >
+                <.icon name="hero-arrow-right" class="size-3" /> LR
+              </button>
+              <button
+                phx-click="set_view_mode" phx-value-mode="list"
+                class={["btn btn-xs gap-1", if(@view_mode == "list", do: "btn-primary", else: "btn-ghost")]}
+                role="tab" aria-selected={@view_mode == "list"}
+              >
+                <.icon name="hero-list-bullet" class="size-3" /> List
+              </button>
+              <button
+                phx-click="set_view_mode" phx-value-mode="cards"
+                class={["btn btn-xs gap-1", if(@view_mode == "cards", do: "btn-primary", else: "btn-ghost")]}
+                role="tab" aria-selected={@view_mode == "cards"}
+              >
+                <.icon name="hero-squares-2x2" class="size-3" /> Cards
+              </button>
+            </div>
             <button phx-click="refresh" class="btn btn-ghost btn-xs">
               <.icon name="hero-arrow-path" class="size-3" /> Refresh
             </button>
@@ -71,19 +106,40 @@ defmodule ApmV5Web.FormationLive do
 
         <%!-- Body --%>
         <div class="flex-1 flex overflow-hidden">
-          <%!-- Graph area --%>
+          <%!-- Main view area --%>
           <div class="flex-1 overflow-hidden relative">
+            <%!-- Graph TD / Graph LR (D3 hook) --%>
             <div
+              :if={@view_mode in ["graph_td", "graph_lr"]}
               id="formation-graph"
               class="w-full h-full"
               style="background: #151b28;"
               phx-hook="FormationGraph"
+              data-orientation={@view_mode}
               phx-update="ignore"
             >
             </div>
 
-            <%!-- Empty state --%>
-            <div :if={@formations == []} class="absolute inset-0 flex items-center justify-center">
+            <%!-- Hierarchical List view --%>
+            <div :if={@view_mode == "list"} class="w-full h-full overflow-y-auto p-4 bg-base-300">
+              <.formation_list_view
+                formations={@formations}
+                agents={@agents}
+                agent_filter={@agent_filter}
+                role_filter={@role_filter}
+              />
+            </div>
+
+            <%!-- Card Grid view --%>
+            <div :if={@view_mode == "cards"} class="w-full h-full overflow-y-auto p-4 bg-base-300">
+              <.formation_cards_view formations={@formations} agents={@agents} />
+            </div>
+
+            <%!-- Empty state (only shown in graph modes) --%>
+            <div
+              :if={@formations == [] and @view_mode in ["graph_td", "graph_lr"]}
+              class="absolute inset-0 flex items-center justify-center pointer-events-none"
+            >
               <div class="text-center">
                 <.icon name="hero-rectangle-group" class="size-16 text-base-content/20 mx-auto mb-4" />
                 <h3 class="text-lg font-semibold text-base-content/40">No Formations Active</h3>
@@ -338,6 +394,135 @@ defmodule ApmV5Web.FormationLive do
     """
   end
 
+
+  # --- List View Component ---
+
+  attr :formations, :list, required: true
+  attr :agents, :list, required: true
+  attr :agent_filter, :string, required: true
+  attr :role_filter, :string, required: true
+
+  defp formation_list_view(assigns) do
+    ~H"""
+    <div class="space-y-2 max-w-4xl mx-auto">
+      <div class="flex gap-2 mb-4">
+        <input
+          type="text"
+          placeholder="Filter agents\u2026"
+          value={@agent_filter}
+          phx-keyup="filter_agents"
+          phx-debounce="200"
+          class="input input-sm input-bordered flex-1 bg-base-200"
+        />
+        <select phx-change="filter_role" class="select select-sm select-bordered bg-base-200">
+          <option value="" selected={@role_filter == ""}>All roles</option>
+          <option value="orchestrator" selected={@role_filter == "orchestrator"}>Orchestrator</option>
+          <option value="squadron_lead" selected={@role_filter == "squadron_lead"}>Squadron Lead</option>
+          <option value="swarm_agent" selected={@role_filter == "swarm_agent"}>Swarm Agent</option>
+          <option value="cluster_agent" selected={@role_filter == "cluster_agent"}>Cluster Agent</option>
+          <option value="individual" selected={@role_filter == "individual"}>Individual</option>
+        </select>
+      </div>
+
+      <div :if={@formations == []} class="text-center text-base-content/30 py-12 text-sm">
+        No formations active.
+      </div>
+
+      <%= for formation <- @formations do %>
+        <% all_ags = all_formation_agents(formation) %>
+        <% filtered = filter_agents_list(all_ags, @agent_filter, @role_filter) %>
+        <details class="border border-base-300 rounded-lg" open>
+          <summary class="px-4 py-2 cursor-pointer font-mono text-sm bg-base-300/50 rounded-t-lg flex items-center gap-2 select-none hover:bg-base-300 transition-colors">
+            <span class={["w-2 h-2 rounded-full flex-shrink-0", agent_dot(formation_status(formation))]}></span>
+            <span class="flex-1 truncate text-accent">{formation.name}</span>
+            <span class="badge badge-sm badge-primary">{length(filtered)}</span>
+            <span :if={formation[:source] == :upm} class="badge badge-xs badge-outline opacity-50">reg</span>
+          </summary>
+          <div class="p-3">
+            <%= for {role_label, role_agents} <- list_group_by_role(filtered) do %>
+              <div class="mb-3 last:mb-0">
+                <div class="text-[10px] font-semibold uppercase tracking-wider mb-1 pl-2 flex items-center gap-1.5">
+                  <span class={list_role_color(role_label)}>{role_label}</span>
+                  <span class="text-base-content/20">({length(role_agents)})</span>
+                </div>
+                <div class="pl-2 border-l-2 border-base-300 space-y-0.5">
+                  <%= for agent <- role_agents do %>
+                    <button
+                      class="w-full text-left px-2 py-1 rounded text-xs text-base-content/70 hover:bg-base-300 flex items-center gap-2 transition-colors"
+                      phx-click="select_agent"
+                      phx-value-id={agent.id}
+                    >
+                      <span class={["w-2 h-2 rounded-full flex-shrink-0", agent_dot(agent.status)]}></span>
+                      <span class="font-mono text-[9px] text-base-content/40 flex-shrink-0 hidden sm:inline">{String.slice(agent.id || "", 0, 16)}</span>
+                      <span class="flex-1 truncate">{agent[:work_item_title] || agent[:role] || agent.name}</span>
+                      <span :if={agent[:wave_number]} class="badge badge-xs badge-ghost flex-shrink-0">W{agent.wave_number}</span>
+                      <span :if={agent[:story_id]} class="font-mono text-[9px] text-primary/70 flex-shrink-0">{agent.story_id}</span>
+                    </button>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+            <div :if={filtered == []} class="text-xs text-base-content/30 text-center py-4">
+              No agents match the current filter.
+            </div>
+          </div>
+        </details>
+      <% end %>
+    </div>
+    """
+  end
+
+  # --- Cards View Component ---
+
+  attr :formations, :list, required: true
+  attr :agents, :list, required: true
+
+  defp formation_cards_view(assigns) do
+    ~H"""
+    <div class="space-y-8 max-w-6xl mx-auto">
+      <div :if={@formations == []} class="text-center text-base-content/30 py-12 text-sm">
+        No formations active.
+      </div>
+      <%= for {namespace, ns_agents} <- cards_group_by_namespace(@formations) do %>
+        <div>
+          <h3 class="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <.icon name="hero-folder" class="w-3.5 h-3.5" />
+            <span>{namespace}</span>
+            <span class="badge badge-sm badge-ghost">{length(ns_agents)}</span>
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            <%= for agent <- ns_agents do %>
+              <button
+                class={["card card-compact bg-base-200 border text-left hover:bg-base-300 transition-colors", cards_agent_border(agent.status)]}
+                phx-click="select_agent"
+                phx-value-id={agent.id}
+              >
+                <div class="card-body gap-1.5">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class={["badge badge-xs truncate max-w-[100px]", cards_role_badge(agent[:formation_role] || agent[:role])]}>
+                      {agent[:formation_role] || agent[:role] || "agent"}
+                    </span>
+                    <span class={["badge badge-xs flex-shrink-0", status_badge(agent.status)]}>
+                      {agent.status}
+                    </span>
+                  </div>
+                  <p class="font-mono text-[9px] text-base-content/40 truncate">{agent.id}</p>
+                  <p class="text-xs font-medium line-clamp-2 text-base-content/80">
+                    {agent[:work_item_title] || agent[:role] || agent.name}
+                  </p>
+                  <div :if={agent[:wave_number] || agent[:wave]} class="text-[10px] text-base-content/40">
+                    Wave {agent[:wave_number] || agent[:wave]}
+                  </div>
+                </div>
+              </button>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
   # --- Events ---
 
   @impl true
@@ -348,8 +533,26 @@ defmodule ApmV5Web.FormationLive do
     {:noreply,
      socket
      |> assign(:agents, agents)
+     |> assign(:all_agents, agents)
      |> assign(:formations, formations)
      |> push_formation_graph(formations)}
+  end
+
+  def handle_event("set_view_mode", %{"mode" => mode}, socket)
+      when mode in ["graph_td", "graph_lr", "list", "cards"] do
+    {:noreply, assign(socket, :view_mode, mode)}
+  end
+
+  def handle_event("set_view_mode", _params, socket), do: {:noreply, socket}
+
+  def handle_event("filter_agents", %{"value" => query}, socket) do
+    filtered = filter_agents_list(socket.assigns.all_agents, query, socket.assigns.role_filter)
+    {:noreply, assign(socket, agents: filtered, agent_filter: query)}
+  end
+
+  def handle_event("filter_role", %{"value" => role}, socket) do
+    filtered = filter_agents_list(socket.assigns.all_agents, socket.assigns.agent_filter, role)
+    {:noreply, assign(socket, agents: filtered, role_filter: role)}
   end
 
   def handle_event("select_formation", %{"id" => id}, socket) do
@@ -465,9 +668,11 @@ defmodule ApmV5Web.FormationLive do
     agents = AgentRegistry.list_agents()
     upm_formations = try do UpmStore.list_formations() catch :exit, _ -> [] end
     formations = build_formation_tree(agents, upm_formations)
+    filtered = filter_agents_list(agents, socket.assigns.agent_filter, socket.assigns.role_filter)
     {:noreply,
      socket
-     |> assign(:agents, agents)
+     |> assign(:agents, filtered)
+     |> assign(:all_agents, agents)
      |> assign(:formations, formations)
      |> push_formation_graph(formations)}
   end
@@ -794,4 +999,77 @@ defmodule ApmV5Web.FormationLive do
       :exit, _ -> 0
     end
   end
+
+  # --- View Mode Helpers ---
+
+  defp filter_agents_list(agents, query, role) do
+    agents
+    |> then(fn list ->
+      if role == "" or is_nil(role) do
+        list
+      else
+        Enum.filter(list, fn a ->
+          (a[:formation_role] || a[:role] || "") == role
+        end)
+      end
+    end)
+    |> then(fn list ->
+      if query == "" or is_nil(query) do
+        list
+      else
+        q = String.downcase(query)
+
+        Enum.filter(list, fn a ->
+          String.contains?(String.downcase(a[:id] || ""), q) or
+            String.contains?(String.downcase(a[:task_subject] || ""), q) or
+            String.contains?(String.downcase(a[:role] || ""), q) or
+            String.contains?(String.downcase(a[:work_item_title] || ""), q)
+        end)
+      end
+    end)
+  end
+
+  defp list_group_by_role(agents) do
+    role_order = ["orchestrator", "squadron_lead", "swarm_agent", "cluster_agent", "individual"]
+
+    agents
+    |> Enum.group_by(fn a -> a[:formation_role] || a[:role] || "individual" end)
+    |> Enum.sort_by(fn {role, _} ->
+      Enum.find_index(role_order, &(&1 == role)) || 99
+    end)
+  end
+
+  defp cards_group_by_namespace(formations) do
+    formations
+    |> Enum.flat_map(fn f ->
+      all_formation_agents(f)
+      |> Enum.map(fn a ->
+        project = a[:project] || "unknown"
+        scope = f.id |> String.split("-") |> List.first() || "none"
+        namespace = "#{project}/#{scope}"
+        {namespace, a}
+      end)
+    end)
+    |> Enum.group_by(fn {ns, _} -> ns end, fn {_, a} -> a end)
+    |> Enum.sort_by(fn {k, _} -> k end)
+  end
+
+  defp cards_agent_border("active"), do: "border-success/40"
+  defp cards_agent_border("complete"), do: "border-base-300"
+  defp cards_agent_border("pass"), do: "border-base-300"
+  defp cards_agent_border("done"), do: "border-base-300"
+  defp cards_agent_border("error"), do: "border-error/40"
+  defp cards_agent_border(_), do: "border-warning/30"
+
+  defp cards_role_badge("orchestrator"), do: "badge-secondary"
+  defp cards_role_badge("squadron_lead"), do: "badge-info"
+  defp cards_role_badge("swarm_agent"), do: "badge-success"
+  defp cards_role_badge("cluster_agent"), do: "badge-warning"
+  defp cards_role_badge(_), do: "badge-ghost"
+
+  defp list_role_color("orchestrator"), do: "text-secondary"
+  defp list_role_color("squadron_lead"), do: "text-info"
+  defp list_role_color("swarm_agent"), do: "text-success"
+  defp list_role_color("cluster_agent"), do: "text-warning"
+  defp list_role_color(_), do: "text-base-content/50"
 end

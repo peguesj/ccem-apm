@@ -67,11 +67,20 @@ export default {
     await ensureD3()
     this.svg = null
     this.g = null
+    this._orientation = this.el.dataset.orientation || "graph_td"
+    this._lastData = null
     this.initGraph()
     this.handleEvent("formation_data", (data) => this.render(data))
   },
 
-  async updated() {},
+  async updated() {
+    // Re-render if orientation changed via data attribute
+    const newOrientation = this.el.dataset.orientation || "graph_td"
+    if (newOrientation !== this._orientation) {
+      this._orientation = newOrientation
+      if (this._lastData) this.render(this._lastData)
+    }
+  },
 
   destroyed() {
     if (this._resizeObs) this._resizeObs.disconnect()
@@ -121,24 +130,45 @@ export default {
     const { nodes, edges } = data
     if (!nodes || nodes.length === 0) return
 
+    // Cache for orientation change re-render
+    this._lastData = data
+
     const { width, height } = this.el.getBoundingClientRect()
+    const isLR = this._orientation === "graph_lr"
 
     // Build hierarchy from edges
     const root = this.buildTree(nodes, edges)
     if (!root) return
 
-    const treeLayout = d3.tree()
-      .nodeSize([170, 110])
-      .separation((a, b) => a.parent === b.parent ? 1.2 : 1.8)
+    let treeLayout
+    if (isLR) {
+      // Left-to-right: tighter vertical, wider horizontal
+      treeLayout = d3.tree()
+        .nodeSize([90, 200])
+        .separation((a, b) => a.parent === b.parent ? 1.2 : 1.6)
+    } else {
+      treeLayout = d3.tree()
+        .nodeSize([170, 110])
+        .separation((a, b) => a.parent === b.parent ? 1.2 : 1.8)
+    }
 
     treeLayout(root)
 
-    // Center the tree
     const allNodes = root.descendants()
-    const minX = d3.min(allNodes, d => d.x) - 110
-    const maxX = d3.max(allNodes, d => d.x) + 110
-    const offsetX = width / 2 - (minX + maxX) / 2
-    const offsetY = 60
+
+    let offsetX, offsetY
+    if (isLR) {
+      // LR: d3.tree nodes have .x = breadth, .y = depth; we swap for horizontal rendering
+      const minX = d3.min(allNodes, d => d.x) - 60
+      const maxX = d3.max(allNodes, d => d.x) + 60
+      offsetX = 80
+      offsetY = height / 2 - (minX + maxX) / 2
+    } else {
+      const minX = d3.min(allNodes, d => d.x) - 110
+      const maxX = d3.max(allNodes, d => d.x) + 110
+      offsetX = width / 2 - (minX + maxX) / 2
+      offsetY = 60
+    }
 
     // Clear and re-render
     this.g.selectAll("*").remove()
@@ -146,15 +176,17 @@ export default {
     const container = this.g.append("g")
       .attr("transform", `translate(${offsetX}, ${offsetY})`)
 
-    // Wave swim-lane backgrounds (group agents by wave_number)
-    this._renderWaveLanes(container, allNodes)
+    // Wave swim-lane backgrounds (TD only)
+    if (!isLR) this._renderWaveLanes(container, allNodes)
 
     // Links
     container.selectAll(".link")
       .data(root.links())
       .join("path")
       .attr("class", "link")
-      .attr("d", d3.linkVertical().x(d => d.x).y(d => d.y))
+      .attr("d", isLR
+        ? d3.linkHorizontal().x(d => d.y).y(d => d.x)
+        : d3.linkVertical().x(d => d.x).y(d => d.y))
       .attr("fill", "none")
       .attr("stroke", d => {
         const lvl = d.target.data.level
@@ -177,7 +209,9 @@ export default {
       .data(allNodes)
       .join("g")
       .attr("class", "node")
-      .attr("transform", d => `translate(${d.x}, ${d.y})`)
+      .attr("transform", d => isLR
+        ? `translate(${d.y}, ${d.x})`
+        : `translate(${d.x}, ${d.y})`)
       .style("cursor", "pointer")
       .on("click", (event, d) => {
         this.pushEvent("node_clicked", { id: d.data.id, level: d.data.level })
