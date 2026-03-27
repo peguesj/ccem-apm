@@ -310,8 +310,13 @@ defmodule ApmV5Web.V2.AuthController do
       end
 
     case result do
-      {:decided, decision} ->
-        json(conn, %{ok: true, status: "decided", decision: decision})
+      {:decided, entry} ->
+        json(conn, %{
+          ok: true,
+          status: "decided",
+          decision: entry.decision,
+          entry: pending_to_json(entry)
+        })
 
       {:immediate, entry} ->
         json(conn, %{ok: true, entry: pending_to_json(entry)})
@@ -340,6 +345,9 @@ defmodule ApmV5Web.V2.AuthController do
       conn |> put_status(400) |> json(%{ok: false, error: "decision must be 'approve' or 'deny'"})
     else
       case PendingDecisions.decide(request_id, decision) do
+        {:ok, token_id} ->
+          json(conn, %{ok: true, decided: request_id, decision: raw_decision, token_id: token_id})
+
         :ok ->
           json(conn, %{ok: true, decided: request_id, decision: raw_decision})
 
@@ -404,6 +412,7 @@ defmodule ApmV5Web.V2.AuthController do
       params: entry.params,
       status: entry.status,
       decision: entry.decision,
+      token_id: Map.get(entry, :token_id),
       decided_at: if(entry.decided_at, do: DateTime.to_iso8601(entry.decided_at)),
       inserted_at: DateTime.to_iso8601(entry.inserted_at),
       expires_at: DateTime.to_iso8601(entry.expires_at)

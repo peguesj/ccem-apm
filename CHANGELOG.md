@@ -1,5 +1,35 @@
 # Changelog
 
+## v8.2.0 (2026-03-27)
+
+CCEM APM v8.2.0 — AgentLock Gap9 fix, CoWork awareness, CCEMHelper Settings window.
+
+### Added
+- `ApmV5.Auth.PendingDecisions`: Gap 9 fix — `decide(:approve)` now calls `TokenStore.generate/4` and stores `token_id` on approved entry; broadcasts include `token_id`; HTTP poll response returns `token_id` so hooks can receive their authorization token without re-authorization
+- `ApmV5.SessionManager`: CoWork awareness — `cowork_context/0` reads `~/.claude/teams/` and `~/.claude/tasks/`; enriched sessions include `:cowork` map with `teams` list and `tasks` count (`total`/`active`)
+- `agentlock_pre_tool.sh`: approval polling loop — when `reason: approval_required`, hook polls `GET /api/v2/auth/pending/:id?wait=30` up to 2× (60s total); on approval stores token and exits 0; on deny or timeout exits 2
+- `CCEMHelper`: `@Environment(\.openSettings)` gear icon in menu header — always visible regardless of menu height; replaces broken `NSApp.sendAction(Selector("showSettingsWindow:"))` approach
+
+### Changed
+- `ApmV5Web.V2.AuthController`: `pending_to_json/1` includes `token_id`; `decide/2` action returns `token_id` on approve; `get_pending/2` threads full entry through poll result
+- `ApmV5.Auth.PendingDecisions`: `poll/2` + `do_poll/2` return `{:decided, entry}` (full map) instead of `{:decided, decision atom}` — carries `token_id` through to HTTP layer
+- `CCEMHelper/Views/MenuBarView.swift`: `@Environment(\.openSettings)` declared; both header gear and "Notification Settings…" menu item use `openSettings()` call
+- `mix.exs`: version bumped 8.1.0 → 8.2.0
+
+## v8.1.0 (2026-03-27)
+
+CCEM APM v8.1.0 — Session Manager + CCEMHelper Settings/About/Help.
+
+### Added
+- `ApmV5.SessionManager` GenServer: polls `~/Developer/ccem/apm/sessions/*.json` every 30s, ETS `:session_manager_cache`, broadcasts `"apm:sessions"` PubSub on hash change
+- `SessionManagerLive` at `/sessions` + `/sessions/:id`: left panel session list, right panel 5 tabs (Overview/Claude Config/Agents/Ports/Plugins), 10s auto-refresh
+- `CCEMHelper/Views/SettingsView.swift`: APM URL config, notification toggles (AgentLock/Formation/System), connection test
+- `CCEMHelper/Views/AboutView.swift`: version/build from bundle, GitHub link
+- `CCEMHelper/Views/HelpView.swift`: Quick Start, Keyboard Shortcuts, Troubleshooting
+
+### Changed
+- `mix.exs`: version bumped 8.0.0 → 8.1.0
+
 ## v8.0.0 (2026-03-27)
 
 CCEM APM v8.0.0 — Plugin/Integration Engine Standard.

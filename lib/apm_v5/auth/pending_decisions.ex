@@ -27,6 +27,8 @@ defmodule ApmV5.Auth.PendingDecisions do
   use GenServer
   require Logger
 
+  alias ApmV5.Auth.TokenStore
+
   @table :agentlock_pending
   @ttl_seconds 120
   @sweep_ms 15_000
@@ -44,8 +46,9 @@ defmodule ApmV5.Auth.PendingDecisions do
     GenServer.call(__MODULE__, {:add, tool_name, session_id, risk_level, agent_id, params})
   end
 
-  @doc "Record a decision on a pending request. Broadcasts result on PubSub."
-  @spec decide(String.t(), :approve | :deny) :: :ok | {:error, :not_found}
+  @doc "Record a decision on a pending request. Broadcasts result on PubSub.
+  Returns `{:ok, token_id}` when approved and a token is issued, `:ok` otherwise."
+  @spec decide(String.t(), :approve | :deny) :: {:ok, String.t()} | :ok | {:error, :not_found}
   def decide(request_id, decision) when decision in [:approve, :deny] do
     GenServer.call(__MODULE__, {:decide, request_id, decision})
   end
@@ -78,10 +81,10 @@ defmodule ApmV5.Auth.PendingDecisions do
 
   @doc """
   Poll for a decision on `request_id`, blocking up to `timeout_ms`.
-  Returns `{:decided, decision}` or `{:timeout, :pending}`.
-  Used by long-poll HTTP endpoint.
+  Returns `{:decided, entry}` (full entry map) or `{:timeout, :pending}`.
+  Used by long-poll HTTP endpoint. The entry includes `token_id` when approved.
   """
-  @spec poll(String.t(), non_neg_integer()) :: {:decided, :approve | :deny} | {:timeout, :pending}
+  @spec poll(String.t(), non_neg_integer()) :: {:decided, map()} | {:timeout, :pending}
   def poll(request_id, timeout_ms \\ 30_000) do
     deadline = System.monotonic_time(:millisecond) + timeout_ms
     do_poll(request_id, deadline)
@@ -100,8 +103,8 @@ defmodule ApmV5.Auth.PendingDecisions do
             Process.sleep(min(500, remaining))
             do_poll(request_id, deadline)
 
-          %{decision: decision} when decision in [:approve, :deny] ->
-            {:decided, decision}
+          %{decision: decision} = entry when decision in [:approve, :deny] ->
+            {:decided, entry}
 
           nil ->
             {:timeout, :pending}
@@ -150,18 +153,47 @@ defmodule ApmV5.Auth.PendingDecisions do
   def handle_call({:decide, request_id, decision}, _from, state) do
     case :ets.lookup(@table, request_id) do
       [{^request_id, entry}] ->
-        updated = %{entry |
-          status: if(decision == :approve, do: :approved, else: :denied),
-          decision: decision,
-          decided_at: DateTime.utc_now()
-        }
-        :ets.insert(@table, {request_id, updated})
+        case decision do
+          :approve ->
+            case TokenStore.generate(entry.agent_id, entry.session_id, entry.tool_name, entry.params) do
+              {:ok, token_id} ->
+                updated = %{entry |
+                  status: :approved,
+                  decision: :approve,
+                  decided_at: DateTime.utc_now(),
+                  token_id: token_id
+                }
+                :ets.insert(@table, {request_id, updated})
+                Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
+                Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
+                Logger.info("[PendingDecisions] Approved + token issued: #{request_id} → #{token_id}")
+                {:reply, {:ok, token_id}, state}
 
-        Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
-        Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
+              _err ->
+                updated = %{entry |
+                  status: :approved,
+                  decision: :approve,
+                  decided_at: DateTime.utc_now()
+                }
+                :ets.insert(@table, {request_id, updated})
+                Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
+                Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
+                Logger.warning("[PendingDecisions] Approved but token generation failed: #{request_id}")
+                {:reply, :ok, state}
+            end
 
-        Logger.info("[PendingDecisions] Decision: #{request_id} → #{decision}")
-        {:reply, :ok, state}
+          :deny ->
+            updated = %{entry |
+              status: :denied,
+              decision: :deny,
+              decided_at: DateTime.utc_now()
+            }
+            :ets.insert(@table, {request_id, updated})
+            Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
+            Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
+            Logger.info("[PendingDecisions] Denied: #{request_id}")
+            {:reply, :ok, state}
+        end
 
       [] ->
         {:reply, {:error, :not_found}, state}

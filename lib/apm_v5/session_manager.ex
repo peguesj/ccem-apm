@@ -152,7 +152,7 @@ defmodule ApmV5.SessionManager do
     })
   end
 
-  # Deep enrichment: adds plugins + CLAUDE.md full content
+  # Deep enrichment: adds plugins + CLAUDE.md full content + CoWork context
   defp enrich_deep(session) do
     project_root = to_string(session[:project_root] || "")
 
@@ -178,8 +178,83 @@ defmodule ApmV5.SessionManager do
     Map.merge(session, %{
       plugins: plugins,
       plugin_count: length(plugins),
-      claude_md_content: claude_md_content
+      claude_md_content: claude_md_content,
+      cowork: cowork_context()
     })
+  end
+
+  # Returns CoWork team and task context from ~/.claude/teams/ and ~/.claude/tasks/.
+  # Completely fail-safe — returns empty defaults on any error.
+  @spec cowork_context() :: %{teams: [map()], tasks: %{total: non_neg_integer(), active: non_neg_integer()}}
+  defp cowork_context do
+    teams_dir = Path.expand("~/.claude/teams")
+    tasks_dir = Path.expand("~/.claude/tasks")
+
+    teams =
+      try do
+        case File.ls(teams_dir) do
+          {:ok, files} ->
+            files
+            |> Enum.filter(&String.ends_with?(&1, ".json"))
+            |> Enum.flat_map(fn file ->
+              path = Path.join(teams_dir, file)
+
+              case File.read(path) do
+                {:ok, content} ->
+                  case Jason.decode(content) do
+                    {:ok, team} when is_map(team) ->
+                      [Map.take(team, ["id", "name", "members", "created_at"])]
+
+                    _ ->
+                      []
+                  end
+
+                _ ->
+                  []
+              end
+            end)
+
+          _ ->
+            []
+        end
+      rescue
+        _ -> []
+      end
+
+    tasks =
+      try do
+        case File.ls(tasks_dir) do
+          {:ok, files} ->
+            all_tasks =
+              files
+              |> Enum.filter(&String.ends_with?(&1, ".json"))
+              |> Enum.flat_map(fn file ->
+                path = Path.join(tasks_dir, file)
+
+                case File.read(path) do
+                  {:ok, content} ->
+                    case Jason.decode(content) do
+                      {:ok, task} when is_map(task) -> [task]
+                      _ -> []
+                    end
+
+                  _ ->
+                    []
+                end
+              end)
+
+            total = length(all_tasks)
+            active = Enum.count(all_tasks, fn t -> Map.get(t, "status", "active") != "completed" end)
+            %{total: total, active: active}
+
+          _ ->
+            %{total: 0, active: 0}
+        end
+      rescue
+        _ -> %{total: 0, active: 0}
+      end
+
+    %{teams: teams, tasks: tasks}
   end
 
   defp scan_claude_config(project_root) when byte_size(project_root) == 0, do: %{}
