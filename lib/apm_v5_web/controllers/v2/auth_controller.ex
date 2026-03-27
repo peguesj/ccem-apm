@@ -277,6 +277,7 @@ defmodule ApmV5Web.V2.AuthController do
           event_type = Map.get(entry, :event_type, "")
           String.starts_with?(event_type, "auth:")
         end)
+        |> Enum.map(&audit_to_json/1)
       rescue
         _ -> []
       end
@@ -399,6 +400,50 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   # ---------------------------------------------------------------------------
+  # Notification Testing
+  # ---------------------------------------------------------------------------
+
+  @doc "POST /api/v2/notifications/test — Inject a test audit entry for CCEMHelper notification testing"
+  def test_notification(conn, params) do
+    tool_name = Map.get(params, "tool_name", "Bash")
+    risk_level_str = Map.get(params, "risk_level", "high")
+
+    risk_level =
+      case risk_level_str do
+        "critical" -> :critical
+        "high" -> :high
+        "medium" -> :medium
+        _ -> :high
+      end
+
+    # Create a fake pending decision so CCEMHelper sees a real pending escalation
+    {:ok, request_id} =
+      PendingDecisions.add(
+        tool_name,
+        "test-session",
+        risk_level,
+        "test-agent",
+        %{"command" => "echo test notification"}
+      )
+
+    # Also log an audit entry for visibility in the audit tab
+    ApmV5.AuditLog.log("auth:test_notification", "agentlock", tool_name, %{
+      tool_name: tool_name,
+      risk_level: risk_level_str,
+      request_id: request_id
+    })
+
+    # Broadcast on agentlock channel so any LiveView subscribers see it immediately
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:test_notification, %{
+      tool_name: tool_name,
+      risk_level: risk_level,
+      request_id: request_id
+    }})
+
+    json(conn, %{ok: true, request_id: request_id, message: "Test notification injected"})
+  end
+
+  # ---------------------------------------------------------------------------
   # Private Helpers
   # ---------------------------------------------------------------------------
 
@@ -455,4 +500,28 @@ defmodule ApmV5Web.V2.AuthController do
 
   defp to_integer(val) when is_integer(val), do: val
   defp to_integer(_), do: 50
+
+  defp audit_to_json(%{} = entry) do
+    raw_id = Map.get(entry, :id)
+
+    stable_id =
+      cond do
+        is_integer(raw_id) -> "audit-#{raw_id}"
+        is_binary(raw_id) -> raw_id
+        true ->
+          tool = Map.get(entry, :event_type, "unknown")
+          ts = Map.get(entry, :timestamp, "0")
+          "audit-#{tool}-#{ts}"
+      end
+
+    %{
+      id: stable_id,
+      timestamp: Map.get(entry, :timestamp),
+      event_type: Map.get(entry, :event_type),
+      actor: Map.get(entry, :actor),
+      resource: Map.get(entry, :resource),
+      details: Map.get(entry, :details, %{}),
+      correlation_id: Map.get(entry, :correlation_id)
+    }
+  end
 end

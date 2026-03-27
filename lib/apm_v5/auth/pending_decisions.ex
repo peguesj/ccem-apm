@@ -53,15 +53,16 @@ defmodule ApmV5.Auth.PendingDecisions do
     GenServer.call(__MODULE__, {:decide, request_id, decision})
   end
 
-  @doc "List all currently pending (undecided) requests."
+  @doc "List all currently pending (undecided, non-expired) requests."
   @spec list_pending() :: [map()]
   def list_pending do
     case :ets.info(@table) do
       :undefined -> []
       _ ->
+        now = DateTime.utc_now()
         :ets.tab2list(@table)
         |> Enum.map(fn {_id, entry} -> entry end)
-        |> Enum.filter(&(&1.status == :pending))
+        |> Enum.filter(&(&1.status == :pending && DateTime.after?(&1.expires_at, now)))
         |> Enum.sort_by(& &1.inserted_at, {:desc, DateTime})
     end
   end

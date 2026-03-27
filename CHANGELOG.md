@@ -1,5 +1,26 @@
 # Changelog
 
+## v8.3.0 (2026-03-27)
+
+CCEM APM v8.3.0 — AgentLock macOS notifications: end-to-end fix.
+
+### Fixed
+- `PendingDecisions.list_pending/0`: excludes expired entries (TTL=120s) — eliminates stale backlog that blocked new notification delivery
+- `AuthAuditEntry` (CCEMHelper): stable `id` field decoded from JSON, falls back to UUID — eliminates silent dedup drops for repeated denial events
+- `APMClient` port key mismatch: aligned to `io.pegues.ccem.apmPort` — Settings port field now works correctly
+- `EnvironmentMonitor`: removed duplicate `setNotificationCategories` from `requestNotificationPermission()` — eliminates race with `CCEMHelperApp.init()` category registration
+- `postAgentLockNotification`: embeds `request_id` in `content.userInfo` — Approve/Deny buttons on audit-path escalation banners now call `submitDecision` correctly
+- `APMNotificationReceiver`: approve/deny actions + banner tap both deep-link to `/authorization` dashboard
+
+### Added
+- `CCEMHelperApp.init()`: `UserDefaults.standard.register(defaults:)` — all 4 notification toggles default to `true` on fresh install (no setup required)
+- `APMClient`: host key support (`io.pegues.ccem.apmHost`) — base URL built from host + port
+- `POST /api/v2/notifications/test`: inject test pending decision for CCEMHelper notification testing (CCEM-281)
+- `EnvironmentMonitor`: UserDefaults gating wired — `notifyAgentLock`, `notifyAgentLifecycle`, `notifyFormation`, `notifySystem` toggles in Settings now actually gate notifications
+
+### Changed
+- `mix.exs`: version bumped 8.2.0 → 8.3.0
+
 ## v8.2.0 (2026-03-27)
 
 CCEM APM v8.2.0 — AgentLock Gap9 fix, CoWork awareness, CCEMHelper Settings window.

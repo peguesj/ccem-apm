@@ -73,6 +73,7 @@ defmodule ApmV5Web.Router do
     live "/routing", RoutingLive, :index
     live "/sessions", SessionManagerLive, :index
     live "/sessions/:id", SessionManagerLive, :show
+    live "/coalesce", CoalesceLive, :index
 
     # /upm redirects to workflow UPM view
     get "/upm", PageController, :upm_redirect
@@ -329,6 +330,8 @@ defmodule ApmV5Web.Router do
     get "/auth/policy/rules", AuthController, :list_policy_rules
     post "/auth/policy/rules", AuthController, :add_policy_rule
     delete "/auth/policy/rules/:tool_name", AuthController, :remove_policy_rule
+    # Notification test injection (CCEMHelper banner testing)
+    post "/notifications/test", AuthController, :test_notification
 
     # Plugin Engine (v7.3.0)
     get "/plugins", PluginController, :index
@@ -351,6 +354,16 @@ defmodule ApmV5Web.Router do
     post "/agents/:id/messages", AgentControlController, :send_message
     post "/formations/:id/control", AgentControlController, :control_formation
     post "/squadrons/:id/control", AgentControlController, :control_squadron
+
+    # Coalesce — Skill Logic Engine (v8.2.0)
+    post "/coalesce/start", CoalesceController, :start
+    post "/coalesce/preview", CoalesceController, :preview
+    get "/coalesce", CoalesceController, :index
+    get "/coalesce/:id", CoalesceController, :show
+    get "/coalesce/:id/diff", CoalesceController, :diff
+    post "/coalesce/:id/gate/:gate_id/decide", CoalesceController, :gate_decide
+    post "/coalesce/:id/apply", CoalesceController, :apply_run
+    delete "/coalesce/:id", CoalesceController, :cancel
   end
 
   # A2UI flexible format endpoint
