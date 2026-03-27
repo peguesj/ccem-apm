@@ -6,11 +6,16 @@ defmodule ApmV5Web.V2.PluginController do
     GET  /api/v2/plugins             — list all registered plugins
     GET  /api/v2/plugins/:name       — get plugin metadata by name
     POST /api/v2/plugins/:name/action — invoke a plugin action
+
+  Broadcasts PubSub events on mutations to `"apm:plugins"` topic.
   """
 
   use ApmV5Web, :controller
 
   alias ApmV5.Plugins.PluginRegistry
+
+  @pubsub ApmV5.PubSub
+  @topic "apm:plugins"
 
   @doc "GET /api/v2/plugins — list all registered plugins"
   def index(conn, _params) do
@@ -47,6 +52,12 @@ defmodule ApmV5Web.V2.PluginController do
     else
       case PluginRegistry.call_plugin_action(name, action_name, action_params) do
         {:ok, result} ->
+          Phoenix.PubSub.broadcast(@pubsub, @topic, {:plugin_action_invoked, %{
+            plugin: name,
+            action: action_name,
+            result: result
+          }})
+
           json(conn, %{data: result, plugin: name, action: action_name})
 
         {:error, {:not_found, _}} ->
@@ -112,6 +123,11 @@ defmodule ApmV5Web.V2.PluginController do
   def reload(conn, _params) do
     results = PluginRegistry.reload_defaults() |> Enum.map(&inspect/1)
     plugins = PluginRegistry.list_plugins()
+
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:plugins_reloaded, %{
+      count: length(plugins)
+    }})
+
     json(conn, %{reloaded: results, plugins: plugins, count: length(plugins)})
   end
 

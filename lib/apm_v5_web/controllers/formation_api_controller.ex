@@ -6,12 +6,17 @@ defmodule ApmV5Web.FormationApiController do
   Exposes formation CRUD and agent-listing under /api/formations/*.
   Delegates to ApmV5.UpmStore for formation data and ApmV5.AgentRegistry
   for formation-scoped agent queries.
+
+  Broadcasts PubSub events on mutations to `"apm:formations"` topic.
   """
 
   use ApmV5Web, :controller
 
   alias ApmV5.UpmStore
   alias ApmV5.AgentRegistry
+
+  @pubsub ApmV5.PubSub
+  @topic "apm:formations"
 
   @doc "GET /api/formations -- list all formations"
   @spec list_formations(Plug.Conn.t(), map()) :: Plug.Conn.t()
@@ -41,6 +46,12 @@ defmodule ApmV5Web.FormationApiController do
     {:ok, id} = UpmStore.register_formation(params)
     formation = UpmStore.get_formation(id)
 
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:formation_created, %{
+      id: id,
+      name: params["name"],
+      formation_id: params["formation_id"]
+    }})
+
     conn
     |> put_status(201)
     |> json(formation)
@@ -54,6 +65,12 @@ defmodule ApmV5Web.FormationApiController do
     case UpmStore.update_formation(id, attrs) do
       :ok ->
         formation = UpmStore.get_formation(id)
+
+        Phoenix.PubSub.broadcast(@pubsub, @topic, {:formation_updated, %{
+          id: id,
+          attrs: attrs
+        }})
+
         json(conn, formation)
 
       {:error, :not_found} ->

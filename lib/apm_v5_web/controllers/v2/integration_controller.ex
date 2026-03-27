@@ -8,11 +8,16 @@ defmodule ApmV5Web.V2.IntegrationController do
     POST /api/v2/integrations/:name/action — invoke an integration event/action
     GET  /api/v2/integrations/:name/status — get live connectivity status
     POST /api/v2/integrations/reload       — re-register all default integrations
+
+  Broadcasts PubSub events on mutations to `"apm:integrations"` topic.
   """
 
   use ApmV5Web, :controller
 
   alias ApmV5.Integrations.IntegrationRegistry
+
+  @pubsub ApmV5.PubSub
+  @topic "apm:integrations"
 
   @doc "GET /api/v2/integrations — list all registered integrations"
   def index(conn, _params) do
@@ -49,6 +54,12 @@ defmodule ApmV5Web.V2.IntegrationController do
     else
       case IntegrationRegistry.call_integration_event(name, event_type, payload) do
         {:ok, result} ->
+          Phoenix.PubSub.broadcast(@pubsub, @topic, {:integration_action_invoked, %{
+            integration: name,
+            event: event_type,
+            result: result
+          }})
+
           json(conn, %{data: result, integration: name, event: event_type})
 
         {:error, {:not_found, _}} ->
@@ -105,6 +116,11 @@ defmodule ApmV5Web.V2.IntegrationController do
   def reload(conn, _params) do
     results = IntegrationRegistry.reload_defaults() |> Enum.map(&inspect/1)
     integrations = IntegrationRegistry.list_integrations()
+
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:integrations_reloaded, %{
+      count: length(integrations)
+    }})
+
     json(conn, %{reloaded: results, integrations: integrations, count: length(integrations)})
   end
 end

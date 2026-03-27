@@ -5,16 +5,27 @@ defmodule ApmV5Web.UpmApiController do
   Extracted from ApiController as part of refactor-max domain split.
   Handles UPM session lifecycle: register, agent binding, events, and status.
   All routes mounted at /api/upm/* in the router.
+
+  Broadcasts PubSub events on all mutations to `"apm:upm"` topic.
   """
 
   use ApmV5Web, :controller
 
   alias ApmV5.UpmStore
 
+  @pubsub ApmV5.PubSub
+  @topic "apm:upm"
+
   @doc "POST /api/upm/register -- register a UPM execution session"
   @spec upm_register(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def upm_register(conn, params) do
     {:ok, session_id} = UpmStore.register_session(params)
+
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:upm_session_registered, %{
+      session_id: session_id,
+      project: params["project"],
+      formation_id: params["formation_id"]
+    }})
 
     conn
     |> put_status(201)
@@ -26,6 +37,12 @@ defmodule ApmV5Web.UpmApiController do
   def upm_agent(conn, params) do
     case UpmStore.register_agent(params) do
       :ok ->
+        Phoenix.PubSub.broadcast(@pubsub, @topic, {:upm_agent_registered, %{
+          agent_id: params["agent_id"],
+          upm_session_id: params["upm_session_id"],
+          work_item_id: params["work_item_id"]
+        }})
+
         json(conn, %{ok: true})
 
       {:error, :session_not_found} ->
@@ -39,6 +56,13 @@ defmodule ApmV5Web.UpmApiController do
   @spec upm_event(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def upm_event(conn, params) do
     :ok = UpmStore.record_event(params)
+
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:upm_event_recorded, %{
+      event_type: params["event_type"],
+      upm_session_id: params["upm_session_id"],
+      agent_id: params["agent_id"]
+    }})
+
     json(conn, %{ok: true})
   end
 
