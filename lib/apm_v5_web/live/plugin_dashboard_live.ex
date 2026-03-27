@@ -130,7 +130,13 @@ defmodule ApmV5Web.PluginDashboardLive do
   end
 
   defp assign_integrations(socket) do
-    integrations = ApmV5.Integrations.IntegrationRegistry.list_integrations()
+    integrations =
+      if :ets.whereis(:integration_registry) != :undefined do
+        ApmV5.Integrations.IntegrationRegistry.list_integrations()
+      else
+        []
+      end
+
     assign(socket, integrations: integrations)
   end
 

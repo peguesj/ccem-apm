@@ -178,26 +178,34 @@ defmodule ApmV5.UpmStore do
     id = "upm-#{System.unique_integer([:positive, :monotonic])}"
     now = DateTime.utc_now()
 
+    # Normalize raw stories or wave-group objects into flat story structs.
+    # Callers may pass either a flat list of story maps or a list of wave
+    # group maps (each with a nested "stories" key). Both shapes are accepted.
     stories =
       (params["stories"] || [])
-      |> Enum.map(fn story ->
+      |> Enum.flat_map(fn item ->
         cond do
-          is_binary(story) -> %{id: story, status: "pending", agent_id: nil}
-          is_map(story) -> %{
-            id: story["id"] || story["story_id"],
-            title: story["title"],
-            status: "pending",
-            agent_id: nil,
-            plane_issue_id: story["plane_issue_id"]
-          }
-          true -> %{id: inspect(story), status: "pending", agent_id: nil}
+          is_map(item) && is_list(item["stories"]) ->
+            # Wave group — flatten nested stories
+            Enum.map(item["stories"], &normalize_story/1)
+
+          true ->
+            [normalize_story(item)]
         end
       end)
+
+    # total_waves may be a count integer or a list of wave group objects.
+    total_waves =
+      case params["waves"] do
+        waves when is_list(waves) -> length(waves)
+        n when is_integer(n) -> n
+        _ -> 1
+      end
 
     session = %{
       id: id,
       stories: stories,
-      total_waves: params["waves"] || 1,
+      total_waves: total_waves,
       current_wave: 0,
       status: "registered",
       prd_branch: params["prd_branch"],
@@ -327,5 +335,27 @@ defmodule ApmV5.UpmStore do
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:upm", {:upm_event, event})
 
     {:reply, :ok, %{state | event_counter: counter}}
+  end
+
+  # --- Private Helpers ---
+
+  @spec normalize_story(term()) :: map()
+  defp normalize_story(story) do
+    cond do
+      is_binary(story) ->
+        %{id: story, title: nil, status: "pending", agent_id: nil, plane_issue_id: nil}
+
+      is_map(story) ->
+        %{
+          id: story["id"] || story["story_id"],
+          title: story["title"],
+          status: "pending",
+          agent_id: nil,
+          plane_issue_id: story["plane_issue_id"]
+        }
+
+      true ->
+        %{id: inspect(story), title: nil, status: "pending", agent_id: nil, plane_issue_id: nil}
+    end
   end
 end

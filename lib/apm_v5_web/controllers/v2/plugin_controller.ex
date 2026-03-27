@@ -36,7 +36,7 @@ defmodule ApmV5Web.V2.PluginController do
   end
 
   @doc "POST /api/v2/plugins/:name/action — invoke a plugin action"
-  def action(conn, %{"name" => name} = params) do
+  def invoke_action(conn, %{"name" => name} = params) do
     action_name = params["action"] || ""
     action_params = params["params"] || %{}
 
@@ -106,6 +106,13 @@ defmodule ApmV5Web.V2.PluginController do
       {:error, reason} ->
         conn |> put_status(:internal_server_error) |> json(%{error: inspect(reason)})
     end
+  end
+
+  @doc "POST /api/v2/plugins/reload — re-register all default plugins"
+  def reload(conn, _params) do
+    results = PluginRegistry.reload_defaults() |> Enum.map(&inspect/1)
+    plugins = PluginRegistry.list_plugins()
+    json(conn, %{reloaded: results, plugins: plugins, count: length(plugins)})
   end
 
   defp drop_nils(map), do: Enum.reject(map, fn {_k, v} -> is_nil(v) end) |> Map.new()

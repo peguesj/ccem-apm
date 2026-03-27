@@ -33,6 +33,7 @@ defmodule ApmV5Web.DashboardLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:commands")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:upm")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:ports")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "agentlock:authorization")
 
       # Subscribe to chat PubSub for live updates (initial scope: global)
       Phoenix.PubSub.subscribe(ApmV5.PubSub, ChatStore.topic("global"))
@@ -107,6 +108,35 @@ defmodule ApmV5Web.DashboardLive do
 
     {:ok, socket}
   end
+
+  @impl true
+  def handle_params(%{"agent_id" => agent_id}, _uri, socket) do
+    agent = AgentRegistry.get_agent(agent_id)
+
+    socket =
+      if agent do
+        scope = "agent:#{agent_id}"
+
+        if connected?(socket) do
+          Phoenix.PubSub.unsubscribe(ApmV5.PubSub, ChatStore.topic(socket.assigns.chat_scope))
+          Phoenix.PubSub.subscribe(ApmV5.PubSub, ChatStore.topic(scope))
+        end
+
+        messages = ChatStore.list_messages(scope, 50)
+
+        socket
+        |> assign(:active_tab, :inspector)
+        |> assign(:selected_agent, agent)
+        |> assign(:chat_scope, scope)
+        |> assign(:chat_messages, messages)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
   defp filter_by_status(agents, nil), do: agents
   defp filter_by_status(agents, ""), do: agents
@@ -318,7 +348,7 @@ defmodule ApmV5Web.DashboardLive do
                                 <%= if notif[:agent_id] do %>
                                   <button
                                     phx-click="select_agent"
-                                    phx-value-id={notif[:agent_id]}
+                                    phx-value-agent_id={notif[:agent_id]}
                                     class="btn btn-xs btn-ghost text-[10px] px-1.5 py-0.5 h-auto min-h-0 border border-base-content/20"
                                   >
                                     Inspect Agent
@@ -1214,15 +1244,15 @@ defmodule ApmV5Web.DashboardLive do
 
   @impl true
   def handle_info({:agent_registered, _agent}, socket) do
-    refresh_agents(socket)
+    {:noreply, refresh_agents(socket)}
   end
 
   def handle_info({:agent_updated, _agent}, socket) do
-    refresh_agents(socket)
+    {:noreply, refresh_agents(socket)}
   end
 
   def handle_info({:agent_discovered, _agent_id, _project}, socket) do
-    refresh_agents(socket)
+    {:noreply, refresh_agents(socket)}
   end
 
   def handle_info({:notification_added, notif}, socket) do
@@ -1255,7 +1285,7 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:ralph_data, ralph_data)
       |> assign(:session_count, session_count)
 
-    refresh_agents(socket)
+    {:noreply, refresh_agents(socket)}
   end
 
   def handle_info({:tasks_synced, _project, _tasks}, socket) do
@@ -1323,6 +1353,43 @@ defmodule ApmV5Web.DashboardLive do
     {:noreply, assign(socket, :chat_messages, [])}
   end
 
+  # AgentLock authorization decision toasts
+  def handle_info({:auth_denied, %{tool_name: tool, agent_id: _agent} = data}, socket) do
+    risk = data |> Map.get(:risk_level, :unknown) |> to_string()
+    {:noreply, push_event(socket, "show_toast", %{
+      type: "error",
+      title: "AgentLock: #{tool} DENIED",
+      message: "risk: #{risk}",
+      category: "agentlock"
+    })}
+  end
+
+  def handle_info({:auth_granted, %{tool_name: tool} = data}, socket) do
+    risk = data |> Map.get(:risk_level, :none) |> to_string()
+
+    if risk in ["high", "critical"] do
+      {:noreply, push_event(socket, "show_toast", %{
+        type: "warning",
+        title: "AgentLock: #{tool} authorized",
+        message: "high risk operation permitted",
+        category: "agentlock"
+      })}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:auth_escalated, %{tool_name: tool}}, socket) do
+    {:noreply, push_event(socket, "show_toast", %{
+      type: "warning",
+      title: "AgentLock: #{tool} escalated",
+      message: "approval required",
+      category: "agentlock"
+    })}
+  end
+
+  def handle_info({:token_consumed, _}, socket), do: {:noreply, socket}
+
   def handle_info(_msg, socket) do
     {:noreply, socket}
   end
@@ -1331,13 +1398,10 @@ defmodule ApmV5Web.DashboardLive do
     project = socket.assigns.active_project
     agents = AgentRegistry.list_agents(project)
 
-    socket =
-      socket
-      |> assign(:agents, agents)
-      |> update_agent_counts(agents)
-      |> push_graph_data(agents)
-
-    {:noreply, socket}
+    socket
+    |> assign(:agents, agents)
+    |> update_agent_counts(agents)
+    |> push_graph_data(agents)
   end
 
   defp update_agent_counts(socket, agents) do

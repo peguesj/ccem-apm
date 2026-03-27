@@ -76,11 +76,18 @@ defmodule ApmV5Web.A2ALive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-6 space-y-6">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-base-content">A2A Messaging</h1>
-        <div class="badge badge-primary badge-lg">Agent-to-Agent</div>
-      </div>
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path="/a2a" />
+
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">A2A Messaging</h2>
+            <div class="badge badge-sm badge-primary">Agent-to-Agent</div>
+          </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
 
       <%!-- Stats Cards --%>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -183,6 +190,9 @@ defmodule ApmV5Web.A2ALive do
               <p class="text-base-content/50">No messages yet. Send a test message or wait for agent activity.</p>
             <% end %>
           </div>
+        </div>
+      </div>
+
         </div>
       </div>
     </div>

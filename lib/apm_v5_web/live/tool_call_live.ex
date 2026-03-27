@@ -58,75 +58,83 @@ defmodule ApmV5Web.ToolCallLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="space-y-6">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold">Tool Calls</h1>
-        <div class="stats shadow bg-base-200">
-          <div class="stat">
-            <div class="stat-title">Active</div>
-            <div class="stat-value text-primary"><%= @stats.active %></div>
-          </div>
-          <div class="stat">
-            <div class="stat-title">Total</div>
-            <div class="stat-value"><%= @stats.total %></div>
-          </div>
-          <div class="stat">
-            <div class="stat-title">Avg Duration</div>
-            <div class="stat-value text-sm"><%= @stats.avg_duration_ms %>ms</div>
-          </div>
-        </div>
-      </div>
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path="/tool-calls" />
 
-      <div class="card bg-base-200 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title">Active Tool Calls</h2>
-          <div class="overflow-x-auto">
-            <table class="table table-zebra">
-              <thead>
-                <tr>
-                  <th>Agent</th>
-                  <th>Tool</th>
-                  <th>Status</th>
-                  <th>Started</th>
-                </tr>
-              </thead>
-              <tbody>
-                <%= for call <- filtered_calls(@active_calls, @agent_filter) do %>
-                  <tr>
-                    <td class="font-mono text-sm"><%= call.agent_id %></td>
-                    <td><span class="badge badge-info"><%= call.tool_name %></span></td>
-                    <td>
-                      <span class={status_badge(call.status)}><%= call.status %></span>
-                    </td>
-                    <td class="text-xs opacity-70"><%= call.started_at_wall %></td>
-                  </tr>
-                <% end %>
-                <%= if Enum.empty?(@active_calls) do %>
-                  <tr><td colspan="4" class="text-center opacity-50">No active tool calls</td></tr>
-                <% end %>
-              </tbody>
-            </table>
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">Tool Calls</h2>
+            <div class="stats stats-sm shadow bg-base-300">
+              <div class="stat py-1 px-3">
+                <div class="stat-title text-xs">Active</div>
+                <div class="stat-value text-primary text-sm"><%= @stats.active %></div>
+              </div>
+              <div class="stat py-1 px-3">
+                <div class="stat-title text-xs">Total</div>
+                <div class="stat-value text-sm"><%= @stats.total %></div>
+              </div>
+              <div class="stat py-1 px-3">
+                <div class="stat-title text-xs">Avg</div>
+                <div class="stat-value text-sm"><%= @stats.avg_duration_ms %>ms</div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </header>
 
-      <div class="card bg-base-200 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title">Top Tools</h2>
-          <div class="overflow-x-auto">
-            <table class="table table-zebra">
-              <thead>
-                <tr><th>Tool</th><th>Calls</th></tr>
-              </thead>
-              <tbody>
-                <%= for {tool, count} <- @stats.top_tools do %>
-                  <tr>
-                    <td class="font-mono"><%= tool %></td>
-                    <td><%= count %></td>
-                  </tr>
-                <% end %>
-              </tbody>
-            </table>
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+          <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Active Tool Calls</h2>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                  <thead>
+                    <tr>
+                      <th>Agent</th>
+                      <th>Tool</th>
+                      <th>Status</th>
+                      <th>Started</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for call <- filtered_calls(@active_calls, @agent_filter) do %>
+                      <tr>
+                        <td class="font-mono text-sm"><%= call.agent_id %></td>
+                        <td><span class="badge badge-info"><%= call.tool_name %></span></td>
+                        <td>
+                          <span class={status_badge(call.status)}><%= call.status %></span>
+                        </td>
+                        <td class="text-xs opacity-70"><%= call.started_at_wall %></td>
+                      </tr>
+                    <% end %>
+                    <%= if Enum.empty?(@active_calls) do %>
+                      <tr><td colspan="4" class="text-center opacity-50">No active tool calls</td></tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Top Tools</h2>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                  <thead>
+                    <tr><th>Tool</th><th>Calls</th></tr>
+                  </thead>
+                  <tbody>
+                    <%= for {tool, count} <- @stats.top_tools do %>
+                      <tr>
+                        <td class="font-mono"><%= tool %></td>
+                        <td><%= count %></td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </div>

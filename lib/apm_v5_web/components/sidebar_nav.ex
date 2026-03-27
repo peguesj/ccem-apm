@@ -57,6 +57,7 @@ defmodule ApmV5Web.Components.SidebarNav do
         <.nav_item icon="hero-clock" label="Timeline" href="/timeline" current_path={@current_path} />
         <.nav_item icon="hero-beaker" label="UAT" href="/uat" current_path={@current_path} />
         <.nav_item icon="hero-puzzle-piece" label="Plugins" href="/plugins" current_path={@current_path} />
+        <.nav_item icon="hero-circle-stack" label="Integrations" href="/integrations" current_path={@current_path} />
         <.nav_item icon="hero-book-open" label="Docs" href="/docs" current_path={@current_path} />
       </nav>
     </aside>
