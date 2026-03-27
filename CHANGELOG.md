@@ -1,5 +1,27 @@
 # Changelog
 
+## v8.0.0 (2026-03-27)
+
+CCEM APM v8.0.0 — Plugin/Integration Engine Standard.
+
+### Added
+- `ApmV5.Plugins.PluginBehaviour` v2: extended with `supervisor_children/0`, `inspector_component/0`, `default_enabled?/0`, `on_enable/0`, `on_disable/0`, `live_views/0` optional callbacks
+- `ApmV5.Integrations.IntegrationBehaviour`: new behaviour contract for external protocol bridges — `integration_name/0`, `protocol/0`, `connect/1`, `disconnect/0`, `status/0`, `handle_event/3`, `supervisor_children/0`
+- `ApmV5.Plugins.PluginSupervisor`: DynamicSupervisor for plugin-owned child processes
+- `ApmV5.Integrations.IntegrationSupervisor`: DynamicSupervisor for integration-owned child processes
+- `ApmV5.Integrations.IntegrationRegistry`: GenServer + ETS `:integration_registry` — `register/1`, `list_integrations/0`, `get_integration/1`, `call_integration_event/3`, `reload_defaults/0`
+- 8 new plugins extracted: `ralph`, `formations`, `uat`, `skills`, `ports`, `usage`, `devops`, `alerting`
+- 2 new integrations: `agentlock` (auth pipeline — PolicyEngine/TokenStore/RateLimiter/AuthorizationGate), `ag_ui` (AG-UI protocol — EventBus publish/subscribe/replay)
+- `ApmV5Web.V2.IntegrationController`: 5 REST endpoints at `/api/v2/integrations/*` — index, show, invoke_action, status, reload
+- `PluginDashboardLive`: Integrations tab with protocol/status/version badges; subscribes to `"apm:integrations"` PubSub
+- `application.ex`: `PluginSupervisor` before `PluginRegistry`, `IntegrationSupervisor` + `IntegrationRegistry` added to supervision tree
+
+### Changed
+- `mix.exs`: version bumped 7.3.0 → 8.0.0
+- `PluginRegistry @default_plugins`: expanded from 1 (Plane) to 9 (all bundled plugins)
+- `IntegrationRegistry @default_integrations`: populated with AgentLock + AG-UI integrations
+
+
 ## v7.3.0 (2026-03-24)
 
 CCEM APM v7.3.0 — Modularized Plugin Engine + Plane PM first-class integration.
