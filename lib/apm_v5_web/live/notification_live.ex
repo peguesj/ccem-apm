@@ -53,7 +53,7 @@ defmodule ApmV5Web.NotificationLive do
       <%!-- Main --%>
       <div class="flex-1 flex flex-col overflow-hidden">
         <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
           <h2 class="text-sm font-semibold">Notifications</h2>
           <div class="flex items-center gap-2">
             <label class="flex items-center gap-1.5 text-xs text-base-content/50 cursor-pointer">

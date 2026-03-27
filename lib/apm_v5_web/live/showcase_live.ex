@@ -71,7 +71,7 @@ defmodule ApmV5Web.ShowcaseLive do
 
       <div class="flex-1 flex flex-col overflow-hidden">
         <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
           <div class="flex items-center gap-3">
             <h2 class="text-sm font-semibold text-base-content">Showcase</h2>
             <div class="badge badge-sm badge-ghost">{length(@features)} features</div>

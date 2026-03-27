@@ -102,7 +102,7 @@ defmodule ApmV5Web.RoutingLive do
       <.sidebar_nav current_path="/routing" />
 
       <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
           <div class="flex items-center gap-3">
             <h2 class="text-sm font-semibold text-base-content">Authorization Routing Graph</h2>
           </div>

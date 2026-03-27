@@ -62,7 +62,7 @@ defmodule ApmV5Web.ToolCallLive do
       <.sidebar_nav current_path="/tool-calls" />
 
       <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
           <div class="flex items-center gap-3">
             <h2 class="text-sm font-semibold text-base-content">Tool Calls</h2>
             <div class="stats stats-sm shadow bg-base-300">
