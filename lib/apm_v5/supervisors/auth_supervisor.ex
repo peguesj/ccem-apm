@@ -18,6 +18,10 @@ defmodule ApmV5.Supervisors.AuthSupervisor do
       ApmV5.Auth.TokenStore,
       ApmV5.Auth.RateLimiter,
       ApmV5.Auth.ContextTracker,
+      # Policy rules must start before AuthorizationGate (hot-path read)
+      ApmV5.Auth.PolicyRulesStore,
+      # Pending decisions queue for human-in-the-loop approvals
+      ApmV5.Auth.PendingDecisions,
       ApmV5.Auth.AuthorizationGate
     ]
 

@@ -65,16 +65,38 @@ defmodule ApmV5.Auth.PolicyEngine do
   """
   @spec evaluate(String.t(), String.t(), map()) :: PolicyDecision.t()
   def evaluate(tool_name, role, context \\ %{}) do
-    tool = Map.get(context, :tool_registry) || default_tool(tool_name)
-    risk = determine_risk(tool_name, tool, context)
+    # Permanent policy rule takes absolute priority over all other checks.
+    case Map.get(context, :policy_rule, :none) do
+      :always_allow ->
+        %PolicyDecision{
+          allowed: true,
+          needs_approval: false,
+          risk_level: :none,
+          reason: :always_allow_rule,
+          detail: "Permanent allow rule for #{tool_name}"
+        }
 
-    risk
-    |> check_auto_permit()
-    |> check_role(role, tool)
-    |> check_data_boundary(context, tool)
-    |> check_bulk_operation(context, tool)
-    |> check_trust_ceiling(context)
-    |> finalize(risk, tool_name)
+      :always_deny ->
+        %PolicyDecision{
+          allowed: false,
+          needs_approval: false,
+          risk_level: :high,
+          reason: :always_deny_rule,
+          detail: "Permanent deny rule for #{tool_name}"
+        }
+
+      :none ->
+        tool = Map.get(context, :tool_registry) || default_tool(tool_name)
+        risk = determine_risk(tool_name, tool, context)
+
+        risk
+        |> check_auto_permit()
+        |> check_role(role, tool)
+        |> check_data_boundary(context, tool)
+        |> check_bulk_operation(context, tool)
+        |> check_trust_ceiling(context)
+        |> finalize(risk, tool_name)
+    end
   end
 
   @doc "Returns the default risk level for a tool name."

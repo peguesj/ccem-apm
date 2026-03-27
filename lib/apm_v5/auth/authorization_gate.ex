@@ -25,7 +25,8 @@ defmodule ApmV5.Auth.AuthorizationGate do
 
   alias ApmV5.Auth.Types
   alias ApmV5.Auth.Types.AuthTool
-  alias ApmV5.Auth.{PolicyEngine, TokenStore, SessionStore, RateLimiter, ContextTracker}
+  alias ApmV5.Auth.{PolicyEngine, TokenStore, SessionStore, RateLimiter, ContextTracker,
+                     PolicyRulesStore, PendingDecisions}
 
   @tool_registry :agentlock_tool_registry
 
@@ -159,17 +160,21 @@ defmodule ApmV5.Auth.AuthorizationGate do
         {:reply, result, new_state}
 
       :ok ->
-        # 3. Build evaluation context
+        # 3a. Check permanent policy rules (always_allow / always_deny override)
+        policy_rule = PolicyRulesStore.check_rule(tool_name)
+
+        # 3b. Build evaluation context
         trust_ceiling = get_trust_ceiling(session_id)
 
         context =
           Map.merge(params, %{
             trust_ceiling: trust_ceiling,
             tool_registry: tool,
-            data_boundary: Map.get(params, :data_boundary, :authenticated_user_only)
+            data_boundary: Map.get(params, :data_boundary, :authenticated_user_only),
+            policy_rule: policy_rule
           })
 
-        # 4. Evaluate policy
+        # 4. Evaluate policy (policy_rule override may short-circuit)
         decision = PolicyEngine.evaluate(tool_name, role, context)
 
         # 5. Process decision
@@ -200,33 +205,43 @@ defmodule ApmV5.Auth.AuthorizationGate do
               end
 
             {false, true} ->
-              # Needs approval — escalate to ApprovalGate
-              try do
-                {:ok, gate_id} =
-                  ApmV5.AgUi.ApprovalGate.request_approval(agent_id, %{
+              # Needs approval — queue in PendingDecisions + escalate to ApprovalGate
+              {:ok, request_id} =
+                PendingDecisions.add(tool_name, session_id, decision.risk_level, agent_id, params)
+
+              gate_id =
+                try do
+                  case ApmV5.AgUi.ApprovalGate.request_approval(agent_id, %{
                     tool_name: tool_name,
                     risk_level: decision.risk_level,
                     reason: decision.detail
-                  })
+                  }) do
+                    {:ok, gid} -> gid
+                    _ -> request_id
+                  end
+                rescue
+                  _ -> request_id
+                end
 
-                broadcast(
-                  {:auth_escalated, %{gate_id: gate_id, tool_name: tool_name, agent_id: agent_id}}
-                )
-                broadcast_decision(tool_name, :escalated, decision.risk_level, session_id)
+              broadcast({:auth_escalated, %{
+                gate_id: gate_id,
+                request_id: request_id,
+                tool_name: tool_name,
+                agent_id: agent_id,
+                risk_level: decision.risk_level
+              }})
+              broadcast_decision(tool_name, :escalated, decision.risk_level, session_id)
 
-                log_audit("auth:authorization_escalated", tool_name, %{
-                  agent_id: agent_id,
-                  gate_id: gate_id
-                })
+              log_audit("auth:authorization_escalated", tool_name, %{
+                agent_id: agent_id,
+                gate_id: gate_id,
+                request_id: request_id,
+                risk_level: decision.risk_level
+              })
 
-                {{:error, :approval_required, "Approval gate #{gate_id} created: #{decision.detail}"},
-                 %{state | total_escalated: state.total_escalated + 1}}
-              rescue
-                _ ->
-                  broadcast_decision(tool_name, :escalated, decision.risk_level, session_id)
-                  {{:error, :approval_required, decision.detail},
-                   %{state | total_escalated: state.total_escalated + 1}}
-              end
+              {{:error, :approval_required,
+                "Pending approval queued: #{request_id}. Use /authorization to approve."},
+               %{state | total_escalated: state.total_escalated + 1}}
 
             {false, false} ->
               # Denied

@@ -16,7 +16,9 @@ defmodule ApmV5Web.V2.AuthController do
     ContextTracker,
     MemoryGate,
     RedactionEngine,
-    RateLimiter
+    RateLimiter,
+    PolicyRulesStore,
+    PendingDecisions
   }
 
   # ---------------------------------------------------------------------------
@@ -283,8 +285,130 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   # ---------------------------------------------------------------------------
+  # Pending Decisions
+  # ---------------------------------------------------------------------------
+
+  @doc "GET /api/v2/auth/pending — List pending escalation requests"
+  def list_pending(conn, _params) do
+    pending = PendingDecisions.list_pending()
+    |> Enum.map(&pending_to_json/1)
+    json(conn, %{ok: true, pending: pending, count: length(pending)})
+  end
+
+  @doc "GET /api/v2/auth/pending/:id — Get/poll a single pending decision"
+  def get_pending(conn, %{"id" => request_id} = params) do
+    wait_ms = params |> Map.get("wait", "0") |> to_integer() |> Kernel.*(1000) |> min(45_000)
+
+    result =
+      if wait_ms > 0 do
+        PendingDecisions.poll(request_id, wait_ms)
+      else
+        case PendingDecisions.get(request_id) do
+          nil -> :not_found
+          entry -> {:immediate, entry}
+        end
+      end
+
+    case result do
+      {:decided, decision} ->
+        json(conn, %{ok: true, status: "decided", decision: decision})
+
+      {:immediate, entry} ->
+        json(conn, %{ok: true, entry: pending_to_json(entry)})
+
+      {:timeout, :pending} ->
+        json(conn, %{ok: true, status: "pending", decision: nil})
+
+      :not_found ->
+        conn |> put_status(404) |> json(%{ok: false, error: "Not found"})
+    end
+  end
+
+  @doc "POST /api/v2/auth/decide — Approve or deny a pending escalation"
+  def decide(conn, params) do
+    request_id = Map.get(params, "request_id", "")
+    raw_decision = Map.get(params, "decision", "")
+
+    decision =
+      case raw_decision do
+        "approve" -> :approve
+        "deny" -> :deny
+        _ -> nil
+      end
+
+    if is_nil(decision) do
+      conn |> put_status(400) |> json(%{ok: false, error: "decision must be 'approve' or 'deny'"})
+    else
+      case PendingDecisions.decide(request_id, decision) do
+        :ok ->
+          json(conn, %{ok: true, decided: request_id, decision: raw_decision})
+
+        {:error, :not_found} ->
+          conn |> put_status(404) |> json(%{ok: false, error: "Pending request not found"})
+      end
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Policy Rules
+  # ---------------------------------------------------------------------------
+
+  @doc "GET /api/v2/auth/policy/rules — List permanent allow/deny rules"
+  def list_policy_rules(conn, _params) do
+    rules = PolicyRulesStore.list_rules()
+    json(conn, %{ok: true, rules: rules, count: length(rules)})
+  end
+
+  @doc "POST /api/v2/auth/policy/rules — Add permanent allow/deny rule"
+  def add_policy_rule(conn, params) do
+    tool_name = Map.get(params, "tool_name", "")
+    raw_action = Map.get(params, "action", "")
+
+    action =
+      case raw_action do
+        "always_allow" -> :always_allow
+        "always_deny" -> :always_deny
+        _ -> nil
+      end
+
+    cond do
+      tool_name == "" ->
+        conn |> put_status(400) |> json(%{ok: false, error: "tool_name required"})
+
+      is_nil(action) ->
+        conn |> put_status(400) |> json(%{ok: false, error: "action must be 'always_allow' or 'always_deny'"})
+
+      true ->
+        PolicyRulesStore.add_rule(tool_name, action)
+        json(conn, %{ok: true, tool_name: tool_name, action: raw_action})
+    end
+  end
+
+  @doc "DELETE /api/v2/auth/policy/rules/:tool_name — Remove a permanent rule"
+  def remove_policy_rule(conn, %{"tool_name" => tool_name}) do
+    PolicyRulesStore.remove_rule(tool_name)
+    json(conn, %{ok: true, removed: tool_name})
+  end
+
+  # ---------------------------------------------------------------------------
   # Private Helpers
   # ---------------------------------------------------------------------------
+
+  defp pending_to_json(%{} = entry) do
+    %{
+      request_id: entry.request_id,
+      tool_name: entry.tool_name,
+      session_id: entry.session_id,
+      agent_id: entry.agent_id,
+      risk_level: entry.risk_level,
+      params: entry.params,
+      status: entry.status,
+      decision: entry.decision,
+      decided_at: if(entry.decided_at, do: DateTime.to_iso8601(entry.decided_at)),
+      inserted_at: DateTime.to_iso8601(entry.inserted_at),
+      expires_at: DateTime.to_iso8601(entry.expires_at)
+    }
+  end
 
   defp tool_to_json(%{} = tool) do
     %{

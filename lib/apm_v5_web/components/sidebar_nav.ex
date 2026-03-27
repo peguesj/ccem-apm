@@ -93,10 +93,14 @@ defmodule ApmV5Web.Components.SidebarNav do
     """
   end
 
+  @app_version "8.0.0"
+
   defp version do
     case Application.spec(:apm_v5, :vsn) do
-      nil -> "7.0.0"
-      vsn -> to_string(vsn)
+      nil -> @app_version
+      vsn ->
+        str = to_string(vsn)
+        if str in ["", "0.0.0"], do: @app_version, else: str
     end
   end
 end

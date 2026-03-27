@@ -319,6 +319,14 @@ defmodule ApmV5Web.Router do
     get "/auth/rate-limits", AuthController, :rate_limits
     post "/auth/redact", AuthController, :redact
     get "/auth/audit", AuthController, :audit_log
+    # Pending decisions (human-in-the-loop approval)
+    get "/auth/pending", AuthController, :list_pending
+    get "/auth/pending/:id", AuthController, :get_pending
+    post "/auth/decide", AuthController, :decide
+    # Permanent policy rules (always allow / always deny)
+    get "/auth/policy/rules", AuthController, :list_policy_rules
+    post "/auth/policy/rules", AuthController, :add_policy_rule
+    delete "/auth/policy/rules/:tool_name", AuthController, :remove_policy_rule
 
     # Plugin Engine (v7.3.0)
     get "/plugins", PluginController, :index
