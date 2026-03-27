@@ -56,6 +56,7 @@ defmodule ApmV5Web.Router do
     live "/health", HealthCheckLive, :index
     live "/conversations", ConversationMonitorLive, :index
     live "/plugins", PluginDashboardLive, :index
+    live "/integrations", PluginDashboardLive, :integrations_tab
     live "/backfill", BackfillLive, :index
     live "/drtw", DrtwLive, :index
     live "/ag-ui", AgUiLive, :index
@@ -321,10 +322,18 @@ defmodule ApmV5Web.Router do
 
     # Plugin Engine (v7.3.0)
     get "/plugins", PluginController, :index
+    post "/plugins/reload", PluginController, :reload
     get "/plugins/:name", PluginController, :show
-    post "/plugins/:name/action", PluginController, :action
+    post "/plugins/:name/action", PluginController, :invoke_action
     get "/plugins/:name/board", PluginController, :board
     get "/plugins/:name/issues", PluginController, :issues
+
+    # Integration Engine (v8.0.0)
+    get "/integrations", IntegrationController, :index
+    post "/integrations/reload", IntegrationController, :reload
+    get "/integrations/:name", IntegrationController, :show
+    post "/integrations/:name/action", IntegrationController, :invoke_action
+    get "/integrations/:name/status", IntegrationController, :status
 
     # Agent control (US-012)
     post "/agents/:id/control", AgentControlController, :control_agent

@@ -14,6 +14,7 @@ defmodule ApmV5Web.PluginDashboardLive do
   require Logger
 
   @pubsub_topic "apm:plugins"
+  @integrations_topic "apm:integrations"
 
   # ── Priority / state colour maps (passed as assigns) ────────────────────────
   defp priority_class("urgent"), do: "badge-error"
@@ -35,9 +36,19 @@ defmodule ApmV5Web.PluginDashboardLive do
     if connected?(socket) do
       :timer.send_interval(120_000, self(), :refresh)
       Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic)
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, @integrations_topic)
     end
 
-    {:ok, assign_data(socket) |> assign(active_tab: "mcp", selected_issue: nil)}
+    {:ok, assign_data(socket) |> assign(active_tab: "mcp", selected_issue: nil, current_path: "/plugins")}
+  end
+
+  @impl true
+  def handle_params(_params, _uri, %{assigns: %{live_action: :integrations_tab}} = socket) do
+    {:noreply, assign(socket, active_tab: "registered", current_path: "/integrations")}
+  end
+
+  def handle_params(_params, _uri, socket) do
+    {:noreply, assign(socket, current_path: "/plugins")}
   end
 
   # ── events ───────────────────────────────────────────────────────────────────
@@ -95,6 +106,11 @@ defmodule ApmV5Web.PluginDashboardLive do
     {:noreply, assign_registered_plugins(socket)}
   end
 
+  @impl true
+  def handle_info({:integration_registered, _meta}, socket) do
+    {:noreply, assign_integrations(socket)}
+  end
+
   # ── private helpers ──────────────────────────────────────────────────────────
 
   defp assign_data(socket) do
@@ -105,11 +121,17 @@ defmodule ApmV5Web.PluginDashboardLive do
       page_title: "Plugins"
     )
     |> assign_registered_plugins()
+    |> assign_integrations()
   end
 
   defp assign_registered_plugins(socket) do
     registered = ApmV5.Plugins.PluginRegistry.list_plugins()
     assign(socket, registered_plugins: registered)
+  end
+
+  defp assign_integrations(socket) do
+    integrations = ApmV5.Integrations.IntegrationRegistry.list_integrations()
+    assign(socket, integrations: integrations)
   end
 
   defp load_plane_issues(socket) do
@@ -137,10 +159,11 @@ defmodule ApmV5Web.PluginDashboardLive do
       |> Map.put_new(:plane_total, 0)
       |> Map.put_new(:plane_error, nil)
       |> Map.put_new(:registered_plugins, [])
+      |> Map.put_new(:integrations, [])
 
     ~H"""
-    <div class="flex h-screen bg-base-100 overflow-hidden">
-      <.sidebar_nav current_path="/plugins" />
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path={@current_path} />
 
       <div class="flex-1 flex flex-col overflow-hidden">
         <%!-- Header --%>
@@ -180,6 +203,13 @@ defmodule ApmV5Web.PluginDashboardLive do
             class={"tab tab-bordered tab-sm #{if @active_tab == "plane", do: "tab-active", else: ""}"}
           >
             Plane PM
+          </button>
+          <button
+            phx-click="switch_tab"
+            phx-value-tab="integrations"
+            class={"tab tab-bordered tab-sm #{if @active_tab == "integrations", do: "tab-active", else: ""}"}
+          >
+            Integrations ({length(@integrations)})
           </button>
         </div>
 
@@ -263,6 +293,48 @@ defmodule ApmV5Web.PluginDashboardLive do
                       <p class="text-xs font-semibold mb-1">Actions ({length(plugin.endpoints)})</p>
                       <div class="flex flex-wrap gap-1">
                         <span :for={ep <- plugin.endpoints} class="badge badge-xs badge-outline">
+                          {ep.action}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Integrations tab --%>
+          <div :if={@active_tab == "integrations"} class="space-y-4">
+            <div class="bg-base-200 rounded-lg p-4">
+              <h2 class="text-sm font-semibold mb-3">Registered Integrations ({length(@integrations)})</h2>
+              <div :if={@integrations == []} class="text-xs text-base-content/40">
+                No integrations registered. Check IntegrationRegistry startup.
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div :for={integration <- @integrations} class="card card-compact bg-base-100 shadow">
+                  <div class="card-body">
+                    <div class="flex items-center justify-between">
+                      <h3 class="card-title text-sm">{integration.name}</h3>
+                      <div class="flex gap-1">
+                        <span class="badge badge-xs badge-outline">{integration.protocol}</span>
+                        <span class={[
+                          "badge badge-xs",
+                          case integration.status do
+                            :connected -> "badge-success"
+                            :degraded -> "badge-warning"
+                            _ -> "badge-ghost"
+                          end
+                        ]}>
+                          {integration.status}
+                        </span>
+                        <span class="badge badge-xs badge-primary">v{integration.version}</span>
+                      </div>
+                    </div>
+                    <p class="text-xs text-base-content/60">{integration.description}</p>
+                    <div class="mt-2">
+                      <p class="text-xs font-semibold mb-1">Actions ({length(integration.endpoints)})</p>
+                      <div class="flex flex-wrap gap-1">
+                        <span :for={ep <- integration.endpoints} class="badge badge-xs badge-outline">
                           {ep.action}
                         </span>
                       </div>

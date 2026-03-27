@@ -29,21 +29,27 @@ defmodule ApmV5.Plugins.PluginRegistry do
     GenServer.call(__MODULE__, {:register, module})
   end
 
-  @doc "List all registered plugins as metadata maps."
+  @doc "List all registered plugins as metadata maps (module key excluded for JSON safety)."
   @spec list_plugins() :: [map()]
   def list_plugins do
     :ets.tab2list(@table)
-    |> Enum.map(fn {_name, {_mod, meta}} -> meta end)
+    |> Enum.map(fn {_name, {_mod, meta}} -> Map.delete(meta, :module) end)
     |> Enum.sort_by(& &1.name)
   end
 
-  @doc "Get a single plugin's metadata by name."
+  @doc "Get a single plugin's metadata by name (module key excluded for JSON safety)."
   @spec get_plugin(String.t()) :: {:ok, map()} | {:error, :not_found}
   def get_plugin(name) do
     case :ets.lookup(@table, name) do
-      [{^name, {_mod, meta}}] -> {:ok, meta}
+      [{^name, {_mod, meta}}] -> {:ok, Map.delete(meta, :module)}
       [] -> {:error, :not_found}
     end
+  end
+
+  @doc "Re-register all default plugins. Useful after hot code reload."
+  @spec reload_defaults() :: [:ok | {:error, term()}]
+  def reload_defaults do
+    GenServer.call(__MODULE__, :reload_defaults)
   end
 
   @doc "Invoke an action on a registered plugin."
@@ -64,7 +70,17 @@ defmodule ApmV5.Plugins.PluginRegistry do
 
   # ── GenServer Callbacks ──────────────────────────────────────────────────────
 
-  @default_plugins [ApmV5.Plugins.Plane.PlanePlugin]
+  @default_plugins [
+    ApmV5.Plugins.Plane.PlanePlugin,
+    ApmV5.Plugins.Ralph.RalphPlugin,
+    ApmV5.Plugins.Formations.FormationsPlugin,
+    ApmV5.Plugins.Uat.UatPlugin,
+    ApmV5.Plugins.Skills.SkillsPlugin,
+    ApmV5.Plugins.Ports.PortsPlugin,
+    ApmV5.Plugins.Usage.UsagePlugin,
+    ApmV5.Plugins.Devops.DevopsPlugin,
+    ApmV5.Plugins.Alerting.AlertingPlugin
+  ]
 
   @impl true
   def init(_opts) do
@@ -85,9 +101,19 @@ defmodule ApmV5.Plugins.PluginRegistry do
     {:reply, do_register(module), state}
   end
 
+  @impl true
+  def handle_call(:reload_defaults, _from, state) do
+    results = Enum.map(@default_plugins, &do_register/1)
+    {:reply, results, state}
+  end
+
   # ── Private ──────────────────────────────────────────────────────────────────
 
   defp do_register(module) do
+    # Ensure the module is loaded before checking exported functions,
+    # since function_exported?/3 returns false for unloaded modules.
+    Code.ensure_loaded(module)
+
     with true <- function_exported?(module, :plugin_name, 0),
          true <- function_exported?(module, :plugin_description, 0),
          true <- function_exported?(module, :plugin_version, 0),

@@ -22,9 +22,10 @@ defmodule ApmV5.Integrations.IntegrationRegistry do
 
   @table :integration_registry
 
-  # `@default_integrations` is intentionally empty at Wave 1.
-  # It will be populated in Wave 3 once the integration modules exist.
-  @default_integrations []
+  @default_integrations [
+    ApmV5.Integrations.Agentlock.AgentlockIntegration,
+    ApmV5.Integrations.AgUi.AgUiIntegration
+  ]
 
   # ── Public API ──────────────────────────────────────────────────────────────
 

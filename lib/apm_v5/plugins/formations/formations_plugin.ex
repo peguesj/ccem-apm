@@ -1,0 +1,121 @@
+defmodule ApmV5.Plugins.Formations.FormationsPlugin do
+  @moduledoc """
+  APM Plugin wrapping the formation and UPM execution tracking layer.
+
+  Delegates to `ApmV5.UpmStore` and `ApmV5.AgentRegistry` for all data operations.
+  Exposes the following actions:
+    - "list_formations"   — list all registered formations
+    - "get_formation"     — get a single formation by ID, including its agents
+    - "create_formation"  — register a new formation
+    - "update_formation"  — update an existing formation's attributes
+  """
+
+  @behaviour ApmV5.Plugins.PluginBehaviour
+
+  alias ApmV5.UpmStore
+  alias ApmV5.AgentRegistry
+
+  # ── PluginBehaviour ──────────────────────────────────────────────────────────
+
+  @impl true
+  @spec plugin_name() :: String.t()
+  def plugin_name, do: "formations"
+
+  @impl true
+  @spec plugin_description() :: String.t()
+  def plugin_description,
+    do: "Formation and UPM execution tracking — list, create, update formations and inspect agent membership"
+
+  @impl true
+  @spec plugin_version() :: String.t()
+  def plugin_version, do: "1.0.0"
+
+  @impl true
+  @spec list_endpoints() :: [map()]
+  def list_endpoints do
+    [
+      %{
+        action: "list_formations",
+        description: "List all registered formations with their status and metadata",
+        params: %{}
+      },
+      %{
+        action: "get_formation",
+        description: "Get a single formation by ID, including its registered agents",
+        params: %{id: "string (required — formation ID)"}
+      },
+      %{
+        action: "create_formation",
+        description: "Register a new formation with the given attributes",
+        params: %{
+          formation_id: "string (optional — generated if omitted)",
+          project: "string (required)",
+          role: "string (optional — e.g. orchestrator)",
+          task_subject: "string (optional)"
+        }
+      },
+      %{
+        action: "update_formation",
+        description: "Update attributes of an existing formation by ID",
+        params: %{id: "string (required)", status: "string (optional)", metadata: "map (optional)"}
+      }
+    ]
+  end
+
+  @impl true
+  @spec handle_action(String.t(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def handle_action("list_formations", _params, _opts) do
+    formations = UpmStore.list_formations()
+    {:ok, %{formations: formations, count: length(formations)}}
+  end
+
+  def handle_action("get_formation", %{"id" => id}, _opts) do
+    case UpmStore.get_formation(id) do
+      nil ->
+        {:error, {:not_found, "Formation #{id} not found"}}
+
+      formation ->
+        agents = AgentRegistry.list_formation(id)
+        {:ok, Map.put(formation, :agents, agents)}
+    end
+  end
+
+  def handle_action("get_formation", _params, _opts) do
+    {:error, {:missing_param, "id is required"}}
+  end
+
+  def handle_action("create_formation", params, _opts) do
+    {:ok, id} = UpmStore.register_formation(params)
+    formation = UpmStore.get_formation(id)
+    {:ok, formation || %{id: id}}
+  end
+
+  def handle_action("update_formation", %{"id" => id} = params, _opts) do
+    attrs = Map.drop(params, ["id"])
+
+    case UpmStore.update_formation(id, attrs) do
+      :ok ->
+        formation = UpmStore.get_formation(id)
+        {:ok, formation || %{id: id}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def handle_action("update_formation", _params, _opts) do
+    {:error, {:missing_param, "id is required"}}
+  end
+
+  def handle_action(action, _params, _opts) do
+    {:error, {:unknown_action, action}}
+  end
+
+  @impl true
+  @spec supervisor_children() :: [Supervisor.child_spec()]
+  def supervisor_children, do: []
+
+  @impl true
+  @spec default_enabled?() :: boolean()
+  def default_enabled?, do: true
+end
