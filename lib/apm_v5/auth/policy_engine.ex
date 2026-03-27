@@ -113,6 +113,36 @@ defmodule ApmV5.Auth.PolicyEngine do
     Enum.any?(@destructive_patterns, &Regex.match?(&1, command))
   end
 
+  @doc """
+  Derives a risk level from MCP ToolAnnotations (Protocol 2025-03-26).
+
+  ## Annotation semantics
+  - `readOnly: true` → :none (safe read, no side effects)
+  - `destructive: true` → :critical (irreversible writes)
+  - `openWorld: true` + not readOnly → :high (unbounded external scope)
+  - `idempotent: true` + not destructive → :medium (repeatable, recoverable)
+  - default (no annotations) → :low
+
+  Both string and atom keys are accepted.
+  """
+  @spec from_mcp_annotations(map()) :: Types.risk_level()
+  def from_mcp_annotations(annotations) when is_map(annotations) do
+    read_only   = Map.get(annotations, "readOnly",    Map.get(annotations, :readOnly,    false))
+    destructive = Map.get(annotations, "destructive", Map.get(annotations, :destructive, false))
+    open_world  = Map.get(annotations, "openWorld",   Map.get(annotations, :openWorld,   false))
+    idempotent  = Map.get(annotations, "idempotent",  Map.get(annotations, :idempotent,  false))
+
+    cond do
+      read_only   -> :none
+      destructive -> :critical
+      open_world  -> :high
+      idempotent  -> :medium
+      true        -> :low
+    end
+  end
+
+  def from_mcp_annotations(_), do: :low
+
   # ---------------------------------------------------------------------------
   # Pipeline Steps
   # ---------------------------------------------------------------------------
@@ -131,13 +161,27 @@ defmodule ApmV5.Auth.PolicyEngine do
     base_risk = tool.risk_level
 
     # Escalate Bash to :critical if destructive command detected
-    case tool_name do
-      "Bash" ->
-        command = get_in(context, [:params, "command"]) || ""
-        if destructive_command?(command), do: :critical, else: base_risk
+    bash_risk =
+      case tool_name do
+        "Bash" ->
+          command = get_in(context, [:params, "command"]) || ""
+          if destructive_command?(command), do: :critical, else: base_risk
 
-      _ ->
-        base_risk
+        _ ->
+          base_risk
+      end
+
+    # Apply MCP ToolAnnotations if provided — take the higher risk
+    mcp_annotations = Map.get(context, :mcp_annotations)
+
+    if is_map(mcp_annotations) and map_size(mcp_annotations) > 0 do
+      annotation_risk = from_mcp_annotations(mcp_annotations)
+
+      if Types.risk_severity(annotation_risk) > Types.risk_severity(bash_risk),
+        do: annotation_risk,
+        else: bash_risk
+    else
+      bash_risk
     end
   end
 
