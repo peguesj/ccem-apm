@@ -42,6 +42,7 @@ import ShowcaseHook from "./hooks/showcase"
 import LoadContext from "./hooks/load_context"
 import CcemAssistant from "./hooks/ccem_assistant"
 import SkillsHook from "./hooks/skills"
+import ShowcaseSyncHook from "./hooks/showcase_sync"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -72,7 +73,8 @@ const Hooks = {
   ShowcaseHook,
   LoadContext,
   CcemAssistant,
-  SkillsHook
+  SkillsHook,
+  ShowcaseSyncHook
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

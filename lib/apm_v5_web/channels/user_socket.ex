@@ -13,6 +13,8 @@ defmodule ApmV5Web.UserSocket do
   channel "alerts:feed", ApmV5Web.AlertsChannel
   # Wave 4: AG-UI bidirectional WebSocket channel (US-047)
   channel "ag_ui:*", ApmV5Web.AgUiChannel
+  # v8.4.0: Showcase sync WebSocket channel — formation events + agent context
+  channel "showcase:*", ApmV5Web.ShowcaseChannel
 
   @impl true
   def connect(_params, socket, _connect_info) do

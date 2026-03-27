@@ -355,6 +355,18 @@ defmodule ApmV5Web.Router do
     post "/formations/:id/control", AgentControlController, :control_formation
     post "/squadrons/:id/control", AgentControlController, :control_squadron
 
+    # UPM decision gate — human-in-the-loop approval (v8.4.0)
+    post "/upm/gate", UpmDecisionController, :create
+    get "/upm/gates", UpmDecisionController, :index
+    get "/upm/gate/:id", UpmDecisionController, :show
+    post "/upm/gate/:id/approve", UpmDecisionController, :approve
+    post "/upm/gate/:id/reject", UpmDecisionController, :reject
+
+    # Agent real-time context (v8.4.0)
+    get "/agents/contexts", AgentContextController, :index
+    get "/agents/:id/context", AgentContextController, :show
+    get "/agents/:id/context/events", AgentContextController, :events
+
     # Coalesce — Skill Logic Engine (v8.2.0)
     post "/coalesce/start", CoalesceController, :start
     post "/coalesce/preview", CoalesceController, :preview

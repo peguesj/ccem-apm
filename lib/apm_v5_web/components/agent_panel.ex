@@ -12,6 +12,8 @@ defmodule ApmV5Web.Components.AgentPanel do
 
   use Phoenix.Component
 
+  alias ApmV5.AgUi.AgentContextStore
+
   attr :agents, :list, required: true, doc: "Full agent list from AgentRegistry"
   attr :filter_status, :string, default: nil, doc: "Optional status filter"
   attr :filter_namespace, :string, default: nil, doc: "Optional namespace filter"
@@ -26,9 +28,10 @@ defmodule ApmV5Web.Components.AgentPanel do
         Agent Fleet
       </h3>
       <%!-- Column headers --%>
-      <div class="grid grid-cols-[24px_1fr_80px_60px_80px] gap-2 px-3 mb-1 text-[10px] uppercase tracking-wider text-base-content/30">
+      <div class="grid grid-cols-[24px_1fr_1fr_80px_60px_80px] gap-2 px-3 mb-1 text-[10px] uppercase tracking-wider text-base-content/30">
         <span></span>
         <span>Agent</span>
+        <span>Activity</span>
         <span class="text-right">Last Seen</span>
         <span class="text-center">Type</span>
         <span class="text-center">Status</span>
@@ -41,13 +44,16 @@ defmodule ApmV5Web.Components.AgentPanel do
           phx-click="select_agent"
           phx-value-agent_id={agent.id}
         >
-          <div class="grid grid-cols-[24px_1fr_80px_60px_80px] gap-2 items-center px-3 py-2">
+          <div class="grid grid-cols-[24px_1fr_1fr_80px_60px_80px] gap-2 items-center px-3 py-2">
             <div class={["badge badge-xs", tier_badge_class(agent.tier)]}>
               {agent.tier}
             </div>
             <div>
               <div class="text-sm font-medium truncate flex items-center gap-1.5">
                 {agent.name}
+                <span :if={agent[:formation_id]} class="badge badge-xs badge-primary badge-outline font-mono text-[9px]" title={"Formation: #{agent[:formation_id]}"}>
+                  {formation_role_badge(agent[:role] || agent[:agent_type])}
+                </span>
                 <span :if={agent[:member_count] && agent[:member_count] > 1} class="badge badge-xs badge-info">
                   {agent[:member_count]}
                 </span>
@@ -56,9 +62,13 @@ defmodule ApmV5Web.Components.AgentPanel do
                 </span>
               </div>
               <div class="text-[10px] text-base-content/30 flex items-center gap-1">
-                <span class="font-mono">{agent.id}</span>
+                <span class="font-mono truncate max-w-[120px]">{agent.id}</span>
                 <span :if={agent[:namespace]} class="text-primary/60">/ {agent[:namespace]}</span>
               </div>
+            </div>
+            <%!-- AG-UI real-time activity column --%>
+            <div class="text-[10px] text-base-content/50 truncate">
+              {agent_activity_label(agent.id)}
             </div>
             <div class="text-right text-xs text-base-content/40">
               {format_last_seen(agent.last_seen)}
@@ -158,6 +168,25 @@ defmodule ApmV5Web.Components.AgentPanel do
   end
 
   defp format_last_seen(_), do: "unknown"
+
+  @spec agent_activity_label(String.t()) :: String.t()
+  defp agent_activity_label(agent_id) do
+    if Process.whereis(AgentContextStore) do
+      AgentContextStore.activity_label(agent_id)
+    else
+      "—"
+    end
+  rescue
+    _ -> "—"
+  end
+
+  @spec formation_role_badge(String.t() | nil) :: String.t()
+  defp formation_role_badge("orchestrator"), do: "orch"
+  defp formation_role_badge("squadron"), do: "sqdn"
+  defp formation_role_badge("swarm"), do: "swrm"
+  defp formation_role_badge("squadron_lead"), do: "lead"
+  defp formation_role_badge("cluster"), do: "clst"
+  defp formation_role_badge(_), do: "ind"
 
   @spec status_badge_class(String.t()) :: String.t()
   defp status_badge_class("active"), do: "badge-success"

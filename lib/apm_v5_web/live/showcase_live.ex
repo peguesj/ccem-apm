@@ -147,6 +147,13 @@ defmodule ApmV5Web.ShowcaseLive do
       </div>
     </div>
     <.wizard page="showcase" />
+    <%!-- Showcase sync WebSocket bootstrap (v8.4.0) --%>
+    <div
+      id="showcase-sync"
+      phx-hook="ShowcaseSyncHook"
+      data-project={@active_project || "ccem"}
+      class="hidden"
+    ></div>
     """
   end
 

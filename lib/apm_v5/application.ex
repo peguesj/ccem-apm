@@ -52,6 +52,10 @@ defmodule ApmV5.Application do
       # Integration Engine (v8.0.0) — supervisor before registry
       ApmV5.Integrations.IntegrationSupervisor,
       ApmV5.Integrations.IntegrationRegistry,
+      # Agent context store — real-time AG-UI context per agent (v8.4.0)
+      ApmV5.AgUi.AgentContextStore,
+      # UPM decision gate — blocking human-in-the-loop approval (v8.4.0)
+      ApmV5.Upm.DecisionGate,
       # Sub-supervisor: AgentLock authorization layer (v7.0.0)
       ApmV5.Supervisors.AuthSupervisor,
       # Start to serve requests, typically the last entry
