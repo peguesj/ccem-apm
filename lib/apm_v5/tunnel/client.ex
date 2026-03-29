@@ -361,30 +361,9 @@ defmodule ApmV5.Tunnel.Client do
 
   @spec send_project_manifest(term(), term()) :: :ok
   defp send_project_manifest(conn, stream_ref) do
-    configs = ApmV5.PortManager.get_project_configs()
-    active_port_map = ApmV5.PortManager.get_port_map()
-
-    # Build project → port map from configs (only real integer ports)
-    config_ports =
-      configs
-      |> Enum.filter(fn {_name, cfg} -> is_integer(Map.get(cfg, :primary_port)) end)
-      |> Enum.map(fn {name, cfg} -> {name, Map.get(cfg, :primary_port)} end)
-      |> Map.new()
-
-    # Augment with active ports from lsof scan
-    active_ports =
-      active_port_map
-      |> Enum.filter(fn {_port, info} -> Map.get(info, :active, false) end)
-      |> Enum.flat_map(fn {port, info} ->
-        project = Map.get(info, :project) || Map.get(info, "project")
-        if project, do: [{project, port}], else: []
-      end)
-      |> Map.new()
-
-    # Merge: config wins over scan; always include APM itself
-    project_ports =
-      Map.merge(active_ports, config_ports)
-      |> Map.put("apm", 3032)
+    # Use the REST API port data — this is the authoritative source combining
+    # config-detected ports (from .env, package.json, dev.exs) with project names
+    project_ports = fetch_port_manifest()
 
     frame =
       phoenix_frame("1", nil, "tunnel:local", "register_projects", %{
@@ -394,5 +373,43 @@ defmodule ApmV5.Tunnel.Client do
     :gun.ws_send(conn, stream_ref, {:text, frame})
     Logger.info("[Tunnel.Client] Sent project manifest: #{map_size(project_ports)} projects")
     :ok
+  end
+
+  # Fetch project→port map by querying the local APM ports API.
+  # Falls back to PortManager.get_project_configs() primary_port if HTTP fails.
+  defp fetch_port_manifest do
+    case :httpc.request(:get, {~c"http://localhost:3032/api/ports", []}, [{:timeout, 3_000}], []) do
+      {:ok, {{_, 200, _}, _, body}} ->
+        case Jason.decode(to_string(body)) do
+          {:ok, %{"ports" => ports}} when is_map(ports) ->
+            # Invert ports map (string port → info) to project → integer port
+            ports
+            |> Enum.flat_map(fn {port_str, info} ->
+              project = Map.get(info, "project")
+              with true <- is_binary(project) and project != "",
+                   {port_int, ""} <- Integer.parse(port_str) do
+                [{project, port_int}]
+              else
+                _ -> []
+              end
+            end)
+            |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+            |> Enum.map(fn {project, ports} -> {project, Enum.min(ports)} end)
+            |> Map.new()
+            |> Map.put("apm", 3032)
+
+          _ -> fallback_port_manifest()
+        end
+
+      _ -> fallback_port_manifest()
+    end
+  end
+
+  defp fallback_port_manifest do
+    ApmV5.PortManager.get_project_configs()
+    |> Enum.filter(fn {_name, cfg} -> is_integer(Map.get(cfg, :primary_port)) end)
+    |> Enum.map(fn {name, cfg} -> {name, Map.get(cfg, :primary_port)} end)
+    |> Map.new()
+    |> Map.put("apm", 3032)
   end
 end
