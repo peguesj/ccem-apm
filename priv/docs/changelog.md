@@ -1,8 +1,31 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file. Latest: v8.10.1 Backlog Resolution — Claude Code Discovery Plugin, LVM Platform Plugin, Usage Limits API, API Key Management, Skills+AgentLock Cross-Reference, CCEMHelper Usage UX.
+All notable changes to CCEM APM are documented in this file. Latest: v8.11.0 — Authorization UX Redesign, Plugin System Expansion, Session Filters, Library Dashboard, /529 Rate Limit Skill.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [8.11.0] - 2026-03-30
+
+Authorization UX Redesign, Plugin System Expansion, Session Filters, Library Dashboard, Skills Fix Wizard, /529 Rate Limit Skill.
+
+### Added
+- **Authorization panel redesign** — full-screen modal replaced with inline notification panel; graduated actions (approve once, allow 5/15/30/60min, always allow, deny, always deny); rich context display with action type, command preview, and approval reasoning
+- **Plugin system expansion** — 3 scopes (APM/CCEM/Claude Code); `ClaudeCodePluginBridge` reads Claude Code plugin ecosystem; `PluginRepositoryStore` GenServer manages plugin repositories; 2 new LiveView tabs (Repositories, Claude Code Plugins)
+- **Plugin repository REST API** — 7 new endpoints: `GET /api/v2/plugins/cc/plugins`, `GET /api/v2/plugins/cc/summary`, `GET /api/v2/plugins/repositories` (list), `POST /api/v2/plugins/repositories` (create), `GET /api/v2/plugins/repositories/:id`, `PATCH /api/v2/plugins/repositories/:id`, `DELETE /api/v2/plugins/repositories/:id`
+- **Library dashboard** — 7-tab resource catalog (agents/skills/MCP servers/tools/commands/patterns/learnings); `LibraryStore` GenServer with ETS backing; `LibraryLive` at `/library`; REST endpoints at `GET /api/v2/library/*`
+- **Session manager filters** — search bar, group by (project/init context/worktree), active-only toggle, per-session hide/show in `SessionManagerLive`
+- **Skills Fix Wizard improvements** — templates/examples repair options, CCEM scope badge, removed disabled checkboxes
+- **/529 rate limit skill** — exponential backoff, model downgrade cascade (opus->sonnet->haiku), automatic retry, hook integration
+- **CCEMHelper notification improvements** — osascript notification fallback when UNUserNotificationCenter unavailable; notification permission guide; `/api/status` now includes `projects` array
+
+### Removed
+- **`crate_digger_status` action** removed from ActionEngine
+
+### Changed
+- `mix.exs`: version bumped 8.10.1 -> 8.11.0
+- Authorization approval flow uses inline graduated actions instead of full-screen modal overlay
 
 ---
 
