@@ -3,7 +3,7 @@ defmodule ApmV5.ActionEngine do
   GenServer for running predefined actions against developer projects.
   Actions: deploy_apm_hooks, add_memory_pointer, backfill_apm_config, analyze_project,
            fix_skill_frontmatter, complete_skill_description, add_skill_triggers,
-           backfill_project_memory, update_hooks.
+           add_skill_templates, add_skill_examples, backfill_project_memory, update_hooks.
   """
   use GenServer
   require Logger
@@ -68,6 +68,22 @@ defmodule ApmV5.ActionEngine do
       description: "Append trigger keyword section to SKILL.md content to improve health score trigger detection.",
       category: "skill_audit",
       icon: "bolt",
+      params: [%{name: "skill_name", type: "string", required: true}]
+    },
+    %{
+      id: "add_skill_templates",
+      name: "Add Skill Templates",
+      description: "Generate a templates section in SKILL.md with boilerplate/template content for the skill.",
+      category: "skill_audit",
+      icon: "document-duplicate",
+      params: [%{name: "skill_name", type: "string", required: true}]
+    },
+    %{
+      id: "add_skill_examples",
+      name: "Add Skill Examples",
+      description: "Generate a usage examples section in SKILL.md demonstrating how to invoke and use the skill.",
+      category: "skill_audit",
+      icon: "code-bracket",
       params: [%{name: "skill_name", type: "string", required: true}]
     },
     %{
@@ -629,6 +645,108 @@ defmodule ApmV5.ActionEngine do
   end
 
   defp execute_action("add_skill_triggers", _project_path, params) do
+    {:error, "Missing required param: skill_name (got: #{inspect(params)})"}
+  end
+
+  defp execute_action("add_skill_templates", _project_path, %{"skill_name" => skill_name}) do
+    skill_md = Path.join([@skills_dir, skill_name, "SKILL.md"])
+
+    case File.read(skill_md) do
+      {:ok, content} ->
+        content_lower = String.downcase(content)
+
+        if String.contains?(content_lower, "## template") do
+          {:ok, %{status: "ok", message: "Templates section already present", skill: skill_name, changes: []}}
+        else
+          templates_section = """
+
+## Templates
+
+### Basic Usage Template
+
+```
+/<#{skill_name}> <args>
+```
+
+### Configuration Template
+
+```yaml
+# #{skill_name} configuration
+enabled: true
+options: {}
+```
+"""
+
+          case File.write(skill_md, content <> templates_section) do
+            :ok ->
+              notify_skill_audit_complete(skill_name, "add_skill_templates")
+              {:ok, %{status: "ok", message: "Templates section added", skill: skill_name, changes: ["templates section appended"]}}
+
+            {:error, reason} ->
+              {:error, "write failed: #{reason}"}
+          end
+        end
+
+      _ ->
+        {:error, "SKILL.md not found for skill: #{skill_name}"}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("add_skill_templates", _project_path, params) do
+    {:error, "Missing required param: skill_name (got: #{inspect(params)})"}
+  end
+
+  defp execute_action("add_skill_examples", _project_path, %{"skill_name" => skill_name}) do
+    skill_md = Path.join([@skills_dir, skill_name, "SKILL.md"])
+
+    case File.read(skill_md) do
+      {:ok, content} ->
+        content_lower = String.downcase(content)
+
+        if String.contains?(content_lower, "## example") do
+          {:ok, %{status: "ok", message: "Examples section already present", skill: skill_name, changes: []}}
+        else
+          examples_section = """
+
+## Examples
+
+### Example 1: Basic invocation
+
+```
+/#{skill_name}
+```
+
+Runs the skill with default options.
+
+### Example 2: With arguments
+
+```
+/#{skill_name} --option value
+```
+
+Runs the skill with custom configuration.
+"""
+
+          case File.write(skill_md, content <> examples_section) do
+            :ok ->
+              notify_skill_audit_complete(skill_name, "add_skill_examples")
+              {:ok, %{status: "ok", message: "Examples section added", skill: skill_name, changes: ["examples section appended"]}}
+
+            {:error, reason} ->
+              {:error, "write failed: #{reason}"}
+          end
+        end
+
+      _ ->
+        {:error, "SKILL.md not found for skill: #{skill_name}"}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("add_skill_examples", _project_path, params) do
     {:error, "Missing required param: skill_name (got: #{inspect(params)})"}
   end
 
