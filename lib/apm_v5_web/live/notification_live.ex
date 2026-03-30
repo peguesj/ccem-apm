@@ -941,7 +941,11 @@ defmodule ApmV5Web.NotificationLive do
     ) do
       {:ok, _} ->
         Logger.info("[NotificationLive] Approved: #{request_id}")
-        {:noreply, socket}
+        # Reload notifications to reflect the approval
+        notifications = load_notifications()
+        {:noreply, socket
+         |> assign(:notifications, notifications)
+         |> assign(:tab_counts, compute_tab_counts(notifications))}
       {:error, reason} ->
         Logger.warning("[NotificationLive] Approve failed: #{inspect(reason)}")
         {:noreply, socket}
@@ -958,7 +962,11 @@ defmodule ApmV5Web.NotificationLive do
     ) do
       {:ok, _} ->
         Logger.info("[NotificationLive] Denied: #{request_id}")
-        {:noreply, socket}
+        # Reload notifications to reflect the denial
+        notifications = load_notifications()
+        {:noreply, socket
+         |> assign(:notifications, notifications)
+         |> assign(:tab_counts, compute_tab_counts(notifications))}
       {:error, reason} ->
         Logger.warning("[NotificationLive] Deny failed: #{inspect(reason)}")
         {:noreply, socket}
@@ -996,7 +1004,12 @@ defmodule ApmV5Web.NotificationLive do
     end)
 
     Logger.info("[NotificationLive] Approved all #{length(agentlock_notifs)} pending requests")
-    {:noreply, assign(socket, confirmation_dialog: nil)}
+    # Reload notifications to reflect all approvals
+    notifications = load_notifications()
+    {:noreply, socket
+     |> assign(:confirmation_dialog, nil)
+     |> assign(:notifications, notifications)
+     |> assign(:tab_counts, compute_tab_counts(notifications))}
   end
 
   def handle_event("deny_all_agentlock", _params, socket) do
@@ -1030,7 +1043,12 @@ defmodule ApmV5Web.NotificationLive do
     end)
 
     Logger.info("[NotificationLive] Denied all #{length(agentlock_notifs)} pending requests")
-    {:noreply, assign(socket, confirmation_dialog: nil)}
+    # Reload notifications to reflect all denials
+    notifications = load_notifications()
+    {:noreply, socket
+     |> assign(:confirmation_dialog, nil)
+     |> assign(:notifications, notifications)
+     |> assign(:tab_counts, compute_tab_counts(notifications))}
   end
 
   def handle_event("agentlock_approve_for_time", %{"minutes" => minutes_str}, socket) do
