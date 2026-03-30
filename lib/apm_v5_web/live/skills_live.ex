@@ -873,10 +873,14 @@ defmodule ApmV5Web.SkillsLive do
                   checked={MapSet.member?(@fix_wizard_selected_repairs, "frontmatter")}
                   phx-click="toggle_repair"
                   phx-value-repair="frontmatter"
-                  disabled={@selected_skill.has_frontmatter}
                 />
-                <span class={if @selected_skill.has_frontmatter, do: "line-through opacity-50"}>
+                <span>
                   Fix frontmatter
+                  <%= if @selected_skill.has_frontmatter do %>
+                    <span class="badge badge-xs badge-success ml-1">OK</span>
+                  <% else %>
+                    <span class="badge badge-xs badge-warning ml-1">needs fix</span>
+                  <% end %>
                 </span>
               </label>
               <label class="flex items-center gap-2 cursor-pointer">
@@ -886,10 +890,14 @@ defmodule ApmV5Web.SkillsLive do
                   checked={MapSet.member?(@fix_wizard_selected_repairs, "description")}
                   phx-click="toggle_repair"
                   phx-value-repair="description"
-                  disabled={@selected_skill.description_quality == "good"}
                 />
-                <span class={if @selected_skill.description_quality == "good", do: "line-through opacity-50"}>
+                <span>
                   Improve description
+                  <%= if @selected_skill.description_quality == "good" do %>
+                    <span class="badge badge-xs badge-success ml-1">OK</span>
+                  <% else %>
+                    <span class="badge badge-xs badge-warning ml-1">needs fix</span>
+                  <% end %>
                 </span>
               </label>
               <label class="flex items-center gap-2 cursor-pointer">
@@ -899,12 +907,17 @@ defmodule ApmV5Web.SkillsLive do
                   checked={MapSet.member?(@fix_wizard_selected_repairs, "triggers")}
                   phx-click="toggle_repair"
                   phx-value-repair="triggers"
-                  disabled={Map.get(@selected_skill, :trigger_count, 0) > 0}
                 />
-                <span class={if Map.get(@selected_skill, :trigger_count, 0) > 0, do: "line-through opacity-50"}>
+                <span>
                   Add triggers
+                  <%= if Map.get(@selected_skill, :trigger_count, 0) > 0 do %>
+                    <span class="badge badge-xs badge-success ml-1">OK (<%= Map.get(@selected_skill, :trigger_count, 0) %>)</span>
+                  <% else %>
+                    <span class="badge badge-xs badge-warning ml-1">none</span>
+                  <% end %>
                 </span>
               </label>
+              <p class="text-[10px] text-base-content/40 mt-1">Items marked OK can still be re-run to regenerate.</p>
             </div>
             <div class="flex gap-2 pt-1">
               <button class="btn btn-ghost btn-xs" phx-click="wizard_back">← Back</button>
