@@ -1,5 +1,47 @@
 # Changelog
 
+## v8.10.1 (2026-03-30)
+
+### Backlog Resolution — Plugins, LVM, API Keys, Usage Limits, Discovery UIs
+
+**Claude Code Discovery Plugin** (CCEM-311)
+- `ClaudeCodePlugin` implementing `PluginBehaviour` — 5 actions: discover_settings, discover_mcp_servers, discover_hooks, session_info, discover_skills
+- Reads `~/.claude/settings.json`, sanitizes sensitive data, infers MCP server types
+- `/plugins/claude-code` LiveView with 4 tabs: MCP Servers, Hooks, Skills, Sessions
+
+**Claude Platform LVM Plugin** (CCEM-312, CCEM-317)
+- `ClaudePlatformLvmPlugin` — static model capabilities map for claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5, claude-sonnet-4-5-20250514
+- 4 actions: list_models, get_model_info, check_limits, model_comparison
+- `LvmIntegration` implementing `IntegrationBehaviour` — symbiosis with usage_tracking
+- `/integrations/lvm` LiveView with 3 tabs: Models, Usage, Dynamic Capabilities
+- `ClaudeUsageStore` extended with `@lvm_table` ETS for model capability tracking
+
+**Usage Limits API** (CCEM-313)
+- `GET /api/usage/limits` — merges static model capabilities with dynamic usage data
+- Optional `?project=` parameter adds per-project utilization percentages
+- CCEMHelper `fetchUsageLimits()` + `UsageLimitsResponse` Swift model
+
+**API Key Management** (CCEM-265)
+- `GET /api/v2/auth/api-keys`, `POST /api/v2/auth/api-keys`, `DELETE /api/v2/auth/api-keys/:id`
+- Delegates to existing `ApiKeyStore` CRUD operations
+
+**Skills + AgentLock Cross-Reference** (CCEM-314)
+- Skills drawer shows AgentLock authorization status per skill
+- Recent auth decisions from `AuditLog.tail/1` displayed in skill detail panel
+
+**CCEMHelper Usage UX** (CCEM-321)
+- Tabbed usage section in MenuBarView: Summary, By Model, Sessions
+- Settings: default tab, refresh interval, token format preferences
+- `@AppStorage` keys: `usageDefaultTab`, `usageRefreshInterval`, `usageTokenFormat`
+
+**ActionEngine LVM Setup** (CCEM-326)
+- `lvm_integration_setup` action: seeds model capabilities, verifies integration registry
+
+**Backlog Verification** (CCEM-265, CCEM-266, CCEM-267, CCEM-269)
+- Bearer token middleware verified (ApiAuth plug + API key CRUD endpoints)
+- GET /api/notifications/:id route verified present
+- Skills UX pagination/dry-run/shift-select verified implemented
+
 ## v8.9.0 (2026-03-30)
 
 ### Platform Refactor — Modular Sidebar, Agent Identity, Formation Grouping

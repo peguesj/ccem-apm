@@ -1,10 +1,32 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file. Latest: v8.10.0 Auto-Approval Policies + Command Context Enrichment + Dashboard Widgets + Agent Alignment + LVM Foundation.
+All notable changes to CCEM APM are documented in this file. Latest: v8.10.1 Backlog Resolution — Claude Code Discovery Plugin, LVM Platform Plugin, Usage Limits API, API Key Management, Skills+AgentLock Cross-Reference, CCEMHelper Usage UX.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+
+## [8.10.1] - 2026-03-30
+
+### Added
+- **ClaudeCodePlugin**: PluginBehaviour plugin discovering MCP servers, hooks, skills, sessions from ~/.claude/settings.json
+- **ClaudePlatformLvmPlugin**: PluginBehaviour plugin with static model capabilities for claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5, claude-sonnet-4-5-20250514
+- **LvmIntegration**: IntegrationBehaviour integration with symbiosis link to usage_tracking native feature
+- **ClaudeCodeDiscoveryLive**: /plugins/claude-code LiveView with 4 tabs (MCP Servers, Hooks, Skills, Sessions)
+- **LvmStatusLive**: /integrations/lvm LiveView with 3 tabs (Models, Usage, Dynamic Capabilities)
+- **GET /api/usage/limits**: Model capability and utilization endpoint with optional project filter
+- **API Key CRUD**: GET/POST/DELETE /api/v2/auth/api-keys endpoints delegating to ApiKeyStore
+- **ClaudeUsageStore LVM table**: `@lvm_table` ETS for model capability persistence, record_model_capabilities/2, get_all_model_capabilities/0
+- **ActionEngine lvm_integration_setup**: Seeds model capabilities and verifies integration registry
+- **Skills AgentLock cross-reference**: Skill drawer shows authorization status and recent auth decisions
+- **CCEMHelper Usage tabs**: Summary/By Model/Sessions tabbed view in MenuBarView
+- **CCEMHelper Usage settings**: Default tab, refresh interval, token format preferences in SettingsView
+
+### Verified (existing implementations)
+- CCEM-265: Bearer token middleware (ApiAuth plug active)
+- CCEM-266: Health-check cascade (GET /health, GET /api/status)
+- CCEM-267: Skills UX pagination, dry-run preview, shift-select
+- CCEM-269: GET /api/notifications/:id route
 
 ## [8.10.0] - 2026-03-30
 

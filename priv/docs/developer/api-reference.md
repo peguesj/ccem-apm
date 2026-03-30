@@ -1,7 +1,9 @@
 # REST API Reference
 
-Complete API endpoint documentation for CCEM APM v8.10.0. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
+Complete API endpoint documentation for CCEM APM v8.10.1. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
 
+> **v8.10.1 additions**: Usage Limits API (`GET /api/usage/limits`) with model capability data and utilization. API Key Management (`/api/v2/auth/api-keys`) CRUD. Claude Code Discovery plugin at `/plugins/claude-code`. LVM Status integration at `/integrations/lvm`.
+>
 > **v8.10.0 additions**: Auto-Approval Policies API (`/api/v2/auth/auto-approval-policies`) with 6 endpoints for hierarchical scope matching policy CRUD + test-match dry-run. `CommandContextExtractor` enriches all pending approvals with `action_type`, `action_detail`, and `approval_reasoning`.
 >
 > **v8.9.0 additions**: Plane-PM Align API (`/api/v2/plane/sync-status`, `/api/v2/plane/sync`) for persistent Plane sync status and on-demand sync trigger.

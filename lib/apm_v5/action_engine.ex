@@ -202,6 +202,14 @@ defmodule ApmV5.ActionEngine do
       category: "skill_audit",
       icon: "magnifying-glass-circle",
       params: []
+    },
+    %{
+      id: "lvm_integration_setup",
+      name: "LVM Integration Setup",
+      description: "Configures the Claude Platform LVM integration. Verifies model capability data is available, registers known models in ClaudeUsageStore, and validates the LvmIntegration is active in the IntegrationRegistry.",
+      category: "integration",
+      icon: "cpu-chip",
+      params: []
     }
   ]
 
@@ -1340,6 +1348,72 @@ defmodule ApmV5.ActionEngine do
     end
 
     {:ok, alignment_report}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("lvm_integration_setup", _project_path, _params) do
+    alias ApmV5.Plugins.Lvm.ClaudePlatformLvmPlugin
+    alias ApmV5.ClaudeUsageStore
+    alias ApmV5.Integrations.IntegrationRegistry
+
+    # Step 1: Seed model capabilities into ClaudeUsageStore
+    # known_models/0 returns a map of %{model_name => capabilities}
+    models_map = ClaudePlatformLvmPlugin.known_models()
+    model_names = Map.keys(models_map)
+
+    seeded =
+      Enum.map(model_names, fn model ->
+        caps = ClaudePlatformLvmPlugin.get_capabilities(model)
+
+        if caps do
+          ClaudeUsageStore.record_model_capabilities(model, caps)
+          %{model: model, status: "seeded"}
+        else
+          %{model: model, status: "skipped_no_caps"}
+        end
+      end)
+
+    # Step 2: Verify LvmIntegration in IntegrationRegistry
+    integrations =
+      try do
+        IntegrationRegistry.list_integrations()
+      rescue
+        _ -> []
+      catch
+        _, _ -> []
+      end
+
+    lvm_active = Enum.any?(integrations, fn i ->
+      match?(%{name: "lvm_manager"}, i) || match?(%{name: :lvm_manager}, i)
+    end)
+
+    # Step 3: Build report
+    report = %{
+      models_seeded: seeded,
+      model_count: length(model_names),
+      lvm_integration_active: lvm_active,
+      store_capabilities: ClaudeUsageStore.get_all_model_capabilities(),
+      status: if(lvm_active, do: "complete", else: "integration_not_registered"),
+      completed_at: DateTime.utc_now() |> DateTime.to_iso8601()
+    }
+
+    # Notify
+    try do
+      Phoenix.PubSub.broadcast(ApmV5.PubSub, "notifications", {:new_notification, %{
+        type: if(lvm_active, do: "success", else: "warning"),
+        title: "LVM Integration Setup",
+        message: "#{length(model_names)} models seeded, integration #{if lvm_active, do: "active", else: "not registered"}",
+        category: "integration",
+        data: Jason.encode!(report)
+      }})
+    rescue
+      _ -> :ok
+    catch
+      _, _ -> :ok
+    end
+
+    {:ok, report}
   rescue
     e -> {:error, Exception.message(e)}
   end
