@@ -18,9 +18,18 @@ defmodule ApmV5Web.DrtwLive do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
       <.sidebar_nav current_path="/drtw" />
-      <div class="flex-1 overflow-y-auto p-6">
-        <h1 class="text-2xl font-bold mb-4">Don't Reinvent The Wheel</h1>
-        <p class="text-base-content/70">Discovery framework for finding existing solutions before writing custom code.</p>
+
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">DRTW</h2>
+            <div class="badge badge-sm badge-ghost">Discovery Framework</div>
+          </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-4 space-y-4">
+          <p class="text-base-content/70">Discovery framework for finding existing solutions before writing custom code.</p>
+        </main>
       </div>
     </div>
     <.wizard page="welcome" dom_id="ccem-wizard-welcome-drtw" />

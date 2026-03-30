@@ -45,20 +45,22 @@ defmodule ApmV5Web.HealthCheckLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-100 overflow-hidden">
+    <div class="flex h-screen bg-base-300 overflow-hidden">
       <.sidebar_nav current_path="/health" />
 
       <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="bg-base-200 border-b border-base-300 px-4 py-2 flex items-center justify-between flex-shrink-0">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
           <div class="flex items-center gap-3">
-            <h1 class="font-semibold text-sm">Health Checks</h1>
+            <h2 class="text-sm font-semibold text-base-content">Health Checks</h2>
             <span class={["badge badge-sm", overall_badge_class(@overall)]}>
               {@overall}
             </span>
           </div>
-          <button phx-click="run_checks" class="btn btn-xs btn-ghost gap-1">
-            <.icon name="hero-arrow-path" class="size-3.5" /> Run Checks
-          </button>
+          <div class="flex items-center gap-2">
+            <button phx-click="run_checks" class="btn btn-xs btn-ghost gap-1">
+              <.icon name="hero-arrow-path" class="size-3.5" /> Run Checks
+            </button>
+          </div>
         </header>
 
         <div class="flex-1 overflow-y-auto p-4">

@@ -48,17 +48,21 @@ defmodule ApmV5Web.ConversationMonitorLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-100 overflow-hidden">
+    <div class="flex h-screen bg-base-300 overflow-hidden">
       <.sidebar_nav current_path="/conversations" />
 
       <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="bg-base-200 border-b border-base-300 px-4 py-2 flex items-center gap-3 flex-shrink-0">
-          <h1 class="font-semibold text-sm">Conversations</h1>
-          <span :if={@active_count > 0} class="badge badge-success badge-sm">
-            {@active_count} active
-          </span>
-          <span :if={@active_count == 0} class="badge badge-ghost badge-sm">idle</span>
-          <div class="ml-auto text-xs text-base-content/40">Live via PubSub</div>
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">Conversations</h2>
+            <span :if={@active_count > 0} class="badge badge-success badge-sm">
+              {@active_count} active
+            </span>
+            <span :if={@active_count == 0} class="badge badge-ghost badge-sm">idle</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-base-content/40">Live via PubSub</span>
+          </div>
         </header>
 
         <div class="flex-1 overflow-y-auto p-4">

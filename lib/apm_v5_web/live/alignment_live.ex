@@ -139,83 +139,81 @@ defmodule ApmV5Web.AlignmentLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex flex-col h-full min-h-screen bg-zinc-950 text-zinc-100">
-      <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
-        <div class="flex items-center gap-3">
-          <.icon name="hero-magnifying-glass-circle" class="w-6 h-6 text-violet-400" />
-          <h1 class="text-lg font-semibold text-zinc-100">Agent Alignment Audit</h1>
-          <span class="text-xs text-zinc-500 ml-2">~/.claude/skills/ referential integrity</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <%= if @report do %>
-            <span class={[
-              "text-sm font-bold px-3 py-1 rounded-full",
-              overall_score_class(@report)
-            ]}>
-              Score: <%= Map.get(@report, "overall_score", 0) %>/100
-            </span>
-          <% end %>
-          <button
-            phx-click="run_audit"
-            disabled={@running}
-            class={[
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              if(@running,
-                do: "bg-zinc-700 text-zinc-400 cursor-not-allowed",
-                else: "bg-violet-600 hover:bg-violet-500 text-white cursor-pointer"
-              )
-            ]}
-          >
-            <.icon name={if @running, do: "hero-arrow-path", else: "hero-play"} class={["w-4 h-4", if(@running, do: "animate-spin", else: "")]} />
-            <%= if @running, do: "Running Audit...", else: "Run Audit" %>
-          </button>
-        </div>
-      </div>
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path="/alignment" />
 
-      <!-- Error banner -->
-      <%= if @error do %>
-        <div class="mx-6 mt-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-sm text-red-300">
-          <%= @error %>
-        </div>
-      <% end %>
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">Agent Alignment Audit</h2>
+            <div class="badge badge-sm badge-ghost">referential integrity</div>
+            <%= if @report do %>
+              <span class={[
+                "text-xs font-bold px-2 py-0.5 rounded-full",
+                overall_score_class(@report)
+              ]}>
+                Score: <%= Map.get(@report, "overall_score", 0) %>/100
+              </span>
+            <% end %>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              phx-click="run_audit"
+              disabled={@running}
+              class={[
+                "btn btn-xs gap-1",
+                if(@running, do: "btn-disabled", else: "btn-primary")
+              ]}
+            >
+              <.icon name={if @running, do: "hero-arrow-path", else: "hero-play"} class={["size-3.5", if(@running, do: "animate-spin", else: "")]} />
+              <%= if @running, do: "Running...", else: "Run Audit" %>
+            </button>
+          </div>
+        </header>
 
-      <!-- Summary row -->
-      <%= if @report do %>
-        <div class="flex gap-4 px-6 py-3 border-b border-zinc-800">
-          <% summary = Map.get(@report, "summary", %{}) %>
-          <div class="flex items-center gap-2 text-sm">
-            <span class="w-2 h-2 rounded-full bg-zinc-500"></span>
-            <span class="text-zinc-400">Total:</span>
-            <span class="text-zinc-100 font-medium"><%= Map.get(summary, "total_skills", 0) %></span>
+        <!-- Error banner -->
+        <%= if @error do %>
+          <div class="mx-4 mt-4 p-3 bg-error/10 border border-error/30 rounded-lg text-sm text-error">
+            <%= @error %>
           </div>
-          <div class="flex items-center gap-2 text-sm">
-            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span class="text-zinc-400">Aligned:</span>
-            <span class="text-emerald-400 font-medium"><%= Map.get(summary, "fully_aligned", 0) %></span>
-          </div>
-          <div class="flex items-center gap-2 text-sm">
-            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-            <span class="text-zinc-400">Partial:</span>
-            <span class="text-amber-400 font-medium"><%= Map.get(summary, "partially_aligned", 0) %></span>
-          </div>
-          <div class="flex items-center gap-2 text-sm">
-            <span class="w-2 h-2 rounded-full bg-red-500"></span>
-            <span class="text-zinc-400">Missing:</span>
-            <span class="text-red-400 font-medium"><%= Map.get(summary, "missing_alignment", 0) %></span>
-          </div>
-          <div class="flex items-center gap-2 text-sm ml-auto">
-            <.icon name="hero-exclamation-triangle" class="w-4 h-4 text-amber-400" />
-            <span class="text-zinc-400">Gaps:</span>
-            <span class="text-amber-400 font-medium"><%= Map.get(summary, "gap_count", 0) %></span>
-          </div>
-        </div>
-      <% end %>
+        <% end %>
 
-      <!-- Main content: graph + gap list -->
-      <div class="flex flex-1 overflow-hidden">
-        <!-- D3 graph panel -->
-        <div class="flex-1 relative overflow-hidden">
+        <!-- Summary row -->
+        <%= if @report do %>
+          <div class="flex gap-4 px-4 py-2 border-b border-base-300 flex-shrink-0 bg-base-200/50">
+            <% summary = Map.get(@report, "summary", %{}) %>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-base-content/30"></span>
+              <span class="text-base-content/60">Total:</span>
+              <span class="font-medium"><%= Map.get(summary, "total_skills", 0) %></span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-success"></span>
+              <span class="text-base-content/60">Aligned:</span>
+              <span class="text-success font-medium"><%= Map.get(summary, "fully_aligned", 0) %></span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-warning"></span>
+              <span class="text-base-content/60">Partial:</span>
+              <span class="text-warning font-medium"><%= Map.get(summary, "partially_aligned", 0) %></span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-error"></span>
+              <span class="text-base-content/60">Missing:</span>
+              <span class="text-error font-medium"><%= Map.get(summary, "missing_alignment", 0) %></span>
+            </div>
+            <div class="flex items-center gap-2 text-xs ml-auto">
+              <.icon name="hero-exclamation-triangle" class="w-4 h-4 text-warning" />
+              <span class="text-base-content/60">Gaps:</span>
+              <span class="text-warning font-medium"><%= Map.get(summary, "gap_count", 0) %></span>
+            </div>
+          </div>
+        <% end %>
+
+        <!-- Main content: graph + gap list -->
+        <div class="flex flex-1 overflow-hidden">
+          <!-- D3 graph panel -->
+          <div class="flex-1 relative overflow-hidden">
           <div
             id="alignment-graph"
             phx-hook="AlignmentGraph"
@@ -237,38 +235,39 @@ defmodule ApmV5Web.AlignmentLive do
           </div>
         </div>
 
-        <!-- Gaps panel -->
-        <%= if @report && length(Map.get(@report, "gaps", [])) > 0 do %>
-          <div class="w-96 border-l border-zinc-800 flex flex-col overflow-hidden">
-            <div class="px-4 py-3 border-b border-zinc-800">
-              <h2 class="text-sm font-medium text-zinc-300">Alignment Gaps</h2>
-              <p class="text-xs text-zinc-500 mt-0.5">
-                <%= length(Map.get(@report, "gaps", [])) %> issues requiring attention
-              </p>
-            </div>
-            <div class="flex-1 overflow-y-auto py-2">
-              <%= for gap <- Map.get(@report, "gaps", []) do %>
-                <% gap = normalize_keys_for_template(gap) %>
-                <div class="px-4 py-3 border-b border-zinc-800/60 hover:bg-zinc-900/50">
-                  <div class="flex items-start gap-2">
-                    <span class={[
-                      "mt-0.5 w-2 h-2 rounded-full flex-shrink-0",
-                      gap_dot_class(gap["gap_type"])
-                    ]}></span>
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs font-mono text-zinc-300 truncate"><%= gap["skill"] %></span>
-                        <span class="text-xs text-zinc-600">·</span>
-                        <span class="text-xs text-zinc-500 truncate"><%= format_gap_type(gap["gap_type"]) %></span>
+          <!-- Gaps panel -->
+          <%= if @report && length(Map.get(@report, "gaps", [])) > 0 do %>
+            <div class="w-96 border-l border-base-300 flex flex-col overflow-hidden">
+              <div class="px-4 py-3 border-b border-base-300">
+                <h2 class="text-sm font-medium text-base-content">Alignment Gaps</h2>
+                <p class="text-xs text-base-content/50 mt-0.5">
+                  <%= length(Map.get(@report, "gaps", [])) %> issues requiring attention
+                </p>
+              </div>
+              <div class="flex-1 overflow-y-auto py-2">
+                <%= for gap <- Map.get(@report, "gaps", []) do %>
+                  <% gap = normalize_keys_for_template(gap) %>
+                  <div class="px-4 py-3 border-b border-base-300/60 hover:bg-base-200/50">
+                    <div class="flex items-start gap-2">
+                      <span class={[
+                        "mt-0.5 w-2 h-2 rounded-full flex-shrink-0",
+                        gap_dot_class(gap["gap_type"])
+                      ]}></span>
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                          <span class="text-xs font-mono text-base-content truncate"><%= gap["skill"] %></span>
+                          <span class="text-xs text-base-content/30">·</span>
+                          <span class="text-xs text-base-content/50 truncate"><%= format_gap_type(gap["gap_type"]) %></span>
+                        </div>
+                        <p class="text-xs text-base-content/50 mt-1 leading-relaxed"><%= gap["recommendation"] %></p>
                       </div>
-                      <p class="text-xs text-zinc-500 mt-1 leading-relaxed"><%= gap["recommendation"] %></p>
                     </div>
                   </div>
-                </div>
-              <% end %>
+                <% end %>
+              </div>
             </div>
-          </div>
-        <% end %>
+          <% end %>
+        </div>
       </div>
     </div>
     """

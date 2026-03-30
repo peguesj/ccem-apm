@@ -111,7 +111,7 @@ defmodule ApmV5Web.AgUiPluginLive do
 
       <div class="flex-1 flex flex-col overflow-hidden">
         <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 z-10">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
           <div class="flex items-center gap-3">
             <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-secondary/10">
               <.icon name="hero-bolt" class="size-4 text-secondary" />

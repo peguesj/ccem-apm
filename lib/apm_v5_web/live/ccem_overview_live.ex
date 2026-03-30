@@ -59,20 +59,23 @@ defmodule ApmV5Web.CcemOverviewLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-100 overflow-hidden">
+    <div class="flex h-screen bg-base-300 overflow-hidden">
       <.sidebar_nav current_path="/ccem" />
       <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Header --%>
-        <header class="bg-base-200 border-b border-base-300 px-4 py-2 flex items-center gap-3 flex-shrink-0">
-          <h1 class="font-semibold text-sm flex-1">CCEM Management</h1>
-          <button
-            phx-click="toggle_wizard"
-            class="btn btn-xs btn-ghost text-base-content/50 gap-1"
-            title="Getting Started"
-          >
-            <.icon name="hero-question-mark-circle" class="size-3.5" />
-            <span class="hidden sm:inline">Getting Started</span>
-          </button>
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">CCEM Management</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              phx-click="toggle_wizard"
+              class="btn btn-xs btn-ghost text-base-content/50 gap-1"
+              title="Getting Started"
+            >
+              <.icon name="hero-question-mark-circle" class="size-3.5" />
+              <span class="hidden sm:inline">Getting Started</span>
+            </button>
+          </div>
         </header>
 
         <%!-- Nav tiles --%>

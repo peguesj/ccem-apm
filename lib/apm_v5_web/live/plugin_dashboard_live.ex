@@ -582,19 +582,18 @@ defmodule ApmV5Web.PluginDashboardLive do
       <.sidebar_nav current_path={@current_path} />
 
       <div class="flex-1 flex flex-col overflow-hidden min-w-0">
-        <%!-- Header --%>
-        <header class="bg-base-200 border-b border-base-300 px-4 py-2 flex items-center justify-between flex-shrink-0">
-          <div class="flex items-center gap-2">
-            <h1 class="font-semibold text-sm">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">
               {if @current_path == "/integrations", do: "Integrations", else: "Plugins & MCP Servers"}
-            </h1>
-            <span class="badge badge-xs badge-outline">
+            </h2>
+            <div class="badge badge-sm badge-ghost">
               {if @current_path == "/integrations",
                 do: "#{length(@integrations)} registered",
                 else: "#{length(@mcp_servers)} MCP · #{length(@registered_plugins)} engine"}
-            </span>
+            </div>
           </div>
-          <div class="flex gap-2">
+          <div class="flex items-center gap-2">
             <button :if={@current_path == "/integrations"} phx-click="reload_integrations" class="btn btn-xs btn-ghost gap-1">
               <.icon name="hero-arrow-path" class="size-3.5" /> Reload
             </button>

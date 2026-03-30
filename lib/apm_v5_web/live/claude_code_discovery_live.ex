@@ -45,19 +45,25 @@ defmodule ApmV5Web.ClaudeCodeDiscoveryLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-6 space-y-6">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-white">Claude Code Discovery</h1>
-        <button phx-click="refresh" class="btn btn-sm btn-outline btn-info">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
-      </div>
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path="/plugins/claude-code" skill_count={@active_skill_count} />
 
-      <%!-- Tab navigation --%>
-      <div role="tablist" class="tabs tabs-bordered">
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">Claude Code Discovery</h2>
+            <div class="badge badge-sm badge-ghost"><%= length(@mcp_servers) %> MCP servers</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button phx-click="refresh" class="btn btn-xs btn-ghost gap-1">
+              <.icon name="hero-arrow-path" class="size-3.5" /> Refresh
+            </button>
+          </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-4 space-y-4">
+          <%!-- Tab navigation --%>
+          <div role="tablist" class="tabs tabs-bordered">
         <a role="tab" class={"tab #{if @active_tab == "mcp_servers", do: "tab-active"}"} phx-click="switch_tab" phx-value-tab="mcp_servers">
           MCP Servers (<%= length(@mcp_servers) %>)
         </a>
@@ -156,6 +162,8 @@ defmodule ApmV5Web.ClaudeCodeDiscoveryLive do
           <% _ -> %>
             <div class="text-center text-sm opacity-50 py-8">Unknown tab</div>
         <% end %>
+          </div>
+        </main>
       </div>
     </div>
     """
