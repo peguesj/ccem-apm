@@ -478,6 +478,16 @@ defmodule ApmV5Web.Router do
     # ── EXTENSION: plane (upm companion) ──────────────────────────────────
     get "/plane/sync-status", PlaneController, :sync_status
     post "/plane/sync", PlaneController, :sync
+
+    # ── EXTENSION: skills (dependency analysis) ──────────────────────────────
+    get "/skills/graph", SkillsController, :graph
+    get "/skills/dependencies/:id", SkillsController, :dependencies
+    get "/skills/cycles", SkillsController, :cycles
+    get "/skills/stats", SkillsController, :stats
+    get "/skills/health", SkillsController, :health
+    get "/skills/health/:id", SkillsController, :health_single
+    post "/skills/rescore", SkillsController, :rescore
+    post "/skills/analyze", SkillsController, :analyze
   end
 
   # A2UI flexible format endpoint

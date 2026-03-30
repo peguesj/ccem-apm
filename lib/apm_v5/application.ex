@@ -46,6 +46,10 @@ defmodule ApmV5.Application do
       ApmV5.BackfillStore,
       ApmV5.SkillsRegistryStore,
       ApmV5.ShowcaseDataStore,
+      # Skill dependency analyzer -- scans ~/.claude/skills/ and ./commands/ (Phase 1: v1.0.0)
+      ApmV5.Skills.SkillAnalyzer,
+      # Skill health scorer -- 5-dimension health assessment (Phase 2: v1.0.0)
+      ApmV5.Skills.SkillHealthScorer,
       # Sub-supervisor: AG-UI protocol layer
       ApmV5.Supervisors.AgUiSupervisorGroup,
       # Claude usage tracking (US-042)
