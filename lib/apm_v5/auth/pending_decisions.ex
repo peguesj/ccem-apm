@@ -234,10 +234,65 @@ defmodule ApmV5.Auth.PendingDecisions do
   defp sanitize_params(_), do: %{}
 
   defp notify_approval_required(entry) do
+    # Enrich from AgentRegistry — safe lookup, nil if agent not registered
+    agent_info =
+      if Process.whereis(ApmV5.AgentRegistry) do
+        case ApmV5.AgentRegistry.get_agent(entry.agent_id) do
+          info when is_map(info) -> info
+          _ -> %{}
+        end
+      else
+        %{}
+      end
+
+    agent_name    = agent_info[:agent_name] || agent_info[:name] || entry.agent_id
+    agent_def     = agent_info[:agent_definition] || agent_info[:role] || ""
+    formation_id  = agent_info[:formation_id]
+    squadron      = agent_info[:squadron]
+    swarm         = agent_info[:swarm]
+    role          = agent_info[:role] || agent_info[:formation_role]
+    story_id      = agent_info[:story_id]
+    wave          = agent_info[:wave] || agent_info[:wave_number]
+    work_item     = agent_info[:work_item_title]
+    parent_id     = agent_info[:parent_id]
+    invoked_by    = agent_info[:invoked_by] || agent_info[:parent_skill]
+
+    ttl_remaining = max(0, DateTime.diff(entry.expires_at, DateTime.utc_now(), :second))
+
+    # Build human-readable context subtext lines
+    context_lines =
+      [
+        if(agent_def != "", do: agent_def, else: nil),
+        if(invoked_by, do: "Called by: #{invoked_by}", else: nil),
+        if(formation_id, do: "Formation: #{formation_id}#{if squadron, do: " / #{squadron}", else: ""}#{if swarm, do: " / #{swarm}", else: ""}", else: nil),
+        if(role, do: "Role: #{role}", else: nil),
+        if(story_id, do: "Story: #{story_id}#{if work_item, do: " — #{work_item}", else: ""}", else: nil),
+        if(wave, do: "Wave: #{wave}", else: nil),
+        if(parent_id && parent_id != entry.agent_id, do: "Parent: #{parent_id}", else: nil)
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    # Summarize tool params for display
+    params_summary =
+      case entry.params do
+        p when map_size(p) == 0 -> nil
+        p ->
+          p
+          |> Enum.map(fn {k, v} -> "#{k}: #{String.slice(to_string(v), 0, 60)}" end)
+          |> Enum.join(", ")
+      end
+
+    title = "#{agent_name} is requesting #{entry.tool_name}"
+
+    message_parts =
+      ["#{entry.risk_level} risk · #{ttl_remaining}s remaining"] ++
+      context_lines ++
+      if(params_summary, do: ["Params: #{params_summary}"], else: [])
+
     payload = Jason.encode!(%{
       type: "warning",
-      title: "AgentLock — Approval Required",
-      message: "#{entry.tool_name} · #{entry.risk_level} risk · #{entry.agent_id}",
+      title: title,
+      message: Enum.join(message_parts, "\n"),
       category: "agentlock",
       actions: [
         %{
@@ -254,10 +309,24 @@ defmodule ApmV5.Auth.PendingDecisions do
         }
       ],
       metadata: %{
-        request_id: entry.request_id,
-        agent_id: entry.agent_id,
-        tool_name: entry.tool_name,
-        risk_level: entry.risk_level
+        request_id:   entry.request_id,
+        agent_id:     entry.agent_id,
+        agent_name:   agent_name,
+        agent_definition: agent_def,
+        tool_name:    entry.tool_name,
+        risk_level:   entry.risk_level,
+        ttl_seconds:  ttl_remaining,
+        expires_at:   DateTime.to_iso8601(entry.expires_at),
+        formation_id: formation_id,
+        squadron:     squadron,
+        swarm:        swarm,
+        role:         role,
+        story_id:     story_id,
+        wave:         wave,
+        work_item_title: work_item,
+        parent_id:    parent_id,
+        invoked_by:   invoked_by,
+        params_summary: params_summary
       }
     })
 

@@ -43,6 +43,7 @@ import LoadContext from "./hooks/load_context"
 import CcemAssistant from "./hooks/ccem_assistant"
 import SkillsHook from "./hooks/skills"
 import ShowcaseSyncHook from "./hooks/showcase_sync"
+import AlignmentGraph from "./hooks/alignment_graph"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -94,7 +95,8 @@ const Hooks = {
   LoadContext,
   CcemAssistant,
   SkillsHook,
-  ShowcaseSyncHook
+  ShowcaseSyncHook,
+  AlignmentGraph
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

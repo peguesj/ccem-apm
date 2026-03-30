@@ -194,6 +194,14 @@ defmodule ApmV5.ActionEngine do
         %{name: "skill_name", type: "string", required: false},
         %{name: "fix", type: "boolean", required: false}
       ]
+    },
+    %{
+      id: "agent_alignment_audit",
+      name: "Agent Alignment Audit",
+      description: "Scans all skills in ~/.claude/skills/ and audits agent definition quality: checks APM registration patterns (fire-and-forget curl to /api/register), formation_role enum usage (orchestrator|squadron_lead|swarm_agent|cluster_agent|individual), fmt-YYYYMMDD convention, and structural vs runtime-only definitions. Returns a scored alignment_report with gaps and recommendations.",
+      category: "skill_audit",
+      icon: "magnifying-glass-circle",
+      params: []
     }
   ]
 
@@ -1162,6 +1170,176 @@ defmodule ApmV5.ActionEngine do
       do: "#{length(misaligned)} misaligned: #{Enum.map(misaligned, & &1.skill) |> Enum.join(", ")}",
       else: "All #{length(aligned)} skills aligned."
     {:ok, "Checked #{length(findings)} skills. #{msg}"}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("agent_alignment_audit", _project_path, _params) do
+    skills_root = Path.expand("~/.claude/skills")
+
+    skills =
+      case File.ls(skills_root) do
+        {:ok, dirs} ->
+          dirs
+          |> Enum.filter(fn d -> File.dir?(Path.join(skills_root, d)) end)
+          |> Enum.sort()
+        _ -> []
+      end
+
+    skill_results =
+      Enum.map(skills, fn skill ->
+        skill_md = Path.join([skills_root, skill, "SKILL.md"])
+
+        case File.read(skill_md) do
+          {:ok, content} ->
+            has_register = Regex.match?(~r/api\/register/, content)
+            has_formation_role = Regex.match?(~r/formation_role/, content)
+            has_agent_type = Regex.match?(~r/agent_type/, content)
+            has_fmt_id = Regex.match?(~r/fmt-\d{8}/, content)
+            has_subagent = Regex.match?(~r/subagent_type/, content)
+
+            # Count agent_id occurrences as proxy for agent count
+            agent_id_count =
+              ~r/agent_id/
+              |> Regex.scan(content)
+              |> length()
+
+            # Determine registration pattern
+            reg_pattern =
+              cond do
+                has_register && has_formation_role -> "apm"
+                has_register -> "partial"
+                has_subagent -> "subagent_only"
+                true -> "none"
+              end
+
+            # Integrity scoring (0-100)
+            score =
+              [
+                {has_register, 35},
+                {has_formation_role, 25},
+                {has_agent_type, 20},
+                {has_fmt_id, 10},
+                {agent_id_count > 0, 10}
+              ]
+              |> Enum.reduce(0, fn {cond_met, pts}, acc ->
+                if cond_met, do: acc + pts, else: acc
+              end)
+
+            integrity =
+              cond do
+                score >= 80 -> "ok"
+                score >= 40 -> "partial"
+                true -> "missing"
+              end
+
+            gaps =
+              []
+              |> then(fn g -> if has_register, do: g, else: [{skill, "missing_apm_registration", "Add fire-and-forget curl to POST /api/register on agent spawn"} | g] end)
+              |> then(fn g -> if has_formation_role, do: g, else: [{skill, "missing_formation_role", "Add formation_role enum: orchestrator|squadron_lead|swarm_agent|cluster_agent|individual"} | g] end)
+              |> then(fn g -> if has_agent_type, do: g, else: [{skill, "missing_agent_type", "Add agent_type field matching formation_role value"} | g] end)
+              |> then(fn g -> if has_fmt_id || agent_id_count == 0, do: g, else: [{skill, "missing_fmt_convention", "Use fmt-YYYYMMDD-NNN-role-seq naming convention for agent IDs"} | g] end)
+
+            %{
+              skill: skill,
+              has_skill_md: true,
+              agent_count: agent_id_count,
+              has_agents: agent_id_count > 0 || has_subagent,
+              registration_pattern: reg_pattern,
+              has_formation_role: has_formation_role,
+              has_agent_type: has_agent_type,
+              has_fmt_convention: has_fmt_id,
+              integrity_score: score,
+              integrity: integrity,
+              gaps: gaps
+            }
+
+          _ ->
+            %{
+              skill: skill,
+              has_skill_md: false,
+              agent_count: 0,
+              has_agents: false,
+              registration_pattern: "none",
+              has_formation_role: false,
+              has_agent_type: false,
+              has_fmt_convention: false,
+              integrity_score: 0,
+              integrity: "missing",
+              gaps: [{skill, "missing_skill_md", "Create SKILL.md with agent definitions"}]
+            }
+        end
+      end)
+
+    skills_with_agents = Enum.filter(skill_results, & &1.has_agents)
+    aligned = Enum.filter(skill_results, &(&1.integrity == "ok"))
+    partial = Enum.filter(skill_results, &(&1.integrity == "partial"))
+    missing = Enum.filter(skill_results, &(&1.integrity == "missing"))
+
+    all_gaps =
+      skill_results
+      |> Enum.flat_map(& &1.gaps)
+      |> Enum.map(fn {skill, gap_type, recommendation} ->
+        %{skill: skill, gap_type: gap_type, recommendation: recommendation}
+      end)
+
+    overall_score =
+      if length(skills_with_agents) == 0 do
+        0
+      else
+        scores = Enum.map(skills_with_agents, & &1.integrity_score)
+        round(Enum.sum(scores) / length(scores))
+      end
+
+    alignment_report = %{
+      total_skills: length(skills),
+      skills_with_agents: Enum.map(skills_with_agents, fn s ->
+        %{name: s.skill, agent_count: s.agent_count, integrity_score: s.integrity_score}
+      end),
+      aligned: Enum.map(aligned, fn s ->
+        %{skill: s.skill, agent_type: s.registration_pattern, registration_pattern: s.registration_pattern}
+      end),
+      partial: Enum.map(partial, fn s ->
+        %{skill: s.skill, registration_pattern: s.registration_pattern, integrity_score: s.integrity_score}
+      end),
+      gaps: all_gaps,
+      overall_score: overall_score,
+      summary: %{
+        total_skills: length(skills),
+        skills_with_agents: length(skills_with_agents),
+        fully_aligned: length(aligned),
+        partially_aligned: length(partial),
+        missing_alignment: length(missing),
+        gap_count: length(all_gaps)
+      },
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601()
+    }
+
+    # Broadcast to PubSub for live graph update
+    try do
+      Phoenix.PubSub.broadcast(ApmV5.PubSub, "alignment:update", {:alignment_report, alignment_report})
+    rescue
+      _ -> :ok
+    catch
+      _, _ -> :ok
+    end
+
+    # Notify
+    try do
+      Phoenix.PubSub.broadcast(ApmV5.PubSub, "notifications", {:new_notification, %{
+        type: if(overall_score >= 70, do: "success", else: "warning"),
+        title: "Agent Alignment Audit",
+        message: "Score: #{overall_score}/100 — #{length(aligned)} aligned, #{length(partial)} partial, #{length(missing)} missing",
+        category: "skill_audit",
+        data: Jason.encode!(%{overall_score: overall_score, gap_count: length(all_gaps)})
+      }})
+    rescue
+      _ -> :ok
+    catch
+      _, _ -> :ok
+    end
+
+    {:ok, alignment_report}
   rescue
     e -> {:error, Exception.message(e)}
   end

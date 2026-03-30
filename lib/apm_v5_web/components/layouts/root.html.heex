@@ -75,5 +75,115 @@
     <ApmV5Web.Accessibility.skip_link />
     {@inner_content}
     <div id="toast-root" phx-hook="Toast"></div>
+
+    <%!-- Global AgentLock Pending Decision Modal — polls /api/v2/auth/pending, works on every page --%>
+    <div id="agentlock-global-modal" style="display:none;" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div class="bg-base-200 border border-amber-500/60 rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6" role="dialog" aria-modal="true" aria-labelledby="agentlock-global-title">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20 shrink-0">
+            <svg class="h-5 w-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+          </span>
+          <div>
+            <h2 id="agentlock-global-title" class="text-base font-semibold text-amber-300">AgentLock — Approval Required</h2>
+            <p class="text-xs text-base-content/50">A tool action requires your authorization</p>
+          </div>
+        </div>
+        <div class="space-y-2 mb-5">
+          <div class="flex justify-between text-sm">
+            <span class="text-base-content/50">Agent</span>
+            <span id="agentlock-modal-agent" class="font-mono text-base-content truncate max-w-xs text-right"></span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-base-content/50">Tool</span>
+            <span id="agentlock-modal-tool" class="font-mono text-amber-300"></span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-base-content/50">Risk</span>
+            <span id="agentlock-modal-risk" class="badge badge-sm badge-warning font-mono"></span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-base-content/50">Expires</span>
+            <span id="agentlock-modal-ttl" class="font-mono text-amber-400 tabular-nums">20s</span>
+          </div>
+        </div>
+        <div class="flex gap-3 justify-end">
+          <button id="agentlock-modal-deny" class="btn btn-sm btn-error btn-outline" onclick="window.__agentlockDecide('deny')">Deny</button>
+          <button id="agentlock-modal-approve" class="btn btn-sm btn-success" onclick="window.__agentlockDecide('approve')">Approve</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        let currentPendingId = null;
+        let ttlInterval = null;
+        let ttlSeconds = 20;
+        let pollInterval = null;
+
+        const modal = () => document.getElementById('agentlock-global-modal');
+
+        function showModal(entry) {
+          if (!modal()) return;
+          currentPendingId = entry.request_id;
+          ttlSeconds = entry.ttl_seconds || 20;
+          document.getElementById('agentlock-modal-agent').textContent = entry.agent_id || '—';
+          document.getElementById('agentlock-modal-tool').textContent = entry.tool_name || '—';
+          document.getElementById('agentlock-modal-risk').textContent = entry.risk_level || 'medium';
+          document.getElementById('agentlock-modal-ttl').textContent = ttlSeconds + 's';
+          modal().style.display = 'flex';
+          clearInterval(ttlInterval);
+          ttlInterval = setInterval(() => {
+            ttlSeconds--;
+            const el = document.getElementById('agentlock-modal-ttl');
+            if (el) el.textContent = Math.max(0, ttlSeconds) + 's';
+            if (ttlSeconds <= 0) { hideModal(); }
+          }, 1000);
+        }
+
+        function hideModal() {
+          if (!modal()) return;
+          modal().style.display = 'none';
+          currentPendingId = null;
+          clearInterval(ttlInterval);
+        }
+
+        window.__agentlockDecide = function(decision) {
+          if (!currentPendingId) return;
+          const id = currentPendingId;
+          hideModal();
+          fetch('/api/v2/auth/decide', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''},
+            body: JSON.stringify({request_id: id, decision: decision})
+          }).catch(() => {});
+        };
+
+        function poll() {
+          fetch('/api/v2/auth/pending')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (!data) return;
+              const entries = data.pending || data.data || (Array.isArray(data) ? data : []);
+              const pending = entries.filter(e => e.status === 'pending' || !e.status);
+              if (pending.length > 0 && pending[0].request_id !== currentPendingId) {
+                showModal(pending[0]);
+              } else if (pending.length === 0 && currentPendingId) {
+                hideModal();
+              }
+            })
+            .catch(() => {});
+        }
+
+        // Start polling after a brief delay to let the page settle
+        document.addEventListener('DOMContentLoaded', () => {
+          setTimeout(() => {
+            poll();
+            pollInterval = setInterval(poll, 2500);
+          }, 1000);
+        });
+      })();
+    </script>
   </body>
 </html>

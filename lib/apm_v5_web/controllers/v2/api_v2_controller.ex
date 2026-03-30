@@ -229,6 +229,7 @@ defmodule ApmV5Web.V2.ApiV2Controller do
       },
       "servers" => [%{"url" => "http://localhost:3032", "description" => "Local APM server"}],
       "tags" => [
+        # Core tags
         %{"name" => "Health", "description" => "Server health and status"},
         %{"name" => "Agents", "description" => "Agent registration and management"},
         %{"name" => "Sessions", "description" => "Session tracking"},
@@ -237,25 +238,31 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         %{"name" => "Ralph", "description" => "Ralph methodology integration"},
         %{"name" => "Commands", "description" => "Slash command registry"},
         %{"name" => "Tasks", "description" => "Task synchronization and input"},
-        %{"name" => "Skills", "description" => "Skill invocation tracking"},
-        %{"name" => "UPM", "description" => "Unified Project Management execution"},
-        %{"name" => "UPM Decision Gate", "description" => "Human-in-the-loop approval gates for UPM formation deployments (v8.4.0)"},
-        %{"name" => "Formations", "description" => "Formation management (domain split from UPM)"},
         %{"name" => "Ports", "description" => "Port registry and clash detection"},
         %{"name" => "Environments", "description" => "CCEM environment management"},
         %{"name" => "Config", "description" => "Server configuration"},
         %{"name" => "Projects", "description" => "Multi-project management"},
-        %{"name" => "AG-UI", "description" => "AG-UI SSE event stream"},
-        %{"name" => "Agent Context", "description" => "Real-time AG-UI context per agent — activity, events, tool calls (v8.4.0)"},
         %{"name" => "A2UI", "description" => "A2UI declarative component specs"},
         %{"name" => "Metrics", "description" => "Performance metrics (v2)"},
         %{"name" => "SLOs", "description" => "Service Level Objectives (v2)"},
         %{"name" => "Alerts", "description" => "Alert rules and history (v2)"},
         %{"name" => "Audit", "description" => "Audit log (v2)"},
         %{"name" => "Export", "description" => "Data export and import (v2)"},
-        %{"name" => "CCEM Management", "description" => "CCEM management LiveView pages (Showcase, Ports, CCEM overview)"},
-        %{"name" => "AgentLock Authorization", "description" => "AgentLock authorization protocol — session, token, policy, context, memory, and rate-limit management (v7.0.0)"},
-        %{"name" => "Coalesce", "description" => "Skill Logic Engine — ingest sources, plan skill diffs, gate-controlled apply (v8.4.0)"}
+        %{"name" => "Manifest", "description" => "API architecture manifest — core vs extension surface area"},
+        # Extension tags (x-extension: true on all operations)
+        %{"name" => "Skills", "description" => "[extension:skills] Skill registry, health scoring, and audit", "x-extension" => true},
+        %{"name" => "UPM", "description" => "[extension:upm] Unified Project Management execution tracking", "x-extension" => true},
+        %{"name" => "UPM Decision Gate", "description" => "[extension:upm] Human-in-the-loop approval gates for UPM formation deployments", "x-extension" => true},
+        %{"name" => "Formations", "description" => "[extension:formations] Formation domain controller", "x-extension" => true},
+        %{"name" => "AG-UI", "description" => "[extension:ag_ui] AG-UI SSE event stream, state, and tool calls", "x-extension" => true},
+        %{"name" => "Agent Context", "description" => "[extension:ag_ui] Real-time AG-UI context per agent — activity, events, tool calls", "x-extension" => true},
+        %{"name" => "CCEM Management", "description" => "[extension:showcase] Showcase LiveView pages (Showcase, Ports, CCEM overview)", "x-extension" => true},
+        %{"name" => "AgentLock Authorization", "description" => "[extension:agentlock] Authorization protocol — session, token, policy, context, memory, rate-limit management", "x-extension" => true},
+        %{"name" => "Coalesce", "description" => "[extension:coalesce] Skill Logic Engine — ingest sources, plan skill diffs, gate-controlled apply", "x-extension" => true},
+        %{"name" => "Plugins", "description" => "[extension:plugins] Plugin Engine — modular capability extensions", "x-extension" => true},
+        %{"name" => "Integrations", "description" => "[extension:plugins] Integration Engine — symbiosis between plugins and native features", "x-extension" => true},
+        %{"name" => "Usage", "description" => "[extension:usage] Claude usage tracking — token/model/cost per project and session", "x-extension" => true},
+        %{"name" => "Plane", "description" => "[extension:plane] Plane PM alignment agent — sync status and manual sync trigger", "x-extension" => true}
       ],
       "paths" => build_paths(),
       "components" => %{
@@ -654,6 +661,46 @@ defmodule ApmV5Web.V2.ApiV2Controller do
       "/api/v2/openapi.json" => %{
         "get" => %{"operationId" => "v2GetOpenApi", "summary" => "OpenAPI 3.0.3 specification", "tags" => ["Health"],
           "responses" => %{"200" => %{"description" => "OpenAPI spec"}}}
+      },
+      "/api/v2/manifest" => %{
+        "get" => %{
+          "operationId" => "v2GetManifest",
+          "summary" => "API architecture manifest",
+          "description" => "Returns a machine-readable summary of the core API surface and all loaded extensions, including route counts and enabled status. Use x-extension flag in the OpenAPI spec to identify extension endpoints.",
+          "tags" => ["Manifest"],
+          "responses" => %{
+            "200" => %{
+              "description" => "Manifest payload",
+              "content" => %{
+                "application/json" => %{
+                  "schema" => %{
+                    "type" => "object",
+                    "properties" => %{
+                      "core_version" => %{"type" => "string"},
+                      "architecture" => %{"type" => "string"},
+                      "extensions" => %{
+                        "type" => "array",
+                        "items" => %{
+                          "type" => "object",
+                          "properties" => %{
+                            "name" => %{"type" => "string"},
+                            "version" => %{"type" => "string"},
+                            "enabled" => %{"type" => "boolean"},
+                            "routes" => %{"type" => "integer"},
+                            "description" => %{"type" => "string"},
+                            "path_prefix" => %{"type" => "string"}
+                          }
+                        }
+                      },
+                      "core_routes" => %{"type" => "integer"},
+                      "total_routes" => %{"type" => "integer"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       # AgentLock Authorization endpoints (v7.0.0)
       "/api/v2/auth/authorize" => %{
@@ -1339,6 +1386,62 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         |> put_status(:not_found)
         |> json(%{error: "Verification session not found", id: id})
     end
+  end
+
+  # ========== Manifest ==========
+
+  @doc """
+  GET /api/v2/manifest — API architecture manifest.
+
+  Returns a machine-readable summary of the core API surface and all loaded
+  extensions, including route counts and enabled status. Useful for tooling
+  that needs to discover which extensions are active without parsing the full
+  OpenAPI spec.
+  """
+  def manifest(conn, _params) do
+    version = Mix.Project.config()[:version]
+
+    payload = %{
+      core_version: version,
+      architecture: "microkernel+extensions",
+      description: "Core APM monitoring primitives with independently-delimited extension modules.",
+      extensions: [
+        %{name: "agentlock", version: version, enabled: true, routes: 26,
+          description: "AgentLock authorization — session, token, policy, context, memory, rate-limit management",
+          path_prefix: "/api/v2/auth/*"},
+        %{name: "upm", version: version, enabled: true, routes: 30,
+          description: "Unified Project Management — execution tracking, module CRUD, decision gates",
+          path_prefix: "/api/upm/*, /api/v2/upm/*"},
+        %{name: "coalesce", version: version, enabled: true, routes: 8,
+          description: "Skill Logic Engine — ingest sources, plan skill diffs, gate-controlled apply",
+          path_prefix: "/api/v2/coalesce/*"},
+        %{name: "skills", version: version, enabled: true, routes: 6,
+          description: "Skills registry, health scoring, and audit",
+          path_prefix: "/api/skills/*"},
+        %{name: "showcase", version: version, enabled: true, routes: 3,
+          description: "GIMME-style project showcase data API",
+          path_prefix: "/api/showcase/*"},
+        %{name: "ag_ui", version: version, enabled: true, routes: 14,
+          description: "AG-UI SSE event stream, tool calls, state management, generative UI",
+          path_prefix: "/api/ag-ui/*, /api/v2/ag-ui/*"},
+        %{name: "plugins", version: version, enabled: true, routes: 11,
+          description: "Plugin Engine and Integration Engine — modular capability extensions",
+          path_prefix: "/api/v2/plugins/*, /api/v2/integrations/*"},
+        %{name: "usage", version: version, enabled: true, routes: 5,
+          description: "Claude usage tracking — token/model/cost per project and session",
+          path_prefix: "/api/usage/*"},
+        %{name: "formations", version: version, enabled: true, routes: 10,
+          description: "Formation domain controller — CRUD for agentic formation state",
+          path_prefix: "/api/formations/*, /api/v2/formations/*"},
+        %{name: "plane", version: version, enabled: true, routes: 2,
+          description: "Plane PM alignment agent — sync status and manual sync trigger",
+          path_prefix: "/api/v2/plane/*"}
+      ],
+      core_routes: 62,
+      total_routes: 178
+    }
+
+    json(conn, payload)
   end
 
   defp safe_to_existing_atom(nil), do: nil

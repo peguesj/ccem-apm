@@ -200,58 +200,29 @@ defmodule ApmV5.AgentRegistry do
     {:ok, %{notification_counter: 0}}
   end
 
-  @valid_agent_types ~w(orchestrator squadron_lead swarm_agent cluster_agent individual persistent_service quality_agent unknown)
-
-  defp normalize_agent_type(type) when is_binary(type) do
-    if type in @valid_agent_types, do: type, else: "unknown"
-  end
-  defp normalize_agent_type(type) when is_atom(type) do
-    normalize_agent_type(to_string(type))
-  end
-  defp normalize_agent_type(_), do: "unknown"
-
   @impl true
   def handle_call({:register_agent, agent_id, metadata, project_name}, _from, state) do
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
-    raw_agent_type = Map.get(metadata, :agent_type, Map.get(metadata, "agent_type", "individual"))
+    # Build canonical identity via AgentIdentity (OTel gen_ai.agent.* + CCEM extensions)
+    params_with_project = Map.put(metadata, :project_name, project_name || Map.get(metadata, :project_name))
+    identity = ApmV5.AgentIdentity.build(agent_id, params_with_project)
+    identity_map = ApmV5.AgentIdentity.to_map(identity)
 
     agent =
-      %{
+      identity_map
+      |> Map.merge(%{
         id: agent_id,
-        name: Map.get(metadata, :name, agent_id),
-        # Agent identity fields (US-021)
-        agent_name: Map.get(metadata, :agent_name, Map.get(metadata, "agent_name",
-          Map.get(metadata, :name, agent_id))),
-        agent_type: normalize_agent_type(raw_agent_type),
-        agent_definition: Map.get(metadata, :agent_definition, Map.get(metadata, "agent_definition",
-          Map.get(metadata, :role, ""))),
-        tier: Map.get(metadata, :tier, 1),
-        status: Map.get(metadata, :status, "idle"),
-        deps: Map.get(metadata, :deps, []),
-        metadata: Map.get(metadata, :metadata, %{}),
-        project_name: project_name,
-        namespace: Map.get(metadata, :namespace, nil),
-        path: Map.get(metadata, :path, nil),
-        member_count: Map.get(metadata, :member_count, nil),
-        # Formation hierarchy fields
-        parent_id: Map.get(metadata, :parent_id, nil),
-        formation_id: Map.get(metadata, :formation_id, nil),
-        squadron: Map.get(metadata, :squadron, nil),
-        swarm: Map.get(metadata, :swarm, nil),
-        cluster: Map.get(metadata, :cluster, nil),
-        role: Map.get(metadata, :role, nil),
-        # UPM work-item fields
-        story_id: Map.get(metadata, :story_id, nil),
-        plane_issue_id: Map.get(metadata, :plane_issue_id, nil),
-        wave: Map.get(metadata, :wave, nil),
-        wave_number: Map.get(metadata, :wave_number, nil),
-        wave_total: Map.get(metadata, :wave_total, nil),
-        work_item_title: Map.get(metadata, :work_item_title, nil),
-        upm_session_id: Map.get(metadata, :upm_session_id, nil),
+        tier: Map.get(metadata, :tier, Map.get(metadata, "tier", 1)),
+        status: Map.get(metadata, :status, Map.get(metadata, "status", "idle")),
+        deps: Map.get(metadata, :deps, Map.get(metadata, "deps", [])),
+        metadata: Map.get(metadata, :metadata, Map.get(metadata, "metadata", %{})),
+        namespace: Map.get(metadata, :namespace, Map.get(metadata, "namespace", nil)),
+        member_count: Map.get(metadata, :member_count, Map.get(metadata, "member_count", nil)),
+        wave_total: Map.get(metadata, :wave_total, Map.get(metadata, "wave_total", nil)),
         registered_at: now,
         last_seen: now
-      }
+      })
 
     :ets.insert(@agents_table, {agent_id, agent})
 

@@ -1331,10 +1331,6 @@ defmodule ApmV5Web.SkillsLive do
     {:noreply, socket}
   end
 
-  def handle_info({:fix_preview_ready, preview}, socket) do
-    {:noreply, assign(socket, fix_preview: preview, fix_preview_loading: false)}
-  end
-
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   # --- Components ---

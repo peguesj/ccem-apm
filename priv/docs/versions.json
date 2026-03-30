@@ -1,0 +1,218 @@
+{
+  "latest": "8.9.0",
+  "versions": [
+    {
+      "version": "8.9.0",
+      "date": "2026-03-28",
+      "label": "v8.9.0 — Platform Refactor",
+      "summary": "Plugin/Integration symbiosis, agent identity taxonomy, formation TB layout, PlanePmAlign GenServer, JSONL session scanning, SimpleAgentsPlugin v2.0.",
+      "features": [
+        "Agent identity taxonomy: agent_name, agent_type, agent_definition stored in AgentRegistry with normalize_agent_type/1",
+        "PluginBehaviour optional callbacks: nav_items/0, settings_path/0, plugin_live_module/0, plugin_integrations/0",
+        "IntegrationBehaviour symbiosis: required_plugin/0, target_native_feature/0 cross-reference wiring",
+        "Formation graph TB (top-bottom) 4th layout mode + namespace bounding rectangle hulls",
+        "Dashboard dep graph project-level grouping + inactive project collapse toggle",
+        "Notification grouped view by category with collapse/expand; buffer cap 2000",
+        "SessionManager JSONL scan: load_jsonl_sessions/0 reads ~/.claude/projects/*/*.jsonl",
+        "PlanePmAlign GenServer: polls Plane API every 5min, broadcasts plane:sync PubSub",
+        "RalphPluginLive at /plugins/ralph (PRD/Formation/History tabs)",
+        "AgUiPluginLive at /plugins/ag_ui (Events/Agents/Config tabs)",
+        "SimpleAgentsPlugin v2.0.0: 11 coalesced actions (workspace_info, list_agents, list_tools, list_traces, get_trace, list_tasks, get_metrics, trace_summary, provider_stats, list_workflows, parity_status)"
+      ],
+      "new_endpoints": [
+        "GET /api/v2/plane/sync-status",
+        "POST /api/v2/plane/sync"
+      ],
+      "new_pages": [
+        "/plugins/ralph",
+        "/plugins/ag_ui"
+      ]
+    },
+    {
+      "version": "8.6.0",
+      "date": "2026-03-20",
+      "label": "v8.6.0 — AgentLock Reliability",
+      "summary": "Approve/Deny buttons in notification panel, global in-browser approval modal on all pages, CCEMHelper direct macOS notification delivery with action buttons.",
+      "features": [
+        "NotificationLive: phx-click Approve/Deny buttons for agentlock category (replaced broken href links)",
+        "GET /api/v2/auth/decide: browser-clickable approval URL, redirects to /authorization",
+        "NamespaceResolver: rescue ArgumentError when ETS table not yet initialized",
+        "Global AgentLock modal in root.html.heex: polls every 2.5s, z-[9999] overlay on all pages",
+        "AGENTLOCK_APPROVAL UNNotificationCategory with Approve/Deny macOS action buttons in CCEMHelper",
+        "CCEMHelper Test Notification button in SettingsView",
+        "AuthorizationLive full-screen overlay with 20s CountdownTimer",
+        "DashboardLive compact floating banner strip with inline Approve/Deny"
+      ],
+      "new_endpoints": [
+        "GET /api/v2/auth/decide"
+      ],
+      "new_pages": []
+    },
+    {
+      "version": "8.5.0",
+      "date": "2026-03-17",
+      "label": "v8.5.0 — Namespace UX + Azure Tunnel",
+      "summary": "Human-readable scoped labels, 20-second decision windows, Azure Container Apps remote tunnel with multi-project routing.",
+      "features": [
+        "NamespaceResolver GenServer: agent_label/session_label/gate_label via ETS :namespace_cache",
+        "PendingDecisions TTL: 120s → 20s; sweep interval: 15s → 3s",
+        "DecisionGate default timeout: 120s → 20s",
+        "AuthorizationLive: CountdownTimer JS hook, real-time PubSub approval banners",
+        "ccem-relay Phoenix project: deployed to Azure Container Apps",
+        "ApmV5.Tunnel.Client GenServer: outbound WebSocket via :gun, Phoenix v2 framing, auto-reconnect",
+        "Multi-project tunnel routing: /p/{project}/... path prefix stripping",
+        "Public URL: https://ccem-relay.wonderfulflower-c29529fc.eastus.azurecontainerapps.io"
+      ],
+      "new_endpoints": [],
+      "new_pages": []
+    },
+    {
+      "version": "8.4.0",
+      "date": "2026-03-10",
+      "label": "v8.4.0 — Agent Inspector + Formation Views",
+      "summary": "UPM plan inspector panel, formation multi-view modes (Graph/List/Grid), AG-UI context tracking, DecisionGate, ShowcaseChannel.",
+      "features": [
+        "UPM plan inspector pull-out column in WorkflowLive: toggle_inspector, select_story, close_inspector",
+        "Formation multi-view modes: Graph TD, Graph LR, Hierarchical List, Card Grid",
+        "AgentContextStore GenServer: AG-UI context per agent_id via ETS :agent_context",
+        "DecisionGate GenServer: interactive decision gating with CCEMHelper notification + osascript",
+        "ShowcaseChannel Phoenix Channel: showcase:* topic, real-time push of agent/notification events",
+        "ShowcaseSyncHook/ShowcaseSyncClient: JS LiveView hook + Phoenix client with auto-retry",
+        "AgentPanel: activity label, formation hierarchy badges, AG-UI context column",
+        "Coalesce foundation: CoalesceOrchestrator, CoalesceSupervisor, SkillLogicEngine, SwarmCoordinator"
+      ],
+      "new_endpoints": [
+        "POST /api/v2/upm/gate"
+      ],
+      "new_pages": []
+    },
+    {
+      "version": "8.3.0",
+      "date": "2026-03-05",
+      "label": "v8.3.0 — Universal Notifications",
+      "summary": "All 19 APM subsystems broadcast via NotificationBroadcaster. GettingStarted wizard with inline SVG fallbacks. CoWork session awareness.",
+      "features": [
+        "NotificationBroadcaster: universal coverage across all 19 subsystems",
+        "GettingStarted wizard: SVG_FALLBACKS[5] inline SVGs per slide, Lottie animates on CDN load",
+        "CoWork awareness in SessionManager: reads ~/.claude/teams/ + ~/.claude/tasks/"
+      ],
+      "new_endpoints": [],
+      "new_pages": []
+    },
+    {
+      "version": "8.2.0",
+      "date": "2026-03-01",
+      "label": "v8.2.0 — AgentLock Refinements",
+      "summary": "agent_name through auth pipeline, destructive command detection, reliable CCEMHelper notification delivery, Gap 9 approval fix.",
+      "features": [
+        "agent_name propagated through full authorization pipeline from hook to audit log",
+        "Destructive command detection: rm -rf, DROP TABLE, git push --force trigger critical risk",
+        "POST /api/v2/notifications/test: injects test audit entry, delivers macOS banner within 10s",
+        "CCEMHelper Settings scene (Cmd+comma) as system-level window",
+        "UNUserNotificationCenter.delegate set in CCEMHelperApp.init() for reliable banner delivery",
+        "agentlock_pre_tool.sh Gap 9 fix: polls GET /api/v2/auth/pending/:id?wait=30, receives token_id"
+      ],
+      "new_endpoints": [
+        "POST /api/v2/notifications/test"
+      ],
+      "new_pages": []
+    },
+    {
+      "version": "8.1.0",
+      "date": "2026-02-25",
+      "label": "v8.1.0 — Session Manager",
+      "summary": "SessionManager GenServer polling all active claude sessions, SessionManagerLive with 5-tab detail panel, CCEMHelper Settings/About/Help.",
+      "features": [
+        "ApmV5.SessionManager: polls ~/Developer/ccem/apm/sessions/*.json every 30s, ETS :session_manager_cache",
+        "SessionManagerLive at /sessions and /sessions/:id: split-panel with 5 tabs (Overview, Claude Config, Agents, Ports, Plugins)",
+        "CCEMHelper SettingsView: APM URL config, notification toggles, Launch at Login, connection test",
+        "CCEMHelper AboutView: version/build from bundle, GitHub link, Open APM Dashboard",
+        "CCEMHelper HelpView: Quick Start, Keyboard Shortcuts, Troubleshooting sections"
+      ],
+      "new_endpoints": [],
+      "new_pages": [
+        "/sessions",
+        "/sessions/:id"
+      ]
+    },
+    {
+      "version": "8.0.0",
+      "date": "2026-02-18",
+      "label": "v8.0.0 — Plugin/Integration Engine",
+      "summary": "Full modular plugin architecture with PluginBehaviour and IntegrationBehaviour contracts. 32-agent formation deployment for migration.",
+      "features": [
+        "PluginBehaviour: plugin_name/0, plugin_description/0, plugin_version/0, list_endpoints/0, handle_action/3",
+        "IntegrationBehaviour: integration_name/0, integration_description/0, handle_integration/2",
+        "PluginRegistry GenServer + ETS :plugin_registry with auto-registration on init",
+        "API router restructured with labeled scope blocks: core, auth, formation, upm, showcase, usage",
+        "GET /api/v2/manifest: API surface manifest with core vs extension classification"
+      ],
+      "new_endpoints": [
+        "GET /api/v2/plugins",
+        "GET /api/v2/plugins/:name",
+        "POST /api/v2/plugins/:name/action",
+        "GET /api/v2/manifest"
+      ],
+      "new_pages": [
+        "/plugins"
+      ]
+    },
+    {
+      "version": "7.3.0",
+      "date": "2026-02-10",
+      "label": "v7.3.0 — Plugin Engine + Plane PM",
+      "summary": "First plugin integration: Plane PM with live Kanban board, issue inspector drawer, and pre_tool_use plugin context enrichment.",
+      "features": [
+        "ApmV5.Plugins.PluginBehaviour behaviour contract",
+        "ApmV5.Plugins.PluginRegistry GenServer + ETS :plugin_registry",
+        "ApmV5.Plugins.Plane.PlanePlugin: list_issues, get_issue, list_projects, board_state, search_issues",
+        "PluginDashboardLive at /plugins: MCP Servers / Discovered / Registered tabs",
+        "Plane Kanban board with issue inspector pull-out drawer",
+        "pre_tool_use.sh plugin_context enrichment: emits {engine, plugin_name} in heartbeat context"
+      ],
+      "new_endpoints": [
+        "GET /api/v2/plugins/:name/board",
+        "GET /api/v2/plugins/:name/issues"
+      ],
+      "new_pages": [
+        "/plugins"
+      ]
+    },
+    {
+      "version": "7.0.0",
+      "date": "2026-01-28",
+      "label": "v7.0.0 — AgentLock Authorization System",
+      "summary": "Full agent authorization gating: PolicyEngine, TokenStore, SessionStore, RateLimiter, ContextTracker, MemoryGate, RedactionEngine, hooks, CCEMHelper integration.",
+      "features": [
+        "Auth.PolicyEngine: stateless risk evaluation with default tool risk map (low/medium/high/critical)",
+        "Auth.TokenStore: ETS-backed atk_ tokens with SHA-256 param binding, 15-min TTL",
+        "Auth.SessionStore: dual-indexed ETS by session_id and agent_id, monotonic trust",
+        "Auth.RateLimiter: sliding window rate limiting per {user, tool} pair",
+        "Auth.ContextTracker: trust/provenance tracking with monotonic degradation",
+        "Auth.MemoryGate: 7 prohibited patterns for memory write operations",
+        "Auth.RedactionEngine: 7 regex patterns, auto/manual/none redaction modes",
+        "Auth.AgentLifecycle: state machine module (spawned → authenticating → authorized → running → completing → terminated)",
+        "AuthorizationLive: 4-tab dashboard (Overview, Audit Log, Tokens, Sessions)",
+        "RoutingLive: D3.js authorization flow graph",
+        "agentlock_pre_tool.sh: PreToolUse authorization hook",
+        "agentlock_post_tool.sh: PostToolUse execution recording hook",
+        "CCEMHelper AuthorizationModels.swift + auth integration in MenuBarView"
+      ],
+      "new_endpoints": [
+        "POST /api/v2/auth/authorize",
+        "POST /api/v2/auth/decide",
+        "GET /api/v2/auth/pending",
+        "GET /api/v2/auth/pending/:id",
+        "GET /api/v2/auth/tokens",
+        "GET /api/v2/auth/sessions",
+        "GET /api/v2/auth/audit",
+        "POST /api/v2/auth/rate-limit/reset",
+        "DELETE /api/v2/auth/tokens/:id"
+      ],
+      "new_pages": [
+        "/authorization",
+        "/routing"
+      ]
+    }
+  ]
+}

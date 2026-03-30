@@ -304,12 +304,25 @@ defmodule ApmV5Web.ApiController do
     else
       project_name = params["project_name"] || params["project"]
 
+      # Pass all params as-is; AgentRegistry delegates to AgentIdentity.build/2
+      # which normalizes OTel gen_ai.agent.* fields + CCEM provenance extensions.
+      # New callers can supply: agent_name, invoked_by, definition_path, agent_version,
+      # agent_description, risk_level, trust_level in addition to existing fields.
       metadata = %{
         name: params["name"] || agent_id,
-        # Agent identity fields (US-021)
-        agent_name: params["agent_name"] || params["name"] || agent_id,
-        agent_type: params["agent_type"] || "individual",
+        agent_name: params["agent_name"] || params["name"],
+        agent_type: params["agent_type"] || params["formation_role"] || "individual",
         agent_definition: params["agent_definition"] || params["role"] || "",
+        agent_description: params["agent_description"] || params["agent_definition"] || params["role"],
+        agent_version: params["agent_version"],
+        # Provenance (new OTel-aligned fields)
+        invoked_by: params["invoked_by"],
+        definition_path: params["definition_path"] || params["path"],
+        parent_agent_id: params["parent_agent_id"] || params["parent_id"],
+        session_id: params["session_id"],
+        # AgentLock context hints
+        risk_level: params["risk_level"],
+        trust_level: params["trust_level"],
         tier: params["tier"] || 1,
         status: params["status"] || "idle",
         deps: params["deps"] || [],
@@ -317,7 +330,7 @@ defmodule ApmV5Web.ApiController do
         namespace: params["namespace"],
         path: params["path"],
         member_count: params["member_count"],
-        # Formation hierarchy fields
+        # Formation hierarchy
         parent_id: params["parent_id"],
         formation_id: params["formation_id"],
         squadron: params["squadron"],
@@ -339,9 +352,14 @@ defmodule ApmV5Web.ApiController do
       # Emit AG-UI RUN_STARTED event via HookBridge
       Task.start(fn -> HookBridge.translate_register(params) end)
 
+      # Return enriched identity fields so callers can confirm normalization
+      registered = AgentRegistry.get_agent(agent_id)
+      display_name = if registered, do: Map.get(registered, :display_name, agent_id), else: agent_id
+      resolved_name = if registered, do: Map.get(registered, :agent_name, agent_id), else: agent_id
+
       conn
       |> put_status(201)
-      |> json(%{ok: true, agent_id: agent_id})
+      |> json(%{ok: true, agent_id: agent_id, agent_name: resolved_name, display_name: display_name})
     end
   end
 
@@ -455,7 +473,8 @@ defmodule ApmV5Web.ApiController do
         wave_number: params["wave_number"] || params["wave"],
         wave_total: params["wave_total"],
         upm_context: upm_context,
-        actions: actions
+        actions: actions,
+        metadata: params["metadata"]
       }
 
     id = AgentRegistry.add_notification(notification)

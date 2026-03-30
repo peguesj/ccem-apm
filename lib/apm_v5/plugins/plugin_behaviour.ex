@@ -135,6 +135,26 @@ defmodule ApmV5.Plugins.PluginBehaviour do
   """
   @callback plugin_integrations() :: [module()]
 
+  @doc """
+  Optional. Returns a list of widget definitions that this plugin contributes to
+  the Dashboard widget palette.  Each map must conform to the `WidgetDefinition`
+  schema documented in `ApmV5.WidgetRegistry`.
+
+  These widgets are automatically registered in `ApmV5.WidgetRegistry` after
+  the plugin is loaded.
+
+  Example:
+      def dashboard_widgets do
+        [%{id: "my_board", name: "My Board", category: :plugin,
+           source_module: __MODULE__, refresh_interval: 60_000,
+           min_width: 4, min_height: 3, config_schema: %{}, plugin: "my_plugin",
+           version: "1.0.0", description: "Shows my board"}]
+      end
+
+  Return `[]` if this plugin provides no dashboard widgets.
+  """
+  @callback dashboard_widgets() :: [map()]
+
   @optional_callbacks [
     inspector_section: 1,
     supervisor_children: 0,
@@ -145,6 +165,7 @@ defmodule ApmV5.Plugins.PluginBehaviour do
     nav_items: 0,
     settings_path: 0,
     plugin_live_module: 0,
-    plugin_integrations: 0
+    plugin_integrations: 0,
+    dashboard_widgets: 0
   ]
 end

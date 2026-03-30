@@ -37,6 +37,7 @@ defmodule ApmV5Web.DocsLive do
   @impl true
   def mount(_params, _session, socket) do
     toc = DocsStore.get_toc()
+    versions_data = load_versions()
 
     socket =
       socket
@@ -56,6 +57,9 @@ defmodule ApmV5Web.DocsLive do
       |> assign(:collapsed_categories, MapSet.new())
       |> assign(:mobile_toc_open, false)
       |> assign(:active_skill_count, skill_count())
+      |> assign(:versions, versions_data["versions"] || [])
+      |> assign(:latest_version, versions_data["latest"] || "8.9.0")
+      |> assign(:selected_version, nil)
 
     {:ok, socket}
   end
@@ -147,6 +151,21 @@ defmodule ApmV5Web.DocsLive do
     {:noreply, assign(socket, :mobile_toc_open, !socket.assigns.mobile_toc_open)}
   end
 
+  def handle_event("select_version", %{"version" => ""}, socket) do
+    {:noreply, assign(socket, selected_version: nil)}
+  end
+
+  def handle_event("select_version", %{"version" => v}, socket) do
+    version = Enum.find(socket.assigns.versions, &(&1["version"] == v))
+    {:noreply, assign(socket,
+      selected_version: version,
+      doc_html: nil,
+      doc_title: nil,
+      current_path: nil,
+      page_headings: []
+    )}
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -196,6 +215,23 @@ defmodule ApmV5Web.DocsLive do
               <.icon name="hero-book-open" class="size-5 text-primary" />
               <span class="text-base font-bold text-base-content">Documentation</span>
             </a>
+            <%!-- Version selector --%>
+            <form phx-change="select_version" class="mb-3">
+              <select
+                name="version"
+                class="select select-bordered select-xs w-full bg-base-300/50 text-xs"
+                aria-label="Select version"
+              >
+                <option value="">Current (v{@latest_version})</option>
+                <option
+                  :for={v <- @versions}
+                  value={v["version"]}
+                  selected={@selected_version != nil && @selected_version["version"] == v["version"]}
+                >
+                  {v["label"]}
+                </option>
+              </select>
+            </form>
             <%!-- Search box --%>
             <form phx-change="search" phx-submit="search" class="relative">
               <.icon name="hero-magnifying-glass" class="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/30" />
@@ -227,7 +263,107 @@ defmodule ApmV5Web.DocsLive do
         <%!-- Content area --%>
         <div class="flex-1 flex overflow-hidden lg:mt-0 mt-12">
           <div class="flex-1 overflow-y-auto" id="docs-content-scroll">
-            <div :if={@doc_html} class="max-w-4xl mx-auto px-6 py-8 lg:px-10 lg:py-10">
+            <%!-- Version detail panel --%>
+            <div :if={@selected_version} class="max-w-4xl mx-auto px-6 py-8 lg:px-10 lg:py-10">
+              <nav class="flex items-center gap-1.5 text-xs text-base-content/40 mb-4">
+                <a href="/docs" phx-click="select_version" phx-value-version="" class="hover:text-primary transition-colors">Docs</a>
+                <.icon name="hero-chevron-right" class="size-3" />
+                <span class="text-base-content/50">Release Notes</span>
+                <.icon name="hero-chevron-right" class="size-3" />
+                <span class="text-base-content/60">{@selected_version["label"]}</span>
+              </nav>
+
+              <div class="flex items-start gap-4 mb-6">
+                <div class="flex-1">
+                  <h1 class="text-3xl font-extrabold text-base-content tracking-tight">{@selected_version["label"]}</h1>
+                  <p class="mt-2 text-base text-base-content/50 leading-relaxed">{@selected_version["summary"]}</p>
+                </div>
+                <span class="badge badge-lg badge-outline text-primary border-primary/30 font-mono shrink-0 mt-1">
+                  v{@selected_version["version"]}
+                </span>
+              </div>
+
+              <div class="flex items-center gap-3 mb-6">
+                <span class="badge badge-sm badge-ghost gap-1">
+                  <.icon name="hero-calendar-days" class="size-3" />
+                  {@selected_version["date"]}
+                </span>
+                <span class="badge badge-sm badge-ghost gap-1">
+                  <.icon name="hero-sparkles" class="size-3" />
+                  {length(@selected_version["features"] || [])} features
+                </span>
+                <span :if={length(@selected_version["new_endpoints"] || []) > 0} class="badge badge-sm badge-ghost gap-1">
+                  <.icon name="hero-arrows-right-left" class="size-3" />
+                  {length(@selected_version["new_endpoints"])} new endpoints
+                </span>
+              </div>
+
+              <div class="divider mt-0 mb-6"></div>
+
+              <%!-- Features --%>
+              <div :if={@selected_version["features"] && @selected_version["features"] != []} class="mb-8">
+                <h2 class="text-lg font-semibold text-base-content mb-4 flex items-center gap-2">
+                  <.icon name="hero-sparkles" class="size-5 text-primary" />
+                  What's New
+                </h2>
+                <ul class="space-y-2">
+                  <li :for={feat <- @selected_version["features"]} class="flex items-start gap-3 text-sm text-base-content/70">
+                    <span class="text-primary mt-0.5 shrink-0">›</span>
+                    <span>{feat}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <%!-- New endpoints --%>
+              <div :if={@selected_version["new_endpoints"] && @selected_version["new_endpoints"] != []} class="mb-8">
+                <h2 class="text-lg font-semibold text-base-content mb-4 flex items-center gap-2">
+                  <.icon name="hero-arrows-right-left" class="size-5 text-amber-400" />
+                  New API Endpoints
+                </h2>
+                <div class="space-y-1.5">
+                  <div :for={ep <- @selected_version["new_endpoints"]} class="flex items-center gap-3">
+                    <code class="text-xs bg-neutral px-2.5 py-1 rounded font-mono text-amber-300 border border-base-300/50">
+                      {ep}
+                    </code>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- New pages --%>
+              <div :if={@selected_version["new_pages"] && @selected_version["new_pages"] != []} class="mb-8">
+                <h2 class="text-lg font-semibold text-base-content mb-4 flex items-center gap-2">
+                  <.icon name="hero-rectangle-stack" class="size-5 text-emerald-400" />
+                  New LiveViews
+                </h2>
+                <div class="flex flex-wrap gap-2">
+                  <a
+                    :for={pg <- @selected_version["new_pages"]}
+                    href={pg}
+                    class="badge badge-outline badge-sm font-mono text-emerald-400 border-emerald-400/30 hover:bg-emerald-400/10 transition-colors"
+                  >
+                    {pg}
+                  </a>
+                </div>
+              </div>
+
+              <%!-- Version navigation --%>
+              <div class="mt-10 pt-6 border-t border-base-300 flex gap-3 flex-wrap">
+                <button
+                  phx-click="select_version"
+                  phx-value-version=""
+                  class="btn btn-sm btn-outline btn-primary gap-2"
+                >
+                  <.icon name="hero-arrow-left" class="size-4" />
+                  Back to current docs
+                </button>
+                <a href={"/api/v2/openapi.json"} target="_blank" class="btn btn-sm btn-ghost gap-2">
+                  <.icon name="hero-arrow-top-right-on-square" class="size-4" />
+                  OpenAPI spec
+                </a>
+              </div>
+            </div>
+
+            <div :if={@selected_version == nil && @doc_html} class="max-w-4xl mx-auto px-6 py-8 lg:px-10 lg:py-10">
               <%!-- Page header --%>
               <div class="mb-8">
                 <%!-- Breadcrumb --%>
@@ -538,6 +674,14 @@ defmodule ApmV5Web.DocsLive do
       map_size(ApmV5.SkillTracker.get_skill_catalog())
     catch
       :exit, _ -> 0
+    end
+  end
+
+  defp load_versions do
+    path = Application.app_dir(:apm_v5, "priv/docs/versions.json")
+    case File.read(path) do
+      {:ok, content} -> Jason.decode!(content)
+      {:error, _} -> %{"latest" => "8.9.0", "versions" => []}
     end
   end
 end

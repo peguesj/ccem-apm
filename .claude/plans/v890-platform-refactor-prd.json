@@ -1,0 +1,312 @@
+{
+  "branchName": "ralph/ccem-v890-platform-refactor",
+  "description": "v8.9.0 — Platform taxonomy refactor: WordPress-style plugin/integration architecture, nav restructure, formation grouping/TB mode, dep graph cleanup, AG-UI buffer, SessionManager multi-path, BackgroundTasks ingestion, plugin pages, usage graphs, timeline redesign, Conversations fix, docs update, Plane-PM align agent",
+  "version": "8.9.0",
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Sidebar nav restructure — 5-section taxonomy",
+      "description": "Refactor sidebar_nav.ex into 5 sections: CORE (Dashboard, Sessions, Activity, Timeline), AUTHORIZATION (Authorization, Routing), PLUGINS (dynamic subitems per registered plugin), INTEGRATIONS (dynamic entries from IntegrationRegistry), SYSTEM (Settings, Skills, Ports, Docs). Plugin subitems use nav_items/0 callback from PluginBehaviour. Badge counts on sections.",
+      "priority": 1,
+      "wave": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "5 distinct nav sections render with section headers",
+        "PLUGINS section shows subitems for each registered plugin using nav_items/0 (or default /plugins/:name)",
+        "INTEGRATIONS section shows each integration from IntegrationRegistry",
+        "AUTHORIZATION section is separate from PLUGINS",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "PluginBehaviour optional callbacks — nav_items, settings_path, plugin_live_module",
+      "description": "Extend ApmV5.Plugins.PluginBehaviour with 3 optional callbacks: nav_items/0 → [{label, path, icon}], settings_path/0 → String.t() | nil, plugin_live_module/0 → module() | nil. Update PluginRegistry to call nav_items/0 when building sidebar entries. Update PlanePlugin, SimpleAgentsPlugin, CoalescePlugin to implement optional callbacks where applicable.",
+      "priority": 1,
+      "wave": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "@optional_callbacks declared in PluginBehaviour",
+        "PluginRegistry.nav_items_for/1 helper returns nav items or default",
+        "At least one plugin (PlanePlugin) implements nav_items/0",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "IntegrationBehaviour optional callbacks — target_native_feature, required_plugin",
+      "description": "Extend ApmV5.Integrations.IntegrationBehaviour with 2 optional callbacks: target_native_feature/0 → atom() | nil (e.g. :authorization, :sessions), required_plugin/0 → String.t() | nil. Update AgentlockIntegration to implement target_native_feature/0 returning :authorization. Update IntegrationRegistry to expose these in list_integrations/0 metadata.",
+      "priority": 1,
+      "wave": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "@optional_callbacks declared in IntegrationBehaviour",
+        "AgentlockIntegration.target_native_feature/0 returns :authorization",
+        "IntegrationRegistry.list_integrations/0 includes target_native_feature and required_plugin fields",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "AG-UI EventBus ring buffer 200→20000 + RoutingLive active routes",
+      "description": "Increase AG-UI EventBus ring buffer from 200 to 20000 events. Find the @max_events or equivalent constant in the EventBus/EventRouter module and update. Also fix RoutingLive to show active authorization-based routing decisions: query SessionStore for active sessions and show their trust levels, recent decisions from PolicyEngine, and rate limiter state per {user, tool} pair.",
+      "priority": 1,
+      "wave": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "EventBus ring buffer capacity is 20000",
+        "RoutingLive shows at least current session trust levels",
+        "RoutingLive shows recent PolicyEngine decisions (last 20)",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "SessionManager multi-path scan — APM sessions + Claude Code JSONL",
+      "description": "Extend ApmV5.SessionManager to scan 3 paths: (1) ~/Developer/ccem/apm/sessions/*.json (existing), (2) ~/.claude/projects/*/*.jsonl (Claude Code conversation files), (3) /tmp/claude-*/sessions/ if present. For JSONL files: parse first line for session metadata (session_id, cwd, model), count lines as message_count. Store as enriched session entries with source: :apm | :claude_native | :tmp. Update SessionManagerLive to show source badge. The same session detection must be reused by ConversationsLive (US-012).",
+      "priority": 1,
+      "wave": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "SessionManager scans all 3 path patterns",
+        "JSONL sessions appear in /sessions list with source: :claude_native badge",
+        "JSONL parse handles missing fields gracefully",
+        "SessionManager.list_sessions/0 is the shared function used by both SessionManagerLive and ConversationsLive",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "BackgroundTasksStore hook ingestion via PostToolUse",
+      "description": "Create a PostToolUse hook script at ~/Developer/ccem/apm/hooks/bg_task_record.sh that fires for Agent tool use (subagent spawns). On each Agent spawn: POST /api/bg-tasks with agent_id, task description from tool params, project, pid if available, status: active. Also add a Task.start ingestion path in ApmV5.AgentRegistry — when a new agent registers, also create a bg task entry. This populates BackgroundTasksStore so /tasks is no longer empty.",
+      "priority": 1,
+      "wave": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "bg_task_record.sh exists and is executable",
+        "POST /api/bg-tasks creates a task entry",
+        "AgentRegistry.register/1 also calls BackgroundTasksStore to create entry",
+        "/tasks LiveView shows entries after agents register",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Formation graph — namespace-scoped grouping rectangles + TB mode + intelligent clustering",
+      "description": "Redesign formation_graph.js to support: (1) Grouping rectangles/rounded-rect bounding boxes drawn BEHIND node clusters — group by formation_id, squadron, or session namespace. Each group gets a label header and semi-transparent fill color. (2) TB (top-to-bottom with left-to-right swim lane grouping) as a 4th layout mode in addition to TD/LR/Hierarchical/Card. TB mode draws session columns side by side, with formation nodes stacked vertically within each column. (3) Intelligent auto-grouping: when node count > 50, automatically collapse inactive formations into summary nodes showing count. (4) Formation page dropdown adds TB option and grouping toggle. (5) Namespace-scopable: URL param ?scope=session_id or ?scope=formation_id filters to just that namespace.",
+      "priority": 2,
+      "wave": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Grouping rectangles render behind nodes with label + fill color",
+        "TB mode available in layout dropdown",
+        "Auto-collapse fires when node count > 50",
+        "?scope= URL param filters graph",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Dashboard dependency graph — project-level grouping + collapse on all-projects view",
+      "description": "The dashboard dependency graph becomes unreadable when viewing all active projects with many sessions. Fix: (1) Add a project-level grouping rectangle wrapping all nodes for each project. (2) Add a 'collapse project' toggle that replaces all project nodes with a single summary node (project name + agent count). (3) Default to collapsed for inactive projects (no agents in last 5 min). (4) Add a filter bar above the graph: All Projects | Active Only | dropdown per project. (5) Reuse the same session detection as US-005 (SessionManager.list_sessions/0) for consistent project context. The graph becomes the canonical source of active project state.",
+      "priority": 2,
+      "wave": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Project grouping rectangles wrap all project nodes",
+        "Collapse toggle collapses to summary node",
+        "Inactive projects collapsed by default",
+        "Filter bar shows All/Active Only/per-project",
+        "Session data comes from SessionManager.list_sessions/0",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Ralph plugin page at /plugins/ralph",
+      "description": "Create RalphPlugin module at lib/apm_v5/plugins/ralph/ralph_plugin.ex implementing PluginBehaviour. Plugin name: 'ralph', version: '1.0.0'. Actions: get_status (read current prd.json), list_stories (all stories with passes status), get_methodology (return Ralph fix-loop methodology description), current_wave (active wave stories). Create RalphLive at /plugins/ralph showing: current PRD summary card, story board (passes/pending), methodology display, fix loop status. nav_items/0 returns [{\"Stories\", /plugins/ralph/stories}, {\"Methodology\", /plugins/ralph/methodology}].",
+      "priority": 2,
+      "wave": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "RalphPlugin registered in PluginRegistry defaults",
+        "/plugins/ralph renders PRD summary and story list",
+        "nav_items/0 returns 2 subitems",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "UPM plugin page at /plugins/upm with dep graph auto-filter",
+      "description": "Create UpmPlugin module implementing PluginBehaviour. Actions: get_plan (current prd.json), list_work_items (all Plane issues via PlaneClient if configured), get_drift (compare prd.json vs Plane state). Create UpmLive (or route to existing /upm) plugin page showing: active PRD, story→Plane mapping, dep graph filtered to current session UAT invocations (query AgentRegistry for agents with role containing 'upm'). The dep graph should auto-populate entries for active UPM workflow agents.",
+      "priority": 2,
+      "wave": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "UpmPlugin registered and responds to get_plan action",
+        "/plugins/upm route works (can reuse UpmLive)",
+        "Dep graph on UPM page shows only session-filtered entries",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Skills fix steps selectable + async preview section",
+      "description": "In SkillsLive, update the Guided Fix Wizard drawer: (1) make each fix step selectable (phx-click select-step with active highlight), (2) add an async preview section — when a step is selected, fire a Task.start that calls ActionEngine.run('fix_skill_frontmatter', %{skill_name: name, step: step}) and streams result back via push_event('preview_result', ...) to a preview pane. The preview pane should show a diff-style view of before/after. Add a 'Copy' button on preview output.",
+      "priority": 2,
+      "wave": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Fix steps show active highlight on phx-click",
+        "Preview pane renders on step selection",
+        "Async Task.start fires ActionEngine and result appears",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-012",
+      "title": "Usage expandable input/output/cache token graphs",
+      "description": "In UsageLive, the input_tokens/output_tokens/cache_tokens fields show 0 even when total_tool_calls has data. Fix: (1) Ensure UsageController.record/2 maps hook payload fields correctly (hook sends input_tokens, output_tokens as top-level keys). (2) Add expandable accordion sections per model in the usage dashboard showing separate bar charts for input/output/cache over last 24h using a D3.js push_event or Chart.js via LiveView hooks. (3) Add sparkline to each model card showing token trend.",
+      "priority": 2,
+      "wave": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Input/output/cache token fields populate correctly when hook sends data",
+        "Expandable graph section renders per model",
+        "Sparkline visible on model card",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-013",
+      "title": "Timeline redesign — swim lanes, filters, drill-down",
+      "description": "Redesign the timeline LiveView (if it exists, otherwise find the activity/timeline tab on Dashboard). Current timeline is not intuitive. New design: (1) Horizontal swim lanes per agent/session, (2) Color-coded event types (tool_use=blue, thinking=purple, notification=yellow, auth=red), (3) Filter bar: by session, agent, event type, time range, (4) Click event to drill into detail panel showing full event payload. Use D3.js gantt-style rendering pushed via push_event('timeline_data', ...) or a pure LiveView table with CSS lanes.",
+      "priority": 2,
+      "wave": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Timeline shows swim lanes per agent",
+        "Event types have distinct colors",
+        "Filter by session/agent/type works",
+        "Click shows event detail panel",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-014",
+      "title": "ConversationWatcher GenServer + ConversationsLive fix — reuse SessionManager paths",
+      "description": "IMPORTANT: Reuse SessionManager.list_sessions/0 (from US-005) — do not duplicate path scanning logic. Create ApmV5.ConversationWatcher GenServer that: (1) calls SessionManager.list_sessions/0 filtered to source: :claude_native, (2) reads full JSONL content for each session file, (3) parses each line as a Claude Code message event (role, content, timestamp), (4) stores last 500 entries per file in ETS :conversation_cache with 30s refresh. Create/fix ConversationsLive to show: conversation file list with message counts, selected conversation message thread view with role badges (user=blue, assistant=green, tool=gray).",
+      "priority": 2,
+      "wave": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "ConversationWatcher uses SessionManager.list_sessions/0, no duplicate path logic",
+        "JSONL lines parse without crash on malformed data",
+        "/conversations shows conversation list",
+        "Selected conversation shows message thread with role badges",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-015",
+      "title": "Docs, Wiki, OpsDocs, Showcase — thorough update for v8.9.0 features",
+      "description": "Update all 4 documentation surfaces: (1) /docs LiveView — add sections for Formation Grouping, Platform Taxonomy (Plugins vs Integrations), AG-UI 20k buffer, SessionManager multi-path. (2) /wiki — ensure wiki entries exist for each new concept: formation namespace scoping, plugin symbiosis, TB mode. (3) OpsDocs (priv/docs/) — update api-reference.md for all new endpoints added in US-001 through US-014, update changelog.md. (4) Showcase — update features.json with v8.9.0 features (formation grouping, plugin taxonomy, TB mode), ensure showcase client reflects updated architecture. Run showcase data sync.",
+      "priority": 3,
+      "wave": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "/docs has v8.9.0 sections for formation grouping and platform taxonomy",
+        "priv/docs/api-reference.md updated",
+        "showcase/data/features.json has v8.9.0 entries",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-016",
+      "title": "Plugin/Integration symbiosis wiring",
+      "description": "Wire the symbiosis logic declared in US-002/US-003: (1) PluginRegistry.check_integration_deps/1 — for a plugin with plugin_integrations/0, verify all declared integrations are registered. (2) IntegrationRegistry.check_plugin_deps/1 — for an integration with required_plugin/0, verify the plugin is registered. (3) PluginDashboardLive shows dependency status: plugin card shows 'Integration: AgentLock [active]' badge if symbiosis declared. (4) IntegrationRegistry.list_integrations/0 returns enriched metadata including symbiosis status.",
+      "priority": 3,
+      "wave": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "check_integration_deps/1 returns :ok | {:missing, [names]}",
+        "check_plugin_deps/1 returns :ok | {:missing, name}",
+        "Plugin cards show integration dependency badges",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-017",
+      "title": "AG-UI plugin page at /plugins/ag_ui",
+      "description": "Create AgUiPlugin module implementing PluginBehaviour. Actions: get_event_stats (buffer size, event type counts), list_active_connections (agents with active AG-UI sessions via AgentContextStore), get_routing_table (current event routing rules). Create AgUiLive at /plugins/ag_ui showing: event buffer stats with gauge, active agent connections list, event type breakdown pie chart, routing table with enable/disable toggles. This is the user-friendly AG-UI control plane.",
+      "priority": 3,
+      "wave": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "AgUiPlugin registered in defaults",
+        "/plugins/ag_ui renders event stats",
+        "Active connections list shows agent_id + event counts",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-018",
+      "title": "Persistent Plane-PM align agent — /quality formation deploy",
+      "description": "Deploy a persistent background Plane-PM alignment agent as part of the /quality formation. This agent: (1) Runs as a GenServer ApmV5.PlanePmAlignAgent, polling Plane API every 5 minutes, (2) Compares prd.json story states with Plane issue states, (3) Detects drift (story passes:true but Plane not Done, or vice versa), (4) Auto-aligns: updates Plane issues to match prd.json passes field, (5) Broadcasts drift events on PubSub 'plane:alignment', (6) Registers itself with AgentRegistry as agent_id='plane-pm-align', role='quality_agent', (7) REST endpoint GET /api/quality/plane-align returns current drift report. Add to supervision tree.",
+      "priority": 3,
+      "wave": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "ApmV5.PlanePmAlignAgent GenServer added to supervision tree",
+        "Polling runs every 5 minutes",
+        "Drift detection fires PubSub event",
+        "GET /api/quality/plane-align returns drift report",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-020",
+      "title": "Notifications ring buffer 200→2000 + notification grouping",
+      "description": "Increase notification ring buffer from 200 to 2000. Find @max_notifications or equivalent in NotificationBroadcaster/NotificationsStore and update. Add notification grouping: (1) Group notifications by category (agentlock, auth, sessions, formations, etc.) with a collapsible section per category in NotificationLive, (2) Each group shows count badge and last-updated timestamp, (3) Groups collapse/expand with phx-click, (4) Add a 'Clear group' button per category, (5) Ungrouped view still available as a toggle (Grouped | All). This prevents notification panel from being flooded by repeated similar events.",
+      "priority": 3,
+      "wave": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Notification buffer capacity is 2000",
+        "NotificationLive shows grouped view by default with category sections",
+        "Each group shows count badge",
+        "Toggle between Grouped and All view works",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-021",
+      "title": "Agent identity for AgentLock — ID + descriptive name + type classification",
+      "description": "Every agent interacting with AgentLock/Authorization must have: (1) agent_id (unique, already exists), (2) agent_name (human-readable descriptive name, e.g. 'Ralph-FixLoop-Wave2-Agent3'), (3) agent_type (classification: :orchestrator | :squadron_lead | :swarm_agent | :individual | :persistent_service | :quality_agent | :unknown), (4) agent_definition (either an instance reference to a known agent type from AgentRegistry definitions, OR a new_agent struct describing its purpose). Update: ApmV5.AgentRegistry to store agent_type and agent_definition fields. Update AuthController and PendingDecisions to display agent_name in notifications and UI. Update NamespaceResolver to use agent_name for display labels. Ensure all formation registration patterns include agent_type.",
+      "priority": 3,
+      "wave": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "AgentRegistry ETS entries include agent_type and agent_definition fields",
+        "PendingDecisions notifications show agent_name (not agent_id)",
+        "NamespaceResolver.agent_label/2 returns agent_name when available",
+        "AuthorizationLive audit log shows agent_type badge",
+        "mix compile --warnings-as-errors passes"
+      ]
+    },
+    {
+      "id": "US-019",
+      "title": "v8.9.0 release — CHANGELOG, mix.exs bump, OpenAPI update, CLAUDE.md checkpoints",
+      "description": "Bump mix.exs application version to 8.9.0. Update @server_version and @app_version in DashboardLive. Add v8.9.0 section to CHANGELOG.md with all 18 implemented stories summarized. Update OpenAPI spec for any new endpoints added in this feature set. Update CLAUDE.md Implementation Checkpoints section for v8.9.0. Ensure mix compile --warnings-as-errors passes and swift build -c release passes (if CCEMHelper changes exist).",
+      "priority": 4,
+      "wave": 4,
+      "passes": false,
+      "acceptanceCriteria": [
+        "mix.exs version: 8.9.0",
+        "CHANGELOG.md has v8.9.0 section",
+        "mix compile --warnings-as-errors passes",
+        "CLAUDE.md checkpoints added for v8.9.0"
+      ]
+    }
+  ]
+}

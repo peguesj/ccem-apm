@@ -196,12 +196,21 @@
           "tags": ["swift", "macos", "menubar", "native"]
         },
         {
+          "slug": "developer/api-architecture",
+          "title": "API Architecture — Core vs Extensions",
+          "file": "developer/api-architecture.md",
+          "description": "Microkernel API design: core monitoring primitives vs extension modules (agentlock, upm, coalesce, skills, showcase, ag_ui, plugins, usage, formations, plane). Manifest endpoint, x-extension OpenAPI flag, and route classification table.",
+          "icon": "hero-circle-stack",
+          "order": 7,
+          "tags": ["api", "architecture", "extensions", "microkernel", "manifest"]
+        },
+        {
           "slug": "developer/extending",
           "title": "Extending CCEM APM",
           "file": "developer/extending.md",
           "description": "Adding GenServers, API endpoints, LiveView pages, PubSub topics to the APM codebase",
           "icon": "hero-puzzle-piece",
-          "order": 7,
+          "order": 8,
           "tags": ["extending", "plugins", "customization"]
         },
         {

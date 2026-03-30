@@ -74,28 +74,51 @@ defmodule ApmV5.NamespaceResolver do
   # Private
 
   defp compute_agent_label(agent_id, opts) do
-    # Prefer agent_name from registry if meaningful (non-empty, different from raw agent_id)
+    # Priority 1: display_name or agent_name from AgentRegistry (set by AgentIdentity.build/2)
     registry_name = lookup_agent_name(agent_id)
     if registry_name && registry_name != "" && registry_name != agent_id do
       registry_name
     else
-      project = opts[:project] || extract_project_from_id(agent_id)
+      # Priority 2: synthesize from role + formation context
+      # Prefer formation_scope breadcrumb over raw project/task parts
       role = opts[:role] |> format_role()
       task = opts[:task_subject] |> task_slug()
 
-      parts = [project, role, task] |> Enum.reject(&is_nil/1) |> Enum.reject(&(&1 == ""))
+      formation_scope =
+        case opts[:formation_id] do
+          nil -> nil
+          fmt_id ->
+            parts = [fmt_id, opts[:squadron]] |> Enum.reject(&is_nil/1)
+            Enum.join(parts, "/")
+        end
+
+      project = opts[:project] || extract_project_from_id(agent_id)
+
+      parts =
+        [project, formation_scope || role, task]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.reject(&(&1 == ""))
+
       case parts do
-        [] -> short_id(agent_id)
-        _ -> Enum.join(parts, "/")
+        # Priority 3: never return raw hash — use role slug + last 8 chars
+        [] ->
+          role_fallback = format_role(opts[:role]) || "agent"
+          "#{role_fallback}.#{String.slice(agent_id, -8, 8)}"
+        _ ->
+          Enum.join(parts, "/")
       end
     end
   end
 
-  # Looks up agent_name from AgentRegistry without crashing if it is not running.
+  # Looks up display_name (preferred) or agent_name from AgentRegistry.
+  # display_name is always human-readable (set by AgentIdentity.build/2);
+  # agent_name is the OTel gen_ai.agent.name field.
+  # Never returns a raw hash-based agent_id.
   defp lookup_agent_name(agent_id) do
     if Process.whereis(ApmV5.AgentRegistry) do
       case ApmV5.AgentRegistry.get_agent(agent_id) do
-        %{agent_name: name} when is_binary(name) and name != "" -> name
+        %{display_name: dn} when is_binary(dn) and dn != "" and dn != agent_id -> dn
+        %{agent_name: name} when is_binary(name) and name != "" and name != agent_id -> name
         _ -> nil
       end
     end
