@@ -314,7 +314,7 @@ defmodule ApmV5.AgentRegistry do
         # Rich referential integrity fields (v7.1+)
         refs: build_refs(notification),
         trace: build_trace(notification),
-        metadata: get_any(notification, [:metadata, "metadata"]) || %{},
+        metadata: atomize_metadata(get_any(notification, [:metadata, "metadata"]) || %{}),
         actions: normalize_actions(get_any(notification, [:actions, "actions"]) || []),
         timestamp: now,
         read: false
@@ -467,6 +467,25 @@ defmodule ApmV5.AgentRegistry do
   defp get_any(map, keys) do
     Enum.find_value(keys, fn key -> Map.get(map, key) end)
   end
+
+  # Normalize string-keyed metadata maps to atom keys so LiveView templates
+  # can access fields consistently via bracket notation (e.g., notif[:metadata][:tool_name]).
+  # This fixes the "unknown" display bug where JSON-decoded metadata has string keys
+  # but templates expect atom keys.
+  defp atomize_metadata(meta) when is_map(meta) do
+    Map.new(meta, fn
+      {k, v} when is_binary(k) -> {String.to_existing_atom(k), v}
+      {k, v} -> {k, v}
+    end)
+  rescue
+    # If any key isn't an existing atom, fall back to safe conversion
+    ArgumentError ->
+      Map.new(meta, fn
+        {k, v} when is_binary(k) -> {String.to_atom(k), v}
+        {k, v} -> {k, v}
+      end)
+  end
+  defp atomize_metadata(other), do: other
 
   # Build refs map: merges explicit `refs` key with top-level shorthand fields.
   # Callers may pass either `refs: %{agent_id: "..."}` or top-level `agent_id: "..."`.
