@@ -60,6 +60,9 @@ defmodule ApmV5.Application do
       ApmV5.SessionManager,
       # Namespace Resolver -- human-readable labels for agents/sessions/gates (v8.5.0)
       ApmV5.NamespaceResolver,
+      # CC plugin bridge + repository store -- before PluginSupervisor/Registry
+      ApmV5.Plugins.ClaudeCodePluginBridge,
+      ApmV5.Plugins.PluginRepositoryStore,
       # Plugin Engine (v8.0.0) -- supervisor before registry
       ApmV5.Plugins.PluginSupervisor,
       ApmV5.Plugins.PluginRegistry,

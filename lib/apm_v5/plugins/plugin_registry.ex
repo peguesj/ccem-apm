@@ -37,6 +37,12 @@ defmodule ApmV5.Plugins.PluginRegistry do
     |> Enum.sort_by(& &1.name)
   end
 
+  @doc "List registered plugins filtered by scope (:apm, :ccem, or :claude_code)."
+  @spec list_plugins_by_scope(atom()) :: [map()]
+  def list_plugins_by_scope(scope) when is_atom(scope) do
+    list_plugins() |> Enum.filter(&(&1.scope == scope))
+  end
+
   @doc "Get a single plugin's metadata by name (module key excluded for JSON safety)."
   @spec get_plugin(String.t()) :: {:ok, map()} | {:error, :not_found}
   def get_plugin(name) do
@@ -135,12 +141,16 @@ defmodule ApmV5.Plugins.PluginRegistry do
           []
         end
 
+      scope =
+        if function_exported?(module, :plugin_scope, 0), do: module.plugin_scope(), else: :apm
+
       meta = %{
         name: name,
         description: module.plugin_description(),
         version: module.plugin_version(),
         endpoints: module.list_endpoints(),
         integration_modules: integrations,
+        scope: scope,
         module: module,
         registered_at: DateTime.utc_now() |> DateTime.to_iso8601()
       }
