@@ -1,5 +1,26 @@
 # Changelog
 
+## v8.7.0 (2026-03-28)
+
+### SimpleAgents CCEM APM Plugin
+
+- **`ApmV5.Plugins.SimpleAgents.SimpleAgentsPlugin`** — new plugin integrating the SimpleAgents Rust LLM framework (github.com/CraftsMan-Labs/SimpleAgents) into CCEM APM's plugin dashboard.
+  - Action `workspace_info`: reads `Cargo.toml`, reports workspace version, Rust edition, and full crate inventory with src file counts.
+  - Action `list_traces`: discovers workflow trace JSON files across configured trace directories (fixtures + runtime output dirs).
+  - Action `get_trace`: parses and normalizes a single trace file — extracts trace_id, workflow_name, duration_ms, node inventory, error list, terminal status.
+  - Action `trace_summary`: aggregates across all discovered traces — total/completed/failed/in_progress, success_rate_pct, avg/max/min duration_ms, unique workflow names.
+  - Action `provider_stats`: groups trace stats by inferred provider (openai/anthropic/openrouter/generic) from workflow name.
+  - Action `list_workflows`: discovers YAML workflow definition files in the workspace (examples/, workers/ subdirs).
+  - Action `parity_status`: reads `parity-fixtures/` binding contract JSON files for multi-language parity checks.
+- Registered as 10th default plugin in `ApmV5.Plugins.PluginRegistry.@default_plugins`.
+
+### Changed
+- `mix.exs`: version bumped 8.6.0 → 8.7.0
+- `@server_version` in `ApiController`: 8.6.0 → 8.7.0
+- `@app_version` in `SidebarNav`: 8.6.0 → 8.7.0
+
+---
+
 ## v8.6.0 (2026-03-29)
 
 ### AgentLock Notification Reliability + In-Browser Approval Modal
