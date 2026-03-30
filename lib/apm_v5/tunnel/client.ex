@@ -20,6 +20,8 @@ defmodule ApmV5.Tunnel.Client do
   use GenServer
   require Logger
 
+  @compile {:no_warn_undefined, [:gun]}
+
   @heartbeat_ms 30_000
   @reconnect_ms 5_000
   @http_timeout_ms 12_000
