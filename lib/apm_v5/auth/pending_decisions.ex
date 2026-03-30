@@ -246,8 +246,18 @@ defmodule ApmV5.Auth.PendingDecisions do
   # ── Private ──────────────────────────────────────────────────────────────────
 
   defp sanitize_params(params) when is_map(params) do
+    # Keep all useful context for the reviewer — truncate large values
     params
-    |> Map.take(["command", "tool_name", "file_path", "pattern", "description"])
+    |> Map.take([
+      "command", "tool_name", "file_path", "pattern", "description",
+      "content", "old_string", "new_string", "query", "url",
+      "prompt", "skill", "subagent_type", "glob", "path",
+      "timeout", "dangerouslyDisableSandbox"
+    ])
+    |> Enum.map(fn {k, v} when is_binary(v) and byte_size(v) > 500 ->
+      {k, String.slice(v, 0, 500) <> "..."}
+      {k, v} -> {k, v}
+    end)
     |> Enum.into(%{})
   end
 

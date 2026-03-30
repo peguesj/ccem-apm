@@ -425,7 +425,7 @@ defmodule ApmV5Web.AuthorizationLive do
                   <div class="divide-y divide-base-content/5">
                     <%= for gate <- gates do %>
                       <% action_type_label = action_type_display(gate[:action_type]) %>
-                      <% cmd_preview = extract_command_preview(gate.params) %>
+                      <% human_desc = describe_tool_action(gate.tool_name, gate.params) %>
                       <div class="px-3 py-2 space-y-1.5" id={"auth-card-#{gate.request_id}"}>
                         <div class="flex items-start justify-between gap-2">
                           <div class="min-w-0 flex-1">
@@ -434,15 +434,22 @@ defmodule ApmV5Web.AuthorizationLive do
                               <span class="text-xs font-semibold text-base-content"><%= gate.tool_name %></span>
                               <span class={"badge badge-xs #{risk_badge_class(gate.risk_level)}"}><%= gate.risk_level %></span>
                             </div>
-                            <%!-- Description context --%>
-                            <%= if gate[:action_detail] do %>
-                              <p class="text-[11px] text-base-content/60 mt-0.5"><%= gate.action_detail %></p>
-                            <% end %>
-                            <%= if cmd_preview do %>
-                              <pre class="font-mono text-[10px] bg-base-300 rounded px-1.5 py-0.5 mt-0.5 truncate text-zinc-400 max-w-lg"><%= cmd_preview %></pre>
+                            <%!-- Human-readable description of what the tool is doing --%>
+                            <p class="text-[11px] text-base-content/70 mt-0.5"><%= human_desc %></p>
+                            <%= if gate[:action_detail] && gate[:action_detail] != human_desc do %>
+                              <p class="text-[10px] text-base-content/50"><%= gate.action_detail %></p>
                             <% end %>
                             <%= if gate[:approval_reasoning] do %>
-                              <p class="text-[10px] text-amber-300/50 italic mt-0.5"><%= gate.approval_reasoning %></p>
+                              <p class="text-[10px] text-amber-300/50 italic"><%= gate.approval_reasoning %></p>
+                            <% end %>
+                            <%!-- Collapsible tool payload --%>
+                            <%= if map_size(gate.params) > 0 do %>
+                              <details class="mt-1">
+                                <summary class="text-[10px] text-base-content/40 cursor-pointer hover:text-base-content/60">
+                                  Show payload (<%= map_size(gate.params) %> fields)
+                                </summary>
+                                <pre class="font-mono text-[10px] bg-base-300 rounded p-2 mt-1 overflow-x-auto max-h-32 overflow-y-auto text-zinc-400 whitespace-pre-wrap"><%= format_params_display(gate.params) %></pre>
+                              </details>
                             <% end %>
                           </div>
                           <%!-- Per-item countdown + actions --%>
@@ -883,16 +890,63 @@ defmodule ApmV5Web.AuthorizationLive do
   defp action_type_class(:read), do: "bg-blue-900/60 text-blue-300"
   defp action_type_class(_), do: "bg-zinc-700 text-zinc-300"
 
-  defp extract_command_preview(params) when is_map(params) do
-    cond do
-      Map.has_key?(params, "command") -> Map.get(params, "command")
-      Map.has_key?(params, "file_path") -> "file: #{Map.get(params, "file_path")}"
-      Map.has_key?(params, "pattern") -> "pattern: #{Map.get(params, "pattern")}"
-      Map.has_key?(params, "description") -> Map.get(params, "description")
-      true -> nil
+  defp describe_tool_action(tool_name, params) when is_map(params) do
+    case tool_name do
+      "Bash" ->
+        cmd = Map.get(params, "command", "")
+        if cmd != "", do: "Running shell command: #{String.slice(cmd, 0, 120)}", else: "Executing shell command"
+
+      "Write" ->
+        path = Map.get(params, "file_path", "unknown")
+        "Writing file: #{path}"
+
+      "Edit" ->
+        path = Map.get(params, "file_path", "unknown")
+        old = Map.get(params, "old_string", "")
+        "Editing #{path} — replacing #{String.length(old)} chars"
+
+      "Read" ->
+        path = Map.get(params, "file_path", "unknown")
+        "Reading file: #{path}"
+
+      "Glob" ->
+        pattern = Map.get(params, "pattern", "*")
+        "Searching for files matching: #{pattern}"
+
+      "Grep" ->
+        pattern = Map.get(params, "pattern", "")
+        "Searching file contents for: #{String.slice(pattern, 0, 80)}"
+
+      "Agent" ->
+        desc = Map.get(params, "description", Map.get(params, "prompt", ""))
+        type = Map.get(params, "subagent_type", "general-purpose")
+        "Launching #{type} agent: #{String.slice(desc, 0, 100)}"
+
+      "Skill" ->
+        skill = Map.get(params, "skill", "unknown")
+        "Invoking skill: /#{skill}"
+
+      "WebFetch" ->
+        url = Map.get(params, "url", "unknown")
+        "Fetching URL: #{String.slice(url, 0, 100)}"
+
+      _ ->
+        desc = Map.get(params, "description", "")
+        if desc != "", do: desc, else: "#{tool_name} operation"
     end
   end
-  defp extract_command_preview(_), do: nil
+  defp describe_tool_action(tool_name, _), do: "#{tool_name} operation"
+
+  defp format_params_display(params) when is_map(params) do
+    params
+    |> Enum.sort_by(fn {k, _} -> k end)
+    |> Enum.map(fn {k, v} ->
+      val = if is_binary(v), do: v, else: inspect(v)
+      "#{k}: #{val}"
+    end)
+    |> Enum.join("\n")
+  end
+  defp format_params_display(_), do: ""
 
   defp risk_badge_class(level) do
     case level do
