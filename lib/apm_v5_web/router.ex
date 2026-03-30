@@ -75,6 +75,11 @@ defmodule ApmV5Web.Router do
     live "/sessions/:id", SessionManagerLive, :show
     live "/coalesce", CoalesceLive, :index
 
+    # UPM module LiveView — project management, PM/VCS integrations, work items (upm-module-ccem-apm)
+    live "/upm/module", UpmLive, :index
+    live "/upm/module/:project_id", UpmLive, :project
+    live "/upm/module/:project_id/board", UpmLive, :board
+
     # /upm redirects to workflow UPM view
     get "/upm", PageController, :upm_redirect
   end
@@ -141,6 +146,31 @@ defmodule ApmV5Web.Router do
     post "/upm/agent", UpmApiController, :upm_agent
     post "/upm/event", UpmApiController, :upm_event
     get "/upm/status", UpmApiController, :upm_status
+
+    # UPM module CRUD — projects, PM/VCS integrations, work items, sync (upm-module-ccem-apm)
+    get "/upm/projects", UpmController, :list_projects
+    post "/upm/projects", UpmController, :create_project
+    post "/upm/projects/scan", UpmController, :scan_projects
+    get "/upm/projects/:id", UpmController, :get_project
+    put "/upm/projects/:id", UpmController, :update_project
+    delete "/upm/projects/:id", UpmController, :delete_project
+    get "/upm/pm_integrations", UpmController, :list_pm_integrations
+    post "/upm/pm_integrations", UpmController, :create_pm_integration
+    get "/upm/pm_integrations/:id", UpmController, :get_pm_integration
+    put "/upm/pm_integrations/:id", UpmController, :update_pm_integration
+    delete "/upm/pm_integrations/:id", UpmController, :delete_pm_integration
+    post "/upm/pm_integrations/:id/test", UpmController, :test_pm_integration
+    get "/upm/vcs_integrations", UpmController, :list_vcs_integrations
+    post "/upm/vcs_integrations", UpmController, :create_vcs_integration
+    get "/upm/vcs_integrations/:id", UpmController, :get_vcs_integration
+    put "/upm/vcs_integrations/:id", UpmController, :update_vcs_integration
+    delete "/upm/vcs_integrations/:id", UpmController, :delete_vcs_integration
+    post "/upm/vcs_integrations/:id/test", UpmController, :test_vcs_integration
+    get "/upm/work_items", UpmController, :list_work_items
+    get "/upm/work_items/drift", UpmController, :drift_report
+    post "/upm/sync", UpmController, :sync_all
+    post "/upm/sync/:project_id", UpmController, :sync_project
+    get "/upm/sync/status", UpmController, :sync_status
 
     # Formation domain controller (US-R12)
     get "/formations", FormationApiController, :list_formations

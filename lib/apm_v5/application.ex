@@ -32,6 +32,12 @@ defmodule ApmV5.Application do
       ApmV5.VerifyStore,
       ApmV5.BackgroundTasksStore,
       ApmV5.ProjectScanner,
+      # UPM module GenServers (upm-module-ccem-apm): PM/VCS integrations, work items, sync
+      ApmV5.UPM.ProjectRegistry,
+      ApmV5.UPM.PMIntegrationStore,
+      ApmV5.UPM.VCSIntegrationStore,
+      ApmV5.UPM.WorkItemStore,
+      ApmV5.UPM.SyncEngine,
       ApmV5.ActionEngine,
       ApmV5.AnalyticsStore,
       ApmV5.HealthCheckRunner,
@@ -44,23 +50,23 @@ defmodule ApmV5.Application do
       ApmV5.Supervisors.AgUiSupervisorGroup,
       # Claude usage tracking (US-042)
       ApmV5.ClaudeUsageStore,
-      # Session Manager — polls session JSON files, enriches with agents/ports/plugins
+      # Session Manager -- polls session JSON files, enriches with agents/ports/plugins
       ApmV5.SessionManager,
-      # Namespace Resolver — human-readable labels for agents/sessions/gates (v8.5.0)
+      # Namespace Resolver -- human-readable labels for agents/sessions/gates (v8.5.0)
       ApmV5.NamespaceResolver,
-      # Plugin Engine (v8.0.0) — supervisor before registry
+      # Plugin Engine (v8.0.0) -- supervisor before registry
       ApmV5.Plugins.PluginSupervisor,
       ApmV5.Plugins.PluginRegistry,
-      # Integration Engine (v8.0.0) — supervisor before registry
+      # Integration Engine (v8.0.0) -- supervisor before registry
       ApmV5.Integrations.IntegrationSupervisor,
       ApmV5.Integrations.IntegrationRegistry,
-      # Agent context store — real-time AG-UI context per agent (v8.4.0)
+      # Agent context store -- real-time AG-UI context per agent (v8.4.0)
       ApmV5.AgUi.AgentContextStore,
-      # UPM decision gate — blocking human-in-the-loop approval (v8.4.0)
+      # UPM decision gate -- blocking human-in-the-loop approval (v8.4.0)
       ApmV5.Upm.DecisionGate,
       # Sub-supervisor: AgentLock authorization layer (v7.0.0)
       ApmV5.Supervisors.AuthSupervisor,
-      # Outbound relay tunnel — dials Azure relay when TUNNEL_RELAY_URL is set (v8.5.0)
+      # Outbound relay tunnel -- dials Azure relay when TUNNEL_RELAY_URL is set (v8.5.0)
       ApmV5.Tunnel.Supervisor,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
