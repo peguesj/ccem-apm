@@ -1261,7 +1261,7 @@ defmodule ApmV5Web.SkillsLive do
 
   def handle_event("change_page", %{"page" => page_str}, socket) do
     page = String.to_integer(page_str)
-    total = total_pages(socket.assigns.filtered_skills, socket.assigns.per_page)
+    total = max(1, ceil(length(socket.assigns.filtered_skills) / max(socket.assigns.per_page, 1)))
     clamped = max(1, min(page, total))
     {:noreply, assign(socket, page: clamped, selected_skills: MapSet.new())}
   end

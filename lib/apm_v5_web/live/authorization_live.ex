@@ -387,7 +387,7 @@ defmodule ApmV5Web.AuthorizationLive do
               <% grouped = group_pending_by_agent(@pending) %>
               <%= for {agent_id, gates} <- grouped do %>
                 <% agent_lbl = NamespaceResolver.agent_label(agent_id) %>
-                <% tool_names = Enum.map(gates, & &1.tool_name) |> Enum.uniq() |> Enum.join(", ") %>
+                <% _tool_names = Enum.map(gates, & &1.tool_name) |> Enum.uniq() |> Enum.join(", ") %>
                 <% max_risk = gates |> Enum.map(& &1.risk_level) |> Enum.max_by(&risk_weight/1) %>
                 <div class="rounded-lg bg-base-200 border border-base-content/10 overflow-hidden">
                   <%!-- Group header --%>
