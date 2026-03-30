@@ -46,6 +46,8 @@ defmodule ApmV5.Application do
       ApmV5.ClaudeUsageStore,
       # Session Manager — polls session JSON files, enriches with agents/ports/plugins
       ApmV5.SessionManager,
+      # Namespace Resolver — human-readable labels for agents/sessions/gates (v8.5.0)
+      ApmV5.NamespaceResolver,
       # Plugin Engine (v8.0.0) — supervisor before registry
       ApmV5.Plugins.PluginSupervisor,
       ApmV5.Plugins.PluginRegistry,
@@ -58,6 +60,8 @@ defmodule ApmV5.Application do
       ApmV5.Upm.DecisionGate,
       # Sub-supervisor: AgentLock authorization layer (v7.0.0)
       ApmV5.Supervisors.AuthSupervisor,
+      # Outbound relay tunnel — dials Azure relay when TUNNEL_RELAY_URL is set (v8.5.0)
+      ApmV5.Tunnel.Supervisor,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]
