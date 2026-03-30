@@ -55,6 +55,8 @@ defmodule ApmV5Web.PluginDashboardLive do
       :timer.send_interval(30_000, self(), :refresh)
       Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic)
       Phoenix.PubSub.subscribe(ApmV5.PubSub, @integrations_topic)
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:cc_plugins")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:plugin_repos")
     end
 
     {:ok,
@@ -78,7 +80,12 @@ defmodule ApmV5Web.PluginDashboardLive do
        integration_event_result: nil,
        integration_event_running: false,
        integration_event_error: nil,
-       integration_status_results: %{}
+       integration_status_results: %{},
+       # Claude Code plugin bridge
+       cc_plugins: [],
+       cc_plugins_summary: %{},
+       # Plugin repositories
+       plugin_repos: []
      )}
   end
 
@@ -368,6 +375,27 @@ defmodule ApmV5Web.PluginDashboardLive do
     {:noreply, assign_integrations(socket)}
   end
 
+  # ── Claude Code & Repository events ────────────────────────────────────────
+
+  @impl true
+  def handle_event("rescan_cc", _params, socket) do
+    ApmV5.Plugins.ClaudeCodePluginBridge.rescan()
+    Process.sleep(300)
+    {:noreply, assign_cc_plugins(socket)}
+  end
+
+  @impl true
+  def handle_event("add_repo", %{"name" => name, "url" => url}, socket) do
+    ApmV5.Plugins.PluginRepositoryStore.add_repo(%{"name" => name, "url" => url, "source" => "custom"})
+    {:noreply, assign_repos(socket)}
+  end
+
+  @impl true
+  def handle_event("delete_repo", %{"name" => name}, socket) do
+    ApmV5.Plugins.PluginRepositoryStore.delete_repo(name)
+    {:noreply, assign_repos(socket)}
+  end
+
   # ── Info (async results + PubSub) ────────────────────────────────────────────
 
   @impl true
@@ -433,6 +461,26 @@ defmodule ApmV5Web.PluginDashboardLive do
     {:noreply, assign(socket, integration_status_results: results)}
   end
 
+  @impl true
+  def handle_info({:cc_plugins_updated, _count}, socket) do
+    {:noreply, assign_cc_plugins(socket)}
+  end
+
+  @impl true
+  def handle_info({:repo_added, _name}, socket) do
+    {:noreply, assign_repos(socket)}
+  end
+
+  @impl true
+  def handle_info({:repo_updated, _name}, socket) do
+    {:noreply, assign_repos(socket)}
+  end
+
+  @impl true
+  def handle_info({:repo_deleted, _name}, socket) do
+    {:noreply, assign_repos(socket)}
+  end
+
   # ── Private helpers ──────────────────────────────────────────────────────────
 
   defp assign_data(socket) do
@@ -444,6 +492,8 @@ defmodule ApmV5Web.PluginDashboardLive do
     )
     |> assign_registered_plugins()
     |> assign_integrations()
+    |> assign_cc_plugins()
+    |> assign_repos()
   end
 
   defp assign_registered_plugins(socket) do
@@ -460,6 +510,38 @@ defmodule ApmV5Web.PluginDashboardLive do
 
     assign(socket, integrations: integrations)
   end
+
+  defp assign_cc_plugins(socket) do
+    plugins = ApmV5.Plugins.ClaudeCodePluginBridge.list_cc_plugins()
+    summary = ApmV5.Plugins.ClaudeCodePluginBridge.get_summary()
+    assign(socket, cc_plugins: plugins, cc_plugins_summary: summary)
+  end
+
+  defp assign_repos(socket) do
+    assign(socket, plugin_repos: ApmV5.Plugins.PluginRepositoryStore.list_repos())
+  end
+
+  defp marketplace_badge_class(marketplace) when is_binary(marketplace) do
+    cond do
+      String.contains?(marketplace, "anthropic") -> "badge-primary"
+      String.contains?(marketplace, "official") -> "badge-secondary"
+      String.contains?(marketplace, "community") -> "badge-info"
+      true -> "badge-ghost"
+    end
+  end
+
+  defp marketplace_badge_class(_), do: "badge-ghost"
+
+  defp format_date(nil), do: ""
+
+  defp format_date(date_string) when is_binary(date_string) do
+    case DateTime.from_iso8601(date_string) do
+      {:ok, dt, _} -> Calendar.strftime(dt, "%Y-%m-%d")
+      _ -> String.slice(date_string, 0, 10)
+    end
+  end
+
+  defp format_date(_), do: ""
 
   defp load_plane_issues(socket) do
     case ApmV5.Plugins.PluginRegistry.call_plugin_action("plane", "board_state", %{}) do
@@ -491,6 +573,9 @@ defmodule ApmV5Web.PluginDashboardLive do
       |> Map.put_new(:plane_error, nil)
       |> Map.put_new(:registered_plugins, [])
       |> Map.put_new(:integrations, [])
+      |> Map.put_new(:cc_plugins, [])
+      |> Map.put_new(:cc_plugins_summary, %{})
+      |> Map.put_new(:plugin_repos, [])
 
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
@@ -540,6 +625,22 @@ defmodule ApmV5Web.PluginDashboardLive do
             phx-click="switch_tab" phx-value-tab="plane"
             class={"tab tab-bordered tab-sm #{if @active_tab == "plane", do: "tab-active", else: ""}"}>
             Plane PM
+          </button>
+          <button :if={@current_path != "/integrations"}
+            phx-click="switch_tab" phx-value-tab="claude_code"
+            class={"tab tab-bordered tab-sm #{if @active_tab == "claude_code", do: "tab-active", else: ""}"}>
+            Claude Code
+            <span :if={Map.get(@cc_plugins_summary, :total_installed, 0) > 0} class="badge badge-xs badge-accent ml-1">
+              {Map.get(@cc_plugins_summary, :total_installed, 0)}
+            </span>
+          </button>
+          <button :if={@current_path != "/integrations"}
+            phx-click="switch_tab" phx-value-tab="repositories"
+            class={"tab tab-bordered tab-sm #{if @active_tab == "repositories", do: "tab-active", else: ""}"}>
+            Repositories
+            <span :if={length(@plugin_repos) > 0} class="badge badge-xs badge-ghost ml-1">
+              {length(@plugin_repos)}
+            </span>
           </button>
           <button :if={@current_path == "/integrations"}
             phx-click="switch_tab" phx-value-tab="integrations"
@@ -725,6 +826,127 @@ defmodule ApmV5Web.PluginDashboardLive do
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <%!-- Claude Code Plugins --%>
+            <div :if={@active_tab == "claude_code"} class="space-y-4">
+              <div class="flex items-center justify-between">
+                <h2 class="text-sm font-semibold">Claude Code Plugins</h2>
+                <button phx-click="rescan_cc" class="btn btn-xs btn-ghost gap-1">
+                  <.icon name="hero-arrow-path" class="size-3.5" /> Rescan
+                </button>
+              </div>
+
+              <%!-- Summary stats --%>
+              <div class="grid grid-cols-3 gap-3">
+                <div class="bg-base-200 rounded-lg p-3 text-center">
+                  <p class="text-xl font-bold">{Map.get(@cc_plugins_summary, :total_installed, 0)}</p>
+                  <p class="text-xs text-base-content/50">Installed</p>
+                </div>
+                <div class="bg-base-200 rounded-lg p-3 text-center">
+                  <p class="text-xl font-bold text-success">{Map.get(@cc_plugins_summary, :enabled_count, 0)}</p>
+                  <p class="text-xs text-base-content/50">Enabled</p>
+                </div>
+                <div class="bg-base-200 rounded-lg p-3 text-center">
+                  <p class="text-xl font-bold text-info">{Map.get(@cc_plugins_summary, :marketplace_count, 0)}</p>
+                  <p class="text-xs text-base-content/50">Marketplaces</p>
+                </div>
+              </div>
+
+              <div :if={@cc_plugins == []} class="text-xs text-base-content/40 py-8 text-center">
+                No Claude Code plugins found in ~/.claude/plugins/
+              </div>
+
+              <%!-- Plugin card grid --%>
+              <div :if={@cc_plugins != []} class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                <div
+                  :for={plugin <- @cc_plugins}
+                  class="card card-compact bg-base-200 shadow"
+                >
+                  <div class="card-body">
+                    <div class="flex items-center justify-between gap-2">
+                      <h3 class="font-semibold text-sm truncate">{plugin.name}</h3>
+                      <span class="badge badge-xs badge-primary shrink-0">v{plugin.version}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1 mt-1">
+                      <span class={[
+                        "badge badge-xs",
+                        marketplace_badge_class(plugin.marketplace)
+                      ]}>
+                        {plugin.marketplace}
+                      </span>
+                      <span :if={plugin.enabled} class="badge badge-xs badge-success">enabled</span>
+                      <span :if={!plugin.enabled} class="badge badge-xs badge-ghost">disabled</span>
+                      <span :if={plugin.scope} class="badge badge-xs badge-outline">{plugin.scope}</span>
+                    </div>
+                    <p :if={plugin.description} class="text-xs text-base-content/60 line-clamp-2 mt-1">
+                      {plugin.description}
+                    </p>
+                    <div class="flex items-center justify-between mt-2">
+                      <span :if={plugin.installed_at} class="text-xs text-base-content/40">
+                        {format_date(plugin.installed_at)}
+                      </span>
+                      <span :if={is_list(plugin.skills) and length(plugin.skills) > 0} class="badge badge-xs badge-info">
+                        {length(plugin.skills)} skills
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Repositories --%>
+            <div :if={@active_tab == "repositories"} class="space-y-4">
+              <h2 class="text-sm font-semibold">Plugin Repositories</h2>
+
+              <div :if={@plugin_repos == []} class="text-xs text-base-content/40 py-8 text-center">
+                No plugin repositories configured.
+              </div>
+
+              <%!-- Repo list --%>
+              <div :if={@plugin_repos != []} class="space-y-2">
+                <div :for={repo <- @plugin_repos} class="bg-base-200 rounded-lg p-3">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <h3 class="font-semibold text-sm">{repo.name}</h3>
+                      <span :if={repo.builtin} class="badge badge-xs badge-accent">built-in</span>
+                      <span :if={!repo.builtin} class="badge badge-xs badge-ghost">custom</span>
+                    </div>
+                    <button
+                      :if={!repo.builtin}
+                      phx-click="delete_repo"
+                      phx-value-name={repo.name}
+                      data-confirm={"Delete repository '#{repo.name}'?"}
+                      class="btn btn-ghost btn-xs text-error"
+                    >
+                      <.icon name="hero-trash" class="size-3.5" />
+                    </button>
+                  </div>
+                  <div class="mt-1 space-y-0.5">
+                    <p :if={repo.url && repo.url != ""} class="text-xs text-base-content/50 font-mono truncate">{repo.url}</p>
+                    <div class="flex gap-3 text-xs text-base-content/40">
+                      <span>{repo.plugin_count} plugins</span>
+                      <span :if={repo.last_synced}>synced: {format_date(repo.last_synced)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Add repository form --%>
+              <div class="bg-base-200 rounded-lg p-4">
+                <h3 class="text-xs font-semibold mb-3 text-base-content/60">Add Repository</h3>
+                <form phx-submit="add_repo" class="flex gap-2 items-end">
+                  <div class="flex-1">
+                    <label class="label label-text text-xs">Name</label>
+                    <input type="text" name="name" required placeholder="my-repo" class="input input-bordered input-xs w-full" />
+                  </div>
+                  <div class="flex-1">
+                    <label class="label label-text text-xs">URL</label>
+                    <input type="text" name="url" required placeholder="https://..." class="input input-bordered input-xs w-full" />
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-xs">Add</button>
+                </form>
               </div>
             </div>
 

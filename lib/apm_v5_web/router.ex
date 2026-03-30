@@ -456,6 +456,19 @@ defmodule ApmV5Web.Router do
     # ── EXTENSION: plugins ────────────────────────────────────────────────
     get "/plugins", PluginController, :index
     post "/plugins/reload", PluginController, :reload
+
+    # CC bridge (read-only) — MUST be before /:name catch-all
+    get "/plugins/cc/plugins", PluginController, :cc_plugins
+    get "/plugins/cc/summary", PluginController, :cc_summary
+
+    # Repository management
+    get "/plugins/repositories", RepositoryController, :index
+    post "/plugins/repositories", RepositoryController, :create
+    get "/plugins/repositories/:name", RepositoryController, :show
+    patch "/plugins/repositories/:name", RepositoryController, :update
+    delete "/plugins/repositories/:name", RepositoryController, :delete
+
+    # Plugin CRUD (catch-all /:name routes MUST be last)
     get "/plugins/:name", PluginController, :show
     post "/plugins/:name/action", PluginController, :invoke_action
     get "/plugins/:name/board", PluginController, :board
