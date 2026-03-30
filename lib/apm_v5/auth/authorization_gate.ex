@@ -171,7 +171,11 @@ defmodule ApmV5.Auth.AuthorizationGate do
             trust_ceiling: trust_ceiling,
             tool_registry: tool,
             data_boundary: Map.get(params, :data_boundary, :authenticated_user_only),
-            policy_rule: policy_rule
+            policy_rule: policy_rule,
+            agent_id: agent_id,
+            session_id: session_id,
+            formation_id: Map.get(params, :formation_id),
+            project: Map.get(params, :project)
           })
 
         # 4. Evaluate policy (policy_rule override may short-circuit)
@@ -205,43 +209,96 @@ defmodule ApmV5.Auth.AuthorizationGate do
               end
 
             {false, true} ->
-              # Needs approval — queue in PendingDecisions + escalate to ApprovalGate
-              {:ok, request_id} =
-                PendingDecisions.add(tool_name, session_id, decision.risk_level, agent_id, params)
+              # Needs approval — check for auto-approval policies first
+              auto_approval_policy = ApmV5.Auth.AutoApprovalStore.find_matching(
+                agent_id,
+                Map.get(context, :formation_id),
+                session_id,
+                Map.get(context, :project),
+                tool_name,
+                decision.risk_level
+              )
 
-              gate_id =
-                try do
-                  case ApmV5.AgUi.ApprovalGate.request_approval(agent_id, %{
+              case auto_approval_policy do
+                nil ->
+                  # No matching auto-approval policy — escalate to human
+                  {:ok, request_id} =
+                    PendingDecisions.add(tool_name, session_id, decision.risk_level, agent_id, params)
+
+                  gate_id =
+                    try do
+                      case ApmV5.AgUi.ApprovalGate.request_approval(agent_id, %{
+                        tool_name: tool_name,
+                        risk_level: decision.risk_level,
+                        reason: decision.detail
+                      }) do
+                        {:ok, gid} -> gid
+                        _ -> request_id
+                      end
+                    rescue
+                      _ -> request_id
+                    end
+
+                  broadcast({:auth_escalated, %{
+                    gate_id: gate_id,
+                    request_id: request_id,
                     tool_name: tool_name,
-                    risk_level: decision.risk_level,
-                    reason: decision.detail
-                  }) do
-                    {:ok, gid} -> gid
-                    _ -> request_id
+                    agent_id: agent_id,
+                    risk_level: decision.risk_level
+                  }})
+                  broadcast_decision(tool_name, :escalated, decision.risk_level, session_id)
+
+                  log_audit("auth:authorization_escalated", tool_name, %{
+                    agent_id: agent_id,
+                    gate_id: gate_id,
+                    request_id: request_id,
+                    risk_level: decision.risk_level
+                  })
+
+                  {{:error, :approval_required,
+                    "Pending approval queued: #{request_id}. Use /authorization to approve."},
+                   %{state | total_escalated: state.total_escalated + 1}}
+
+                policy ->
+                  # Auto-approval policy matched — auto-approve and issue token
+                  case TokenStore.generate(agent_id, session_id, tool_name, params) do
+                    {:ok, token_id} ->
+                      RateLimiter.record(agent_id, tool_name)
+                      SessionStore.increment_tool_calls(session_id)
+                      ApmV5.Auth.AutoApprovalStore.increment_approval_count(policy.policy_id)
+
+                      broadcast({:auth_auto_approved, %{
+                        token_id: token_id,
+                        tool_name: tool_name,
+                        agent_id: agent_id,
+                        policy_id: policy.policy_id,
+                        risk_level: decision.risk_level
+                      }})
+                      broadcast_decision(tool_name, :auto_approved, decision.risk_level, session_id)
+
+                      log_audit("auth:auto_approval_granted", tool_name, %{
+                        agent_id: agent_id,
+                        token_id: token_id,
+                        policy_id: policy.policy_id,
+                        risk_level: decision.risk_level
+                      })
+
+                      {{:ok, token_id}, %{state | total_authorized: state.total_authorized + 1}}
+
+                    _ ->
+                      # Token generation failed — escalate
+                      {:ok, _request_id} =
+                        PendingDecisions.add(tool_name, session_id, decision.risk_level, agent_id, params)
+
+                      log_audit("auth:auto_approval_token_failed", tool_name, %{
+                        agent_id: agent_id,
+                        policy_id: policy.policy_id
+                      })
+
+                      {{:error, :token_generation_failed, "Failed to generate token for auto-approval"},
+                       %{state | total_denied: state.total_denied + 1}}
                   end
-                rescue
-                  _ -> request_id
-                end
-
-              broadcast({:auth_escalated, %{
-                gate_id: gate_id,
-                request_id: request_id,
-                tool_name: tool_name,
-                agent_id: agent_id,
-                risk_level: decision.risk_level
-              }})
-              broadcast_decision(tool_name, :escalated, decision.risk_level, session_id)
-
-              log_audit("auth:authorization_escalated", tool_name, %{
-                agent_id: agent_id,
-                gate_id: gate_id,
-                request_id: request_id,
-                risk_level: decision.risk_level
-              })
-
-              {{:error, :approval_required,
-                "Pending approval queued: #{request_id}. Use /authorization to approve."},
-               %{state | total_escalated: state.total_escalated + 1}}
+              end
 
             {false, false} ->
               # Denied

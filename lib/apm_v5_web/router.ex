@@ -427,6 +427,14 @@ defmodule ApmV5Web.Router do
     post "/auth/policy/rules", AuthController, :add_policy_rule
     delete "/auth/policy/rules/:tool_name", AuthController, :remove_policy_rule
 
+    # Auto-approval policies (hierarchical scope matching)
+    get "/auth/auto-approval-policies", AutoApprovalController, :index
+    post "/auth/auto-approval-policies", AutoApprovalController, :create
+    get "/auth/auto-approval-policies/:id", AutoApprovalController, :show
+    patch "/auth/auto-approval-policies/:id", AutoApprovalController, :update
+    delete "/auth/auto-approval-policies/:id", AutoApprovalController, :delete
+    post "/auth/auto-approval-policies/test-match", AutoApprovalController, :test_match
+
     # ── EXTENSION: upm (v2) ───────────────────────────────────────────────
     post "/upm/gate", UpmDecisionController, :create
     get "/upm/gates", UpmDecisionController, :index

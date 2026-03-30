@@ -20,6 +20,8 @@ defmodule ApmV5.Supervisors.AuthSupervisor do
       ApmV5.Auth.ContextTracker,
       # Policy rules must start before AuthorizationGate (hot-path read)
       ApmV5.Auth.PolicyRulesStore,
+      # Auto-approval policies for hierarchical scope matching
+      ApmV5.Auth.AutoApprovalStore,
       # Pending decisions queue for human-in-the-loop approvals
       ApmV5.Auth.PendingDecisions,
       ApmV5.Auth.AuthorizationGate
