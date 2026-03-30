@@ -210,6 +210,18 @@ defmodule ApmV5.ActionEngine do
       category: "integration",
       icon: "cpu-chip",
       params: []
+    },
+    %{
+      id: "manage_showcases",
+      name: "Manage Project Showcases",
+      description: "Discover, manage, and create project showcases. Lists all projects with showcase status (standalone/central/unconfigured). Integrates with /upm plan/build, /plane-pm align daemon, /apm reporting, and /apm-auth approval gates. Can generate central showcase entries or link standalone project showcases.",
+      category: "showcase",
+      icon: "presentation-chart-bar",
+      params: [
+        %{name: "action", type: "string", required: true, options: ["list", "info", "create"]},
+        %{name: "project", type: "string", required: false},
+        %{name: "config", type: "object", required: false}
+      ]
     }
   ]
 
@@ -801,6 +813,69 @@ defmodule ApmV5.ActionEngine do
      }}
   rescue
     e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("manage_showcases", _project_path, params) do
+    action = Map.get(params, "action", "list")
+
+    case action do
+      "list" ->
+        projects = ApmV5.Showcases.ShowcaseManager.list_projects()
+        stats = ApmV5.Showcases.ShowcaseManager.stats()
+
+        {:ok,
+         %{
+           message: "Project showcases listed",
+           projects: projects,
+           stats: stats
+         }}
+
+      "info" ->
+        project = Map.get(params, "project")
+
+        unless project do
+          {:error, "project parameter required for info action"}
+        else
+          case ApmV5.Showcases.ShowcaseManager.get_project_showcase(project) do
+            {:ok, info} ->
+              {:ok,
+               %{
+                 message: "Project showcase info retrieved",
+                 project: project,
+                 showcase_info: info
+               }}
+
+            {:error, _} ->
+              {:error, "project not found: #{project}"}
+          end
+        end
+
+      "create" ->
+        project = Map.get(params, "project")
+        config = Map.get(params, "config", %{})
+
+        unless project do
+          {:error, "project parameter required for create action"}
+        else
+          case ApmV5.Showcases.ShowcaseManager.create_showcase(project, config) do
+            {:ok, result} ->
+              {:ok,
+               %{
+                 message: "Showcase created or configured",
+                 project: project,
+                 result: result
+               }}
+
+            {:error, reason} ->
+              {:error, "Failed to create showcase: #{inspect(reason)}"}
+          end
+        end
+
+      _ ->
+        {:error, "Unknown action: #{action}. Expected: list, info, create"}
+    end
+  rescue
+    e -> {:error, "manage_showcases failed: #{Exception.message(e)}"}
   end
 
   defp execute_action("register_all_ports", _project_path, _params) do

@@ -50,6 +50,8 @@ defmodule ApmV5.Application do
       ApmV5.Skills.SkillAnalyzer,
       # Skill health scorer -- 5-dimension health assessment (Phase 2: v1.0.0)
       ApmV5.Skills.SkillHealthScorer,
+      # Showcase Manager -- discover/manage project showcases, integrate with UPM/Plane/Auth
+      ApmV5.Showcases.ShowcaseManager,
       # Sub-supervisor: AG-UI protocol layer
       ApmV5.Supervisors.AgUiSupervisorGroup,
       # Claude usage tracking (US-042)
