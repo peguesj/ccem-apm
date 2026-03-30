@@ -129,14 +129,6 @@ defmodule ApmV5.ActionEngine do
       icon: "bolt",
       params: []
     },
-    %{
-      id: "crate_digger_status",
-      name: "CrateDigger Status",
-      description: "Verify CrateDigger installation in an SFA project. Checks migration files (crates, crate_track_configs, who_sampled_cache), context module, schema files, WhoSampledScraper, LiveView, router entry, and sidebar nav link. Reports per-component status and missing items.",
-      category: "analysis",
-      icon: "musical-note",
-      params: []
-    },
     # AgentLock authorization actions (v7.0.0)
     %{
       id: "create_authorization_hooks",
