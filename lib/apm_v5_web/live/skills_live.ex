@@ -2207,4 +2207,10 @@ defmodule ApmV5Web.SkillsLive do
       decision_count: length(recent_decisions)
     }
   end
+
+  defp total_pages(items, per_page) when is_list(items) and per_page > 0 do
+    div(length(items) + per_page - 1, per_page)
+  end
+
+  defp total_pages(_, _), do: 1
 end

@@ -9,6 +9,7 @@ defmodule ApmV5Web.AuthorizationLive do
   use ApmV5Web, :live_view
 
   alias ApmV5.Auth.{AuthorizationGate, SessionStore, PendingDecisions, PolicyRulesStore}
+  alias ApmV5.Notifications.ActionSchema
   alias ApmV5.NamespaceResolver
 
   @refresh_ms 5_000
@@ -36,7 +37,8 @@ defmodule ApmV5Web.AuthorizationLive do
          decisions: [],
          pending: safe_list_pending(),
          policy_rules: safe_list_rules(),
-         modal_minimized: false
+         modal_minimized: true,
+         auth_dismissed: false
        })
      )}
   end
@@ -146,7 +148,7 @@ defmodule ApmV5Web.AuthorizationLive do
   end
 
   def handle_info({:pending_decision_added, _entry}, socket) do
-    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending(), auth_dismissed: false)}
   end
 
   def handle_info({:pending_decision_resolved, _entry}, socket) do
@@ -230,7 +232,17 @@ defmodule ApmV5Web.AuthorizationLive do
 
   @impl true
   def handle_event("toggle_modal_minimize", _params, socket) do
-    {:noreply, assign(socket, :modal_minimized, !socket.assigns.modal_minimized)}
+    {:noreply, assign(socket, modal_minimized: !socket.assigns.modal_minimized, auth_dismissed: false)}
+  end
+
+  @impl true
+  def handle_event("dismiss_auth", _params, socket) do
+    {:noreply, assign(socket, :auth_dismissed, true)}
+  end
+
+  @impl true
+  def handle_event("reshow_auth", _params, socket) do
+    {:noreply, assign(socket, auth_dismissed: false, modal_minimized: true)}
   end
 
   @impl true
@@ -331,6 +343,15 @@ defmodule ApmV5Web.AuthorizationLive do
   end
 
   @impl true
+  def handle_event("approve_all_pending", _params, socket) do
+    Enum.each(socket.assigns.pending, fn p ->
+      PendingDecisions.decide(p.request_id, :approve)
+    end)
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  @impl true
   def handle_event("dismiss_all_pending", _params, socket) do
     Enum.each(socket.assigns.pending, fn p ->
       PendingDecisions.decide(p.request_id, :deny)
@@ -351,7 +372,7 @@ defmodule ApmV5Web.AuthorizationLive do
             <h2 class="text-sm font-semibold text-base-content">AgentLock Authorization</h2>
             <div class="badge badge-sm badge-ghost">{@summary.registered_tools} tools</div>
             <%= if length(@pending) > 0 do %>
-              <button phx-click="toggle_modal_minimize" class="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors">
+              <button phx-click="reshow_auth" class="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors">
                 <.icon name="hero-bell-alert" class="h-4 w-4 text-amber-400 animate-pulse" />
                 <span class="text-xs font-semibold text-amber-300"><%= length(@pending) %> pending</span>
               </button>
@@ -363,7 +384,7 @@ defmodule ApmV5Web.AuthorizationLive do
         </header>
 
         <%!-- Authorization Notification Panel — inline above main content --%>
-        <%= if @pending != [] && !@modal_minimized do %>
+        <%= if @pending != [] && !@modal_minimized && !@auth_dismissed do %>
           <div class="border-b border-amber-500/30 bg-gradient-to-b from-amber-950/30 to-base-300 relative z-20" role="alert" aria-live="assertive">
             <div class="px-4 py-3 space-y-2 max-h-[50vh] overflow-y-auto">
               <%!-- Panel header with count and dismiss controls --%>
@@ -377,8 +398,11 @@ defmodule ApmV5Web.AuthorizationLive do
                   <button phx-click="dismiss_all_pending" class="btn btn-ghost btn-xs text-zinc-500 hover:text-red-400" title="Deny all">
                     Deny All
                   </button>
-                  <button phx-click="toggle_modal_minimize" class="btn btn-ghost btn-xs btn-square" title="Minimize">
+                  <button phx-click="toggle_modal_minimize" class="btn btn-ghost btn-xs btn-square" title="Minimize to toast">
                     <.icon name="hero-minus" class="h-3.5 w-3.5" />
+                  </button>
+                  <button phx-click="dismiss_auth" class="btn btn-ghost btn-xs btn-square" title="Dismiss (stays in Pending tab)">
+                    <.icon name="hero-x-mark" class="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
@@ -485,16 +509,60 @@ defmodule ApmV5Web.AuthorizationLive do
           </div>
         <% end %>
 
-        <%!-- Minimized bar — compact status strip when panel is collapsed --%>
-        <%= if @pending != [] && @modal_minimized do %>
-          <button
-            phx-click="toggle_modal_minimize"
-            class="w-full px-4 py-1.5 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-2 hover:bg-amber-500/15 transition-colors relative z-20"
-          >
-            <.icon name="hero-shield-exclamation" class="h-4 w-4 text-amber-400" />
-            <span class="text-xs font-semibold text-amber-300"><%= length(@pending) %> authorization<%= if length(@pending) > 1, do: "s" %> pending</span>
-            <span class="text-xs text-base-content/40">click to expand</span>
-          </button>
+        <%!-- Minimized toast bar — compact actionable strip when panel is collapsed --%>
+        <%= if @pending != [] && @modal_minimized && !@auth_dismissed do %>
+          <div class="border-b border-amber-500/20 bg-amber-950/20 px-4 py-2 relative z-20">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <.icon name="hero-shield-exclamation" class="h-4 w-4 text-amber-400 shrink-0" />
+                <% [top | _rest] = @pending %>
+                <% agent_lbl = NamespaceResolver.agent_label(top.agent_id) %>
+                <% cmd_preview = extract_command_preview(top.params) %>
+                <span class="text-xs text-base-content/70 truncate">
+                  <strong class="text-amber-300"><%= agent_lbl %></strong>
+                  <span class="text-zinc-500 mx-1">&middot;</span>
+                  <span class="font-mono"><%= top.tool_name %></span>
+                  <%= if cmd_preview do %>
+                    <span class="text-zinc-500 mx-1">&middot;</span>
+                    <span class="text-zinc-400"><%= String.slice(to_string(cmd_preview), 0, 50) %></span>
+                  <% end %>
+                  <span class="text-zinc-500 mx-1">&middot;</span>
+                  <span class={"font-semibold #{if top.risk_level in [:high, :critical], do: "text-red-400", else: "text-amber-400"}"}><%= top.risk_level %> risk</span>
+                </span>
+                <div phx-hook="CountdownTimer" id={"toast-cd-#{top.request_id}"} data-seconds="20"
+                  class="text-[10px] font-mono text-amber-400/60 tabular-nums shrink-0">
+                  <span data-countdown-display>20s</span>
+                </div>
+                <%= if length(@pending) > 1 do %>
+                  <span class="badge badge-xs badge-warning shrink-0"><%= length(@pending) %></span>
+                <% end %>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                <button phx-click="approve_gate" phx-value-id={top.request_id} class="btn btn-success btn-xs">Approve</button>
+                <button phx-click="deny_gate" phx-value-id={top.request_id} class="btn btn-error btn-xs">Deny</button>
+                <%= if length(@pending) > 1 do %>
+                  <div class="dropdown dropdown-end dropdown-bottom">
+                    <label tabindex="0" class="btn btn-warning btn-xs btn-outline cursor-pointer" title="Approve all pending">
+                      All (<%= length(@pending) %>)
+                    </label>
+                    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-40 p-1 shadow-lg border border-base-content/10 mt-1">
+                      <li><button phx-click="approve_all_pending" class="text-xs text-success">Approve All</button></li>
+                      <li><button phx-click="dismiss_all_pending" class="text-xs text-error">Deny All</button></li>
+                    </ul>
+                  </div>
+                <% end %>
+                <button phx-click="toggle_modal_minimize" class="btn btn-ghost btn-xs" title="Show details">
+                  <.icon name="hero-chevron-down" class="h-3 w-3" />
+                </button>
+                <a href="/authorization" class="btn btn-ghost btn-xs" title="Open Authorization page">
+                  <.icon name="hero-arrow-top-right-on-square" class="h-3 w-3" />
+                </a>
+                <button phx-click="dismiss_auth" class="btn btn-ghost btn-xs btn-square" title="Dismiss">
+                  <.icon name="hero-x-mark" class="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          </div>
         <% end %>
 
         <main class="flex-1 overflow-y-auto p-4 space-y-4">
