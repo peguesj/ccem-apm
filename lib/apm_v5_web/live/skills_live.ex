@@ -794,14 +794,14 @@ defmodule ApmV5Web.SkillsLive do
               aria-describedby="fix-hint"
             >
               <.icon name="hero-wrench-screwdriver" class="size-4" />
-              Fix Skill
+              Fix Skill <span class="badge badge-xs badge-secondary ml-1">CCEM</span>
             </button>
             <p
               :if={@selected_skill.health_score < 80}
               id="fix-hint"
               class="text-[10px] text-base-content/40 mt-1 text-center"
             >
-              Guided repair for frontmatter, description, and trigger issues
+              Guided repair for frontmatter, description, triggers, templates, and examples
             </p>
             <p :if={@selected_skill.health_score >= 80} class="text-xs text-success text-center py-1">
               ✓ Skill is healthy — no fixes needed
@@ -914,6 +914,40 @@ defmodule ApmV5Web.SkillsLive do
                     <span class="badge badge-xs badge-success ml-1">OK (<%= Map.get(@selected_skill, :trigger_count, 0) %>)</span>
                   <% else %>
                     <span class="badge badge-xs badge-warning ml-1">none</span>
+                  <% end %>
+                </span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-xs checkbox-warning"
+                  checked={MapSet.member?(@fix_wizard_selected_repairs, "templates")}
+                  phx-click="toggle_repair"
+                  phx-value-repair="templates"
+                />
+                <span>
+                  Add templates
+                  <%= if Map.get(@selected_skill, :has_templates_section, false) do %>
+                    <span class="badge badge-xs badge-success ml-1">OK</span>
+                  <% else %>
+                    <span class="badge badge-xs badge-warning ml-1">missing</span>
+                  <% end %>
+                </span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-xs checkbox-warning"
+                  checked={MapSet.member?(@fix_wizard_selected_repairs, "examples")}
+                  phx-click="toggle_repair"
+                  phx-value-repair="examples"
+                />
+                <span>
+                  Add examples
+                  <%= if Map.get(@selected_skill, :has_examples_section, false) do %>
+                    <span class="badge badge-xs badge-success ml-1">OK</span>
+                  <% else %>
+                    <span class="badge badge-xs badge-warning ml-1">missing</span>
                   <% end %>
                 </span>
               </label>
@@ -1245,6 +1279,12 @@ defmodule ApmV5Web.SkillsLive do
 
     if MapSet.member?(selected, "triggers"),
       do: ActionEngine.run_action("add_skill_triggers", "", %{"skill_name" => skill_name})
+
+    if MapSet.member?(selected, "templates"),
+      do: ActionEngine.run_action("add_skill_templates", "", %{"skill_name" => skill_name})
+
+    if MapSet.member?(selected, "examples"),
+      do: ActionEngine.run_action("add_skill_examples", "", %{"skill_name" => skill_name})
 
     {:noreply, assign(socket, :fix_wizard_step, :done)}
   end
@@ -1681,6 +1721,8 @@ defmodule ApmV5Web.SkillsLive do
   defp repair_label("frontmatter"), do: "Fix frontmatter (add missing YAML header)"
   defp repair_label("description"), do: "Improve description quality"
   defp repair_label("triggers"), do: "Add trigger keywords"
+  defp repair_label("templates"), do: "Generate skill templates"
+  defp repair_label("examples"), do: "Generate usage examples"
   defp repair_label(r), do: "Fix #{r}"
 
   # AG-UI helpers
@@ -1771,6 +1813,20 @@ defmodule ApmV5Web.SkillsLive do
 
         if not has_triggers or trigger_count == 0 do
           [%{field: "triggers", issue: "No trigger keywords defined", fix: "Add relevant trigger keywords"} | acc]
+        else
+          acc
+        end
+      end)
+      |> then(fn acc ->
+        if not Map.get(skill, :has_templates_section, false) do
+          [%{field: "templates", issue: "No templates section in SKILL.md", fix: "Generate skill templates and boilerplate"} | acc]
+        else
+          acc
+        end
+      end)
+      |> then(fn acc ->
+        if not Map.get(skill, :has_examples_section, false) do
+          [%{field: "examples", issue: "No examples section in SKILL.md", fix: "Generate usage examples"} | acc]
         else
           acc
         end
