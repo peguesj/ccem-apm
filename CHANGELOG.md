@@ -1,5 +1,77 @@
 # Changelog
 
+## v8.9.0 (2026-03-30)
+
+### Platform Refactor — Modular Sidebar, Agent Identity, Formation Grouping
+
+**Sidebar 5-Section Taxonomy**
+- CORE, AUTHORIZATION, PLUGINS (dynamic), INTEGRATIONS (dynamic), SYSTEM sections
+- Dynamic plugin nav items from `PluginBehaviour.nav_items/0`
+- Integration entries from `IntegrationRegistry`
+- `safe_list_plugins/0` + `safe_list_integrations/0` with try/catch guards
+
+**Session Intelligence**
+- `SessionManager` multi-path scan: APM sessions + Claude Code JSONL (`~/.claude/projects/*/*.jsonl`)
+- `source: :claude_native` badge for native conversations
+- `ConversationMonitorLive` reuses `SessionManager.list_sessions/0` as single source of truth
+
+**Agent Identity**
+- `agent_name` (descriptive human label), `agent_type` (normalized enum), `agent_definition` (instance or purpose) added to AgentRegistry
+- `normalize_agent_type/1` validates against: orchestrator|squadron_lead|swarm_agent|cluster_agent|individual|persistent_service|quality_agent|unknown
+- `NamespaceResolver` uses `agent_name` field for human-readable labels
+
+**Formation Graph Enhancements**
+- TB (top-to-bottom with session columns) layout mode added as 4th option
+- Namespace-scoped bounding rectangles behind node clusters
+- Auto-collapse: namespaces with >50 nodes collapse to summary node
+- `?scope=` URL param for namespace filtering
+
+**Notification System**
+- Buffer cap: 200 → 2,000 notifications
+- Grouped view UI by category with collapse/expand per group
+- `derive_category/1` from notification type field
+
+**Agent Identity in Auth Pipeline**
+- AgentLock authorization agents get `agent_name`, `agent_type: "persistent_service"`, `agent_definition` fields
+- Persistent Plane-PM align agent registered with APM on startup
+
+**Plugin/Integration Architecture**
+- `PluginBehaviour`: `nav_items/0`, `settings_path/0`, `plugin_live_module/0` optional callbacks
+- `IntegrationBehaviour`: `target_native_feature/0`, `required_plugin/0` optional callbacks
+- `AgentlockIntegration.target_native_feature/0` returns `:authorization`
+
+**AG-UI Improvements**
+- `EventBus` replay buffer: 500 → 20,000 events
+- A2A Router history cap: 200 → 2,000 entries
+
+**Usage LiveView**
+- Expandable per-project input/output/cache token breakdown bar charts
+
+**Skills LiveView**
+- Fix wizard steps independently selectable (click any step to jump)
+- Step 2 (Preview) loads async via background Task
+
+**Timeline LiveView**
+- Swim-lane redesign with category lanes (lifecycle/auth/formation/task/tool/system)
+- Time window selector: 15m/30m/1h/6h/24h
+- Drill-down panel on event selection
+
+**Plane-PM Align Agent**
+- `ApmV5.PlanePmAlign` persistent GenServer in supervision tree
+- Polls Plane API every 5min, broadcasts `"plane:sync"` PubSub
+- REST: `GET /api/v2/plane/sync-status`, `POST /api/v2/plane/sync`
+
+**BackgroundTasksStore**
+- `add/1` alias for `register_task/1`
+- Auto-registers agents via `AgentRegistry.register_agent/3` side-effect
+
+### Changed
+- `mix.exs`: version bumped 8.7.0 → 8.9.0
+- `@server_version` in `ApiController`: 8.7.0 → 8.9.0
+- `@app_version` in `SidebarNav`: 8.7.0 → 8.9.0
+
+---
+
 ## v8.7.0 (2026-03-28)
 
 ### SimpleAgents CCEM APM Plugin

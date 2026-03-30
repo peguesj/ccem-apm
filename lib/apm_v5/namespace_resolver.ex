@@ -74,15 +74,33 @@ defmodule ApmV5.NamespaceResolver do
   # Private
 
   defp compute_agent_label(agent_id, opts) do
-    project = opts[:project] || extract_project_from_id(agent_id)
-    role = opts[:role] |> format_role()
-    task = opts[:task_subject] |> task_slug()
+    # Prefer agent_name from registry if meaningful (non-empty, different from raw agent_id)
+    registry_name = lookup_agent_name(agent_id)
+    if registry_name && registry_name != "" && registry_name != agent_id do
+      registry_name
+    else
+      project = opts[:project] || extract_project_from_id(agent_id)
+      role = opts[:role] |> format_role()
+      task = opts[:task_subject] |> task_slug()
 
-    parts = [project, role, task] |> Enum.reject(&is_nil/1) |> Enum.reject(&(&1 == ""))
-    case parts do
-      [] -> short_id(agent_id)
-      _ -> Enum.join(parts, "/")
+      parts = [project, role, task] |> Enum.reject(&is_nil/1) |> Enum.reject(&(&1 == ""))
+      case parts do
+        [] -> short_id(agent_id)
+        _ -> Enum.join(parts, "/")
+      end
     end
+  end
+
+  # Looks up agent_name from AgentRegistry without crashing if it is not running.
+  defp lookup_agent_name(agent_id) do
+    if Process.whereis(ApmV5.AgentRegistry) do
+      case ApmV5.AgentRegistry.get_agent(agent_id) do
+        %{agent_name: name} when is_binary(name) and name != "" -> name
+        _ -> nil
+      end
+    end
+  rescue
+    _ -> nil
   end
 
   defp compute_session_label(session_id, opts) do

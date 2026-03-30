@@ -103,12 +103,48 @@ defmodule ApmV5.Plugins.PluginBehaviour do
   """
   @callback default_enabled?() :: boolean()
 
+  @doc """
+  Optional. Returns nav subitems for this plugin in the sidebar.
+  Each tuple is `{label, path, hero_icon_name_or_nil}`.
+
+  Example:
+      [{"Board", "/plugins/plane/board", "hero-squares-2x2"},
+       {"Issues", "/plugins/plane/issues", "hero-list-bullet"}]
+  """
+  @callback nav_items() :: [{String.t(), String.t(), String.t() | nil}]
+
+  @doc """
+  Optional. Returns the settings page path for this plugin, or `nil` if none.
+  """
+  @callback settings_path() :: String.t() | nil
+
+  @doc """
+  Optional. Returns the LiveView module for this plugin's main page, or `nil`.
+  """
+  @callback plugin_live_module() :: module() | nil
+
+  @doc """
+  Optional. Returns a list of integration module names that this plugin provides
+  or depends on.  Used by the symbiosis layer to cross-reference plugins with
+  their counterpart `IntegrationBehaviour` modules.
+
+  Example:
+      def plugin_integrations, do: [ApmV5.Integrations.AgUi.AgUiIntegration]
+
+  Return `[]` if this plugin has no associated integrations.
+  """
+  @callback plugin_integrations() :: [module()]
+
   @optional_callbacks [
     inspector_section: 1,
     supervisor_children: 0,
     live_views: 0,
     on_enable: 0,
     on_disable: 0,
-    default_enabled?: 0
+    default_enabled?: 0,
+    nav_items: 0,
+    settings_path: 0,
+    plugin_live_module: 0,
+    plugin_integrations: 0
   ]
 end

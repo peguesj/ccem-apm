@@ -165,10 +165,22 @@ defmodule ApmV5Web.RoutingLive do
     summary = try do AuthorizationGate.summary() rescue _ -> %{} end
     trust_ceilings = try do ContextTracker.all_trust_ceilings() rescue _ -> %{} end
 
+    recent_decisions =
+      try do
+        ApmV5.AuditLog.tail(50)
+        |> Enum.filter(fn e ->
+          String.starts_with?(Map.get(e, :event_type, ""), "auth:")
+        end)
+        |> Enum.take(20)
+      rescue
+        _ -> []
+      end
+
     push_event(socket, "routing:data", %{
       graph: graph,
       summary: summary,
-      trust_ceilings: trust_ceilings
+      trust_ceilings: trust_ceilings,
+      recent_decisions: recent_decisions
     })
   end
 

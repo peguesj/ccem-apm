@@ -18,7 +18,7 @@ defmodule ApmV5Web.ApiController do
   alias ApmV5.CommandRunner
   alias ApmV5.AgUi.HookBridge
 
-  @server_version "8.7.0"
+  @server_version "8.9.0"
 
   # ============================
   # GET Endpoints
@@ -306,12 +306,15 @@ defmodule ApmV5Web.ApiController do
 
       metadata = %{
         name: params["name"] || agent_id,
+        # Agent identity fields (US-021)
+        agent_name: params["agent_name"] || params["name"] || agent_id,
+        agent_type: params["agent_type"] || "individual",
+        agent_definition: params["agent_definition"] || params["role"] || "",
         tier: params["tier"] || 1,
         status: params["status"] || "idle",
         deps: params["deps"] || [],
         metadata: params["metadata"] || %{},
         namespace: params["namespace"],
-        agent_type: params["agent_type"] || "individual",
         path: params["path"],
         member_count: params["member_count"],
         # Formation hierarchy fields

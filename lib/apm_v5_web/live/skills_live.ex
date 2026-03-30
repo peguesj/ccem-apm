@@ -55,6 +55,8 @@ defmodule ApmV5Web.SkillsLive do
       |> assign(:collapsed_tiers, %{healthy: true, needs_attention: false, critical: false})
       |> assign(:fix_wizard_step, nil)
       |> assign(:fix_wizard_selected_repairs, MapSet.new())
+      |> assign(:fix_preview, nil)
+      |> assign(:fix_preview_loading, false)
       |> assign(:page, 1)
       |> assign(:per_page, 25)
       |> assign(:selected_skills, MapSet.new())
@@ -796,9 +798,14 @@ defmodule ApmV5Web.SkillsLive do
 
           <%!-- Fix Wizard Step 1: Diagnose --%>
           <div :if={@fix_wizard_step == :diagnose} class="space-y-3">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="badge badge-warning badge-sm">Step 1 of 3</span>
-              <span class="text-sm font-medium">Detected Issues</span>
+            <div class="flex items-center gap-1 mb-2" role="navigation" aria-label="Fix wizard steps">
+              <button class="btn btn-warning btn-xs" phx-click="wizard_step" phx-value-step="1" aria-current="step" aria-label="Step 1: Diagnose (current)">1 Diagnose</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-ghost btn-xs opacity-30 cursor-not-allowed" disabled aria-label="Step 4: Done (not yet available)">4 Done</button>
             </div>
             <ul class="space-y-1.5 text-xs" aria-label="Detected skill issues">
               <li
@@ -837,9 +844,14 @@ defmodule ApmV5Web.SkillsLive do
 
           <%!-- Fix Wizard Step 2: Select --%>
           <div :if={@fix_wizard_step == :select} class="space-y-3">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="badge badge-warning badge-sm">Step 2 of 3</span>
-              <span class="text-sm font-medium">Select Repairs</span>
+            <div class="flex items-center gap-1 mb-2" role="navigation" aria-label="Fix wizard steps">
+              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-warning btn-xs" phx-click="wizard_step" phx-value-step="2" aria-current="step" aria-label="Step 2: Select Repairs (current)">2 Select</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-ghost btn-xs opacity-30 cursor-not-allowed" disabled aria-label="Step 4: Done (not yet available)">4 Done</button>
             </div>
             <div class="space-y-2 text-xs">
               <label class="flex items-center gap-2 cursor-pointer">
@@ -898,13 +910,33 @@ defmodule ApmV5Web.SkillsLive do
 
           <%!-- Fix Wizard Step 3: Preview --%>
           <div :if={@fix_wizard_step == :preview} class="space-y-3">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="badge badge-warning badge-sm">Step 3 of 3</span>
-              <span class="text-sm font-medium">Review & Run</span>
+            <div class="flex items-center gap-1 mb-2" role="navigation" aria-label="Fix wizard steps">
+              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-warning btn-xs" phx-click="wizard_step" phx-value-step="3" aria-current="step" aria-label="Step 3: Preview (current)">3 Preview</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-ghost btn-xs opacity-30 cursor-not-allowed" disabled aria-label="Step 4: Done (not yet available)">4 Done</button>
             </div>
             <p class="text-xs text-base-content/60">
               The following repairs will run on <strong>{@selected_skill.name}</strong>:
             </p>
+            <%!-- Async diff preview --%>
+            <div :if={@fix_preview_loading} class="flex items-center gap-2 py-2" aria-live="polite" aria-busy="true">
+              <span class="loading loading-spinner loading-xs text-warning"></span>
+              <span class="text-xs text-base-content/50">Loading diff preview…</span>
+            </div>
+            <div :if={not @fix_preview_loading and @fix_preview != nil} class="bg-base-300 rounded p-2 text-xs font-mono space-y-1" aria-label="Diff preview" aria-live="polite">
+              <div class="text-base-content/60 font-sans mb-1">{@fix_preview.summary}</div>
+              <div class="text-success text-[10px]">
+                Health: {@fix_preview.health_before} → {@fix_preview.health_after}
+              </div>
+              <div :for={change <- @fix_preview.changes} class="border-l-2 border-warning pl-2 mt-1">
+                <div class="text-warning">{change.field}: {change.issue}</div>
+                <div class="text-success">+ {change.fix}</div>
+              </div>
+            </div>
             <ul class="text-xs space-y-1">
               <li
                 :for={repair <- MapSet.to_list(@fix_wizard_selected_repairs)}
@@ -929,6 +961,15 @@ defmodule ApmV5Web.SkillsLive do
 
           <%!-- Fix Wizard Step 4: Done --%>
           <div :if={@fix_wizard_step == :done} class="space-y-3 text-center">
+            <div class="flex items-center gap-1 mb-2 justify-center" role="navigation" aria-label="Fix wizard steps">
+              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</button>
+              <span class="text-base-content/30 text-xs">→</span>
+              <button class="btn btn-success btn-xs" aria-current="step" aria-label="Step 4: Done (current)" disabled>4 Done</button>
+            </div>
             <div class="text-success text-2xl" aria-hidden="true">✓</div>
             <p class="text-sm font-medium text-success">Fix initiated</p>
             <p class="text-xs text-base-content/50">
@@ -986,15 +1027,27 @@ defmodule ApmV5Web.SkillsLive do
         _ -> nil
       end
 
-    {:noreply, assign(socket, selected_skill: skill, fix_wizard_step: nil)}
+    {:noreply,
+     assign(socket,
+       selected_skill: skill,
+       fix_wizard_step: nil,
+       fix_preview: nil,
+       fix_preview_loading: false
+     )}
   end
 
   def handle_event("clear_selected", _params, socket) do
-    {:noreply, assign(socket, selected_skill: nil, fix_wizard_step: nil)}
+    {:noreply, assign(socket, selected_skill: nil, fix_wizard_step: nil, fix_preview: nil, fix_preview_loading: false)}
   end
 
   def handle_event("close_drawer", _params, socket) do
-    {:noreply, assign(socket, selected_skill: nil, fix_wizard_step: nil)}
+    {:noreply,
+     assign(socket,
+       selected_skill: nil,
+       fix_wizard_step: nil,
+       fix_preview: nil,
+       fix_preview_loading: false
+     )}
   end
 
   def handle_event("change_page", %{"page" => page_str}, socket) do
@@ -1064,7 +1117,43 @@ defmodule ApmV5Web.SkillsLive do
   end
 
   def handle_event("start_fix_wizard", _params, socket) do
-    {:noreply, assign(socket, fix_wizard_step: :diagnose, fix_wizard_selected_repairs: MapSet.new())}
+    {:noreply,
+     assign(socket,
+       fix_wizard_step: :diagnose,
+       fix_wizard_selected_repairs: MapSet.new(),
+       fix_preview: nil,
+       fix_preview_loading: false
+     )}
+  end
+
+  def handle_event("wizard_step", %{"step" => step_str}, socket) do
+    step_atom =
+      case step_str do
+        "1" -> :diagnose
+        "2" -> :select
+        "3" -> :preview
+        "4" -> :done
+        _ -> socket.assigns.fix_wizard_step
+      end
+
+    socket = assign(socket, fix_wizard_step: step_atom)
+
+    socket =
+      if step_atom == :preview and socket.assigns.fix_preview == nil do
+        skill = socket.assigns.selected_skill
+        parent = self()
+
+        Task.start(fn ->
+          preview = generate_fix_preview(skill)
+          send(parent, {:fix_preview_ready, preview})
+        end)
+
+        assign(socket, fix_preview_loading: true)
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   def handle_event("wizard_next", _params, socket) do
@@ -1075,7 +1164,24 @@ defmodule ApmV5Web.SkillsLive do
         step -> step
       end
 
-    {:noreply, assign(socket, :fix_wizard_step, next)}
+    socket = assign(socket, :fix_wizard_step, next)
+
+    socket =
+      if next == :preview and socket.assigns.fix_preview == nil do
+        skill = socket.assigns.selected_skill
+        parent = self()
+
+        Task.start(fn ->
+          preview = generate_fix_preview(skill)
+          send(parent, {:fix_preview_ready, preview})
+        end)
+
+        assign(socket, fix_preview_loading: true)
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   def handle_event("wizard_back", _params, socket) do
@@ -1116,7 +1222,13 @@ defmodule ApmV5Web.SkillsLive do
   end
 
   def handle_event("cancel_fix", _params, socket) do
-    {:noreply, assign(socket, fix_wizard_step: nil, fix_wizard_selected_repairs: MapSet.new())}
+    {:noreply,
+     assign(socket,
+       fix_wizard_step: nil,
+       fix_wizard_selected_repairs: MapSet.new(),
+       fix_preview: nil,
+       fix_preview_loading: false
+     )}
   end
 
   def handle_event("fix_frontmatter", %{"skill" => skill_name}, socket) do
@@ -1189,9 +1301,13 @@ defmodule ApmV5Web.SkillsLive do
 
   def handle_event("keydown", _params, socket), do: {:noreply, socket}
 
-  # --- PubSub ---
+  # --- PubSub + async ---
 
   @impl true
+  def handle_info({:fix_preview_ready, preview}, socket) do
+    {:noreply, assign(socket, fix_preview: preview, fix_preview_loading: false)}
+  end
+
   def handle_info({:skill_tracked, _session_id, _skill_name}, socket) do
     active_session = socket.assigns.active_session
     session_skills = if active_session, do: SkillTracker.get_session_skills(active_session), else: %{}
@@ -1213,6 +1329,10 @@ defmodule ApmV5Web.SkillsLive do
       |> apply_filters()
 
     {:noreply, socket}
+  end
+
+  def handle_info({:fix_preview_ready, preview}, socket) do
+    {:noreply, assign(socket, fix_preview: preview, fix_preview_loading: false)}
   end
 
   def handle_info(_msg, socket), do: {:noreply, socket}
@@ -1587,5 +1707,59 @@ defmodule ApmV5Web.SkillsLive do
     else
       header <> Enum.join(issues, "\n")
     end
+  end
+
+  defp generate_fix_preview(nil),
+    do: %{
+      changes: [],
+      summary: "No skill selected",
+      health_before: 0,
+      health_after: 0,
+      skill_name: "",
+      skill_path: ""
+    }
+
+  defp generate_fix_preview(skill) do
+    skill_path = Map.get(skill, :path, "")
+    health = Map.get(skill, :health_score, 0)
+
+    changes =
+      []
+      |> then(fn acc ->
+        if not Map.get(skill, :has_frontmatter, true) do
+          [%{field: "frontmatter", issue: "Missing YAML frontmatter", fix: "Add name/description/version header"} | acc]
+        else
+          acc
+        end
+      end)
+      |> then(fn acc ->
+        quality = Map.get(skill, :description_quality, "good")
+
+        if quality in ["missing", "poor"] do
+          [%{field: "description", issue: "Description too short or missing", fix: "Add comprehensive description with 100+ chars"} | acc]
+        else
+          acc
+        end
+      end)
+      |> then(fn acc ->
+        trigger_count = Map.get(skill, :trigger_count, 0)
+        has_triggers = Map.get(skill, :has_triggers, trigger_count > 0)
+
+        if not has_triggers or trigger_count == 0 do
+          [%{field: "triggers", issue: "No trigger keywords defined", fix: "Add relevant trigger keywords"} | acc]
+        else
+          acc
+        end
+      end)
+      |> Enum.reverse()
+
+    %{
+      skill_name: Map.get(skill, :name, ""),
+      skill_path: skill_path,
+      health_before: health,
+      health_after: min(health + length(changes) * 15, 100),
+      changes: changes,
+      summary: "#{length(changes)} improvement#{if length(changes) == 1, do: "", else: "s"} identified"
+    }
   end
 end

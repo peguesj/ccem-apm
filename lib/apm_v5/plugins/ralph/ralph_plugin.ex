@@ -98,6 +98,12 @@ defmodule ApmV5.Plugins.Ralph.RalphPlugin do
   end
 
   @impl true
+  @spec nav_items() :: [{String.t(), String.t(), String.t() | nil}]
+  def nav_items do
+    [{"PRD", "/plugins/ralph", "hero-document-text"}]
+  end
+
+  @impl true
   @spec supervisor_children() :: [Supervisor.child_spec()]
   def supervisor_children, do: []
 

@@ -69,8 +69,17 @@ export default {
     this.g = null
     this._orientation = this.el.dataset.orientation || "graph_td"
     this._lastData = null
+    this._scope = null
     this.initGraph()
     this.handleEvent("formation_data", (data) => this.render(data))
+    this.handleEvent("formation:layout", ({ mode }) => {
+      this._orientation = mode
+      if (this._lastData) this.render(this._lastData)
+    })
+    this.handleEvent("formation:scope", ({ scope }) => {
+      this._scope = scope || null
+      if (this._lastData) this.render(this._lastData)
+    })
   },
 
   async updated() {
@@ -127,14 +136,34 @@ export default {
   },
 
   render(data) {
-    const { nodes, edges } = data
+    let { nodes, edges } = data
     if (!nodes || nodes.length === 0) return
 
-    // Cache for orientation change re-render
+    // Cache for orientation change / scope change re-render
     this._lastData = data
 
+    // Scope filtering: restrict to nodes reachable from the scoped formation
+    if (this._scope) {
+      const scopeIds = new Set()
+      const addReachable = (id) => {
+        if (scopeIds.has(id)) return
+        scopeIds.add(id)
+        edges.forEach(e => { if (e.source === id) addReachable(e.target) })
+      }
+      nodes.filter(n => n.id === this._scope)
+        .forEach(n => addReachable(n.id))
+      nodes = nodes.filter(n => scopeIds.has(n.id))
+      edges = edges.filter(e => scopeIds.has(e.source) && scopeIds.has(e.target))
+    }
+
     const { width, height } = this.el.getBoundingClientRect()
+    const isTB = this._orientation === "tb"
     const isLR = this._orientation === "graph_lr"
+
+    if (isTB) {
+      this._renderTB(nodes, edges, width, height)
+      return
+    }
 
     // Build hierarchy from edges
     const root = this.buildTree(nodes, edges)
@@ -178,6 +207,9 @@ export default {
 
     // Wave swim-lane backgrounds (TD only)
     if (!isLR) this._renderWaveLanes(container, allNodes)
+
+    // Namespace grouping hulls (both TD and LR)
+    this._renderNamespaceHulls(container, allNodes)
 
     // Links
     container.selectAll(".link")
@@ -345,6 +377,229 @@ export default {
           .attr("fill", TOKENS.text.muted)
           .attr("font-size", "7px")
           .text(`W${d.data.wave_number}`)
+      }
+    })
+  },
+
+  // TB mode: session columns (left-to-right), formations stacked top-to-bottom within each session
+  _renderTB(nodes, edges, width, height) {
+    this.g.selectAll("*").remove()
+
+    // Group formation-level nodes by session_id (or treat each formation as its own column)
+    const formationNodes = nodes.filter(n => n.level === "formation")
+    const sessionGroups = new Map()
+    formationNodes.forEach(fn_ => {
+      const sessionKey = fn_.session_id || fn_.id
+      if (!sessionGroups.has(sessionKey)) sessionGroups.set(sessionKey, [])
+      sessionGroups.get(sessionKey).push(fn_)
+    })
+
+    const COL_WIDTH = 240
+    const ROW_HEIGHT = 56
+    const COL_PAD = 32
+    const ROW_PAD = 16
+    const HULL_PAD = 20
+    const COLLAPSE_THRESHOLD = 50
+
+    // Build a flat node map for descendant lookup
+    const nodeMap = new Map(nodes.map(n => [n.id, n]))
+    const getDescendants = (id) => {
+      const result = []
+      const visit = (nodeId) => {
+        edges.forEach(e => {
+          if (e.source === nodeId) {
+            const child = nodeMap.get(e.target)
+            if (child) { result.push(child); visit(e.target) }
+          }
+        })
+      }
+      visit(id)
+      return result
+    }
+
+    const container = this.g.append("g").attr("transform", "translate(0, 0)")
+
+    let colX = 40
+    sessionGroups.forEach((formations, sessionKey) => {
+      let rowY = 40
+
+      // Session column label (only shown when session_id grouping is active)
+      if (formationNodes.some(fn_ => fn_.session_id)) {
+        container.append("text")
+          .attr("x", colX + COL_WIDTH / 2)
+          .attr("y", 18)
+          .attr("text-anchor", "middle")
+          .attr("fill", TOKENS.text.muted)
+          .attr("font-size", "10px")
+          .attr("font-family", "monospace")
+          .text(truncate(sessionKey, 24))
+      }
+
+      formations.forEach(formation => {
+        const descendants = getDescendants(formation.id)
+        const totalCount = descendants.length
+
+        if (totalCount > COLLAPSE_THRESHOLD) {
+          // Auto-collapse: render summary node with count badge inside a hull
+          container.append("rect")
+            .attr("x", colX - HULL_PAD / 2)
+            .attr("y", rowY - HULL_PAD / 2)
+            .attr("width", COL_WIDTH + HULL_PAD)
+            .attr("height", ROW_HEIGHT + HULL_PAD)
+            .attr("rx", 12).attr("ry", 12)
+            .attr("fill", "rgba(99,102,241,0.06)")
+            .attr("stroke", "#6366f1")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "6,3")
+            .attr("opacity", 0.7)
+
+          container.append("text")
+            .attr("x", colX - HULL_PAD / 2 + 8)
+            .attr("y", rowY - HULL_PAD / 2 + 13)
+            .attr("fill", TOKENS.text.muted)
+            .attr("font-size", "8px")
+            .attr("font-family", "monospace")
+            .text(truncate(formation.id, 26))
+
+          const colors = getNodeColors(formation)
+          const sw = COL_WIDTH - 20, sh = 36
+          container.append("rect")
+            .attr("x", colX + 10).attr("y", rowY + 4)
+            .attr("width", sw).attr("height", sh).attr("rx", 8)
+            .attr("fill", colors.fill).attr("stroke", colors.stroke)
+            .attr("stroke-width", 1.5).attr("opacity", 0.95)
+
+          container.append("circle")
+            .attr("cx", colX + 10 + sw - 16).attr("cy", rowY + 4 + sh / 2)
+            .attr("r", 12).attr("fill", "#1e293b")
+            .attr("stroke", colors.stroke).attr("stroke-width", 1)
+          container.append("text")
+            .attr("x", colX + 10 + sw - 16).attr("y", rowY + 4 + sh / 2 + 1)
+            .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
+            .attr("fill", TOKENS.text.primary).attr("font-size", "9px").attr("font-weight", "600")
+            .text(totalCount)
+
+          container.append("text")
+            .attr("x", colX + 18).attr("y", rowY + 4 + sh / 2 + 1)
+            .attr("dominant-baseline", "middle")
+            .attr("fill", colors.text || TOKENS.text.primary)
+            .attr("font-size", "10px").attr("font-weight", "600")
+            .text(truncate(formation.name, 18))
+
+          rowY += ROW_HEIGHT + ROW_PAD
+        } else {
+          const allGroupNodes = [formation, ...descendants]
+          const nodeH = ROW_HEIGHT
+          const totalH = allGroupNodes.length * nodeH + (allGroupNodes.length - 1) * 4
+
+          container.append("rect")
+            .attr("x", colX - HULL_PAD / 2)
+            .attr("y", rowY - HULL_PAD / 2)
+            .attr("width", COL_WIDTH + HULL_PAD)
+            .attr("height", totalH + HULL_PAD)
+            .attr("rx", 12).attr("ry", 12)
+            .attr("fill", "rgba(99,102,241,0.06)")
+            .attr("stroke", "#6366f1")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "6,3")
+            .attr("opacity", 0.7)
+
+          container.append("text")
+            .attr("x", colX - HULL_PAD / 2 + 8)
+            .attr("y", rowY - HULL_PAD / 2 + 13)
+            .attr("fill", TOKENS.text.muted)
+            .attr("font-size", "8px")
+            .attr("font-family", "monospace")
+            .text(truncate(formation.id, 26))
+
+          allGroupNodes.forEach((node, i) => {
+            const ny = rowY + i * (nodeH + 4)
+            const colors = getNodeColors(node)
+            const size = NODE_SIZES[node.level] || NODE_SIZES.agent
+            const nx = colX + (COL_WIDTH - size.w) / 2
+
+            container.append("rect")
+              .attr("x", nx + 2).attr("y", ny + 2)
+              .attr("width", size.w).attr("height", size.h).attr("rx", size.r)
+              .attr("fill", "#000").attr("opacity", 0.2)
+
+            container.append("rect")
+              .attr("x", nx).attr("y", ny)
+              .attr("width", size.w).attr("height", size.h).attr("rx", size.r)
+              .attr("fill", colors.fill).attr("stroke", colors.stroke)
+              .attr("stroke-width", 1.5).attr("opacity", 0.95)
+              .style("cursor", "pointer")
+              .on("click", () => this.pushEvent("node_clicked", { id: node.id, level: node.level }))
+
+            container.append("text")
+              .attr("x", nx + 8).attr("y", ny + size.h / 2 + 1)
+              .attr("dominant-baseline", "middle")
+              .attr("fill", colors.text || TOKENS.text.primary)
+              .attr("font-size", node.level === "formation" ? "11px" : "10px")
+              .attr("font-weight", node.level === "formation" ? "600" : "500")
+              .text(truncate(node.name, 14))
+          })
+
+          rowY += totalH + HULL_PAD + ROW_PAD
+        }
+      })
+
+      colX += COL_WIDTH + COL_PAD
+    })
+
+    // Fit viewBox around rendered content
+    const bbox = this.g.node().getBBox()
+    if (bbox.width > 0 && bbox.height > 0) {
+      const pad = 24
+      this.svg.attr("viewBox", `${bbox.x - pad} ${bbox.y - pad} ${bbox.width + pad * 2} ${bbox.height + pad * 2}`)
+    }
+  },
+
+  // Draw namespace bounding rectangles behind node clusters (TD/LR modes).
+  // Groups agent nodes by formation_id; draws rounded-rect hull behind each group.
+  _renderNamespaceHulls(container, allNodes) {
+    const agentNodes = allNodes.filter(d => d.data.level === "agent" && d.data.formation_id)
+    if (agentNodes.length === 0) return
+
+    const COLLAPSE_THRESHOLD = 50
+    const PAD_X = 18, PAD_Y = 14
+    const byFormation = d3.group(agentNodes, d => d.data.formation_id)
+
+    byFormation.forEach((fNodes, formationId) => {
+      const minX = d3.min(fNodes, d => d.x) - PAD_X
+      const maxX = d3.max(fNodes, d => d.x) + PAD_X
+      const minY = d3.min(fNodes, d => d.y) - PAD_Y
+      const maxY = d3.max(fNodes, d => d.y) + 46
+
+      container.insert("rect", ":first-child")
+        .attr("x", minX).attr("y", minY)
+        .attr("width", maxX - minX).attr("height", maxY - minY)
+        .attr("rx", 12).attr("ry", 12)
+        .attr("fill", "rgba(99,102,241,0.06)")
+        .attr("stroke", "#6366f1")
+        .attr("stroke-width", 1)
+        .attr("stroke-dasharray", "6,3")
+        .attr("opacity", 0.7)
+
+      // Namespace label top-left corner
+      container.insert("text", ":first-child")
+        .attr("x", minX + 8).attr("y", minY + 12)
+        .attr("fill", TOKENS.text.muted)
+        .attr("font-size", "8px")
+        .attr("font-family", "monospace")
+        .text(truncate(formationId, 28))
+
+      // Count badge for collapsed namespaces
+      if (fNodes.length > COLLAPSE_THRESHOLD) {
+        const bx = maxX - 14, by = minY + 14
+        container.insert("circle", ":first-child")
+          .attr("cx", bx).attr("cy", by).attr("r", 12)
+          .attr("fill", "#1e293b").attr("stroke", "#6366f1").attr("stroke-width", 1)
+        container.insert("text", ":first-child")
+          .attr("x", bx).attr("y", by + 1)
+          .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
+          .attr("fill", TOKENS.text.primary).attr("font-size", "9px").attr("font-weight", "600")
+          .text(fNodes.length)
       }
     })
   },

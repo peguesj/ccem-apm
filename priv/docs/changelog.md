@@ -1,8 +1,70 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file. Latest: v8.5.0 AgentLock gate notifications + 20s timeout + namespace UX, v8.x AgentLock refinements + session management, v7.0.0 AgentLock authorization protocol, v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management.
+All notable changes to CCEM APM are documented in this file. Latest: v8.9.0 Platform refactor (modular sidebar, agent identity, formation grouping, Plane-PM align, notification buffer), v8.7.0 SimpleAgents plugin, v8.6.0 AgentLock notification reliability, v8.5.0 AgentLock gate notifications + 20s timeout + namespace UX, v7.0.0 AgentLock authorization protocol, v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [8.9.0] - 2026-03-30
+
+Platform Refactor — Modular Sidebar, Agent Identity, Formation Grouping, Plane-PM Align, Notification Buffer.
+
+### Added
+- **Modular sidebar 5-section taxonomy**: CORE, AUTHORIZATION, PLUGINS (dynamic), INTEGRATIONS (dynamic), SYSTEM sections. Dynamic plugin nav items from `PluginBehaviour.nav_items/0`. Integration entries from `IntegrationRegistry`. `safe_list_plugins/0` + `safe_list_integrations/0` with try/catch guards.
+- **`ApmV5.PlanePmAlign`** persistent GenServer — polls Plane API every 5 minutes, broadcasts `"plane:sync"` PubSub, registered with APM on startup with `agent_type: "persistent_service"`. REST: `GET /api/v2/plane/sync-status`, `POST /api/v2/plane/sync`.
+- **Agent identity taxonomy** — `agent_name` (human label), `agent_type` (normalized enum: orchestrator|squadron_lead|swarm_agent|cluster_agent|individual|persistent_service|quality_agent|unknown), `agent_definition` (instance or purpose) fields added to `AgentRegistry`. `normalize_agent_type/1` validates and normalizes raw type strings.
+- **Formation graph TB layout** — top-to-bottom with session columns as 4th layout mode (`?layout=tb` URL param). Namespace-scoped bounding rectangles behind node clusters. Auto-collapse for namespaces with >50 nodes. `?scope=` URL param for namespace filtering.
+- **Notification buffer cap** increased from 200 → 2,000 events. Grouped view UI by category with collapse/expand per group. `derive_category/1` from notification type field.
+- **Native conversation monitoring** — `SessionManager` multi-path scan covers both APM sessions (`~/Developer/ccem/apm/sessions/*.json`) and Claude Code JSONL (`~/.claude/projects/*/*.jsonl`). `ConversationMonitorLive` reuses `SessionManager.list_sessions/0` as single source of truth. `source: :claude_native` badge for native conversations.
+- **Plugin/Integration architecture** — `PluginBehaviour` optional callbacks: `nav_items/0`, `settings_path/0`, `plugin_live_module/0`. `IntegrationBehaviour` optional callbacks: `target_native_feature/0`, `required_plugin/0`. `AgentlockIntegration.target_native_feature/0` returns `:authorization`.
+- **AG-UI improvements** — `EventBus` replay buffer 500 → 20,000 events. A2A Router history cap 200 → 2,000 entries.
+- **Usage LiveView** expandable per-project input/output/cache token breakdown bar charts.
+- **Skills LiveView** — Fix Wizard steps independently selectable (click any step to jump). Step 2 (Preview) loads async via background Task.
+- **Timeline LiveView** swim-lane redesign — category lanes (lifecycle/auth/formation/task/tool/system), time window selector (15m/30m/1h/6h/24h), drill-down panel on event selection.
+- **`BackgroundTasksStore`** `add/1` alias for `register_task/1`. Auto-registers agents via `AgentRegistry.register_agent/3` side-effect.
+- **`NamespaceResolver`** uses `agent_name` field for human-readable labels when available.
+
+### Changed
+- `mix.exs`: version bumped 8.7.0 → 8.9.0
+- `@server_version` in `ApiController`: 8.7.0 → 8.9.0
+- `@app_version` in `SidebarNav`: 8.7.0 → 8.9.0
+- `ApmV5.PlanePmAlign` added to supervision tree; registers itself with APM on startup
+
+---
+
+## [8.7.0] - 2026-03-29
+
+SimpleAgents CCEM APM Plugin — integrates the SimpleAgents Rust LLM framework into the plugin dashboard.
+
+### Added
+- **`ApmV5.Plugins.SimpleAgents.SimpleAgentsPlugin`** — new plugin with 7 actions: `workspace_info` (reads Cargo.toml, workspace version, crate inventory), `list_traces` (discovers workflow trace JSON files), `get_trace` (parse + normalize single trace), `trace_summary` (aggregate stats: total/completed/failed, success_rate_pct, avg/max/min duration_ms), `provider_stats` (groups by inferred provider), `list_workflows` (YAML workflow files in examples/ and workers/), `parity_status` (parity-fixtures binding contract JSON files).
+- Registered as 10th default plugin in `ApmV5.Plugins.PluginRegistry.@default_plugins`.
+
+### Changed
+- `mix.exs`: version bumped 8.6.0 → 8.7.0
+- `@server_version` / `@app_version`: 8.6.0 → 8.7.0
+
+---
+
+## [8.6.0] - 2026-03-29
+
+AgentLock Notification Reliability + In-Browser Approval Modal.
+
+### Added
+- **CCEMHelper direct notification delivery** — dedicated `AGENTLOCK_APPROVAL` `UNNotificationCategory` with Approve/Deny action buttons. Notification title: "AgentLock: [displayName]", body: "[tool] requires approval · [risk] risk". `pending_id` key in `userInfo`; `didReceive` resolves `pending_id` first, falls back to `request_id`.
+- **CCEMHelper test notification** button in `SettingsView` — fires direct `UNUserNotificationContent` without APM round-trip; shows permission alert if not granted.
+- **APM in-browser approval modal** — full-screen overlay (z-[9999], backdrop-blur) with agent name, tool, risk, 20s `CountdownTimer`, Approve/Deny buttons in `AuthorizationLive`.
+- **DashboardLive floating banner strip** — compact approval banner above UPM panel; subscribes `agentlock:pending` PubSub; inline Approve/Deny + deep-link.
+- **`GET /api/v2/auth/decide`** — browser-clickable URL: `?request_id=&decision=approve|deny` redirects to `/authorization`.
+- **`NamespaceResolver.cached/1`** and `put_cache/1` rescue `ArgumentError` — no crash when GenServer restarts.
+
+### Fixed
+- `NotificationLive` AgentLock category: phx-click Approve/Reject buttons replace broken `<a href>` GET links. `approve_action`/`reject_action` handlers call `PendingDecisions.decide/2` with `request_id` from notification metadata.
+
+### Changed
+- `mix.exs`: version bumped 8.5.0 → 8.6.0
+- `@server_version` / `@app_version`: 8.5.0 → 8.6.0
 
 ---
 
@@ -387,4 +449,4 @@ CCEM APM built with Elixir/Phoenix, LiveView, D3.js, daisyUI, and Swift. Designe
 
 ---
 
-*Last Updated: 2026-03-21*
+*Last Updated: 2026-03-30*

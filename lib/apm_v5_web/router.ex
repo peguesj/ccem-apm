@@ -56,6 +56,8 @@ defmodule ApmV5Web.Router do
     live "/health", HealthCheckLive, :index
     live "/conversations", ConversationMonitorLive, :index
     live "/plugins", PluginDashboardLive, :index
+    live "/plugins/ralph", RalphPluginLive, :index
+    live "/plugins/ag_ui", AgUiPluginLive, :index
     live "/integrations", PluginDashboardLive, :integrations_tab
     live "/backfill", BackfillLive, :index
     live "/drtw", DrtwLive, :index
@@ -397,6 +399,10 @@ defmodule ApmV5Web.Router do
     get "/agents/contexts", AgentContextController, :index
     get "/agents/:id/context", AgentContextController, :show
     get "/agents/:id/context/events", AgentContextController, :events
+
+    # Plane-PM alignment agent (US-018)
+    get "/plane/sync-status", PlaneController, :sync_status
+    post "/plane/sync", PlaneController, :sync
 
     # Coalesce — Skill Logic Engine (v8.2.0)
     post "/coalesce/start", CoalesceController, :start

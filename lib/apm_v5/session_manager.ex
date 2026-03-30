@@ -13,6 +13,7 @@ defmodule ApmV5.SessionManager do
   alias ApmV5.{AgentRegistry, PortManager, PubSub}
 
   @sessions_dir "~/Developer/ccem/apm/sessions"
+  @claude_projects_dir "~/.claude/projects"
   @poll_interval_ms 30_000
   @pubsub_topic "apm:sessions"
 
@@ -77,6 +78,17 @@ defmodule ApmV5.SessionManager do
   # ── Private helpers ──────────────────────────────────────────────────────────
 
   defp load_and_enrich_all do
+    apm_sessions = load_apm_sessions()
+    jsonl_sessions = load_jsonl_sessions()
+
+    (apm_sessions ++ jsonl_sessions)
+    |> Enum.uniq_by(fn s -> to_string(s[:session_id] || s[:sessionId] || "") end)
+    |> Enum.reject(fn s -> to_string(s[:session_id] || s[:sessionId] || "") == "" end)
+    |> Enum.map(&enrich_basic/1)
+    |> Enum.sort_by(&Map.get(&1, :start_time, ""), :desc)
+  end
+
+  defp load_apm_sessions do
     sessions_dir = Path.expand(@sessions_dir)
 
     case File.ls(sessions_dir) do
@@ -85,12 +97,69 @@ defmodule ApmV5.SessionManager do
         |> Enum.filter(&String.ends_with?(&1, ".json"))
         |> Enum.map(&Path.join(sessions_dir, &1))
         |> Enum.flat_map(&parse_session_file/1)
-        |> Enum.map(&enrich_basic/1)
-        |> Enum.sort_by(&Map.get(&1, :start_time, ""), :desc)
 
       {:error, reason} ->
         Logger.warning("SessionManager: cannot read #{sessions_dir}: #{inspect(reason)}")
         []
+    end
+  end
+
+  defp load_jsonl_sessions do
+    projects_dir = Path.expand(@claude_projects_dir)
+
+    case File.ls(projects_dir) do
+      {:ok, project_dirs} ->
+        project_dirs
+        |> Enum.flat_map(fn dir_name ->
+          dir_path = Path.join(projects_dir, dir_name)
+
+          case File.ls(dir_path) do
+            {:ok, files} ->
+              files
+              |> Enum.filter(&String.ends_with?(&1, ".jsonl"))
+              |> Enum.map(fn file ->
+                session_id = String.replace_suffix(file, ".jsonl", "")
+                path = Path.join(dir_path, file)
+                parse_jsonl_session(path, session_id)
+              end)
+              |> Enum.reject(&is_nil/1)
+
+            {:error, _} ->
+              []
+          end
+        end)
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  defp parse_jsonl_session(path, session_id) do
+    try do
+      with {:ok, content} <- File.read(path),
+           [first_line | _] <- String.split(content, "\n", trim: true),
+           {:ok, data} <- Jason.decode(first_line) do
+        cwd = Map.get(data, "cwd", "")
+        timestamp = Map.get(data, "timestamp", "")
+        branch = Map.get(data, "gitBranch")
+        slug = Map.get(data, "slug", session_id)
+        version = Map.get(data, "version")
+
+        %{
+          session_id: session_id,
+          project_root: cwd,
+          project_name: Path.basename(cwd),
+          start_time: timestamp,
+          git_branch: branch,
+          slug: slug,
+          version: version,
+          source: :claude_native
+        }
+      else
+        _ -> nil
+      end
+    rescue
+      _ -> nil
     end
   end
 

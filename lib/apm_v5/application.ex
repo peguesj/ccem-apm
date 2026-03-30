@@ -66,6 +66,8 @@ defmodule ApmV5.Application do
       ApmV5.Upm.DecisionGate,
       # Sub-supervisor: AgentLock authorization layer (v7.0.0)
       ApmV5.Supervisors.AuthSupervisor,
+      # Persistent Plane-PM alignment agent -- polls Plane every 5min, broadcasts plane:sync (US-018)
+      ApmV5.PlanePmAlign,
       # Outbound relay tunnel -- dials Azure relay when TUNNEL_RELAY_URL is set (v8.5.0)
       ApmV5.Tunnel.Supervisor,
       # Start to serve requests, typically the last entry

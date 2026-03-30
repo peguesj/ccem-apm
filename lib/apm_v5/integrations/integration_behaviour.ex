@@ -123,9 +123,33 @@ defmodule ApmV5.Integrations.IntegrationBehaviour do
   """
   @callback on_disconnect_callback() :: :ok
 
+  @doc """
+  Optional. Returns the name of the APM plugin this integration requires or
+  is paired with, or `nil` if the integration is standalone.
+
+  This is the symbiosis link from integration → plugin direction.
+
+  Example:
+      def required_plugin, do: "ag_ui"   # paired with AgUiPlugin
+      def required_plugin, do: nil       # standalone (no required plugin)
+  """
+  @callback required_plugin() :: String.t() | nil
+
+  @doc """
+  Optional. Returns an atom identifying the native APM feature that this
+  integration targets or enhances.
+
+  Example:
+      def target_native_feature, do: :ag_ui_events
+      def target_native_feature, do: :authorization
+  """
+  @callback target_native_feature() :: atom() | nil
+
   @optional_callbacks [
     inspector_section: 1,
     on_connect_callback: 1,
-    on_disconnect_callback: 0
+    on_disconnect_callback: 0,
+    required_plugin: 0,
+    target_native_feature: 0
   ]
 end

@@ -93,6 +93,7 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:graph_expanded, false)
       |> assign(:graph_view, :graph)
       |> assign(:show_anon, false)
+      |> assign(:collapsed_projects, MapSet.new())
       |> assign(:list_expanded_nodes, MapSet.new(["root"]))
       |> assign(:hierarchy, nil)
       |> assign(:chat_scope, "global")
@@ -1075,6 +1076,22 @@ defmodule ApmV5Web.DashboardLive do
       socket
       |> assign(:graph_expanded, expanded)
       |> push_event("graph_resize", %{expanded: expanded})
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle_project_collapse", %{"project" => project_name}, socket) do
+    collapsed = socket.assigns.collapsed_projects
+
+    updated =
+      if MapSet.member?(collapsed, project_name),
+        do: MapSet.delete(collapsed, project_name),
+        else: MapSet.put(collapsed, project_name)
+
+    socket =
+      socket
+      |> assign(:collapsed_projects, updated)
+      |> push_event("graph:collapsed_projects", %{projects: MapSet.to_list(updated)})
+
     {:noreply, socket}
   end
 

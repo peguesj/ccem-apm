@@ -42,9 +42,42 @@ defmodule ApmV5Web.FormationLive do
       |> assign(:view_mode, "graph_td")
       |> assign(:agent_filter, "")
       |> assign(:role_filter, "")
+      |> assign(:scope, nil)
       |> push_formation_graph(formations)
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_params(params, _uri, socket) do
+    scope = params["scope"]
+    agents = AgentRegistry.list_agents()
+    upm_formations = try do UpmStore.list_formations() catch :exit, _ -> [] end
+    all_formations = build_formation_tree(agents, upm_formations)
+
+    formations =
+      if scope do
+        Enum.filter(all_formations, &(&1.id == scope))
+      else
+        all_formations
+      end
+
+    socket =
+      socket
+      |> assign(:scope, scope)
+      |> assign(:formations, formations)
+      |> assign(:all_agents, agents)
+      |> assign(:agents, agents)
+      |> push_formation_graph(formations)
+
+    socket =
+      if scope do
+        push_event(socket, "formation:scope", %{scope: scope})
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -97,6 +130,13 @@ defmodule ApmV5Web.FormationLive do
               >
                 <.icon name="hero-squares-2x2" class="size-3" /> Cards
               </button>
+              <button
+                phx-click="set_view_mode" phx-value-mode="tb"
+                class={["btn btn-xs gap-1", if(@view_mode == "tb", do: "btn-primary", else: "btn-ghost")]}
+                role="tab" aria-selected={@view_mode == "tb"}
+              >
+                <.icon name="hero-view-columns" class="size-3" /> TB
+              </button>
             </div>
             <button phx-click="refresh" class="btn btn-ghost btn-xs">
               <.icon name="hero-arrow-path" class="size-3" /> Refresh
@@ -108,9 +148,9 @@ defmodule ApmV5Web.FormationLive do
         <div class="flex-1 flex overflow-hidden">
           <%!-- Main view area --%>
           <div class="flex-1 overflow-hidden relative">
-            <%!-- Graph TD / Graph LR (D3 hook) --%>
+            <%!-- Graph TD / Graph LR / TB (D3 hook) --%>
             <div
-              :if={@view_mode in ["graph_td", "graph_lr"]}
+              :if={@view_mode in ["graph_td", "graph_lr", "tb"]}
               id="formation-graph"
               class="w-full h-full"
               style="background: #151b28;"
@@ -137,7 +177,7 @@ defmodule ApmV5Web.FormationLive do
 
             <%!-- Empty state (only shown in graph modes) --%>
             <div
-              :if={@formations == [] and @view_mode in ["graph_td", "graph_lr"]}
+              :if={@formations == [] and @view_mode in ["graph_td", "graph_lr", "tb"]}
               class="absolute inset-0 flex items-center justify-center pointer-events-none"
             >
               <div class="text-center">
@@ -539,7 +579,13 @@ defmodule ApmV5Web.FormationLive do
   end
 
   def handle_event("set_view_mode", %{"mode" => mode}, socket)
-      when mode in ["graph_td", "graph_lr", "list", "cards"] do
+      when mode in ["graph_td", "graph_lr", "list", "cards", "tb"] do
+    socket =
+      if mode == "tb" do
+        push_event(socket, "formation:layout", %{mode: "tb"})
+      else
+        socket
+      end
     {:noreply, assign(socket, :view_mode, mode)}
   end
 

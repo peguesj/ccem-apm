@@ -493,6 +493,48 @@ const SKILL_ECOSYSTEM_TREE = {
   ],
 }
 
+// ── Project grouping helpers ──────────────────────────────────────────────────
+
+// Walk tree and collect agent/leaf nodes grouped by project_name from their meta
+function collectProjectAgents(node, result) {
+  if (!node) return result
+  const level = (node.level || "").toLowerCase()
+  const meta = node.meta || {}
+  const projectName = meta.project || meta.project_name || ""
+  const children = node.children || []
+
+  if (children.length === 0 || level === "agent" || level === "task") {
+    if (projectName) {
+      if (!result[projectName]) result[projectName] = []
+      result[projectName].push(node)
+    }
+  } else {
+    children.forEach(c => collectProjectAgents(c, result))
+  }
+  return result
+}
+
+// A project is "inactive" if no agent is active/running AND none were registered in the last 5 min
+function isProjectInactive(nodes) {
+  if (!nodes || nodes.length === 0) return true
+  const nowMs = Date.now()
+  const fiveMinMs = 5 * 60 * 1000
+  const hasActiveAgent = nodes.some(n => {
+    const s = (n.status || "").toLowerCase()
+    if (s === "active" || s === "running") return true
+    const meta = n.meta || {}
+    const regAt = meta.registered_at || meta.last_seen || ""
+    if (regAt) {
+      try {
+        const d = new Date(regAt)
+        if (!isNaN(d.getTime()) && nowMs - d.getTime() < fiveMinMs) return true
+      } catch (_e) { /* ignore */ }
+    }
+    return false
+  })
+  return !hasActiveAgent
+}
+
 // ── Main Hook ─────────────────────────────────────────────────────────────────
 const DependencyGraph = {
   async mounted() {
@@ -502,6 +544,10 @@ const DependencyGraph = {
     this._tooltip   = null
     this._svg       = null
     this._mode      = "hierarchy"  // "hierarchy" | "skills"
+
+    // Project collapse state — Set of project names that are currently collapsed
+    this._collapsedProjects = new Set()
+    this._autoCollapseApplied = false
 
     // Add mode toggle button
     this._addModeToggle()
@@ -525,6 +571,13 @@ const DependencyGraph = {
     // graph_toggle_anon kept for backward compat — re-renders in place
     this.handleEvent("graph_toggle_anon", () => {
       this._render()
+    })
+
+    // Server-side collapsed_projects sync (MapSet serialized as list)
+    this.handleEvent("graph:collapsed_projects", (data) => {
+      const projects = data.projects || []
+      this._collapsedProjects = new Set(projects)
+      if (this._mode === "hierarchy") this._render()
     })
   },
 
@@ -611,7 +664,22 @@ const DependencyGraph = {
   _render() {
     const data = this._treeData
     if (!data) { this._renderEmpty(); return }
+    this._autoCollapseIfNeeded(data)
     this._renderTreeData(data, "AGENTIC HIERARCHY")
+  },
+
+  // Auto-collapse all inactive projects when > 8 projects are visible (runs once)
+  _autoCollapseIfNeeded(data) {
+    const byProject = collectProjectAgents(data, {})
+    const projectNames = Object.keys(byProject)
+    if (projectNames.length <= 8) return
+    if (this._autoCollapseApplied) return
+    this._autoCollapseApplied = true
+    projectNames.forEach(name => {
+      if (isProjectInactive(byProject[name])) {
+        this._collapsedProjects.add(name)
+      }
+    })
   },
 
   _renderTreeData(data, modeLabel) {
@@ -697,6 +765,113 @@ const DependencyGraph = {
     svg.call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale))
 
     const NODE_R = 17
+
+    // ── Project grouping hulls (drawn behind links + nodes) ───────────────────
+    if (modeLabel === "AGENTIC HIERARCHY") {
+      // Map: projectName → list of {x, y} positions for all nodes in that project
+      const projectPositions = {}
+      root.each(d => {
+        const meta = d.data.meta || {}
+        const pName = meta.project || meta.project_name || ""
+        if (pName) {
+          if (!projectPositions[pName]) projectPositions[pName] = []
+          projectPositions[pName].push({ x: d.x, y: d.y })
+        }
+      })
+
+      const allProjectNames = Object.keys(projectPositions)
+      const collapsedCount = allProjectNames.filter(n => this._collapsedProjects.has(n)).length
+      const hullPad = NODE_R + 14
+      const hullG = g.insert("g", ":first-child").attr("class", "project-hulls")
+      const self = this
+
+      allProjectNames.forEach(pName => {
+        const pts = projectPositions[pName]
+        if (!pts || pts.length === 0) return
+        const isCollapsed = self._collapsedProjects.has(pName)
+
+        let pMinX = Infinity, pMaxX = -Infinity, pMinY = Infinity, pMaxY = -Infinity
+        pts.forEach(p => {
+          if (p.x < pMinX) pMinX = p.x
+          if (p.x > pMaxX) pMaxX = p.x
+          if (p.y < pMinY) pMinY = p.y
+          if (p.y > pMaxY) pMaxY = p.y
+        })
+
+        const rx = Math.max(pMaxX - pMinX, 0) / 2 + hullPad
+        const ry = Math.max(pMaxY - pMinY, 0) / 2 + hullPad
+        const cx = (pMinX + pMaxX) / 2
+        const cy = (pMinY + pMaxY) / 2
+
+        const hullFill   = isCollapsed ? "rgba(99,102,241,0.35)" : "rgba(99,102,241,0.08)"
+        const hullStroke = isCollapsed ? "rgba(99,102,241,0.6)"  : "rgba(99,102,241,0.25)"
+
+        const hullGroup = hullG.append("g")
+          .attr("class", "project-hull-group")
+          .attr("cursor", "pointer")
+          .on("click", () => {
+            if (self._collapsedProjects.has(pName)) {
+              self._collapsedProjects.delete(pName)
+            } else {
+              self._collapsedProjects.add(pName)
+            }
+            if (self.pushEvent) {
+              self.pushEvent("toggle_project_collapse", { project: pName })
+            }
+            self._render()
+          })
+
+        // Hull rounded-rect background
+        hullGroup.append("rect")
+          .attr("x",              cx - rx)
+          .attr("y",              cy - ry)
+          .attr("width",          rx * 2)
+          .attr("height",         ry * 2)
+          .attr("rx",             12)
+          .attr("fill",           hullFill)
+          .attr("stroke",         hullStroke)
+          .attr("stroke-width",   1.5)
+          .attr("stroke-dasharray", isCollapsed ? "none" : "5,3")
+
+        // Project label at top of hull
+        hullGroup.append("text")
+          .attr("x",           cx)
+          .attr("y",           cy - ry + 14)
+          .attr("text-anchor", "middle")
+          .attr("fill",        "rgba(165,168,255,0.75)")
+          .attr("font-size",   "9px")
+          .attr("font-family", "monospace")
+          .attr("font-weight", "600")
+          .text(isCollapsed
+            ? `${pName} (${pts.length}) [+]`
+            : `${pName} [\u2212]`)
+      })
+
+      // Status bar at bottom when > 8 projects and some collapsed
+      if (allProjectNames.length > 8 && collapsedCount > 0) {
+        const barG = svg.append("g")
+          .attr("class",     "project-status-bar")
+          .attr("transform", `translate(${W / 2}, ${H - 18})`)
+
+        barG.append("rect")
+          .attr("x",      -180)
+          .attr("y",      -14)
+          .attr("width",  360)
+          .attr("height", 20)
+          .attr("rx",     6)
+          .attr("fill",   "rgba(15,23,42,0.88)")
+          .attr("stroke", "rgba(99,102,241,0.35)")
+          .attr("stroke-width", 1)
+
+        barG.append("text")
+          .attr("text-anchor",       "middle")
+          .attr("dominant-baseline", "central")
+          .attr("fill",              "rgba(165,168,255,0.75)")
+          .attr("font-size",         "10px")
+          .attr("font-family",       "monospace")
+          .text(`${collapsedCount} project${collapsedCount !== 1 ? "s" : ""} collapsed \u2014 click hull to expand`)
+      }
+    }
 
     // ── Links (cubic bezier, colored by child level) ──────────────────────────
     g.append("g").attr("class", "links")

@@ -7,6 +7,9 @@ defmodule ApmV5Web.UsageLive do
   1. Summary bar — total input/output tokens, top model, effort distribution
   2. Per-model breakdown table — counters per model across all projects
   3. Per-project accordion — model breakdown + effort badge per project
+     - Each project row has an expandable token breakdown stacked bar graph
+       showing input (blue/info), output (green/success), and cache (amber/warning)
+       proportions side-by-side with a labelled legend.
 
   Subscribes to `"apm:usage"` PubSub and refreshes every 10 seconds.
   """
@@ -33,6 +36,7 @@ defmodule ApmV5Web.UsageLive do
       |> assign(:summary, summary)
       |> assign(:usage_data, usage_data)
       |> assign(:selected_project, nil)
+      |> assign(:expanded_projects, MapSet.new())
 
     {:ok, socket}
   end
@@ -79,6 +83,17 @@ defmodule ApmV5Web.UsageLive do
       |> assign(:selected_project, nil)
 
     {:noreply, socket}
+  end
+
+  def handle_event("toggle_project_expand", %{"project" => proj}, socket) do
+    expanded = socket.assigns.expanded_projects
+
+    new_expanded =
+      if MapSet.member?(expanded, proj),
+        do: MapSet.delete(expanded, proj),
+        else: MapSet.put(expanded, proj)
+
+    {:noreply, assign(socket, :expanded_projects, new_expanded)}
   end
 
   @impl true
@@ -206,6 +221,7 @@ defmodule ApmV5Web.UsageLive do
             <div class="space-y-2">
               <h3 class="text-xs font-semibold uppercase tracking-widest text-base-content/50 px-1">Projects</h3>
               <%= for {project, proj_data} <- Enum.sort_by(@summary.projects, fn {p, _} -> p end) do %>
+                <% breakdown = token_breakdown(proj_data) %>
                 <div class="bg-base-200 rounded-lg overflow-hidden">
                   <div
                     class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-base-300 transition-colors"
@@ -213,6 +229,23 @@ defmodule ApmV5Web.UsageLive do
                     phx-value-project={project}
                   >
                     <div class="flex items-center gap-3">
+                      <%!-- Expand/collapse token graph toggle --%>
+                      <button
+                        class="btn btn-xs btn-ghost px-1 py-0 min-h-0 h-5 text-base-content/40 hover:text-base-content"
+                        phx-click="toggle_project_expand"
+                        phx-value-project={project}
+                        title={if MapSet.member?(@expanded_projects, project), do: "Collapse token graph", else: "Expand token graph"}
+                      >
+                        <%= if MapSet.member?(@expanded_projects, project) do %>
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        <% else %>
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                          </svg>
+                        <% end %>
+                      </button>
                       <span class="font-mono text-sm">{project}</span>
                       <span class={"badge badge-sm #{effort_badge_class(Map.get(proj_data, :effort_level, "low"))}"}>
                         {Map.get(proj_data, :effort_level, "low")}
@@ -232,6 +265,70 @@ defmodule ApmV5Web.UsageLive do
                       </button>
                     </div>
                   </div>
+
+                  <%!-- Expandable token breakdown stacked bar graph --%>
+                  <%= if MapSet.member?(@expanded_projects, project) do %>
+                    <div class="border-t border-base-300 px-4 py-3 space-y-2 bg-base-100/30">
+                      <h4 class="text-xs font-semibold text-base-content/40 uppercase tracking-widest">Token Breakdown</h4>
+                      <%!-- Stacked bar --%>
+                      <div class="flex h-4 rounded overflow-hidden w-full" title="Token distribution: input / output / cache">
+                        <%= if breakdown.input_pct > 0 do %>
+                          <div
+                            class="bg-info/70 transition-all"
+                            style={"width: #{breakdown.input_pct}%"}
+                            title={"Input: #{format_tokens(breakdown.input)}"}
+                          ></div>
+                        <% end %>
+                        <%= if breakdown.output_pct > 0 do %>
+                          <div
+                            class="bg-success/70 transition-all"
+                            style={"width: #{breakdown.output_pct}%"}
+                            title={"Output: #{format_tokens(breakdown.output)}"}
+                          ></div>
+                        <% end %>
+                        <%= if breakdown.cache_pct > 0 do %>
+                          <div
+                            class="bg-warning/70 transition-all"
+                            style={"width: #{breakdown.cache_pct}%"}
+                            title={"Cache: #{format_tokens(breakdown.cache)}"}
+                          ></div>
+                        <% end %>
+                      </div>
+                      <%!-- Legend --%>
+                      <div class="flex flex-wrap gap-3 text-xs text-base-content/60">
+                        <div class="flex items-center gap-1.5">
+                          <div class="w-2.5 h-2.5 rounded-sm bg-info/70 flex-shrink-0"></div>
+                          <span>
+                            Input
+                            <span class="font-mono text-base-content/80">{format_tokens(breakdown.input)}</span>
+                            ({breakdown.input_pct}%)
+                          </span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                          <div class="w-2.5 h-2.5 rounded-sm bg-success/70 flex-shrink-0"></div>
+                          <span>
+                            Output
+                            <span class="font-mono text-base-content/80">{format_tokens(breakdown.output)}</span>
+                            ({breakdown.output_pct}%)
+                          </span>
+                        </div>
+                        <%= if breakdown.cache > 0 do %>
+                          <div class="flex items-center gap-1.5">
+                            <div class="w-2.5 h-2.5 rounded-sm bg-warning/70 flex-shrink-0"></div>
+                            <span>
+                              Cache
+                              <span class="font-mono text-base-content/80">{format_tokens(breakdown.cache)}</span>
+                              ({breakdown.cache_pct}%)
+                            </span>
+                          </div>
+                        <% end %>
+                        <div class="flex items-center gap-1.5 ml-auto">
+                          <span class="text-base-content/40">Total:</span>
+                          <span class="font-mono text-base-content/80">{format_tokens(breakdown.total)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  <% end %>
 
                   <%= if @selected_project == project do %>
                     <div class="border-t border-base-300 px-4 py-3">
@@ -326,4 +423,35 @@ defmodule ApmV5Web.UsageLive do
   defp effort_badge_class("high"), do: "badge-warning"
   defp effort_badge_class("medium"), do: "badge-info"
   defp effort_badge_class(_), do: "badge-ghost"
+
+  @doc false
+  @spec token_breakdown(map()) :: %{
+          input: integer(),
+          input_pct: integer(),
+          output: integer(),
+          output_pct: integer(),
+          cache: integer(),
+          cache_pct: integer(),
+          total: integer()
+        }
+  defp token_breakdown(usage_data) do
+    input = Map.get(usage_data, :input_tokens, 0) |> to_int()
+    output = Map.get(usage_data, :output_tokens, 0) |> to_int()
+    cache = Map.get(usage_data, :cache_tokens, 0) |> to_int()
+    total = max(input + output + cache, 1)
+
+    %{
+      input: input,
+      input_pct: round(input / total * 100),
+      output: output,
+      output_pct: round(output / total * 100),
+      cache: cache,
+      cache_pct: round(cache / total * 100),
+      total: total
+    }
+  end
+
+  defp to_int(v) when is_integer(v), do: v
+  defp to_int(v) when is_float(v), do: round(v)
+  defp to_int(_), do: 0
 end

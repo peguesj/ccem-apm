@@ -1,7 +1,9 @@
 # REST API Reference
 
-Complete API endpoint documentation for CCEM APM v7.0.0. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
+Complete API endpoint documentation for CCEM APM v8.9.0. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
 
+> **v8.9.0 additions**: Plane-PM Align API (`/api/v2/plane/sync-status`, `/api/v2/plane/sync`) for persistent Plane sync status and on-demand sync trigger.
+>
 > **v7.0.0 additions**: AgentLock Authorization API (`/api/v2/auth/*`) with 19 endpoints for token management, policy CRUD, session control, rate limiting, context inspection, and redaction preview.
 >
 > **v6.4.0 additions**: Claude Usage API (`/api/usage/*`) with per-project effort tracking and Ports API (`/api/ports/register`, `/api/ports/conflicts`) for service-name registration and conflict checking.
@@ -2096,6 +2098,59 @@ Response:
     "memory_access": {"read": true, "write": true, "execute": false},
     "created_at": "2026-03-21T10:00:00Z"
   }
+}
+```
+
+---
+
+## Plane-PM Align Endpoints (v8.9.0)
+
+The `PlanePmAlign` GenServer maintains a persistent sync with Plane PM, polling every 5 minutes and broadcasting on `"plane:sync"` PubSub.
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| GET | `/api/v2/plane/sync-status` | Current Plane sync status and last sync metadata |
+| POST | `/api/v2/plane/sync` | Trigger an immediate Plane sync |
+
+### GET /api/v2/plane/sync-status
+
+Returns the current sync state, last sync timestamp, and project counts.
+
+```bash
+curl http://localhost:3032/api/v2/plane/sync-status
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "status": "synced",
+  "last_sync_at": "2026-03-30T10:00:00Z",
+  "next_sync_in_seconds": 240,
+  "projects_synced": 3,
+  "issues_synced": 42,
+  "agent_id": "plane-pm-align-persistent"
+}
+```
+
+### POST /api/v2/plane/sync
+
+Triggers an immediate Plane sync outside the 5-minute polling interval. Returns the sync result.
+
+```bash
+curl -X POST http://localhost:3032/api/v2/plane/sync
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "synced_at": "2026-03-30T10:02:15Z",
+  "projects_synced": 3,
+  "issues_synced": 42,
+  "duration_ms": 312
 }
 ```
 

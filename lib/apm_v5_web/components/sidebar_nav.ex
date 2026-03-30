@@ -94,6 +94,6 @@ defmodule ApmV5Web.Components.SidebarNav do
     """
   end
 
-  @app_version "8.7.0"
+  @app_version "8.9.0"
   defp version, do: @app_version
 end

@@ -41,6 +41,8 @@ defmodule ApmV5Web.NotificationLive do
       |> assign(:pending_decisions, %{})
       |> assign(:lazy_context, %{})
       |> assign(:hide_showcase, true)
+      |> assign(:grouped_view, true)
+      |> assign(:collapsed_groups, MapSet.new())
 
     {:ok, socket}
   end
@@ -66,6 +68,18 @@ defmodule ApmV5Web.NotificationLive do
               />
               Hide showcase
             </label>
+            <button
+              phx-click="toggle_grouped_view"
+              class={[
+                "btn btn-ghost btn-xs gap-1",
+                @grouped_view && "text-primary",
+                !@grouped_view && "text-base-content/60"
+              ]}
+              title={if @grouped_view, do: "Switch to flat list", else: "Group by category"}
+            >
+              <.icon name={if @grouped_view, do: "hero-squares-2x2", else: "hero-list-bullet"} class="size-3" />
+              {if @grouped_view, do: "Grouped", else: "Flat"}
+            </button>
             <button phx-click="dismiss_category" phx-value-category={@active_tab} class="btn btn-ghost btn-xs text-base-content/60" :if={@active_tab != "all"}>
               Dismiss category
             </button>
@@ -86,18 +100,49 @@ defmodule ApmV5Web.NotificationLive do
 
         <%!-- Notification list --%>
         <div class="flex-1 overflow-y-auto p-4 space-y-2">
-          <div :if={visible_notifications(@notifications, @active_tab, @hide_showcase) == []} class="text-center text-base-content/30 py-16 text-sm">
+          <% visible = visible_notifications(@notifications, @active_tab, @hide_showcase) %>
+          <div :if={visible == []} class="text-center text-base-content/30 py-16 text-sm">
             No notifications in this category
           </div>
-          <.notif_card
-            :for={notif <- visible_notifications(@notifications, @active_tab, @hide_showcase)}
-            notif={notif}
-            expanded={MapSet.member?(@expanded_ids, notif.id)}
-            formation_expanded={MapSet.member?(@expanded_formations, notif.id)}
-            upm_expanded={MapSet.member?(@expanded_upm, notif.id)}
-            pending_decision={Map.get(@pending_decisions, notif.id)}
-            lazy_context={Map.get(@lazy_context, notif.id)}
-          />
+          <%= if @grouped_view do %>
+            <%= for {cat, entries} <- group_notifications(visible) do %>
+              <div class="mb-3">
+                <button
+                  phx-click="toggle_group"
+                  phx-value-category={cat}
+                  class="flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-base-300/50 transition-colors"
+                >
+                  <span class={["badge badge-sm", group_badge_class(cat)]}>{cat}</span>
+                  <span class="text-xs text-base-content/50">({length(entries)})</span>
+                  <.icon
+                    name={if MapSet.member?(@collapsed_groups, cat), do: "hero-chevron-right", else: "hero-chevron-down"}
+                    class="size-3 ml-auto text-base-content/40"
+                  />
+                </button>
+                <div :if={not MapSet.member?(@collapsed_groups, cat)} class="space-y-2 mt-1">
+                  <.notif_card
+                    :for={notif <- entries}
+                    notif={notif}
+                    expanded={MapSet.member?(@expanded_ids, notif.id)}
+                    formation_expanded={MapSet.member?(@expanded_formations, notif.id)}
+                    upm_expanded={MapSet.member?(@expanded_upm, notif.id)}
+                    pending_decision={Map.get(@pending_decisions, notif.id)}
+                    lazy_context={Map.get(@lazy_context, notif.id)}
+                  />
+                </div>
+              </div>
+            <% end %>
+          <% else %>
+            <.notif_card
+              :for={notif <- visible}
+              notif={notif}
+              expanded={MapSet.member?(@expanded_ids, notif.id)}
+              formation_expanded={MapSet.member?(@expanded_formations, notif.id)}
+              upm_expanded={MapSet.member?(@expanded_upm, notif.id)}
+              pending_decision={Map.get(@pending_decisions, notif.id)}
+              lazy_context={Map.get(@lazy_context, notif.id)}
+            />
+          <% end %>
         </div>
       </div>
     </div>
@@ -608,6 +653,19 @@ defmodule ApmV5Web.NotificationLive do
     {:noreply, assign(socket, :lazy_context, lazy)}
   end
 
+  def handle_event("toggle_grouped_view", _params, socket) do
+    {:noreply, assign(socket, :grouped_view, !socket.assigns.grouped_view)}
+  end
+
+  def handle_event("toggle_group", %{"category" => cat}, socket) do
+    collapsed = socket.assigns.collapsed_groups
+    new_collapsed =
+      if MapSet.member?(collapsed, cat),
+        do: MapSet.delete(collapsed, cat),
+        else: MapSet.put(collapsed, cat)
+    {:noreply, assign(socket, :collapsed_groups, new_collapsed)}
+  end
+
   # --- PubSub ---
 
   @impl true
@@ -641,6 +699,50 @@ defmodule ApmV5Web.NotificationLive do
       to_string(n[:category]) in cats
     end)
   end
+
+  # Groups notifications by category (or derived category from type).
+  # Returns [{category_string, [notif, ...]}] ordered by most-recent entry descending.
+  defp group_notifications(notifications) do
+    notifications
+    |> Enum.group_by(fn n ->
+      cat = Map.get(n, :category)
+      if cat && cat != "" && !is_nil(cat),
+        do: to_string(cat),
+        else: derive_category(Map.get(n, :type, "system"))
+    end)
+    |> Enum.sort_by(
+      fn {_cat, entries} ->
+        entries |> Enum.map(& &1.id) |> Enum.max(fn -> 0 end)
+      end,
+      :desc
+    )
+  end
+
+  defp derive_category(type) when is_binary(type) do
+    cond do
+      String.contains?(type, "agentlock") or String.contains?(type, "auth") -> "agentlock"
+      String.contains?(type, "formation") or String.contains?(type, "squadron") or String.contains?(type, "swarm") -> "formation"
+      String.contains?(type, "agent") -> "agent"
+      String.contains?(type, "error") or String.contains?(type, "fail") -> "error"
+      true -> "system"
+    end
+  end
+
+  defp derive_category(_), do: "system"
+
+  defp group_badge_class("agentlock"), do: "badge-warning"
+  defp group_badge_class("system"), do: "badge-info badge-outline"
+  defp group_badge_class("agent"), do: "badge-primary"
+  defp group_badge_class("deploy_agents"), do: "badge-primary"
+  defp group_badge_class("formation"), do: "badge-accent"
+  defp group_badge_class("squadron"), do: "badge-info"
+  defp group_badge_class("swarm"), do: "badge-warning badge-outline"
+  defp group_badge_class("error"), do: "badge-error"
+  defp group_badge_class("skill"), do: "badge-secondary"
+  defp group_badge_class("upm"), do: "badge-primary badge-outline"
+  defp group_badge_class("ralph"), do: "badge-primary badge-outline"
+  defp group_badge_class("ship"), do: "badge-info badge-outline"
+  defp group_badge_class(_), do: "badge-ghost"
 
   defp maybe_hide_showcase(notifications, false), do: notifications
   defp maybe_hide_showcase(notifications, true) do

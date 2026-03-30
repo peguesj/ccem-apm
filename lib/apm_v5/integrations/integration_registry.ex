@@ -63,6 +63,26 @@ defmodule ApmV5.Integrations.IntegrationRegistry do
     GenServer.call(__MODULE__, :reload_defaults)
   end
 
+  @doc """
+  Returns all integrations whose `required_plugin/0` matches the given plugin name.
+  Used by the plugin/integration symbiosis layer to enumerate integrations linked
+  to a specific plugin.
+  """
+  @spec integrations_for_plugin(String.t()) :: [map()]
+  def integrations_for_plugin(plugin_name) when is_binary(plugin_name) do
+    list_integrations()
+    |> Enum.filter(fn i -> i[:required_plugin] == plugin_name end)
+  end
+
+  @doc """
+  Returns all integrations that target a given native APM feature atom.
+  """
+  @spec integrations_for_native_feature(atom()) :: [map()]
+  def integrations_for_native_feature(feature) when is_atom(feature) do
+    list_integrations()
+    |> Enum.filter(fn i -> i[:target_native_feature] == feature end)
+  end
+
   @doc "Invoke a named event on a registered integration."
   @spec call_integration_event(String.t(), String.t(), map()) ::
           {:ok, map()} | {:error, term()}
@@ -133,6 +153,8 @@ defmodule ApmV5.Integrations.IntegrationRegistry do
         endpoints: module.list_endpoints(),
         status: safe_status(module),
         module: module,
+        required_plugin: safe_optional(module, :required_plugin, 0, nil),
+        target_native_feature: safe_optional(module, :target_native_feature, 0, nil),
         registered_at: DateTime.utc_now() |> DateTime.to_iso8601()
       }
 
@@ -150,6 +172,19 @@ defmodule ApmV5.Integrations.IntegrationRegistry do
       module.status()
     rescue
       _ -> :disconnected
+    end
+  end
+
+  @spec safe_optional(module(), atom(), non_neg_integer(), term()) :: term()
+  defp safe_optional(module, fun, arity, default) do
+    if function_exported?(module, fun, arity) do
+      try do
+        apply(module, fun, [])
+      rescue
+        _ -> default
+      end
+    else
+      default
     end
   end
 end

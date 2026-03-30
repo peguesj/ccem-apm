@@ -51,7 +51,7 @@ defmodule ApmV5Web.Components.AgentPanel do
             </div>
             <div>
               <div class="text-sm font-medium truncate flex items-center gap-1.5">
-                {agent.name}
+                {agent[:agent_name] || agent.name}
                 <span :if={agent[:formation_id]} class="badge badge-xs badge-primary badge-outline font-mono text-[9px]" title={"Formation: #{agent[:formation_id]}"}>
                   {formation_role_badge(agent[:role] || agent[:agent_type])}
                 </span>
@@ -70,6 +70,9 @@ defmodule ApmV5Web.Components.AgentPanel do
                     task_subject: agent[:task_subject])}
                 </span>
                 <span :if={agent[:namespace]} class="text-primary/60">/ {agent[:namespace]}</span>
+                <span :if={agent[:agent_definition] && agent[:agent_definition] != ""} class="text-base-content/20 italic truncate max-w-[100px]" title={agent[:agent_definition]}>
+                  {agent[:agent_definition]}
+                </span>
               </div>
             </div>
             <%!-- AG-UI real-time activity column --%>
@@ -203,9 +206,15 @@ defmodule ApmV5Web.Components.AgentPanel do
   defp status_badge_class(_), do: "badge-ghost"
 
   @spec agent_type_badge_class(String.t() | nil) :: String.t()
-  defp agent_type_badge_class("squadron"), do: "badge-info"
-  defp agent_type_badge_class("swarm"), do: "badge-warning"
   defp agent_type_badge_class("orchestrator"), do: "badge-accent"
+  defp agent_type_badge_class("squadron_lead"), do: "badge-info"
+  defp agent_type_badge_class("squadron"), do: "badge-info"
+  defp agent_type_badge_class("swarm_agent"), do: "badge-warning"
+  defp agent_type_badge_class("swarm"), do: "badge-warning"
+  defp agent_type_badge_class("cluster_agent"), do: "badge-secondary"
+  defp agent_type_badge_class("individual"), do: "badge-ghost"
+  defp agent_type_badge_class("persistent_service"), do: "badge-primary"
+  defp agent_type_badge_class("quality_agent"), do: "badge-success"
   defp agent_type_badge_class(_), do: "badge-ghost"
 
   @spec tier_badge_class(integer() | any()) :: String.t()

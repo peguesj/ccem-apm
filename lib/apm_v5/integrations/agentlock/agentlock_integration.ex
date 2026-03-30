@@ -114,4 +114,12 @@ defmodule ApmV5.Integrations.Agentlock.AgentlockIntegration do
   @impl true
   @spec supervisor_children() :: [Supervisor.child_spec()]
   def supervisor_children, do: []
+
+  @impl true
+  @spec required_plugin() :: nil
+  def required_plugin, do: nil
+
+  @impl true
+  @spec target_native_feature() :: atom()
+  def target_native_feature, do: :authorization
 end

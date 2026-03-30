@@ -122,11 +122,23 @@ defmodule ApmV5.Plugins.PluginRegistry do
          true <- function_exported?(module, :handle_action, 3) do
       name = module.plugin_name()
 
+      integrations =
+        if function_exported?(module, :plugin_integrations, 0) do
+          try do
+            module.plugin_integrations()
+          rescue
+            _ -> []
+          end
+        else
+          []
+        end
+
       meta = %{
         name: name,
         description: module.plugin_description(),
         version: module.plugin_version(),
         endpoints: module.list_endpoints(),
+        integration_modules: integrations,
         module: module,
         registered_at: DateTime.utc_now() |> DateTime.to_iso8601()
       }

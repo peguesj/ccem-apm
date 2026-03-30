@@ -200,21 +200,38 @@ defmodule ApmV5.AgentRegistry do
     {:ok, %{notification_counter: 0}}
   end
 
+  @valid_agent_types ~w(orchestrator squadron_lead swarm_agent cluster_agent individual persistent_service quality_agent unknown)
+
+  defp normalize_agent_type(type) when is_binary(type) do
+    if type in @valid_agent_types, do: type, else: "unknown"
+  end
+  defp normalize_agent_type(type) when is_atom(type) do
+    normalize_agent_type(to_string(type))
+  end
+  defp normalize_agent_type(_), do: "unknown"
+
   @impl true
   def handle_call({:register_agent, agent_id, metadata, project_name}, _from, state) do
     now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    raw_agent_type = Map.get(metadata, :agent_type, Map.get(metadata, "agent_type", "individual"))
 
     agent =
       %{
         id: agent_id,
         name: Map.get(metadata, :name, agent_id),
+        # Agent identity fields (US-021)
+        agent_name: Map.get(metadata, :agent_name, Map.get(metadata, "agent_name",
+          Map.get(metadata, :name, agent_id))),
+        agent_type: normalize_agent_type(raw_agent_type),
+        agent_definition: Map.get(metadata, :agent_definition, Map.get(metadata, "agent_definition",
+          Map.get(metadata, :role, ""))),
         tier: Map.get(metadata, :tier, 1),
         status: Map.get(metadata, :status, "idle"),
         deps: Map.get(metadata, :deps, []),
         metadata: Map.get(metadata, :metadata, %{}),
         project_name: project_name,
         namespace: Map.get(metadata, :namespace, nil),
-        agent_type: Map.get(metadata, :agent_type, "individual"),
         path: Map.get(metadata, :path, nil),
         member_count: Map.get(metadata, :member_count, nil),
         # Formation hierarchy fields
@@ -396,6 +413,8 @@ defmodule ApmV5.AgentRegistry do
           |> maybe_put(fields, "project_name", :project_name)
           |> maybe_put(fields, "namespace", :namespace)
           |> maybe_put(fields, "agent_type", :agent_type)
+          |> maybe_put(fields, "agent_name", :agent_name)
+          |> maybe_put(fields, "agent_definition", :agent_definition)
           |> maybe_put(fields, "path", :path)
           |> maybe_put(fields, "member_count", :member_count)
           |> maybe_put(fields, "story_id", :story_id)
