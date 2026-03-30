@@ -62,6 +62,8 @@ defmodule ApmV5.Auth.AutoApprovalStore do
   - `project` — (optional) project name; nil = match any project
   - `allowed_tools` — :all or list of tool names (e.g., ["Read", "Edit"])
   - `allowed_risk_levels` — :all or list of risk levels (e.g., [:low, :medium])
+  - `allowed_action_types` — (optional) :all or list of action types (e.g., [:read, :write]); :all = any action type
+  - `action_patterns` — (optional) list of glob patterns for command matching (e.g., ["cat /app/**", "grep /var/**"])
   - `active_from` — (optional) DateTime; defaults to now
   - `expires_at` — (optional) DateTime; defaults to now + 1 hour
   - `created_by` — (optional) string (e.g., "user", "hook", "admin"); defaults to "system"
@@ -99,6 +101,7 @@ defmodule ApmV5.Auth.AutoApprovalStore do
   - All specified scopes must match (AND logic)
   - Policy precedence: agent_id > formation_id > session_id > project
   - Within same specificity level: most recent policy (updated_at) wins
+  - Optional: action_type can be used to restrict by command category (:read, :write, :destructive)
   """
   @spec find_matching(
     String.t() | nil,
@@ -106,13 +109,15 @@ defmodule ApmV5.Auth.AutoApprovalStore do
     String.t() | nil,
     String.t() | nil,
     String.t(),
-    atom()
+    atom(),
+    atom() | nil
   ) :: map() | nil
-  def find_matching(agent_id, formation_id, session_id, project, tool_name, risk_level) do
+  def find_matching(agent_id, formation_id, session_id, project, tool_name, risk_level, action_type \\ nil) do
     list_active()
     |> Enum.filter(fn p ->
       matches_scope?(p, agent_id, formation_id, session_id, project) &&
-        matches_tool?(p, tool_name, risk_level)
+        matches_tool?(p, tool_name, risk_level) &&
+        matches_action_type?(p, action_type)
     end)
     |> Enum.sort_by(&specificity_score/1, :desc)
     |> List.first()
@@ -181,6 +186,8 @@ defmodule ApmV5.Auth.AutoApprovalStore do
       project: Map.get(attrs, :project),
       allowed_tools: Map.get(attrs, :allowed_tools, :all),
       allowed_risk_levels: Map.get(attrs, :allowed_risk_levels, :all),
+      allowed_action_types: Map.get(attrs, :allowed_action_types, :all),
+      action_patterns: Map.get(attrs, :action_patterns, []),
       active_from: Map.get(attrs, :active_from, now),
       expires_at: Map.get(attrs, :expires_at, DateTime.add(now, @ttl_seconds, :second)),
       created_by: Map.get(attrs, :created_by, "system"),
@@ -287,6 +294,11 @@ defmodule ApmV5.Auth.AutoApprovalStore do
     risk_match? = policy.allowed_risk_levels == :all or risk_level in policy.allowed_risk_levels
 
     tools_match? and risk_match?
+  end
+
+  defp matches_action_type?(policy, action_type) do
+    allowed = Map.get(policy, :allowed_action_types, :all)
+    allowed == :all or is_nil(action_type) or action_type in allowed
   end
 
   defp specificity_score(policy) do

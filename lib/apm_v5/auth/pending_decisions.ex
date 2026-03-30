@@ -28,6 +28,7 @@ defmodule ApmV5.Auth.PendingDecisions do
   require Logger
 
   alias ApmV5.Auth.TokenStore
+  alias ApmV5.Auth.CommandContextExtractor
 
   @table :agentlock_pending
   @ttl_seconds 20
@@ -127,12 +128,31 @@ defmodule ApmV5.Auth.PendingDecisions do
     request_id = "pending-#{:crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)}"
     now = DateTime.utc_now()
 
+    # Extract command context for enriched approval display
+    {action_type, action_detail, risk_rationale, approval_reasoning} =
+      case CommandContextExtractor.analyze(tool_name, params) do
+        {:ok, context} ->
+          {
+            context[:action_type],
+            context[:action_detail],
+            context[:risk_rationale],
+            context[:approval_reasoning]
+          }
+
+        {:error, _} ->
+          {:unknown, "#{tool_name} operation", "Tool operation", "Review carefully before approving."}
+      end
+
     entry = %{
       request_id: request_id,
       tool_name: tool_name,
       session_id: session_id,
       agent_id: agent_id,
       risk_level: risk_level,
+      action_type: action_type,
+      action_detail: action_detail,
+      risk_rationale: risk_rationale,
+      approval_reasoning: approval_reasoning,
       params: sanitize_params(params),
       status: :pending,
       decision: nil,
@@ -161,12 +181,12 @@ defmodule ApmV5.Auth.PendingDecisions do
           :approve ->
             case TokenStore.generate(entry.agent_id, entry.session_id, entry.tool_name, entry.params) do
               {:ok, token_id} ->
-                updated = %{entry |
+                updated = Map.merge(entry, %{
                   status: :approved,
                   decision: :approve,
                   decided_at: DateTime.utc_now(),
                   token_id: token_id
-                }
+                })
                 :ets.insert(@table, {request_id, updated})
                 Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
                 Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
@@ -174,11 +194,11 @@ defmodule ApmV5.Auth.PendingDecisions do
                 {:reply, {:ok, token_id}, state}
 
               _err ->
-                updated = %{entry |
+                updated = Map.merge(entry, %{
                   status: :approved,
                   decision: :approve,
                   decided_at: DateTime.utc_now()
-                }
+                })
                 :ets.insert(@table, {request_id, updated})
                 Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
                 Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
@@ -187,11 +207,11 @@ defmodule ApmV5.Auth.PendingDecisions do
             end
 
           :deny ->
-            updated = %{entry |
+            updated = Map.merge(entry, %{
               status: :denied,
               decision: :deny,
               decided_at: DateTime.utc_now()
-            }
+            })
             :ets.insert(@table, {request_id, updated})
             Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
             Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
@@ -282,10 +302,21 @@ defmodule ApmV5.Auth.PendingDecisions do
           |> Enum.join(", ")
       end
 
+    # Format action type badge (destructive/write/read/unknown)
+    action_badge =
+      case entry.action_type do
+        :destructive -> "🚨 DESTRUCTIVE"
+        :write -> "✏️ WRITE"
+        :read -> "📖 READ"
+        _ -> "⚙️ OPERATION"
+      end
+
     title = "#{agent_name} is requesting #{entry.tool_name}"
 
     message_parts =
-      ["#{entry.risk_level} risk · #{ttl_remaining}s remaining"] ++
+      ["#{action_badge} · #{entry.risk_level} risk · #{ttl_remaining}s remaining"] ++
+      [entry.action_detail] ++
+      [entry.risk_rationale] ++
       context_lines ++
       if(params_summary, do: ["Params: #{params_summary}"], else: [])
 
@@ -315,6 +346,10 @@ defmodule ApmV5.Auth.PendingDecisions do
         agent_definition: agent_def,
         tool_name:    entry.tool_name,
         risk_level:   entry.risk_level,
+        action_type:  entry.action_type,
+        action_detail: entry.action_detail,
+        risk_rationale: entry.risk_rationale,
+        approval_reasoning: entry.approval_reasoning,
         ttl_seconds:  ttl_remaining,
         expires_at:   DateTime.to_iso8601(entry.expires_at),
         formation_id: formation_id,
