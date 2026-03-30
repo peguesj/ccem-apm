@@ -122,6 +122,9 @@ defmodule ApmV5Web.Router do
     live "/integrations", PluginDashboardLive, :integrations_tab
     live "/integrations/lvm", LvmStatusLive, :index
 
+    # Extension: library
+    live "/library", LibraryLive, :index
+
     # Extension: upm
     live "/upm/module", UpmLive, :index
     live "/upm/module/:project_id", UpmLive, :project
@@ -285,14 +288,10 @@ defmodule ApmV5Web.Router do
     patch "/formations/:id", FormationApiController, :update_formation
     get "/formations/:id/agents", FormationApiController, :get_formation_agents
 
-    # ── EXTENSION: showcase (v1 + v2 queryable tabs + diagrams) ────────────
+    # ── EXTENSION: showcase (v1) ──────────────────────────────────────────
     get "/showcase", ShowcaseApiController, :index
     get "/showcase/:project", ShowcaseApiController, :show
     post "/showcase/:project/reload", ShowcaseApiController, :reload
-    get "/showcase/:project/diagrams", ShowcaseApiController, :diagrams
-    get "/showcase/:project/diagrams/:id", ShowcaseApiController, :diagram
-    get "/showcase/:project/tabs", ShowcaseApiController, :tabs
-    get "/showcase/:project/tabs/:tab_id", ShowcaseApiController, :tab_data
 
     # ── EXTENSION: ag_ui (v1) ─────────────────────────────────────────────
     get "/ag-ui/events", AgUiController, :events
@@ -483,15 +482,16 @@ defmodule ApmV5Web.Router do
     get "/plane/sync-status", PlaneController, :sync_status
     post "/plane/sync", PlaneController, :sync
 
-    # ── EXTENSION: skills (dependency analysis) ──────────────────────────────
-    get "/skills/graph", SkillsController, :graph
-    get "/skills/dependencies/:id", SkillsController, :dependencies
-    get "/skills/cycles", SkillsController, :cycles
-    get "/skills/stats", SkillsController, :stats
-    get "/skills/health", SkillsController, :health
-    get "/skills/health/:id", SkillsController, :health_single
-    post "/skills/rescore", SkillsController, :rescore
-    post "/skills/analyze", SkillsController, :analyze
+    # ── EXTENSION: library ────────────────────────────────────────────────
+    get "/library", LibraryController, :index
+    get "/library/agents", LibraryController, :agents
+    get "/library/skills", LibraryController, :skills
+    get "/library/commands", LibraryController, :commands
+    get "/library/mcp", LibraryController, :mcp
+    get "/library/tools", LibraryController, :tools
+    get "/library/patterns", LibraryController, :patterns
+    get "/library/learnings", LibraryController, :learnings
+    post "/library/refresh", LibraryController, :refresh
   end
 
   # A2UI flexible format endpoint
