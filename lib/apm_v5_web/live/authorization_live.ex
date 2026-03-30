@@ -230,14 +230,14 @@ defmodule ApmV5Web.AuthorizationLive do
 
   @impl true
   def handle_event("toggle_modal_minimize", _params, socket) do
-    {:noreply, assign(socket, modal_minimized: !socket.assigns.modal_minimized)}
+    {:noreply, assign(socket, :modal_minimized, !socket.assigns.modal_minimized)}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <%!-- US-003: Full-screen AgentLock approval modal — shown when pending decisions exist --%>
+      <%!-- US-003: Full-screen AgentLock approval modal — shown when pending decisions exist and not minimized --%>
       <%= if @pending != [] && !@modal_minimized do %>
         <% [top_gate | _rest] = @pending %>
         <% label = NamespaceResolver.gate_label(top_gate.request_id, top_gate.tool_name) %>
@@ -251,9 +251,9 @@ defmodule ApmV5Web.AuthorizationLive do
         >
           <div class="bg-base-200 border border-amber-500/60 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
             <div class="flex items-center justify-between gap-3 mb-4">
-              <div class="flex items-center gap-3 flex-1">
+              <div class="flex items-center gap-3 min-w-0">
                 <.icon name="hero-shield-exclamation" class="h-7 w-7 text-amber-400 shrink-0" />
-                <div>
+                <div class="min-w-0">
                   <h2 id="modal-title" class="text-base font-bold text-amber-300">AgentLock — Approval Required</h2>
                   <%= if length(@pending) > 1 do %>
                     <p class="text-xs text-zinc-400 mt-0.5"><%= length(@pending) %> pending · showing most recent</p>
@@ -262,8 +262,9 @@ defmodule ApmV5Web.AuthorizationLive do
               </div>
               <button
                 phx-click="toggle_modal_minimize"
-                class="btn btn-xs btn-ghost text-zinc-400 hover:text-zinc-200"
-                title="Minimize to toast"
+                class="btn btn-ghost btn-sm btn-square shrink-0"
+                aria-label="Minimize approval modal"
+                title="Minimize to toast (bottom-right)"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
@@ -346,33 +347,58 @@ defmodule ApmV5Web.AuthorizationLive do
         </div>
       <% end %>
 
-      <%!-- Minimized toast version — appears at bottom-right when modal is minimized --%>
+      <%!-- Minimized toast version (bottom-right corner) --%>
       <%= if @pending != [] && @modal_minimized do %>
         <% [top_gate | _rest] = @pending %>
-        <% label = NamespaceResolver.gate_label(top_gate.request_id, top_gate.tool_name) %>
         <div
-          id="agentlock-approval-toast"
-          class="fixed bottom-4 right-4 z-[9998] bg-amber-950 border border-amber-600/60 rounded-lg shadow-xl p-4 max-w-xs animate-pulse"
+          class="fixed bottom-4 right-4 z-[9998] animate-in slide-in-from-bottom-3 duration-200"
           role="status"
-          aria-label="Pending authorization required"
+          aria-live="assertive"
         >
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2 flex-1 min-w-0">
-              <.icon name="hero-shield-exclamation" class="h-5 w-5 text-amber-400 shrink-0" />
-              <div class="min-w-0">
-                <p class="text-xs font-semibold text-amber-300 truncate">Approval needed</p>
-                <p class="text-xs text-amber-200/70 truncate"><%= label %></p>
+          <div class="bg-base-100 border border-amber-500/40 rounded-lg shadow-lg p-3 max-w-xs space-y-2">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2 min-w-0">
+                <.icon name="hero-shield-exclamation" class="h-5 w-5 text-amber-400 shrink-0" />
+                <div class="min-w-0">
+                  <p class="text-xs font-semibold text-amber-300 truncate">
+                    <%= top_gate.tool_name %> approval required
+                  </p>
+                  <p class="text-xs text-base-content/60">
+                    <%= if length(@pending) > 1 do %>
+                      <%= length(@pending) %> pending
+                    <% else %>
+                      1 pending
+                    <% end %>
+                  </p>
+                </div>
               </div>
+              <button
+                phx-click="toggle_modal_minimize"
+                class="btn btn-ghost btn-xs btn-square shrink-0"
+                aria-label="Expand approval modal"
+                title="Expand"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12h16m0 0l-4-4m4 4l-4 4" />
+                </svg>
+              </button>
             </div>
-            <button
-              phx-click="toggle_modal_minimize"
-              class="btn btn-xs btn-ghost text-zinc-400 hover:text-zinc-200 shrink-0"
-              title="Expand modal"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
-              </svg>
-            </button>
+            <div class="flex gap-2">
+              <button
+                phx-click="approve_gate"
+                phx-value-id={top_gate.request_id}
+                class="btn btn-success btn-xs text-xs flex-1"
+              >
+                Approve
+              </button>
+              <button
+                phx-click="deny_gate"
+                phx-value-id={top_gate.request_id}
+                class="btn btn-error btn-xs text-xs flex-1"
+              >
+                Deny
+              </button>
+            </div>
           </div>
         </div>
       <% end %>
@@ -384,14 +410,14 @@ defmodule ApmV5Web.AuthorizationLive do
           <div class="flex items-center gap-3">
             <h2 class="text-sm font-semibold text-base-content">AgentLock Authorization</h2>
             <div class="badge badge-sm badge-ghost">{@summary.registered_tools} tools</div>
-          </div>
-          <div class="flex items-center gap-3">
             <%= if length(@pending) > 0 do %>
               <div class="indicator">
-                <span class="badge badge-sm badge-warning indicator-item"><%= length(@pending) %></span>
+                <span class="badge badge-sm badge-warning indicator-item animate-pulse"><%= length(@pending) %></span>
                 <.icon name="hero-bell" class="h-5 w-5 text-amber-400" />
               </div>
             <% end %>
+          </div>
+          <div class="flex items-center gap-2">
             <span class="text-xs text-base-content/40">Auto-refresh 5s</span>
           </div>
         </header>
