@@ -5,11 +5,12 @@ defmodule ApmV5Web.NotificationLive do
   """
 
   use ApmV5Web, :live_view
-
+  require Logger
 
   alias ApmV5.AgentRegistry
   alias ApmV5.UpmStore
   alias ApmV5.Auth.PendingDecisions
+  alias ApmV5.Auth.AutoApprovalStore
 
   @tab_categories %{
     "all" => nil,
@@ -43,6 +44,9 @@ defmodule ApmV5Web.NotificationLive do
       |> assign(:hide_showcase, true)
       |> assign(:grouped_view, true)
       |> assign(:collapsed_groups, MapSet.new())
+      |> assign(:agentlock_groups_expanded, MapSet.new())
+      |> assign(:confirmation_dialog, nil)
+      |> assign(:auto_approve_minutes, nil)
 
     {:ok, socket}
   end
@@ -101,11 +105,23 @@ defmodule ApmV5Web.NotificationLive do
         <%!-- Notification list --%>
         <div class="flex-1 overflow-y-auto p-4 space-y-2">
           <% visible = visible_notifications(@notifications, @active_tab, @hide_showcase) %>
+          <% agentlock_notifs = Enum.filter(visible, fn n -> to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock") end) %>
+
           <div :if={visible == []} class="text-center text-base-content/30 py-16 text-sm">
             No notifications in this category
           </div>
+
+          <%!-- Compact AgentLock Accordion Panel --%>
+          <.agentlock_accordion_panel
+            :if={agentlock_notifs != []}
+            notifs={agentlock_notifs}
+            expanded_groups={@agentlock_groups_expanded}
+          />
+
+          <% other_notifs = Enum.reject(visible, fn n -> to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock") end) %>
+
           <%= if @grouped_view do %>
-            <%= for {cat, entries} <- group_notifications(visible) do %>
+            <%= for {cat, entries} <- group_notifications(other_notifs) do %>
               <div class="mb-3">
                 <button
                   phx-click="toggle_group"
@@ -134,7 +150,7 @@ defmodule ApmV5Web.NotificationLive do
             <% end %>
           <% else %>
             <.notif_card
-              :for={notif <- visible}
+              :for={notif <- other_notifs}
               notif={notif}
               expanded={MapSet.member?(@expanded_ids, notif.id)}
               formation_expanded={MapSet.member?(@expanded_formations, notif.id)}
@@ -143,6 +159,85 @@ defmodule ApmV5Web.NotificationLive do
               lazy_context={Map.get(@lazy_context, notif.id)}
             />
           <% end %>
+        </div>
+      </div>
+
+      <%!-- Confirmation Dialog Modal --%>
+      <.confirmation_dialog confirmation={@confirmation_dialog} />
+    </div>
+    """
+  end
+
+  # --- Confirmation Dialog Component ---
+  attr :confirmation, :any, default: nil
+
+  defp confirmation_dialog(assigns) do
+    ~H"""
+    <div
+      :if={@confirmation != nil}
+      class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirmation-title"
+    >
+      <div class="bg-base-200 border border-base-300 rounded-lg shadow-xl p-6 w-full max-w-sm mx-4">
+        <h2 id="confirmation-title" class="text-lg font-semibold mb-3">
+          <%= case @confirmation do %>
+            <% {:approve_all, count} -> %>
+              Approve all {count} pending decisions?
+            <% {:deny_all, count} -> %>
+              Deny all {count} pending decisions?
+            <% _ -> %>
+              Confirm action
+          <% end %>
+        </h2>
+        <p class="text-sm text-base-content/70 mb-6">
+          <%= case @confirmation do %>
+            <% {:approve_all, _count} -> %>
+              This will approve all pending AgentLock requests. This action cannot be undone.
+            <% {:deny_all, _count} -> %>
+              This will deny all pending AgentLock requests. Agents will need to resubmit tool calls.
+            <% _ -> %>
+              Please confirm this action.
+          <% end %>
+        </p>
+        <div class="flex gap-3 justify-end">
+          <button
+            phx-click="cancel_confirmation"
+            class="btn btn-sm btn-ghost"
+            aria-label="Cancel confirmation dialog"
+          >
+            Cancel
+          </button>
+          <button
+            phx-click={case @confirmation do
+              {:approve_all, _} -> "confirm_approve_all"
+              {:deny_all, _} -> "confirm_deny_all"
+              _ -> nil
+            end}
+            class={[
+              "btn btn-sm",
+              case @confirmation do
+                {:approve_all, _} -> "btn-success"
+                {:deny_all, _} -> "btn-error"
+                _ -> "btn-primary"
+              end
+            ]}
+            aria-label={case @confirmation do
+              {:approve_all, _} -> "Confirm approve all"
+              {:deny_all, _} -> "Confirm deny all"
+              _ -> "Confirm"
+            end}
+          >
+            <%= case @confirmation do %>
+              <% {:approve_all, _} -> %>
+                Approve All
+              <% {:deny_all, _} -> %>
+                Deny All
+              <% _ -> %>
+                Confirm
+            <% end %>
+          </button>
         </div>
       </div>
     </div>
@@ -169,6 +264,165 @@ defmodule ApmV5Web.NotificationLive do
       {@label}
       <span :if={@count > 0} class="badge badge-xs badge-error">{@count}</span>
     </button>
+    """
+  end
+
+  # --- AgentLock Compact Accordion Panel ---
+  attr :notifs, :list, required: true
+  attr :expanded_groups, :any, required: true
+
+  defp agentlock_accordion_panel(assigns) do
+    grouped = group_agentlock_by_risk_and_action(assigns.notifs)
+    assigns = assign(assigns, :grouped, grouped)
+
+    ~H"""
+    <div
+      class="bg-amber-950/20 border border-amber-700/30 rounded-lg p-3 mb-4"
+      phx-window-keydown="agentlock_keyboard_shortcut"
+      role="region"
+      aria-label="AgentLock Pending Approvals"
+    >
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+          <h3 class="text-sm font-semibold text-amber-300">AgentLock: {length(@notifs)} Pending</h3>
+        </div>
+        <button phx-click="agentlock_approve_all" class="btn btn-xs btn-outline btn-success text-[11px] px-2" title="Keyboard: A">
+          Approve All <span class="text-[9px] opacity-60">(A)</span>
+        </button>
+      </div>
+
+      <div class="space-y-1">
+        <%= for {group_key, group_notifs} <- @grouped do %>
+          <% {risk_level, action_type} = group_key %>
+          <% group_id = "agentlock-#{risk_level}-#{action_type}" %>
+          <% is_expanded = MapSet.member?(@expanded_groups, group_id) %>
+
+          <button
+            phx-click="toggle_agentlock_group"
+            phx-value-group={group_id}
+            class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-amber-900/30 transition-colors text-left"
+            role="button"
+            aria-expanded={is_expanded}
+            aria-controls={"#{group_id}-content"}
+            id={"#{group_id}-header"}
+          >
+            <svg
+              class={["w-3 h-3 text-amber-400 transition-transform", !is_expanded && "rotate-90"]}
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+
+            <div class="flex-1 flex items-center gap-2 min-w-0">
+              <span class={["badge badge-xs font-mono", risk_badge_class(risk_level)]}>
+                {String.upcase(risk_level)}
+              </span>
+              <span class={["badge badge-xs", action_badge_class(action_type)]}>
+                {String.upcase(action_type)}
+              </span>
+              <span class="text-xs text-amber-300/70 font-mono">({length(group_notifs)} items)</span>
+            </div>
+
+            <span class="text-[10px] text-amber-400/60 font-mono flex-shrink-0">
+              {get_ttl_from_notifs(group_notifs)}s
+            </span>
+          </button>
+
+          <div
+            :if={is_expanded}
+            class="ml-4 space-y-1 mt-1 pb-1"
+            id={"#{group_id}-content"}
+            role="region"
+            aria-labelledby={"#{group_id}-header"}
+          >
+            <%= for notif <- Enum.sort_by(group_notifs, & &1.id, :desc) do %>
+              <div class="flex items-center justify-between gap-2 px-2 py-1 bg-amber-900/10 rounded text-[11px]">
+                <div class="flex-1 min-w-0">
+                  <p class="font-mono text-amber-300 truncate">
+                    {extract_tool_name(notif)} · {extract_action_detail(notif)}
+                  </p>
+                </div>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    phx-click="approve_pending"
+                    phx-value-request-id={notif[:metadata][:request_id] || notif.id}
+                    class="btn btn-xs btn-ghost text-success text-[9px] h-5 px-1 min-h-0"
+                    title="Keyboard: Y"
+                  >
+                    ✓ <span class="text-[7px] opacity-50">(Y)</span>
+                  </button>
+                  <button
+                    phx-click="deny_pending"
+                    phx-value-request-id={notif[:metadata][:request_id] || notif.id}
+                    class="btn btn-xs btn-ghost text-error text-[9px] h-5 px-1 min-h-0"
+                    title="Keyboard: N"
+                  >
+                    ✗ <span class="text-[7px] opacity-50">(N)</span>
+                  </button>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="flex flex-col gap-2 mt-3 pt-2 border-t border-amber-700/20">
+        <div class="flex gap-2">
+          <button phx-click="deny_all_agentlock" class="btn btn-xs btn-outline btn-error flex-1 text-[11px]" title="Keyboard: D">
+            Deny All <span class="text-[9px] opacity-60">(D)</span>
+          </button>
+          <button phx-click="agentlock_approve_all" class="btn btn-xs btn-success flex-1 text-[11px]" title="Keyboard: A">
+            Approve All <span class="text-[9px] opacity-60">(A)</span>
+          </button>
+        </div>
+        <div class="flex gap-1 flex-wrap">
+          <button
+            phx-click="agentlock_approve_for_time"
+            phx-value-minutes="5"
+            class="btn btn-xs btn-outline btn-success text-[10px] h-6 px-2"
+            title="Auto-approve for next 5 minutes"
+          >
+            ✓ 5m
+          </button>
+          <button
+            phx-click="agentlock_approve_for_time"
+            phx-value-minutes="30"
+            class="btn btn-xs btn-outline btn-success text-[10px] h-6 px-2"
+            title="Auto-approve for next 30 minutes"
+          >
+            ✓ 30m
+          </button>
+          <button
+            phx-click="agentlock_approve_for_time"
+            phx-value-minutes="60"
+            class="btn btn-xs btn-outline btn-success text-[10px] h-6 px-2"
+            title="Auto-approve for next 60 minutes"
+          >
+            ✓ 1h
+          </button>
+          <button
+            phx-click="agentlock_deny_for_time"
+            phx-value-minutes="5"
+            class="btn btn-xs btn-outline btn-error text-[10px] h-6 px-2"
+            title="Auto-deny for next 5 minutes"
+          >
+            ✗ 5m
+          </button>
+          <button
+            phx-click="agentlock_deny_for_time"
+            phx-value-minutes="30"
+            class="btn btn-xs btn-outline btn-error text-[10px] h-6 px-2"
+            title="Auto-deny for next 30 minutes"
+          >
+            ✗ 30m
+          </button>
+        </div>
+      </div>
+    </div>
     """
   end
 
@@ -666,6 +920,187 @@ defmodule ApmV5Web.NotificationLive do
     {:noreply, assign(socket, :collapsed_groups, new_collapsed)}
   end
 
+  # --- AgentLock Accordion Events ---
+
+  def handle_event("toggle_agentlock_group", %{"group" => group_id}, socket) do
+    expanded = socket.assigns.agentlock_groups_expanded
+    new_expanded =
+      if MapSet.member?(expanded, group_id),
+        do: MapSet.delete(expanded, group_id),
+        else: MapSet.put(expanded, group_id)
+    {:noreply, assign(socket, :agentlock_groups_expanded, new_expanded)}
+  end
+
+  def handle_event("approve_pending", %{"request-id" => request_id}, socket) do
+    # Call APM to approve the pending decision
+    case :httpc.request(
+      :post,
+      {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json", Jason.encode!(%{request_id: request_id, decision: "approve"})},
+      [{:timeout, 3_000}],
+      []
+    ) do
+      {:ok, _} ->
+        Logger.info("[NotificationLive] Approved: #{request_id}")
+        {:noreply, socket}
+      {:error, reason} ->
+        Logger.warning("[NotificationLive] Approve failed: #{inspect(reason)}")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("deny_pending", %{"request-id" => request_id}, socket) do
+    # Call APM to deny the pending decision
+    case :httpc.request(
+      :post,
+      {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json", Jason.encode!(%{request_id: request_id, decision: "deny"})},
+      [{:timeout, 3_000}],
+      []
+    ) do
+      {:ok, _} ->
+        Logger.info("[NotificationLive] Denied: #{request_id}")
+        {:noreply, socket}
+      {:error, reason} ->
+        Logger.warning("[NotificationLive] Deny failed: #{inspect(reason)}")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("agentlock_approve_all", _params, socket) do
+    # Show confirmation dialog before approving all
+    agentlock_notifs = Enum.filter(socket.assigns.notifications, fn n ->
+      to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock")
+    end)
+
+    case length(agentlock_notifs) do
+      0 ->
+        {:noreply, socket}
+      count ->
+        socket = assign(socket, confirmation_dialog: {:approve_all, count})
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("confirm_approve_all", _params, socket) do
+    agentlock_notifs = Enum.filter(socket.assigns.notifications, fn n ->
+      to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock")
+    end)
+
+    Enum.each(agentlock_notifs, fn notif ->
+      request_id = notif[:metadata][:request_id] || notif.id
+      :httpc.request(
+        :post,
+        {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json", Jason.encode!(%{request_id: request_id, decision: "approve"})},
+        [{:timeout, 3_000}],
+        []
+      )
+    end)
+
+    Logger.info("[NotificationLive] Approved all #{length(agentlock_notifs)} pending requests")
+    {:noreply, assign(socket, confirmation_dialog: nil)}
+  end
+
+  def handle_event("deny_all_agentlock", _params, socket) do
+    # Show confirmation dialog before denying all
+    agentlock_notifs = Enum.filter(socket.assigns.notifications, fn n ->
+      to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock")
+    end)
+
+    case length(agentlock_notifs) do
+      0 ->
+        {:noreply, socket}
+      count ->
+        socket = assign(socket, confirmation_dialog: {:deny_all, count})
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("confirm_deny_all", _params, socket) do
+    agentlock_notifs = Enum.filter(socket.assigns.notifications, fn n ->
+      to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock")
+    end)
+
+    Enum.each(agentlock_notifs, fn notif ->
+      request_id = notif[:metadata][:request_id] || notif.id
+      :httpc.request(
+        :post,
+        {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json", Jason.encode!(%{request_id: request_id, decision: "deny"})},
+        [{:timeout, 3_000}],
+        []
+      )
+    end)
+
+    Logger.info("[NotificationLive] Denied all #{length(agentlock_notifs)} pending requests")
+    {:noreply, assign(socket, confirmation_dialog: nil)}
+  end
+
+  def handle_event("agentlock_approve_for_time", %{"minutes" => minutes_str}, socket) do
+    minutes = String.to_integer(minutes_str)
+
+    expires_at = DateTime.add(DateTime.utc_now(), minutes * 60, :second)
+
+    case AutoApprovalStore.create(%{
+      allowed_tools: :all,
+      allowed_risk_levels: :all,
+      expires_at: expires_at,
+      created_by: "user",
+      reason: "User-initiated auto-approve for #{minutes} minutes"
+    }) do
+      {:ok, policy_id} ->
+        Logger.info("[NotificationLive] Auto-approve policy created: #{policy_id} for #{minutes}m")
+        socket
+        |> assign(:confirmation_dialog, nil)
+        |> assign(:auto_approve_minutes, minutes)
+      {:error, reason} ->
+        Logger.warning("[NotificationLive] Failed to create auto-approve policy: #{inspect(reason)}")
+        socket
+    end
+    |> then(&{:noreply, &1})
+  end
+
+  def handle_event("agentlock_deny_for_time", %{"minutes" => minutes_str}, socket) do
+    minutes = String.to_integer(minutes_str)
+
+    # Create a deny policy: no tools allowed, so all requests must be manually approved
+    expires_at = DateTime.add(DateTime.utc_now(), minutes * 60, :second)
+
+    case AutoApprovalStore.create(%{
+      allowed_tools: [],
+      allowed_risk_levels: [],
+      expires_at: expires_at,
+      created_by: "user",
+      reason: "User-initiated auto-deny for #{minutes} minutes"
+    }) do
+      {:ok, policy_id} ->
+        Logger.info("[NotificationLive] Auto-deny policy created: #{policy_id} for #{minutes}m")
+        socket
+        |> assign(:confirmation_dialog, nil)
+        |> assign(:auto_approve_minutes, nil)
+      {:error, reason} ->
+        Logger.warning("[NotificationLive] Failed to create auto-deny policy: #{inspect(reason)}")
+        socket
+    end
+    |> then(&{:noreply, &1})
+  end
+
+  def handle_event("cancel_confirmation", _params, socket) do
+    {:noreply, assign(socket, confirmation_dialog: nil)}
+  end
+
+  def handle_event("agentlock_keyboard_shortcut", %{"key" => key}, socket) do
+    case String.downcase(key) do
+      "a" ->
+        # Approve all (keyboard: A)
+        handle_event("agentlock_approve_all", %{}, socket)
+
+      "d" ->
+        # Deny all (keyboard: D)
+        handle_event("deny_all_agentlock", %{}, socket)
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   # --- PubSub ---
 
   @impl true
@@ -967,4 +1402,53 @@ defmodule ApmV5Web.NotificationLive do
   end
 
   defp lazy_load_context(_id, _type, _notifications), do: %{}
+
+  # --- AgentLock Accordion Helpers ---
+
+  defp group_agentlock_by_risk_and_action(notifs) do
+    notifs
+    |> Enum.group_by(fn notif ->
+      risk = extract_risk_level(notif)
+      action = extract_action_type(notif)
+      {risk, action}
+    end)
+    |> Enum.sort_by(fn {_key, entries} ->
+      entries |> Enum.map(& &1.id) |> Enum.max(fn -> 0 end)
+    end, :desc)
+  end
+
+  defp extract_risk_level(notif) do
+    risk = notif[:metadata][:risk_level] || notif[:risk] || "high"
+    to_string(risk)
+  end
+
+  defp extract_action_type(notif) do
+    action = notif[:metadata][:action_type] || notif[:action_type] || "unknown"
+    to_string(action)
+  end
+
+  defp extract_tool_name(notif) do
+    notif[:metadata][:tool_name] || notif[:tool_name] || "unknown"
+  end
+
+  defp extract_action_detail(notif) do
+    detail = notif[:metadata][:action_detail] || notif[:action_detail] || ""
+    String.slice(to_string(detail), 0, 40)
+  end
+
+  defp get_ttl_from_notifs(notifs) do
+    notifs
+    |> Enum.map(fn n -> n[:metadata][:ttl_seconds] || 20 end)
+    |> Enum.min(fn -> 20 end)
+  end
+
+  defp risk_badge_class("critical"), do: "badge-error"
+  defp risk_badge_class("high"), do: "badge-warning"
+  defp risk_badge_class("medium"), do: "badge-info"
+  defp risk_badge_class(_), do: "badge-ghost"
+
+  defp action_badge_class("destructive"), do: "badge-error badge-outline"
+  defp action_badge_class("write"), do: "badge-warning badge-outline"
+  defp action_badge_class("read"), do: "badge-info badge-outline"
+  defp action_badge_class(_), do: "badge-ghost badge-outline"
 end

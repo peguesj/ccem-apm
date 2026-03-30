@@ -118,7 +118,9 @@ defmodule ApmV5Web.Router do
     live "/plugins", PluginDashboardLive, :index
     live "/plugins/ralph", RalphPluginLive, :index
     live "/plugins/ag_ui", AgUiPluginLive, :index
+    live "/plugins/claude-code", ClaudeCodeDiscoveryLive, :index
     live "/integrations", PluginDashboardLive, :integrations_tab
+    live "/integrations/lvm", LvmStatusLive, :index
 
     # Extension: upm
     live "/upm/module", UpmLive, :index
@@ -296,6 +298,7 @@ defmodule ApmV5Web.Router do
     get "/usage/summary", UsageController, :summary
     get "/usage/project/:name", UsageController, :project
     post "/usage/record", UsageController, :record
+    get "/usage/limits", UsageController, :limits
     delete "/usage/project/:name", UsageController, :reset
   end
 
@@ -423,6 +426,11 @@ defmodule ApmV5Web.Router do
     get "/auth/pending/:id", AuthController, :get_pending
     get "/auth/decide", AuthController, :decide_get
     post "/auth/decide", AuthController, :decide
+    # API key management (US-047)
+    get "/auth/api-keys", AuthController, :list_api_keys
+    post "/auth/api-keys", AuthController, :create_api_key
+    delete "/auth/api-keys/:id", AuthController, :revoke_api_key
+
     get "/auth/policy/rules", AuthController, :list_policy_rules
     post "/auth/policy/rules", AuthController, :add_policy_rule
     delete "/auth/policy/rules/:tool_name", AuthController, :remove_policy_rule

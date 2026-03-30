@@ -94,6 +94,48 @@ defmodule ApmV5Web.UsageController do
     })
   end
 
+  @doc "GET /api/usage/limits — model capability limits with current utilization."
+  @spec limits(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def limits(conn, params) do
+    project = Map.get(params, "project")
+
+    model_caps = ApmV5.Plugins.Lvm.ClaudePlatformLvmPlugin.known_models()
+    dynamic_caps = ClaudeUsageStore.get_all_model_capabilities()
+
+    # Merge static + dynamic capabilities
+    all_caps =
+      Map.merge(model_caps, dynamic_caps, fn _k, static, dynamic ->
+        Map.merge(static, dynamic)
+      end)
+
+    # If project specified, add utilization data
+    limits =
+      if project do
+        usage = ClaudeUsageStore.get_usage(project)
+
+        Enum.map(all_caps, fn {model, caps} ->
+          model_usage = Map.get(usage, model, %{})
+
+          %{
+            model: model,
+            capabilities: caps,
+            usage: %{
+              input_tokens: Map.get(model_usage, :input_tokens, 0),
+              output_tokens: Map.get(model_usage, :output_tokens, 0),
+              tool_calls: Map.get(model_usage, :tool_calls, 0)
+            },
+            utilization_pct: calc_utilization(model_usage, caps)
+          }
+        end)
+      else
+        Enum.map(all_caps, fn {model, caps} ->
+          %{model: model, capabilities: caps}
+        end)
+      end
+
+    json(conn, %{ok: true, limits: limits, model_count: length(limits)})
+  end
+
   @doc "DELETE /api/usage/project/:name — reset all counters for a project."
   @spec reset(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def reset(conn, %{"name" => name}) do
@@ -118,4 +160,15 @@ defmodule ApmV5Web.UsageController do
   end
 
   defp parse_int(_), do: 0
+
+  defp calc_utilization(usage, caps) do
+    total = Map.get(usage, :input_tokens, 0) + Map.get(usage, :output_tokens, 0)
+    context = Map.get(caps, :context_window, 200_000)
+
+    if context > 0 do
+      Float.round(total / context * 100, 1)
+    else
+      0.0
+    end
+  end
 end

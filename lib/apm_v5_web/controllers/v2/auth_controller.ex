@@ -558,4 +558,32 @@ defmodule ApmV5Web.V2.AuthController do
       correlation_id: Map.get(entry, :correlation_id)
     }
   end
+
+  # ---------------------------------------------------------------------------
+  # API Key Management (US-047 / CCEM-265)
+  # ---------------------------------------------------------------------------
+
+  @doc "GET /api/v2/auth/api-keys — List all API keys (masked)"
+  def list_api_keys(conn, _params) do
+    keys = ApmV5.ApiKeyStore.list_keys()
+    json(conn, %{ok: true, keys: keys, count: length(keys)})
+  end
+
+  @doc "POST /api/v2/auth/api-keys — Generate a new API key"
+  def create_api_key(conn, params) do
+    label = Map.get(params, "label", "unnamed")
+
+    case ApmV5.ApiKeyStore.generate_key(label) do
+      {:ok, key} ->
+        conn
+        |> put_status(201)
+        |> json(%{ok: true, key: key, label: label, message: "Store this key securely — it will not be shown again"})
+    end
+  end
+
+  @doc "DELETE /api/v2/auth/api-keys/:id — Revoke an API key"
+  def revoke_api_key(conn, %{"id" => key}) do
+    :ok = ApmV5.ApiKeyStore.revoke_key(key)
+    json(conn, %{ok: true, revoked: true})
+  end
 end

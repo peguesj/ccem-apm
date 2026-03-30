@@ -19,6 +19,7 @@ defmodule ApmV5.ClaudeUsageStore do
   require Logger
 
   @table :claude_usage
+  @lvm_table :claude_lvm_capabilities
 
   # -------------------------------------------------------------------------
   # Client API
@@ -148,6 +149,36 @@ defmodule ApmV5.ClaudeUsageStore do
     GenServer.cast(__MODULE__, {:reset_project, project})
   end
 
+  @doc "Record model capabilities for a given model name."
+  @spec record_model_capabilities(String.t(), map()) :: :ok
+  def record_model_capabilities(model, capabilities) when is_binary(model) and is_map(capabilities) do
+    GenServer.cast(__MODULE__, {:record_capabilities, model, capabilities})
+  end
+
+  @doc "Get recorded model capabilities for a model name. Returns nil if not found."
+  @spec get_model_capabilities(String.t()) :: map() | nil
+  def get_model_capabilities(model) when is_binary(model) do
+    case :ets.info(@lvm_table) do
+      :undefined -> nil
+      _ ->
+        case :ets.lookup(@lvm_table, model) do
+          [{^model, caps}] -> caps
+          [] -> nil
+        end
+    end
+  end
+
+  @doc "Get all recorded model capabilities."
+  @spec get_all_model_capabilities() :: map()
+  def get_all_model_capabilities do
+    case :ets.info(@lvm_table) do
+      :undefined -> %{}
+      _ ->
+        :ets.tab2list(@lvm_table)
+        |> Map.new()
+    end
+  end
+
   @doc "Infer effort level for a project based on tool_calls:session ratio."
   @spec get_effort_level(String.t()) :: String.t()
   def get_effort_level(project) do
@@ -176,8 +207,9 @@ defmodule ApmV5.ClaudeUsageStore do
   @impl true
   def init(_opts) do
     table = :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
-    Logger.info("[ClaudeUsageStore] ETS table #{table} initialised")
-    {:ok, %{table: table}}
+    lvm = :ets.new(@lvm_table, [:named_table, :set, :public, read_concurrency: true])
+    Logger.info("[ClaudeUsageStore] ETS tables #{table}, #{lvm} initialised")
+    {:ok, %{table: table, lvm_table: lvm}}
   end
 
   @impl true
@@ -202,6 +234,31 @@ defmodule ApmV5.ClaudeUsageStore do
     :ets.insert(@table, {key, updated})
 
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:usage", {:usage_updated, get_all_usage()})
+
+    # Broadcast lvm:usage_changed when effort level shifts
+    old_effort = infer_effort_level(current)
+    new_effort = infer_effort_level(updated)
+
+    if old_effort != new_effort do
+      Phoenix.PubSub.broadcast(
+        ApmV5.PubSub,
+        "lvm:usage_changed",
+        {:effort_level_changed, %{project: project, model: model, old: old_effort, new: new_effort}}
+      )
+    end
+
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast({:record_capabilities, model, capabilities}, state) do
+    :ets.insert(@lvm_table, {model, capabilities})
+
+    Phoenix.PubSub.broadcast(
+      ApmV5.PubSub,
+      "lvm:status",
+      {:lvm_capabilities_updated, %{model: model, capabilities: capabilities}}
+    )
 
     {:noreply, state}
   end

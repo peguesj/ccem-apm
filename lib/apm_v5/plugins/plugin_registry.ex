@@ -80,7 +80,9 @@ defmodule ApmV5.Plugins.PluginRegistry do
     ApmV5.Plugins.Usage.UsagePlugin,
     ApmV5.Plugins.Devops.DevopsPlugin,
     ApmV5.Plugins.Alerting.AlertingPlugin,
-    ApmV5.Plugins.SimpleAgents.SimpleAgentsPlugin
+    ApmV5.Plugins.SimpleAgents.SimpleAgentsPlugin,
+    ApmV5.Plugins.ClaudeCode.ClaudeCodePlugin,
+    ApmV5.Plugins.Lvm.ClaudePlatformLvmPlugin
   ]
 
   @impl true

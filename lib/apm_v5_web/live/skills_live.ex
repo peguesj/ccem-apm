@@ -48,6 +48,7 @@ defmodule ApmV5Web.SkillsLive do
       |> assign(:registry_skills, registry_skills)
       |> assign(:filtered_skills, registry_skills)
       |> assign(:selected_skill, nil)
+      |> assign(:agentlock_status, nil)
       |> assign(:audit_loading, false)
       |> assign(:search_query, "")
       |> assign(:filter_tier, "all")
@@ -769,6 +770,17 @@ defmodule ApmV5Web.SkillsLive do
               Gate with AgentLock
             </button>
           </div>
+          <%!-- Recent Auth Decisions (CCEM-266) --%>
+          <div :if={@agentlock_status && @agentlock_status.decision_count > 0} class="mt-3 pt-2 border-t border-base-300/50">
+            <p class="text-[10px] uppercase tracking-wider text-base-content/40 mb-1">Recent Auth Decisions</p>
+            <div class="space-y-1">
+              <div :for={decision <- @agentlock_status.recent_decisions} class="flex items-center gap-1 text-[11px]">
+                <span class={"badge badge-xs #{if decision.event == "authorized", do: "badge-success", else: "badge-warning"}"}></span>
+                <span class="font-mono truncate max-w-[120px]">{decision.tool}</span>
+                <span class="text-base-content/40 ml-auto">{decision.event}</span>
+              </div>
+            </div>
+          </div>
         </section>
 
         <%!-- Drawer footer / actions --%>
@@ -1027,9 +1039,12 @@ defmodule ApmV5Web.SkillsLive do
         _ -> nil
       end
 
+    agentlock = fetch_agentlock_status(name)
+
     {:noreply,
      assign(socket,
        selected_skill: skill,
+       agentlock_status: agentlock,
        fix_wizard_step: nil,
        fix_preview: nil,
        fix_preview_loading: false
@@ -1756,6 +1771,70 @@ defmodule ApmV5Web.SkillsLive do
       health_after: min(health + length(changes) * 15, 100),
       changes: changes,
       summary: "#{length(changes)} improvement#{if length(changes) == 1, do: "", else: "s"} identified"
+    }
+  end
+
+  # -- AgentLock status for skill inspector (CCEM-266) -------------------------
+
+  defp fetch_agentlock_status(skill_name) do
+    # Check if skill has associated hooks with AgentLock protection
+    hooks_protected =
+      try do
+        settings_path = Path.join([System.get_env("HOME"), ".claude", "settings.json"])
+
+        case File.read(settings_path) do
+          {:ok, content} ->
+            case Jason.decode(content) do
+              {:ok, settings} ->
+                hooks = Map.get(settings, "hooks", %{})
+
+                Enum.any?(hooks, fn {_event, hook_list} ->
+                  hook_list
+                  |> List.wrap()
+                  |> Enum.any?(fn hook ->
+                    command = Map.get(hook, "command", "")
+                    String.contains?(command, "agentlock")
+                  end)
+                end)
+
+              _ ->
+                false
+            end
+
+          _ ->
+            false
+        end
+      rescue
+        _ -> false
+      end
+
+    # Fetch recent auth decisions related to this skill's tools
+    recent_decisions =
+      try do
+        audit = ApmV5.AuditLog.tail(20)
+
+        audit
+        |> Enum.filter(fn entry ->
+          resource = Map.get(entry, :resource, "")
+          String.contains?(to_string(resource), skill_name)
+        end)
+        |> Enum.take(5)
+        |> Enum.map(fn entry ->
+          %{
+            event: Map.get(entry, :event_type, "unknown"),
+            tool: Map.get(entry, :resource, "unknown"),
+            timestamp: Map.get(entry, :timestamp, ""),
+            actor: Map.get(entry, :actor, "unknown")
+          }
+        end)
+      rescue
+        _ -> []
+      end
+
+    %{
+      hooks_protected: hooks_protected,
+      recent_decisions: recent_decisions,
+      decision_count: length(recent_decisions)
     }
   end
 end
