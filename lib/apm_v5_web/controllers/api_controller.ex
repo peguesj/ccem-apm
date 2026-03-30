@@ -54,7 +54,7 @@ defmodule ApmV5Web.ApiController do
     })
   end
 
-  @doc "GET /api/status -- existing v4 status endpoint"
+  @doc "GET /api/status -- existing v4 status endpoint (includes project data for CCEMHelper)"
   def status(conn, _params) do
     uptime = ApmV5.Uptime.seconds()
     agents = AgentRegistry.list_agents()
@@ -66,12 +66,32 @@ defmodule ApmV5Web.ApiController do
         [] -> "none"
       end
 
+    config = safe_get_config()
+    project_list = Map.get(config, "projects", [])
+
+    project_summaries =
+      Enum.map(project_list, fn p ->
+        name = p["name"]
+        agent_count = length(AgentRegistry.list_agents(name))
+        session_count = length(Map.get(p, "sessions", []))
+
+        %{
+          name: name,
+          status: p["status"] || "active",
+          agent_count: agent_count,
+          session_count: session_count
+        }
+      end)
+
     json(conn, %{
       status: "ok",
       uptime: uptime,
       agent_count: length(agents),
       session_id: session_id,
-      server_version: @server_version
+      server_version: @server_version,
+      total_projects: length(project_list),
+      active_project: Map.get(config, "active_project"),
+      projects: project_summaries
     })
   end
 

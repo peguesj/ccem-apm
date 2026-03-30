@@ -903,61 +903,6 @@ defmodule ApmV5.ActionEngine do
     e -> {:error, Exception.message(e)}
   end
 
-  defp execute_action("crate_digger_status", project_path, _params) do
-    # Expected paths relative to project_path
-    checks = [
-      {:migration, "priv/repo/migrations", "create_crate_digger_tables"},
-      {:context, "lib/sound_forge/crate_digger.ex", nil},
-      {:schema_crate, "lib/sound_forge/crate_digger/crate.ex", nil},
-      {:schema_track_config, "lib/sound_forge/crate_digger/crate_track_config.ex", nil},
-      {:schema_cache, "lib/sound_forge/crate_digger/who_sampled_cache.ex", nil},
-      {:scraper, "lib/sound_forge/crate_digger/who_sampled_scraper.ex", nil},
-      {:live_view, "lib/sound_forge_web/live/crate_digger_live.ex", nil},
-      {:router, "lib/sound_forge_web/router.ex", "CrateDiggerLive"},
-      {:sidebar, "lib/sound_forge_web/live/components/sidebar.ex", "crate"},
-      {:floki_dep, "mix.exs", "floki"}
-    ]
-
-    results =
-      Enum.map(checks, fn
-        {:migration, rel_dir, pattern} ->
-          dir = Path.join(project_path, rel_dir)
-          found =
-            case File.ls(dir) do
-              {:ok, files} -> Enum.any?(files, &String.contains?(&1, pattern))
-              _ -> false
-            end
-          {rel_dir <> "/" <> pattern, found}
-
-        {_key, rel_path, nil} ->
-          {rel_path, File.exists?(Path.join(project_path, rel_path))}
-
-        {_key, rel_path, pattern} ->
-          path = Path.join(project_path, rel_path)
-          found =
-            case File.read(path) do
-              {:ok, content} -> String.contains?(content, pattern)
-              _ -> false
-            end
-          {rel_path <> " (contains: #{pattern})", found}
-      end)
-
-    present = Enum.count(results, fn {_, ok} -> ok end)
-    missing = Enum.filter(results, fn {_, ok} -> !ok end) |> Enum.map(&elem(&1, 0))
-
-    status = if missing == [], do: "complete", else: "partial"
-
-    {:ok, %{
-      status: status,
-      total_checks: length(results),
-      present: present,
-      missing_count: length(missing),
-      missing: missing,
-      details: Enum.map(results, fn {name, ok} -> %{check: name, ok: ok} end)
-    }}
-  rescue
-    e -> {:error, Exception.message(e)}
-  end
 
   # -- AgentLock authorization actions (v7.0.0) --
 
