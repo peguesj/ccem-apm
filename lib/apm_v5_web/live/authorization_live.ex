@@ -9,6 +9,7 @@ defmodule ApmV5Web.AuthorizationLive do
   use ApmV5Web, :live_view
 
   alias ApmV5.Auth.{AuthorizationGate, SessionStore, PendingDecisions, PolicyRulesStore}
+  alias ApmV5.NamespaceResolver
 
   @refresh_ms 5_000
 
@@ -21,6 +22,7 @@ defmodule ApmV5Web.AuthorizationLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "agentlock:sessions")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "agentlock:trust")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:agentlock")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "agentlock:pending")
       Process.send_after(self(), :refresh, @refresh_ms)
     end
 
@@ -142,12 +144,14 @@ defmodule ApmV5Web.AuthorizationLive do
     {:noreply, assign(socket, :decisions, updated)}
   end
 
-  def handle_info({:pending_decision_added, _entry}, socket) do
-    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  def handle_info({:pending_decision_added, entry}, socket) do
+    gates = [entry | socket.assigns.pending]
+    {:noreply, assign(socket, :pending, gates)}
   end
 
-  def handle_info({:pending_decision_resolved, _entry}, socket) do
-    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  def handle_info({:pending_decision_resolved, entry}, socket) do
+    gates = Enum.reject(socket.assigns.pending, &(&1.request_id == entry.request_id))
+    {:noreply, assign(socket, :pending, gates)}
   end
 
   def handle_info({:policy_rule_added, _rule}, socket) do
@@ -175,6 +179,18 @@ defmodule ApmV5Web.AuthorizationLive do
   def handle_event("deny", %{"id" => request_id}, socket) do
     PendingDecisions.decide(request_id, :deny)
     {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  @impl true
+  def handle_event("approve_gate", %{"id" => request_id}, socket) do
+    ApmV5.Auth.PendingDecisions.decide(request_id, :approve)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("deny_gate", %{"id" => request_id}, socket) do
+    ApmV5.Auth.PendingDecisions.decide(request_id, :deny)
+    {:noreply, socket}
   end
 
   @impl true
@@ -217,6 +233,104 @@ defmodule ApmV5Web.AuthorizationLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
+      <%!-- US-003: Full-screen AgentLock approval modal — shown when pending decisions exist --%>
+      <%= if @pending != [] do %>
+        <% [top_gate | _rest] = @pending %>
+        <% label = NamespaceResolver.gate_label(top_gate.request_id, top_gate.tool_name) %>
+        <% agent_lbl = NamespaceResolver.agent_label(top_gate.agent_id) %>
+        <div
+          id="agentlock-approval-modal"
+          class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+        >
+          <div class="bg-base-200 border border-amber-500/60 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <.icon name="hero-shield-exclamation" class="h-7 w-7 text-amber-400 shrink-0" />
+              <div>
+                <h2 id="modal-title" class="text-base font-bold text-amber-300">AgentLock — Approval Required</h2>
+                <%= if length(@pending) > 1 do %>
+                  <p class="text-xs text-zinc-400 mt-0.5"><%= length(@pending) %> pending · showing most recent</p>
+                <% end %>
+              </div>
+            </div>
+
+            <div class="space-y-3 mb-5">
+              <div class="rounded-lg bg-base-300 border border-base-content/10 px-4 py-3 space-y-1.5">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-base-content/50">Tool</span>
+                  <span class="font-mono font-semibold text-amber-300"><%= label %></span>
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-base-content/50">Agent</span>
+                  <span class="font-mono text-zinc-300"><%= agent_lbl %></span>
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-base-content/50">Risk</span>
+                  <span class={"badge badge-sm #{risk_badge_class(top_gate.risk_level)}"}><%= top_gate.risk_level %></span>
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-base-content/50">Session</span>
+                  <span class="font-mono text-zinc-400"><%= truncate_session(top_gate.session_id) %></span>
+                </div>
+                <%= if map_size(top_gate.params) > 0 do %>
+                  <div class="mt-2 pt-2 border-t border-base-content/10">
+                    <span class="text-xs text-base-content/50 block mb-1">Params</span>
+                    <div class="text-xs font-mono bg-base-100 rounded p-2 truncate text-zinc-300">
+                      <%= inspect(top_gate.params) %>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+
+              <%!-- Countdown --%>
+              <div
+                class="flex items-center gap-2 text-xs text-amber-400/70"
+                phx-hook="CountdownTimer"
+                id={"modal-countdown-#{top_gate.request_id}"}
+                data-seconds="20"
+                data-gate-id={top_gate.request_id}
+              >
+                <.icon name="hero-clock" class="h-3.5 w-3.5" />
+                <span>Auto-expires in </span>
+                <span class="font-mono tabular-nums font-semibold" data-countdown-display>20s</span>
+                <span>— decision required</span>
+              </div>
+            </div>
+
+            <div class="flex gap-3">
+              <button
+                phx-click="approve_gate"
+                phx-value-id={top_gate.request_id}
+                class="btn btn-success flex-1 gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Approve
+              </button>
+              <button
+                phx-click="deny_gate"
+                phx-value-id={top_gate.request_id}
+                class="btn btn-error flex-1 gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Deny
+              </button>
+            </div>
+
+            <%= if length(@pending) > 1 do %>
+              <p class="text-center text-xs text-base-content/40 mt-3">
+                Additional requests visible in the Pending tab below
+              </p>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
       <.sidebar_nav current_path="/authorization" />
 
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -231,6 +345,47 @@ defmodule ApmV5Web.AuthorizationLive do
         </header>
 
         <main class="flex-1 overflow-y-auto p-4 space-y-4">
+
+        <!-- Pending Gates Live Banner -->
+        <%= if @pending != [] do %>
+          <div id="pending-gates-banner" class="space-y-2 mb-4">
+            <%= for gate <- @pending do %>
+              <% label = NamespaceResolver.gate_label(gate.request_id, gate.tool_name) %>
+              <% agent_lbl = NamespaceResolver.agent_label(gate.agent_id) %>
+              <div
+                id={"gate-#{gate.request_id}"}
+                class="flex items-center justify-between rounded-lg border border-amber-500/50 bg-amber-950/40 px-4 py-3 text-sm"
+                phx-hook="CountdownTimer"
+                data-seconds="20"
+                data-gate-id={gate.request_id}
+              >
+                <div class="flex items-center gap-3">
+                  <.icon name="hero-shield-exclamation" class="h-5 w-5 text-amber-400 shrink-0" />
+                  <div>
+                    <span class="font-mono text-amber-300 font-semibold"><%= label %></span>
+                    <span class="text-zinc-400 mx-2">·</span>
+                    <span class="text-zinc-300"><%= agent_lbl %></span>
+                    <span class="text-zinc-500 mx-2">·</span>
+                    <span class="text-zinc-400"><%= gate.risk_level %> risk</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="font-mono text-amber-400 tabular-nums" data-countdown-display>20s</span>
+                  <button
+                    phx-click="approve_gate"
+                    phx-value-id={gate.request_id}
+                    class="rounded px-3 py-1 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-medium transition-colors"
+                  >Approve</button>
+                  <button
+                    phx-click="deny_gate"
+                    phx-value-id={gate.request_id}
+                    class="rounded px-3 py-1 bg-red-700 hover:bg-red-600 text-white text-xs font-medium transition-colors"
+                  >Deny</button>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
 
         <!-- Tabs -->
         <div class="tabs tabs-boxed mb-4">
@@ -346,6 +501,10 @@ defmodule ApmV5Web.AuthorizationLive do
                 <div class="card-body flex-row items-center gap-4">
                   <span class={"badge badge-sm #{audit_action_class(entry)}"}><%= Map.get(entry, :event_type, "unknown") %></span>
                   <span class="font-mono text-xs"><%= Map.get(entry, :resource, "") %></span>
+                  <% actor = Map.get(entry, :actor, "") %>
+                  <span :if={actor != ""} class="font-mono text-xs text-base-content/50 truncate max-w-[120px]" title={actor}>
+                    <%= NamespaceResolver.agent_label(actor) %>
+                  </span>
                   <span class="text-xs text-base-content/60 ml-auto"><%= Map.get(entry, :timestamp, "") %></span>
                 </div>
               </div>
@@ -379,7 +538,7 @@ defmodule ApmV5Web.AuthorizationLive do
                           <span class="badge badge-xs badge-warning">pending</span>
                         </div>
                         <div class="text-xs text-base-content/50 font-mono mb-2">
-                          <span>agent: <%= String.slice(to_string(req.agent_id), 0..20) %></span>
+                          <span title={to_string(req.agent_id)}>agent: <%= NamespaceResolver.agent_label(to_string(req.agent_id)) %></span>
                           <span class="mx-2">·</span>
                           <span>session: <%= truncate_session(req.session_id) %></span>
                           <span class="mx-2">·</span>

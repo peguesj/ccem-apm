@@ -14,6 +14,7 @@ defmodule ApmV5Web.DashboardLive do
   alias ApmV5.AgentRegistry
   alias ApmV5.ConfigLoader
   alias ApmV5.DashboardStore
+  alias ApmV5.NamespaceResolver
   alias ApmV5.ProjectStore
   alias ApmV5.Ralph
   alias ApmV5.UpmStore
@@ -34,6 +35,7 @@ defmodule ApmV5Web.DashboardLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:upm")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:ports")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "agentlock:authorization")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "agentlock:pending")
 
       # Subscribe to chat PubSub for live updates (initial scope: global)
       Phoenix.PubSub.subscribe(ApmV5.PubSub, ChatStore.topic("global"))
@@ -98,6 +100,7 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:chat_input, "")
       |> assign(:show_showcase, true)
       |> assign(:saved_layouts, DashboardStore.list_layouts())
+      |> assign(:agentlock_pending, safe_list_pending())
       |> assign(:saved_presets, DashboardStore.list_presets())
       # Global filter bar state (Splunk/ELK-style)
       |> assign(:filter_status, nil)
@@ -467,6 +470,48 @@ defmodule ApmV5Web.DashboardLive do
               </div>
             </.live_region>
 
+            <%!-- US-003: AgentLock Pending Approval Banner (compact floating) --%>
+            <%= if @agentlock_pending != [] do %>
+              <div id="dashboard-agentlock-pending" class="space-y-1.5" role="alert" aria-live="assertive">
+                <%= for gate <- @agentlock_pending do %>
+                  <% label = NamespaceResolver.gate_label(gate.request_id, gate.tool_name) %>
+                  <% agent_lbl = NamespaceResolver.agent_label(gate.agent_id) %>
+                  <div
+                    id={"dashboard-gate-#{gate.request_id}"}
+                    class="flex items-center justify-between rounded-lg border border-amber-500/70 bg-amber-950/50 px-3 py-2 text-xs shadow-lg"
+                    phx-hook="CountdownTimer"
+                    data-seconds="20"
+                    data-gate-id={gate.request_id}
+                  >
+                    <div class="flex items-center gap-2 min-w-0">
+                      <.icon name="hero-shield-exclamation" class="h-4 w-4 text-amber-400 shrink-0" />
+                      <span class="font-mono text-amber-300 font-semibold truncate"><%= label %></span>
+                      <span class="text-zinc-400 shrink-0">·</span>
+                      <span class="text-zinc-300 truncate"><%= agent_lbl %></span>
+                      <span class="text-zinc-500 shrink-0">·</span>
+                      <span class="text-zinc-400 shrink-0"><%= gate.risk_level %> risk</span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0 ml-3">
+                      <span class="font-mono text-amber-400 tabular-nums" data-countdown-display>20s</span>
+                      <button
+                        phx-click="approve_gate"
+                        phx-value-id={gate.request_id}
+                        class="rounded px-2.5 py-0.5 bg-emerald-700 hover:bg-emerald-600 text-white font-medium transition-colors"
+                      >Approve</button>
+                      <button
+                        phx-click="deny_gate"
+                        phx-value-id={gate.request_id}
+                        class="rounded px-2.5 py-0.5 bg-red-700 hover:bg-red-600 text-white font-medium transition-colors"
+                      >Deny</button>
+                      <.link navigate="/authorization" class="text-amber-400/60 hover:text-amber-400 transition-colors" title="View all in AgentLock">
+                        <.icon name="hero-arrow-top-right-on-square" class="h-3.5 w-3.5" />
+                      </.link>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+
             <%!-- UPM Execution Panel --%>
             <div :if={@upm_status.active} class="card bg-base-200 border border-base-300">
               <div class="card-body p-3">
@@ -682,7 +727,12 @@ defmodule ApmV5Web.DashboardLive do
                   <div class="space-y-1 text-xs">
                     <div class="flex justify-between">
                       <span class="text-base-content/50">ID</span>
-                      <span class="font-mono">{@selected_agent.id}</span>
+                      <span class="font-mono truncate max-w-[160px]" title={@selected_agent.id}>
+                        {NamespaceResolver.agent_label(@selected_agent.id,
+                          project: @selected_agent[:project],
+                          role: @selected_agent[:formation_role] || @selected_agent[:role],
+                          task_subject: @selected_agent[:task_subject])}
+                      </span>
                     </div>
                     <div class="flex justify-between">
                       <span class="text-base-content/50">Tier</span>
@@ -968,6 +1018,19 @@ defmodule ApmV5Web.DashboardLive do
   end
 
   # Showcase events
+  # US-003: AgentLock pending decision approve/deny from dashboard floating banner
+  def handle_event("approve_gate", %{"id" => request_id}, socket) do
+    ApmV5.Auth.PendingDecisions.decide(request_id, :approve)
+    pending = Enum.reject(socket.assigns.agentlock_pending, &(&1.request_id == request_id))
+    {:noreply, assign(socket, :agentlock_pending, pending)}
+  end
+
+  def handle_event("deny_gate", %{"id" => request_id}, socket) do
+    ApmV5.Auth.PendingDecisions.decide(request_id, :deny)
+    pending = Enum.reject(socket.assigns.agentlock_pending, &(&1.request_id == request_id))
+    {:noreply, assign(socket, :agentlock_pending, pending)}
+  end
+
   def handle_event("showcase:dismiss", _params, socket) do
     {:noreply, assign(socket, :show_showcase, false)}
   end
@@ -1351,6 +1414,25 @@ defmodule ApmV5Web.DashboardLive do
 
   def handle_info({:chat_event, _scope, :cleared}, socket) do
     {:noreply, assign(socket, :chat_messages, [])}
+  end
+
+  # US-003: AgentLock pending decision real-time updates (floating banner)
+  def handle_info({:pending_decision_added, entry}, socket) do
+    pending = [entry | socket.assigns.agentlock_pending]
+    {:noreply,
+     socket
+     |> assign(:agentlock_pending, pending)
+     |> push_event("show_toast", %{
+       type: "warning",
+       title: "AgentLock: Approval Required",
+       message: "#{entry.tool_name} — #{entry.risk_level} risk",
+       category: "agentlock"
+     })}
+  end
+
+  def handle_info({:pending_decision_resolved, entry}, socket) do
+    pending = Enum.reject(socket.assigns.agentlock_pending, &(&1.request_id == entry.request_id))
+    {:noreply, assign(socket, :agentlock_pending, pending)}
   end
 
   # AgentLock authorization decision toasts
@@ -1840,6 +1922,14 @@ defmodule ApmV5Web.DashboardLive do
     catch
       :exit, _ -> default
       _, _ -> default
+    end
+  end
+
+  defp safe_list_pending do
+    try do
+      ApmV5.Auth.PendingDecisions.list_pending()
+    rescue
+      _ -> []
     end
   end
 
