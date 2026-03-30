@@ -184,44 +184,53 @@ defmodule ApmV5Web.CoalesceLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-zinc-950 text-zinc-100 overflow-hidden">
-      <!-- Left: Run List -->
-      <div class="w-72 border-r border-zinc-800 flex flex-col">
-        <div class="p-4 border-b border-zinc-800">
-          <h2 class="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Coalesce Runs</h2>
-          <div class="text-xs text-zinc-500 mt-1">
-            <%= length(@runs) %> runs · <%= length(@pending_gates) %> pending gates
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path="/coalesce" />
+
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">Coalesce</h2>
+            <div class="badge badge-sm badge-ghost"><%= length(@runs) %> runs</div>
+            <div class="badge badge-sm badge-warning badge-outline"><%= length(@pending_gates) %> pending gates</div>
           </div>
-        </div>
+        </header>
 
-        <div class="flex-1 overflow-y-auto">
-          <%= for run <- @runs do %>
-            <button
-              phx-click="select_run"
-              phx-value-run_id={run.run_id}
-              class={"w-full text-left px-4 py-3 border-b border-zinc-800/50 hover:bg-zinc-800/50 transition-colors #{if @active_run && @active_run.run_id == run.run_id, do: "bg-zinc-800 border-l-2 border-l-indigo-500", else: ""}"}
-            >
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-mono text-zinc-400 truncate"><%= run.run_id %></span>
-                <span class={"text-xs px-1.5 py-0.5 rounded #{_status_color(run.status)}"}>
-                  <%= run.status %>
-                </span>
-              </div>
-              <div class="text-xs text-zinc-500 mt-1 truncate"><%= run.scope %></div>
-              <div class="text-xs text-zinc-600 mt-0.5">
-                <%= length(run.affected_skills) %> skills · <%= length(run.diffs) %> diffs
-              </div>
-            </button>
-          <% end %>
-
-          <%= if Enum.empty?(@runs) do %>
-            <div class="px-4 py-8 text-center text-zinc-600 text-sm">
-              No runs yet.<br/>
-              Start one with <code class="text-indigo-400">/coalesce</code>
+        <div class="flex flex-1 overflow-hidden">
+          <!-- Left: Run List -->
+          <div class="w-72 border-r border-base-300 flex flex-col bg-base-200">
+            <div class="p-3 border-b border-base-300">
+              <h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider">Run History</h3>
             </div>
-          <% end %>
-        </div>
-      </div>
+
+            <div class="flex-1 overflow-y-auto">
+              <%= for run <- @runs do %>
+                <button
+                  phx-click="select_run"
+                  phx-value-run_id={run.run_id}
+                  class={"w-full text-left px-4 py-3 border-b border-base-300/50 hover:bg-base-300/50 transition-colors #{if @active_run && @active_run.run_id == run.run_id, do: "bg-base-300 border-l-2 border-l-primary", else: ""}"}
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-mono text-base-content/60 truncate"><%= run.run_id %></span>
+                    <span class={"text-xs px-1.5 py-0.5 rounded #{_status_color(run.status)}"}>
+                      <%= run.status %>
+                    </span>
+                  </div>
+                  <div class="text-xs text-base-content/40 mt-1 truncate"><%= run.scope %></div>
+                  <div class="text-xs text-base-content/30 mt-0.5">
+                    <%= length(run.affected_skills) %> skills · <%= length(run.diffs) %> diffs
+                  </div>
+                </button>
+              <% end %>
+
+              <%= if Enum.empty?(@runs) do %>
+                <div class="px-4 py-8 text-center text-base-content/30 text-sm">
+                  No runs yet.<br/>
+                  Start one with <code class="text-primary">/coalesce</code>
+                </div>
+              <% end %>
+            </div>
+          </div>
 
       <!-- Center: Active Run -->
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -382,6 +391,8 @@ defmodule ApmV5Web.CoalesceLive do
           </div>
         </div>
       <% end %>
+      </div>
+      </div>
     </div>
     """
   end

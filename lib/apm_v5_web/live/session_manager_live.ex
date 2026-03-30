@@ -132,22 +132,30 @@ defmodule ApmV5Web.SessionManagerLive do
     assigns = assign(assigns, grouped: grouped, hidden_count: hidden_count)
 
     ~H"""
-    <div class="flex h-screen bg-base-100">
+    <div class="flex h-screen bg-base-300 overflow-hidden">
       <.sidebar_nav
         current_path={@current_path}
         notification_count={@notification_count}
         skill_count={@skill_count}
       />
 
-      <div class="flex flex-1 overflow-hidden">
-        <!-- Session List Panel -->
-        <div class="w-80 bg-base-200 border-r border-base-300 flex flex-col overflow-hidden">
-          <div class="p-3 border-b border-base-300 flex items-center justify-between">
-            <h2 class="font-semibold text-sm">Sessions</h2>
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">Sessions</h2>
+            <div class="badge badge-sm badge-ghost">{length(@sessions)} total</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-base-content/40">Auto-refresh 10s</span>
             <button phx-click="refresh" class="btn btn-ghost btn-xs">
               <.icon name="hero-arrow-path" class="size-3.5" />
             </button>
           </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+          <!-- Session List Panel -->
+          <div class="w-80 bg-base-200 border-r border-base-300 flex flex-col overflow-hidden">
 
           <!-- Filter Bar -->
           <div class="p-2 border-b border-base-300 space-y-2">
@@ -303,6 +311,7 @@ defmodule ApmV5Web.SessionManagerLive do
             </div>
           <% end %>
         </div>
+      </div>
       </div>
     </div>
     """

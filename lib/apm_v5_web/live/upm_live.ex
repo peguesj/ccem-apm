@@ -197,42 +197,24 @@ defmodule ApmV5Web.UpmLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-200 overflow-hidden">
-      <!-- Sidebar nav -->
-      <aside class="w-14 bg-base-100 border-r border-base-300 flex flex-col items-center py-3 gap-1 flex-shrink-0">
-        <.nav_item icon="hero-squares-2x2" label="Dashboard" active={false} href="/" />
-        <.nav_item icon="hero-globe-alt" label="All Projects" active={false} href="/apm-all" />
-        <.nav_item icon="hero-rectangle-group" label="Formations" active={false} href="/formation" />
-        <.nav_item icon="hero-circle-stack" label="UPM" active={true} href="/upm" />
-        <.nav_item icon="hero-clock" label="Timeline" active={false} href="/timeline" />
-        <.nav_item icon="hero-bell" label="Notifications" active={false} href="/notifications" />
-        <.nav_item icon="hero-queue-list" label="Background Tasks" active={false} href="/tasks" />
-        <.nav_item icon="hero-magnifying-glass" label="Project Scanner" active={false} href="/scanner" />
-        <.nav_item icon="hero-bolt" label="Actions" active={false} href="/actions" />
-        <.nav_item icon="hero-sparkles" label="Skills" active={false} href="/skills" badge={@active_skill_count} />
-        <.nav_item icon="hero-arrow-path" label="Ralph" active={false} href="/ralph" />
-        <.nav_item icon="hero-signal" label="Ports" active={false} href="/ports" />
-        <.nav_item icon="hero-book-open" label="Docs" active={false} href="/docs" />
-      </aside>
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path="/upm" skill_count={@active_skill_count} />
 
-      <!-- Main content -->
-      <main class="flex-1 overflow-y-auto">
-        <!-- Header -->
-        <div class="border-b border-base-300 bg-base-100 px-6 py-3 flex items-center justify-between">
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
           <div class="flex items-center gap-3">
-            <.icon name="hero-circle-stack" class="size-5 text-primary" />
-            <h1 class="font-semibold text-base-content">Unified Project Management</h1>
+            <h2 class="text-sm font-semibold text-base-content">UPM</h2>
             <%= if @live_action == :project and @selected_project do %>
               <span class="text-base-content/40 mx-1">/</span>
-              <span class="text-sm font-medium"><%= @selected_project.name %></span>
+              <span class="text-xs font-medium"><%= @selected_project.name %></span>
             <% end %>
             <%= if @live_action == :board and @selected_project do %>
               <span class="text-base-content/40 mx-1">/</span>
-              <.link navigate={"/upm/#{@selected_project.id}"} class="text-sm text-primary hover:underline">
+              <.link navigate={"/upm/#{@selected_project.id}"} class="text-xs text-primary hover:underline">
                 <%= @selected_project.name %>
               </.link>
               <span class="text-base-content/40 mx-1">/</span>
-              <span class="text-sm font-medium">Board</span>
+              <span class="text-xs font-medium">Board</span>
             <% end %>
           </div>
           <div class="flex items-center gap-2">
@@ -253,17 +235,18 @@ defmodule ApmV5Web.UpmLive do
               </button>
             <% end %>
           </div>
-        </div>
+        </header>
 
-        <!-- Flash message -->
-        <%= if @flash_msg do %>
-          <div class="mx-6 mt-4 alert alert-info text-sm py-2">
-            <span><%= @flash_msg %></span>
-            <button phx-click="dismiss_flash" class="btn btn-xs btn-ghost ml-auto">
-              <.icon name="hero-x-mark" class="size-3" />
-            </button>
-          </div>
-        <% end %>
+        <main class="flex-1 overflow-y-auto">
+          <!-- Flash message -->
+          <%= if @flash_msg do %>
+            <div class="mx-4 mt-4 alert alert-info text-sm py-2">
+              <span><%= @flash_msg %></span>
+              <button phx-click="dismiss_flash" class="btn btn-xs btn-ghost ml-auto">
+                <.icon name="hero-x-mark" class="size-3" />
+              </button>
+            </div>
+          <% end %>
 
         <!-- Content area -->
         <div class="p-6">
@@ -283,8 +266,9 @@ defmodule ApmV5Web.UpmLive do
                 <div class="alert alert-warning">Project not found.</div>
               <% end %>
           <% end %>
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
     </div>
     """
   end
@@ -590,30 +574,6 @@ defmodule ApmV5Web.UpmLive do
         </div>
       <% end %>
     </div>
-    """
-  end
-
-  # ── Nav component ─────────────────────────────────────────────────────────
-
-  defp nav_item(assigns) do
-    assigns = assign_new(assigns, :badge, fn -> nil end)
-
-    ~H"""
-    <a
-      href={@href}
-      title={@label}
-      class={[
-        "relative flex items-center justify-center w-10 h-10 rounded-lg transition-colors text-base-content/60 hover:bg-base-200 hover:text-base-content",
-        @active && "bg-primary/10 text-primary"
-      ]}
-    >
-      <.icon name={@icon} class="size-5" />
-      <%= if @badge && @badge > 0 do %>
-        <span class="absolute -top-0.5 -right-0.5 badge badge-primary badge-xs text-[9px] min-w-[14px] h-[14px] px-0.5">
-          <%= @badge %>
-        </span>
-      <% end %>
-    </a>
     """
   end
 
