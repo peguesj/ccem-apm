@@ -285,10 +285,14 @@ defmodule ApmV5Web.Router do
     patch "/formations/:id", FormationApiController, :update_formation
     get "/formations/:id/agents", FormationApiController, :get_formation_agents
 
-    # ── EXTENSION: showcase (v1) ──────────────────────────────────────────
+    # ── EXTENSION: showcase (v1 + v2 queryable tabs + diagrams) ────────────
     get "/showcase", ShowcaseApiController, :index
     get "/showcase/:project", ShowcaseApiController, :show
     post "/showcase/:project/reload", ShowcaseApiController, :reload
+    get "/showcase/:project/diagrams", ShowcaseApiController, :diagrams
+    get "/showcase/:project/diagrams/:id", ShowcaseApiController, :diagram
+    get "/showcase/:project/tabs", ShowcaseApiController, :tabs
+    get "/showcase/:project/tabs/:tab_id", ShowcaseApiController, :tab_data
 
     # ── EXTENSION: ag_ui (v1) ─────────────────────────────────────────────
     get "/ag-ui/events", AgUiController, :events

@@ -48,6 +48,12 @@ defmodule ApmV5Web.ShowcaseLive do
       |> assign(:design_system, %{})
       |> assign(:version, "7.0.0")
       |> assign(:activity_log, [])
+      # Queryable tabs + diagrams (v2)
+      |> assign(:tabs, [])
+      |> assign(:diagrams, [])
+      |> assign(:active_tab, nil)
+      |> assign(:tab_data, %{})
+      |> assign(:tab_query, "")
 
     {:ok, socket}
   end
@@ -124,8 +130,80 @@ defmodule ApmV5Web.ShowcaseLive do
           </div>
         </header>
 
+        <%!-- Queryable Tabs Bar (v2) — visible when project has tabs or diagrams --%>
+        <div :if={length(@tabs) > 0 or length(@diagrams) > 0} class="bg-base-200 border-b border-base-300 px-4 py-1 flex items-center gap-2 flex-shrink-0">
+          <%!-- Tab pills --%>
+          <button
+            :for={tab <- @tabs}
+            phx-click="switch_tab"
+            phx-value-tab={tab["id"]}
+            class={"btn btn-xs #{if @active_tab == tab["id"], do: "btn-primary", else: "btn-ghost"}"}
+          >
+            {tab["label"] || tab["id"]}
+          </button>
+
+          <%!-- Diagrams pill --%>
+          <button
+            :if={length(@diagrams) > 0}
+            phx-click="switch_tab"
+            phx-value-tab="__diagrams__"
+            class={"btn btn-xs #{if @active_tab == "__diagrams__", do: "btn-primary", else: "btn-ghost"} gap-1"}
+          >
+            <.icon name="hero-chart-bar-square" class="size-3" />
+            Diagrams
+            <span class="badge badge-xs">{length(@diagrams)}</span>
+          </button>
+
+          <%!-- Search (when a queryable tab is active) --%>
+          <form :if={@active_tab && @active_tab != "__diagrams__"} phx-change="search_tab" class="ml-auto">
+            <input
+              type="text"
+              name="query"
+              value={@tab_query}
+              placeholder="Search..."
+              phx-debounce="200"
+              class="input input-xs input-bordered w-48 bg-base-300"
+            />
+          </form>
+        </div>
+
+        <%!-- Tab Content Panel (v2) — shows when a tab is active instead of engine --%>
+        <div :if={@active_tab && @active_tab != "__diagrams__"} class="flex-1 overflow-auto p-4 bg-base-300">
+          <div class="max-w-5xl mx-auto">
+            <% content = case @tab_data do
+              {:ok, data} -> data
+              {:error, _} -> %{"error" => "Failed to load tab data"}
+              data when is_map(data) -> data
+              _ -> %{}
+            end %>
+            <pre class="bg-base-200 p-4 rounded text-xs overflow-auto max-h-96">{Jason.encode!(content, pretty: true)}</pre>
+          </div>
+        </div>
+
+        <%!-- Diagrams Panel (v2) — shows rendered diagrams --%>
+        <div :if={@active_tab == "__diagrams__"} class="flex-1 overflow-auto p-4 bg-base-300">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-6xl mx-auto">
+            <div :for={diagram <- @diagrams} class="card bg-base-200 shadow-sm">
+              <div class="card-body p-3">
+                <h3 class="card-title text-sm font-mono">{diagram["id"]}</h3>
+                <div class="badge badge-xs badge-ghost">{diagram["type"]}</div>
+                <div
+                  id={"diagram-#{diagram["id"]}"}
+                  phx-hook="MermaidHook"
+                  data-diagram-type={diagram["type"]}
+                  data-diagram-content={diagram["content"]}
+                  class="mt-2 overflow-auto bg-base-300 rounded p-2 min-h-[200px]"
+                >
+                  <div class="text-xs text-base-content/30 font-mono">rendering...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <%!-- Showcase container — ShowcaseHook mounts here; engine targets inner phx-update=ignore div --%>
         <div
+          :if={is_nil(@active_tab) || (@active_tab != "__diagrams__" && !Enum.any?(@tabs, fn t -> t["id"] == @active_tab end))}
           id="showcase-container"
           phx-hook="ShowcaseHook"
           data-project={@active_project || "ccem"}
@@ -134,6 +212,8 @@ defmodule ApmV5Web.ShowcaseLive do
           data-narratives={Jason.encode!(@narratives)}
           data-slides={Jason.encode!(@slides)}
           data-design-system={Jason.encode!(@design_system)}
+          data-diagrams={Jason.encode!(strip_diagram_content(@diagrams))}
+          data-tabs={Jason.encode!(strip_tab_data(@tabs))}
           data-static-path={static_showcase_path(@active_project)}
           class="flex-1 overflow-hidden showcase-scope"
         >
@@ -166,6 +246,55 @@ defmodule ApmV5Web.ShowcaseLive do
 
   def handle_event("switch_template", %{"template" => template}, socket) do
     {:noreply, push_event(socket, "showcase:template-changed", %{template: template})}
+  end
+
+  def handle_event("switch_tab", %{"tab" => tab_id}, socket) do
+    tabs = socket.assigns.tabs
+
+    tab_data = case Enum.find(tabs, fn t -> t["id"] == tab_id end) do
+      %{"data" => data} -> data
+      _ -> %{}
+    end
+
+    socket =
+      socket
+      |> assign(:active_tab, tab_id)
+      |> assign(:tab_data, tab_data)
+      |> assign(:tab_query, "")
+      |> push_event("showcase:tab-changed", %{tab_id: tab_id, data: tab_data})
+
+    {:noreply, socket}
+  end
+
+  def handle_event("search_tab", %{"query" => query}, socket) do
+    project = socket.assigns.active_project
+    active_tab = socket.assigns.active_tab
+
+    filtered = if active_tab do
+      ShowcaseDataStore.get_tab_data(project, active_tab, %{"search" => query})
+    else
+      %{}
+    end
+
+    socket =
+      socket
+      |> assign(:tab_query, query)
+      |> assign(:tab_data, filtered)
+      |> push_event("showcase:tab-filtered", %{tab_id: active_tab, data: filtered, query: query})
+
+    {:noreply, socket}
+  end
+
+  def handle_event("load_diagram", %{"id" => diagram_id}, socket) do
+    diagrams = socket.assigns.diagrams
+
+    case Enum.find(diagrams, fn d -> d["id"] == diagram_id end) do
+      nil ->
+        {:noreply, socket}
+
+      diagram ->
+        {:noreply, push_event(socket, "showcase:diagram-loaded", diagram)}
+    end
   end
 
   # --- PubSub Handlers ---
@@ -241,8 +370,25 @@ defmodule ApmV5Web.ShowcaseLive do
     narratives = Map.get(showcase_data, "narratives", %{})
     slides = Map.get(showcase_data, "slides", %{})
     design_system = Map.get(showcase_data, "design_system", %{})
+    diagrams = Map.get(showcase_data, "diagrams", [])
+    tabs = Map.get(showcase_data, "tabs", [])
     version = Map.get(showcase_data, "version", "7.0.0") || "7.0.0"
     static_path = static_showcase_path(project)
+
+    # Auto-select first tab if available
+    first_tab = case tabs do
+      [first | _] -> first["id"]
+      _ -> nil
+    end
+
+    first_tab_data = if first_tab do
+      case Enum.find(tabs, fn t -> t["id"] == first_tab end) do
+        %{"data" => data} -> data
+        _ -> %{}
+      end
+    else
+      %{}
+    end
 
     socket =
       socket
@@ -252,14 +398,14 @@ defmodule ApmV5Web.ShowcaseLive do
       |> assign(:narratives, narratives)
       |> assign(:slides, slides)
       |> assign(:design_system, design_system)
+      |> assign(:diagrams, diagrams)
+      |> assign(:tabs, tabs)
+      |> assign(:active_tab, first_tab)
+      |> assign(:tab_data, first_tab_data)
+      |> assign(:tab_query, "")
       |> assign(:version, version)
 
-    # Always push project-changed so the engine syncs with the server-side data.
-    # On initial mount the hook reads data-attributes from the DOM, but push_event
-    # is buffered and delivered once the client is connected — the hook's handleEvent
-    # guard (engine present check) prevents double-init. This also ensures direct URL
-    # navigation to /showcase/:project correctly loads that project's features into
-    # the engine, not just the LiveView header dropdown.
+    # Push project-changed with diagrams and tabs
     socket =
       push_event(socket, "showcase:project-changed", %{
         project: project,
@@ -268,10 +414,127 @@ defmodule ApmV5Web.ShowcaseLive do
         narratives: narratives,
         slides: slides,
         designSystem: design_system,
+        diagrams: strip_diagram_content(diagrams),
+        tabs: strip_tab_data(tabs),
         staticPath: static_path
       })
 
     {:noreply, socket}
+  end
+
+  # --- Tab Data Renderer Component ---
+
+  defp tab_data_renderer(assigns) do
+    ~H"""
+    <div class="space-y-4">
+      <%!-- Tab header with metadata --%>
+      <div class="flex items-center gap-2 mb-4">
+        <h3 class="text-lg font-semibold text-base-content">
+          {tab_label(@tab_id, @tabs)}
+        </h3>
+        <div class="badge badge-sm badge-ghost">{tab_type_label(@tab_data)}</div>
+      </div>
+
+      <%!-- Render based on data type --%>
+      <%= cond do %>
+        <% is_map(@tab_data) and map_size(@tab_data) > 0 -> %>
+          <div class="overflow-x-auto">
+            <table class="table table-xs table-zebra w-full">
+              <thead>
+                <tr>
+                  <th class="font-mono text-xs">Key</th>
+                  <th class="font-mono text-xs">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={{key, value} <- @tab_data}>
+                  <td class="font-mono text-xs font-semibold align-top whitespace-nowrap">{key}</td>
+                  <td class="text-xs">
+                    <.render_value value={value} />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        <% is_list(@tab_data) and length(@tab_data) > 0 -> %>
+          <div class="overflow-x-auto">
+            <table class="table table-xs table-zebra w-full">
+              <thead>
+                <tr>
+                  <th class="font-mono text-xs">#</th>
+                  <th class="font-mono text-xs">Entry</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={{item, idx} <- Enum.with_index(@tab_data)}>
+                  <td class="font-mono text-xs text-base-content/40">{idx + 1}</td>
+                  <td class="text-xs">
+                    <.render_value value={item} />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        <% true -> %>
+          <div class="text-base-content/40 text-sm italic">No data available for this tab.</div>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp render_value(%{value: value} = assigns) when is_map(value) do
+    ~H"""
+    <div class="space-y-1">
+      <div :for={{k, v} <- @value} class="flex gap-2">
+        <span class="font-mono text-base-content/60 whitespace-nowrap">{k}:</span>
+        <span class="text-base-content">
+          <%= cond do %>
+            <% is_map(v) -> %>
+              <span class="font-mono text-xs text-base-content/50">{Jason.encode!(v)}</span>
+            <% is_list(v) -> %>
+              <span class="font-mono text-xs">{Enum.join(Enum.map(v, &to_string/1), ", ")}</span>
+            <% true -> %>
+              {to_string(v)}
+          <% end %>
+        </span>
+      </div>
+    </div>
+    """
+  end
+
+  defp render_value(%{value: value} = assigns) when is_list(value) do
+    ~H"""
+    <div class="flex flex-wrap gap-1">
+      <span :for={item <- @value} class="badge badge-xs badge-ghost">{to_string(item)}</span>
+    </div>
+    """
+  end
+
+  defp render_value(assigns) do
+    ~H"""
+    <span>{to_string(@value)}</span>
+    """
+  end
+
+  defp tab_label(tab_id, tabs) do
+    case Enum.find(tabs, fn t -> t["id"] == tab_id end) do
+      %{"label" => label} -> label
+      _ -> tab_id || "Unknown"
+    end
+  end
+
+  defp tab_type_label(data) when is_map(data), do: "#{map_size(data)} fields"
+  defp tab_type_label(data) when is_list(data), do: "#{length(data)} items"
+  defp tab_type_label(_), do: "raw"
+
+  defp strip_diagram_content(diagrams) do
+    Enum.map(diagrams, fn d -> Map.drop(d, ["content"]) end)
+  end
+
+  defp strip_tab_data(tabs) do
+    Enum.map(tabs, fn t -> Map.drop(t, ["data"]) end)
   end
 
   # Returns the static serve path if a migrated project showcase exists under

@@ -69,6 +69,47 @@ defmodule ApmV5Web.ShowcaseApiController do
     json(conn, %{ok: true, project: project})
   end
 
+  @doc "GET /api/showcase/:project/diagrams -- list diagrams for a project"
+  @spec diagrams(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def diagrams(conn, %{"project" => project}) do
+    diagrams = ShowcaseDataStore.get_diagrams(project)
+
+    diagram_list =
+      Enum.map(diagrams, fn d -> Map.drop(d, ["content"]) end)
+
+    json(conn, %{project: project, diagrams: diagram_list, count: length(diagram_list)})
+  end
+
+  @doc "GET /api/showcase/:project/diagrams/:id -- get single diagram with content"
+  @spec diagram(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def diagram(conn, %{"project" => project, "id" => id}) do
+    diagrams = ShowcaseDataStore.get_diagrams(project)
+
+    case Enum.find(diagrams, fn d -> d["id"] == id end) do
+      nil ->
+        conn |> put_status(404) |> json(%{error: "diagram_not_found", id: id})
+
+      found ->
+        json(conn, Map.put(found, "project", project))
+    end
+  end
+
+  @doc "GET /api/showcase/:project/tabs -- list queryable tabs for a project"
+  @spec tabs(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def tabs(conn, %{"project" => project}) do
+    tabs = ShowcaseDataStore.get_tabs(project)
+    tab_list = Enum.map(tabs, fn t -> Map.drop(t, ["data"]) end)
+    json(conn, %{project: project, tabs: tab_list, count: length(tab_list)})
+  end
+
+  @doc "GET /api/showcase/:project/tabs/:tab_id -- get tab data with optional query"
+  @spec tab_data(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def tab_data(conn, %{"project" => project, "tab_id" => tab_id} = params) do
+    query = Map.take(params, ["search", "filter", "sort"])
+    data = ShowcaseDataStore.get_tab_data(project, tab_id, query)
+    json(conn, %{project: project, tab_id: tab_id, data: data})
+  end
+
   # ============================
   # Private Helpers
   # ============================

@@ -35,7 +35,8 @@ defmodule ApmV5Web.AuthorizationLive do
          page_title: "Authorization",
          decisions: [],
          pending: safe_list_pending(),
-         policy_rules: safe_list_rules()
+         policy_rules: safe_list_rules(),
+         modal_minimized: false
        })
      )}
   end
@@ -225,6 +226,11 @@ defmodule ApmV5Web.AuthorizationLive do
   def handle_event("remove_rule", %{"tool" => tool_name}, socket) do
     PolicyRulesStore.remove_rule(tool_name)
     {:noreply, assign(socket, policy_rules: PolicyRulesStore.list_rules())}
+  end
+
+  @impl true
+  def handle_event("toggle_modal_minimize", _params, socket) do
+    {:noreply, assign(socket, modal_minimized: !socket.assigns.modal_minimized)}
   end
 
   @impl true
