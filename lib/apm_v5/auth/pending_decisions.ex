@@ -30,8 +30,8 @@ defmodule ApmV5.Auth.PendingDecisions do
   alias ApmV5.Auth.TokenStore
 
   @table :agentlock_pending
-  @ttl_seconds 120
-  @sweep_ms 15_000
+  @ttl_seconds 20
+  @sweep_ms 3_000
 
   # ── Client API ──────────────────────────────────────────────────────────────
 
@@ -146,6 +146,9 @@ defmodule ApmV5.Auth.PendingDecisions do
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_added, entry})
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_added, entry})
 
+    # Fire immediate notification so CCEMHelper delivers macOS banner within 1-2s
+    Task.start(fn -> notify_approval_required(entry) end)
+
     Logger.info("[PendingDecisions] Queued: #{request_id} — #{tool_name} (#{risk_level})")
     {:reply, {:ok, request_id}, state}
   end
@@ -229,4 +232,45 @@ defmodule ApmV5.Auth.PendingDecisions do
   end
 
   defp sanitize_params(_), do: %{}
+
+  defp notify_approval_required(entry) do
+    payload = Jason.encode!(%{
+      type: "warning",
+      title: "AgentLock — Approval Required",
+      message: "#{entry.tool_name} · #{entry.risk_level} risk · #{entry.agent_id}",
+      category: "agentlock",
+      actions: [
+        %{
+          label: "Approve",
+          href: "http://localhost:3032/api/v2/auth/decide",
+          method: "post",
+          body: %{request_id: entry.request_id, decision: "approve"}
+        },
+        %{
+          label: "Deny",
+          href: "http://localhost:3032/api/v2/auth/decide",
+          method: "post",
+          body: %{request_id: entry.request_id, decision: "deny"}
+        }
+      ],
+      metadata: %{
+        request_id: entry.request_id,
+        agent_id: entry.agent_id,
+        tool_name: entry.tool_name,
+        risk_level: entry.risk_level
+      }
+    })
+
+    :httpc.request(
+      :post,
+      {~c"http://localhost:3032/api/notify", [], ~c"application/json", payload},
+      [{:timeout, 3_000}],
+      []
+    )
+    |> case do
+      {:ok, _} -> :ok
+      {:error, reason} ->
+        Logger.warning("[PendingDecisions] Notify failed: #{inspect(reason)}")
+    end
+  end
 end

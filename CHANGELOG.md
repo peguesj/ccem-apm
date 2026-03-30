@@ -6,10 +6,10 @@
 
 - **CCEMHelper direct notification delivery** (US-001): `postPendingDecisionNotification` now uses dedicated `AGENTLOCK_APPROVAL` UNNotificationCategory with Approve/Deny actions. Notification title uses human-readable `displayName` as "AgentLock: [displayName]"; body is "[tool] requires approval · [risk] risk". `pending_id` key added to `userInfo` (alongside legacy `request_id`) so action handler can submit the decision. `APMNotificationReceiver.didReceive` resolves `pending_id` first, then falls back to `request_id`. `CCEMHelperApp.init()` registers `AGENTLOCK_APPROVAL` category alongside existing `agentlock` category.
 - **CCEMHelper Test Notification button** (US-002): `SettingsView` gains a "Test Notification" button that fires a direct `UNUserNotificationContent` without any APM round-trip. If notification permission is not granted, shows an alert directing user to System Settings > Notifications > CCEMHelper.
-- **APM in-browser AgentLock approval modal** (US-003): `AuthorizationLive` shows a full-screen overlay modal (`z-[9999]`, backdrop-blur) when any pending decision exists — displays agent display name (NamespaceResolver), tool, risk level, params preview, 20s countdown timer, and Approve/Deny buttons. `DashboardLive` shows a compact floating banner strip above the UPM panel for each pending gate with inline Approve/Deny + link to `/authorization`. Dashboard subscribes to `agentlock:pending` PubSub topic and handles `{:pending_decision_added, entry}` / `{:pending_decision_resolved, entry}` messages with toast notifications.
+- **APM in-browser AgentLock approval modal** (US-003): `AuthorizationLive` shows a full-screen overlay modal (`z-[9999]`, backdrop-blur) when any pending decision exists — displays agent display name, tool, risk level, params preview, 20s countdown timer, and Approve/Deny buttons. `DashboardLive` shows a compact floating banner strip above the UPM panel for each pending gate with inline Approve/Deny + link to `/authorization`. Dashboard subscribes to `agentlock:pending` PubSub topic and handles `{:pending_decision_added, entry}` / `{:pending_decision_resolved, entry}` messages with toast notifications.
 
 ### Changed
-- `mix.exs`: version bumped 8.5.0 → 8.6.0
+- `mix.exs`: version bumped 8.4.0 → 8.6.0
 - `@server_version` in `ApiController`: 8.4.0 → 8.6.0
 - `@app_version` in `SidebarNav`: 8.4.0 → 8.6.0
 
@@ -17,10 +17,12 @@
 
 ### AgentLock Gate Notifications + 20s Timeout + Namespace UX
 
-- **NamespaceResolver** (`ApmV5.NamespaceResolver`): GenServer + ETS cache converting raw agent_id/session_id/request_id to human-readable scoped labels.
-- **20s gate TTL**: `PendingDecisions` TTL reduced from 120s → 20s; sweep interval 15s → 3s.
-- **AuthorizationLive countdown banners**: Live countdown (20s) per pending gate displayed above the tab bar; inline Approve/Deny buttons; `CountdownTimer` JS hook.
-- **CCEMHelper**: Pending poll interval 8s → 3s; `PendingDecision.displayName` field.
+- **NamespaceResolver** (`ApmV5.NamespaceResolver`): GenServer + ETS cache converting raw agent_id/session_id/request_id to human-readable scoped labels (`project/role/task-slug`, `project/branch`, `tool:HHMM`). Added to supervision tree after SessionManager.
+- **20s gate TTL**: `PendingDecisions` TTL reduced from 120s → 20s; sweep interval 15s → 3s. `DecisionGate` default timeout 120s → 20s; expire check 15s → 3s. `agentlock_pre_tool.sh` hook reduced to single 15s poll attempt.
+- **Immediate APM notify**: `PendingDecisions.add/5` fires `POST /api/notify` via fire-and-forget Task so CCEMHelper delivers macOS banner within 1-2s of gate creation (not after 8s poll delay).
+- **AuthorizationLive countdown banners**: Live countdown (20s) per pending gate displayed above the tab bar; inline Approve/Deny buttons; `CountdownTimer` JS hook; real-time PubSub updates.
+- **Human-readable display names**: `AgentPanel`, `SessionManagerLive`, `DashboardLive`, `AuthorizationLive` audit log all show NamespaceResolver labels as primary identifier; raw IDs preserved in `title` tooltips.
+- **CCEMHelper**: Pending poll interval 8s → 3s; `PendingDecision.displayName` field; notification body shows `tool · agent-label — risk` format.
 
 ### Changed
 - `mix.exs`: version bumped 8.4.0 → 8.5.0

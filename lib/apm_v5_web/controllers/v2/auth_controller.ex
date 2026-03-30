@@ -330,6 +330,40 @@ defmodule ApmV5Web.V2.AuthController do
     end
   end
 
+  @doc "GET /api/v2/auth/decide — Browser-clickable approve/deny via ?request_id=&decision=approve|deny; redirects to /authorization"
+  def decide_get(conn, params) do
+    request_id = Map.get(params, "request_id", "")
+    raw_decision = Map.get(params, "decision", "")
+
+    decision =
+      case raw_decision do
+        "approve" -> :approve
+        "deny" -> :deny
+        _ -> nil
+      end
+
+    result =
+      cond do
+        is_nil(decision) or request_id == "" -> :bad_params
+        true ->
+          case PendingDecisions.decide(request_id, decision) do
+            {:ok, _} -> {:ok, raw_decision}
+            :ok -> {:ok, raw_decision}
+            {:error, :not_found} -> :not_found
+          end
+      end
+
+    # Redirect to /authorization with status in query string (no flash needed — API pipeline)
+    redirect_to =
+      case result do
+        {:ok, d} -> "/authorization?decided=#{d}&id=#{request_id}"
+        :not_found -> "/authorization?decided=not_found&id=#{request_id}"
+        :bad_params -> "/authorization?decided=error"
+      end
+
+    conn |> redirect(to: redirect_to)
+  end
+
   @doc "POST /api/v2/auth/decide — Approve or deny a pending escalation"
   def decide(conn, params) do
     request_id = Map.get(params, "request_id", "")

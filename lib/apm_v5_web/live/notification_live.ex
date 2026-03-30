@@ -9,6 +9,7 @@ defmodule ApmV5Web.NotificationLive do
 
   alias ApmV5.AgentRegistry
   alias ApmV5.UpmStore
+  alias ApmV5.Auth.PendingDecisions
 
   @tab_categories %{
     "all" => nil,
@@ -273,9 +274,9 @@ defmodule ApmV5Web.NotificationLive do
             >
               <.icon name="hero-sparkles" class="size-3" /> Skills →
             </.link>
-            <%!-- Decision Gate buttons — pending_approval type or decision category --%>
+            <%!-- Decision Gate buttons — pending_approval type, decision or agentlock category --%>
             <div
-              :if={@notif[:type] == "pending_approval" || @notif[:category] == "decision"}
+              :if={@notif[:type] == "pending_approval" || @notif[:category] in ["decision", "agentlock"]}
               class="flex items-center gap-1"
             >
               <button
@@ -317,8 +318,8 @@ defmodule ApmV5Web.NotificationLive do
               <.icon name={if @upm_expanded, do: "hero-chevron-up", else: "hero-chevron-right"} class="size-3" />
               {if @upm_expanded, do: "Hide Story Progress", else: "Show Story Progress"}
             </button>
-            <%!-- Inline action buttons (shown always, not just in expanded) --%>
-            <%= for action <- Enum.take(@notif[:actions] || [], 2) do %>
+            <%!-- Inline action buttons — skip for agentlock (handled by phx-click buttons above) --%>
+            <%= for action <- Enum.take(Enum.reject(@notif[:actions] || [], fn a -> (a["method"] || a[:method]) == "post" end), 2) do %>
               <a
                 href={action[:url] || action["url"] || action[:href] || action["href"] || "#"}
                 target={action[:target] || action["target"] || "_self"}
@@ -390,9 +391,9 @@ defmodule ApmV5Web.NotificationLive do
                 </div>
               <% end %>
             </div>
-            <%!-- actions: CTA buttons --%>
+            <%!-- actions: CTA buttons — skip POST actions for agentlock (handled by phx-click buttons) --%>
             <div :if={length(@notif[:actions] || []) > 0} class="mt-2 flex flex-wrap gap-1.5">
-              <%= for action <- (@notif[:actions] || []) do %>
+              <%= for action <- Enum.reject(@notif[:actions] || [], fn a -> (a["method"] || a[:method]) == "post" end) do %>
                 <a
                   href={action[:url] || action["url"] || action[:href] || action["href"] || "#"}
                   target={action[:target] || action["target"] || "_self"}
@@ -562,6 +563,9 @@ defmodule ApmV5Web.NotificationLive do
 
   def handle_event("approve_action", %{"id" => id_str}, socket) do
     id = String.to_integer(id_str)
+    notif = Enum.find(socket.assigns.notifications, fn n -> n.id == id end)
+    request_id = get_in(notif, [:metadata, "request_id"]) || get_in(notif, [:metadata, :request_id])
+    if request_id, do: Task.start(fn -> PendingDecisions.decide(request_id, :approve) end)
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:decisions", {:decision, id, :approved})
     pending = Map.put(socket.assigns.pending_decisions, id, :approved)
     {:noreply, assign(socket, :pending_decisions, pending)}
@@ -569,6 +573,9 @@ defmodule ApmV5Web.NotificationLive do
 
   def handle_event("reject_action", %{"id" => id_str}, socket) do
     id = String.to_integer(id_str)
+    notif = Enum.find(socket.assigns.notifications, fn n -> n.id == id end)
+    request_id = get_in(notif, [:metadata, "request_id"]) || get_in(notif, [:metadata, :request_id])
+    if request_id, do: Task.start(fn -> PendingDecisions.decide(request_id, :deny) end)
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:decisions", {:decision, id, :rejected})
     pending = Map.put(socket.assigns.pending_decisions, id, :rejected)
     {:noreply, assign(socket, :pending_decisions, pending)}

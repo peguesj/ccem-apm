@@ -1061,7 +1061,9 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         "status" => %{"type" => "string", "enum" => ["active", "idle", "error", "offline"]},
         "project" => %{"type" => "string"}, "role" => %{"type" => "string"},
         "last_heartbeat" => %{"type" => "string", "format" => "date-time"},
-        "registered_at" => %{"type" => "string", "format" => "date-time"}}},
+        "registered_at" => %{"type" => "string", "format" => "date-time"},
+        "display_name" => %{"type" => "string", "nullable" => true,
+          "description" => "Human-readable scoped label for the agent (e.g. ccem/wave-1/stripe-env). Null if context unavailable."}}},
       "PaginatedAgents" => %{"type" => "object", "properties" => %{
         "data" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Agent"}},
         "meta" => %{"type" => "object", "properties" => %{
@@ -1100,6 +1102,21 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         "next_cursor" => %{"type" => "string"}, "total" => %{"type" => "integer"}}},
       "Error" => %{"type" => "object", "properties" => %{
         "error" => %{"type" => "string"}, "message" => %{"type" => "string"}}},
+      "PendingDecision" => %{"type" => "object", "description" => "AgentLock pending authorization request (v8.5.0)", "properties" => %{
+        "request_id" => %{"type" => "string"},
+        "tool_name" => %{"type" => "string"},
+        "session_id" => %{"type" => "string"},
+        "agent_id" => %{"type" => "string"},
+        "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]},
+        "params" => %{"type" => "object", "additionalProperties" => true},
+        "status" => %{"type" => "string", "enum" => ["pending", "approved", "denied", "timeout"]},
+        "decision" => %{"type" => "string", "nullable" => true},
+        "token_id" => %{"type" => "string", "nullable" => true},
+        "display_name" => %{"type" => "string", "nullable" => true,
+          "description" => "Human-readable scoped label for the requesting agent (e.g. ccem/wave-1/stripe-env). Null if context unavailable."},
+        "decided_at" => %{"type" => "string", "format" => "date-time", "nullable" => true},
+        "inserted_at" => %{"type" => "string", "format" => "date-time"},
+        "expires_at" => %{"type" => "string", "format" => "date-time"}}},
       "AuthDecision" => %{"type" => "object", "properties" => %{
         "ok" => %{"type" => "boolean"}, "decision" => %{"type" => "string", "enum" => ["permit", "deny", "escalate"]},
         "token_id" => %{"type" => "string"}, "reason" => %{"type" => "string"},

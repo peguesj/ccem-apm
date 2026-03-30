@@ -144,14 +144,12 @@ defmodule ApmV5Web.AuthorizationLive do
     {:noreply, assign(socket, :decisions, updated)}
   end
 
-  def handle_info({:pending_decision_added, entry}, socket) do
-    gates = [entry | socket.assigns.pending]
-    {:noreply, assign(socket, :pending, gates)}
+  def handle_info({:pending_decision_added, _entry}, socket) do
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
   end
 
-  def handle_info({:pending_decision_resolved, entry}, socket) do
-    gates = Enum.reject(socket.assigns.pending, &(&1.request_id == entry.request_id))
-    {:noreply, assign(socket, :pending, gates)}
+  def handle_info({:pending_decision_resolved, _entry}, socket) do
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
   end
 
   def handle_info({:policy_rule_added, _rule}, socket) do
@@ -183,14 +181,14 @@ defmodule ApmV5Web.AuthorizationLive do
 
   @impl true
   def handle_event("approve_gate", %{"id" => request_id}, socket) do
-    ApmV5.Auth.PendingDecisions.decide(request_id, :approve)
-    {:noreply, socket}
+    PendingDecisions.decide(request_id, :approve)
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
   end
 
   @impl true
   def handle_event("deny_gate", %{"id" => request_id}, socket) do
-    ApmV5.Auth.PendingDecisions.decide(request_id, :deny)
-    {:noreply, socket}
+    PendingDecisions.decide(request_id, :deny)
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
   end
 
   @impl true
@@ -346,47 +344,6 @@ defmodule ApmV5Web.AuthorizationLive do
 
         <main class="flex-1 overflow-y-auto p-4 space-y-4">
 
-        <!-- Pending Gates Live Banner -->
-        <%= if @pending != [] do %>
-          <div id="pending-gates-banner" class="space-y-2 mb-4">
-            <%= for gate <- @pending do %>
-              <% label = NamespaceResolver.gate_label(gate.request_id, gate.tool_name) %>
-              <% agent_lbl = NamespaceResolver.agent_label(gate.agent_id) %>
-              <div
-                id={"gate-#{gate.request_id}"}
-                class="flex items-center justify-between rounded-lg border border-amber-500/50 bg-amber-950/40 px-4 py-3 text-sm"
-                phx-hook="CountdownTimer"
-                data-seconds="20"
-                data-gate-id={gate.request_id}
-              >
-                <div class="flex items-center gap-3">
-                  <.icon name="hero-shield-exclamation" class="h-5 w-5 text-amber-400 shrink-0" />
-                  <div>
-                    <span class="font-mono text-amber-300 font-semibold"><%= label %></span>
-                    <span class="text-zinc-400 mx-2">·</span>
-                    <span class="text-zinc-300"><%= agent_lbl %></span>
-                    <span class="text-zinc-500 mx-2">·</span>
-                    <span class="text-zinc-400"><%= gate.risk_level %> risk</span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-3">
-                  <span class="font-mono text-amber-400 tabular-nums" data-countdown-display>20s</span>
-                  <button
-                    phx-click="approve_gate"
-                    phx-value-id={gate.request_id}
-                    class="rounded px-3 py-1 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-medium transition-colors"
-                  >Approve</button>
-                  <button
-                    phx-click="deny_gate"
-                    phx-value-id={gate.request_id}
-                    class="rounded px-3 py-1 bg-red-700 hover:bg-red-600 text-white text-xs font-medium transition-colors"
-                  >Deny</button>
-                </div>
-              </div>
-            <% end %>
-          </div>
-        <% end %>
-
         <!-- Tabs -->
         <div class="tabs tabs-boxed mb-4">
           <button class={"tab #{if @active_tab == "overview", do: "tab-active"}"} phx-click="switch_tab" phx-value-tab="overview">Overview</button>
@@ -501,10 +458,6 @@ defmodule ApmV5Web.AuthorizationLive do
                 <div class="card-body flex-row items-center gap-4">
                   <span class={"badge badge-sm #{audit_action_class(entry)}"}><%= Map.get(entry, :event_type, "unknown") %></span>
                   <span class="font-mono text-xs"><%= Map.get(entry, :resource, "") %></span>
-                  <% actor = Map.get(entry, :actor, "") %>
-                  <span :if={actor != ""} class="font-mono text-xs text-base-content/50 truncate max-w-[120px]" title={actor}>
-                    <%= NamespaceResolver.agent_label(actor) %>
-                  </span>
                   <span class="text-xs text-base-content/60 ml-auto"><%= Map.get(entry, :timestamp, "") %></span>
                 </div>
               </div>
@@ -538,7 +491,7 @@ defmodule ApmV5Web.AuthorizationLive do
                           <span class="badge badge-xs badge-warning">pending</span>
                         </div>
                         <div class="text-xs text-base-content/50 font-mono mb-2">
-                          <span title={to_string(req.agent_id)}>agent: <%= NamespaceResolver.agent_label(to_string(req.agent_id)) %></span>
+                          <span>agent: <%= String.slice(to_string(req.agent_id), 0..20) %></span>
                           <span class="mx-2">·</span>
                           <span>session: <%= truncate_session(req.session_id) %></span>
                           <span class="mx-2">·</span>

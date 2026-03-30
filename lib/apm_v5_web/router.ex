@@ -355,6 +355,7 @@ defmodule ApmV5Web.Router do
     # Pending decisions (human-in-the-loop approval)
     get "/auth/pending", AuthController, :list_pending
     get "/auth/pending/:id", AuthController, :get_pending
+    get "/auth/decide", AuthController, :decide_get
     post "/auth/decide", AuthController, :decide
     # Permanent policy rules (always allow / always deny)
     get "/auth/policy/rules", AuthController, :list_policy_rules

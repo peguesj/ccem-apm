@@ -10,6 +10,7 @@ defmodule ApmV5Web.SessionManagerLive do
   use ApmV5Web, :live_view
 
   alias ApmV5.SessionManager
+  alias ApmV5.NamespaceResolver
   import ApmV5Web.Components.SidebarNav
 
   @refresh_ms 10_000
@@ -128,11 +129,13 @@ defmodule ApmV5Web.SessionManagerLive do
                     <div class="w-1.5 h-1.5 rounded-full bg-base-content/20 flex-shrink-0"></div>
                   <% end %>
                   <span class="text-xs font-mono truncate">
-                    <%= session[:project_name] || "unknown" %>
+                    <%= NamespaceResolver.session_label(sid,
+                          project: session[:project_name],
+                          branch: session[:git_branch]) %>
                   </span>
                 </div>
-                <div class="text-[10px] text-base-content/40 mt-0.5 truncate font-mono">
-                  <%= String.slice(sid, 0, 8) %>...
+                <div class="text-[10px] text-zinc-500 font-mono text-xs mt-0.5 truncate">
+                  <%= String.slice(sid, 0, 12) %>
                 </div>
                 <div class="flex items-center gap-2 mt-1">
                   <%= if is_active do %>

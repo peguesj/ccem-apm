@@ -57,6 +57,26 @@ const Hooks = {
       clearInterval(this.interval)
     }
   },
+  CountdownTimer: {
+    mounted() {
+      const seconds = parseInt(this.el.dataset.seconds || "20", 10)
+      const display = this.el.querySelector("[data-countdown-display]")
+      let remaining = seconds
+
+      this._timer = setInterval(() => {
+        remaining -= 1
+        if (display) display.textContent = remaining > 0 ? `${remaining}s` : "expired"
+        if (remaining <= 0) {
+          clearInterval(this._timer)
+          this.el.classList.add("opacity-40", "pointer-events-none")
+          if (display) display.classList.add("text-zinc-500")
+        }
+      }, 1000)
+    },
+    destroyed() {
+      clearInterval(this._timer)
+    }
+  },
   DependencyGraph,
   RalphFlowchart,
   WidgetResize,

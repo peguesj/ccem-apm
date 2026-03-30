@@ -22,8 +22,8 @@ defmodule ApmV5.Upm.DecisionGate do
   require Logger
 
   @table :upm_decision_gates
-  @default_timeout_ms 120_000
-  @expire_check_ms 15_000
+  @default_timeout_ms 20_000
+  @expire_check_ms 3_000
 
   # -- Client API -------------------------------------------------------------
 

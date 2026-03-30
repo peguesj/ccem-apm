@@ -13,6 +13,7 @@ defmodule ApmV5Web.Components.AgentPanel do
   use Phoenix.Component
 
   alias ApmV5.AgUi.AgentContextStore
+  alias ApmV5.NamespaceResolver
 
   attr :agents, :list, required: true, doc: "Full agent list from AgentRegistry"
   attr :filter_status, :string, default: nil, doc: "Optional status filter"
@@ -62,7 +63,12 @@ defmodule ApmV5Web.Components.AgentPanel do
                 </span>
               </div>
               <div class="text-[10px] text-base-content/30 flex items-center gap-1">
-                <span class="font-mono truncate max-w-[120px]">{agent.id}</span>
+                <span class="font-mono truncate max-w-[120px]" title={agent.id}>
+                  {NamespaceResolver.agent_label(agent.id,
+                    project: agent[:project],
+                    role: agent[:formation_role] || agent[:role],
+                    task_subject: agent[:task_subject])}
+                </span>
                 <span :if={agent[:namespace]} class="text-primary/60">/ {agent[:namespace]}</span>
               </div>
             </div>

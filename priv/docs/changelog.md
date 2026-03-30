@@ -1,8 +1,26 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file. Latest: v7.0.0 AgentLock authorization protocol, v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management.
+All notable changes to CCEM APM are documented in this file. Latest: v8.5.0 AgentLock gate notifications + 20s timeout + namespace UX, v8.x AgentLock refinements + session management, v7.0.0 AgentLock authorization protocol, v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [8.5.0] - 2026-03-28
+
+AgentLock gate notifications + 20s timeout + namespace UX — CCEMHelper delivers macOS banners within 1-2s of gate creation.
+
+### Added
+- **`ApmV5.NamespaceResolver`** GenServer — ETS cache converting raw agent_id/session_id/request_id to human-readable scoped labels (`project/role/task-slug`, `project/branch`, `tool:HHMM`). Added to supervision tree after SessionManager.
+- **AuthorizationLive countdown banners** — Live countdown (20s) per pending gate above the tab bar; inline Approve/Deny buttons; `CountdownTimer` JS hook; real-time PubSub updates.
+- **`display_name` field** on `PendingDecision` and `Agent` OpenAPI schemas — human-readable scoped label; null if context unavailable.
+
+### Changed
+- **20s gate TTL**: `PendingDecisions` TTL 120s → 20s; sweep interval 15s → 3s. `DecisionGate` default timeout 120s → 20s; expire check 15s → 3s. `agentlock_pre_tool.sh` hook reduced to single 15s poll attempt.
+- **Immediate APM notify**: `PendingDecisions.add/5` fires `POST /api/notify` via fire-and-forget Task — CCEMHelper delivers macOS banner within 1-2s (not after 8s poll delay).
+- **Human-readable display names**: `AgentPanel`, `SessionManagerLive`, `DashboardLive`, `AuthorizationLive` audit log show NamespaceResolver labels as primary identifier; raw IDs in `title` tooltips.
+- **CCEMHelper**: Pending poll interval 8s → 3s; `PendingDecision.displayName` field; notification body format `tool · agent-label — risk`.
+- `mix.exs`: version bumped 8.4.0 → 8.5.0
 
 ---
 
