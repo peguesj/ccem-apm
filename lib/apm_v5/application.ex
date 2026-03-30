@@ -68,6 +68,8 @@ defmodule ApmV5.Application do
       ApmV5.Supervisors.AuthSupervisor,
       # Persistent Plane-PM alignment agent -- polls Plane every 5min, broadcasts plane:sync (US-018)
       ApmV5.PlanePmAlign,
+      # Library catalog -- scans skills/agents/commands/MCP/hooks/patterns/learnings (v8.10.1)
+      ApmV5.LibraryStore,
       # Dashboard widget system -- WidgetRegistry + LayoutStore (widget-system)
       ApmV5.WidgetRegistry,
       ApmV5.LayoutStore,

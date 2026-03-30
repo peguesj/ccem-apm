@@ -122,6 +122,9 @@ defmodule ApmV5Web.Router do
     live "/integrations", PluginDashboardLive, :integrations_tab
     live "/integrations/lvm", LvmStatusLive, :index
 
+    # Extension: library
+    live "/library", LibraryLive, :index
+
     # Extension: upm
     live "/upm/module", UpmLive, :index
     live "/upm/module/:project_id", UpmLive, :project
@@ -478,6 +481,17 @@ defmodule ApmV5Web.Router do
     # ── EXTENSION: plane (upm companion) ──────────────────────────────────
     get "/plane/sync-status", PlaneController, :sync_status
     post "/plane/sync", PlaneController, :sync
+
+    # ── EXTENSION: library ────────────────────────────────────────────────
+    get "/library", LibraryController, :index
+    get "/library/agents", LibraryController, :agents
+    get "/library/skills", LibraryController, :skills
+    get "/library/commands", LibraryController, :commands
+    get "/library/mcp", LibraryController, :mcp
+    get "/library/tools", LibraryController, :tools
+    get "/library/patterns", LibraryController, :patterns
+    get "/library/learnings", LibraryController, :learnings
+    post "/library/refresh", LibraryController, :refresh
   end
 
   # A2UI flexible format endpoint
