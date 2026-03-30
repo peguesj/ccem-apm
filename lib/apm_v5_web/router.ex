@@ -502,6 +502,7 @@ defmodule ApmV5Web.Router do
     get "/library/commands", LibraryController, :commands
     get "/library/mcp", LibraryController, :mcp
     get "/library/tools", LibraryController, :tools
+    get "/library/hooks", LibraryController, :hooks
     get "/library/patterns", LibraryController, :patterns
     get "/library/learnings", LibraryController, :learnings
     post "/library/refresh", LibraryController, :refresh

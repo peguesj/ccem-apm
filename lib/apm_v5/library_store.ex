@@ -56,6 +56,10 @@ defmodule ApmV5.LibraryStore do
   @spec list_learnings() :: [map()]
   def list_learnings, do: get_category(:learnings)
 
+  @doc "Returns all hooks from the catalog."
+  @spec list_hooks() :: [map()]
+  def list_hooks, do: get_category(:hooks)
+
   @doc "Returns a summary of all categories with counts."
   @spec summary() :: map()
   def summary do
@@ -64,6 +68,7 @@ defmodule ApmV5.LibraryStore do
       skills: length(list_skills()),
       mcp_servers: length(list_mcp_servers()),
       tools: length(list_tools()),
+      hooks: length(list_hooks()),
       commands: length(list_commands()),
       patterns: length(list_patterns()),
       learnings: length(list_learnings()),
@@ -133,6 +138,7 @@ defmodule ApmV5.LibraryStore do
       get_category(:skills),
       get_category(:mcp_servers),
       get_category(:tools),
+      get_category(:hooks),
       get_category(:commands),
       get_category(:patterns),
       get_category(:learnings)
@@ -149,6 +155,7 @@ defmodule ApmV5.LibraryStore do
     :ets.insert(@ets_table, {:skills, scan_skills()})
     :ets.insert(@ets_table, {:mcp_servers, scan_mcp_servers()})
     :ets.insert(@ets_table, {:tools, scan_tools()})
+    :ets.insert(@ets_table, {:hooks, scan_all_hooks()})
     :ets.insert(@ets_table, {:commands, scan_commands()})
     :ets.insert(@ets_table, {:patterns, scan_patterns()})
     :ets.insert(@ets_table, {:learnings, scan_learnings()})
@@ -379,6 +386,46 @@ defmodule ApmV5.LibraryStore do
           end)
         end)
 
+      {:error, _} -> []
+    end
+  end
+
+  # ── Hooks scanner (dedicated category) ─────────────────────────────────────
+
+  defp scan_all_hooks do
+    fs_hooks = scan_hooks()
+    configured = scan_hook_tools()
+    user_hooks = scan_user_hooks_dir()
+    (fs_hooks ++ configured ++ user_hooks) |> Enum.uniq_by(& &1.name)
+  end
+
+  defp scan_user_hooks_dir do
+    user_hooks_dir = Path.expand("~/.claude/hooks")
+    case File.ls(user_hooks_dir) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.ends_with?(&1, ".sh"))
+        |> Enum.map(fn file ->
+          path = Path.join(user_hooks_dir, file)
+          name = String.replace_suffix(file, ".sh", "")
+          %{
+            name: "user-#{name}",
+            display_name: name |> String.replace("_", " ") |> titlecase(),
+            type: "user_hook",
+            category: cond do
+              String.contains?(name, "529") -> "rate_limit"
+              String.contains?(name, "pre_tool") -> "pre_tool_use"
+              String.contains?(name, "post_tool") -> "post_tool_use"
+              String.contains?(name, "usage") -> "usage"
+              true -> "custom"
+            end,
+            source: "~/.claude/hooks/",
+            scope: "user",
+            path: path,
+            description: "User hook: #{file}",
+            last_modified: file_mtime_iso(path)
+          }
+        end)
       {:error, _} -> []
     end
   end
