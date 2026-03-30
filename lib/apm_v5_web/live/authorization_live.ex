@@ -292,6 +292,45 @@ defmodule ApmV5Web.AuthorizationLive do
   end
 
   @impl true
+  def handle_event("approve_group", %{"agent" => agent_id}, socket) do
+    socket.assigns.pending
+    |> Enum.filter(&(&1.agent_id == agent_id))
+    |> Enum.each(&PendingDecisions.decide(&1.request_id, :approve))
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  @impl true
+  def handle_event("deny_group", %{"agent" => agent_id}, socket) do
+    socket.assigns.pending
+    |> Enum.filter(&(&1.agent_id == agent_id))
+    |> Enum.each(&PendingDecisions.decide(&1.request_id, :deny))
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  @impl true
+  def handle_event("approve_group_for", %{"agent" => agent_id, "minutes" => minutes_str}, socket) do
+    minutes = String.to_integer(minutes_str)
+    gates = Enum.filter(socket.assigns.pending, &(&1.agent_id == agent_id))
+
+    Enum.each(gates, &PendingDecisions.decide(&1.request_id, :approve))
+
+    # Create time-limited policy for the agent's tools
+    tool_names = gates |> Enum.map(& &1.tool_name) |> Enum.uniq()
+    ApmV5.Auth.AutoApprovalStore.create(%{
+      agent_id: agent_id,
+      allowed_tools: tool_names,
+      allowed_risk_levels: :all,
+      expires_at: DateTime.add(DateTime.utc_now(), minutes * 60, :second),
+      created_by: "authorization_live",
+      reason: "Approved #{length(tool_names)} tools for #{minutes}min via group action"
+    })
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  @impl true
   def handle_event("dismiss_all_pending", _params, socket) do
     Enum.each(socket.assigns.pending, fn p ->
       PendingDecisions.decide(p.request_id, :deny)
@@ -344,79 +383,102 @@ defmodule ApmV5Web.AuthorizationLive do
                 </div>
               </div>
 
-              <%!-- Authorization cards — one per pending decision --%>
-              <%= for gate <- @pending do %>
-                <% action_type_label = action_type_display(gate[:action_type]) %>
-                <% agent_lbl = NamespaceResolver.agent_label(gate.agent_id) %>
-                <% cmd_preview = extract_command_preview(gate.params) %>
-                <div
-                  id={"auth-card-#{gate.request_id}"}
-                  class="rounded-lg bg-base-200 border border-base-content/10 p-3 space-y-2"
-                >
-                  <%!-- Title row: Authorization type + risk + countdown --%>
-                  <div class="flex items-start justify-between gap-2">
-                    <div class="min-w-0 flex-1">
-                      <div class="flex items-center gap-2 flex-wrap">
-                        <span class={"text-xs font-bold px-1.5 py-0.5 rounded #{action_type_class(gate[:action_type])}"}><%= action_type_label %></span>
-                        <span class="text-sm font-semibold text-base-content"><%= gate.tool_name %></span>
-                        <span class={"badge badge-xs #{risk_badge_class(gate.risk_level)}"}><%= gate.risk_level %></span>
+              <%!-- Grouped authorization cards — combined by agent for simultaneous requests --%>
+              <% grouped = group_pending_by_agent(@pending) %>
+              <%= for {agent_id, gates} <- grouped do %>
+                <% agent_lbl = NamespaceResolver.agent_label(agent_id) %>
+                <% tool_names = Enum.map(gates, & &1.tool_name) |> Enum.uniq() |> Enum.join(", ") %>
+                <% max_risk = gates |> Enum.map(& &1.risk_level) |> Enum.max_by(&risk_weight/1) %>
+                <div class="rounded-lg bg-base-200 border border-base-content/10 overflow-hidden">
+                  <%!-- Group header --%>
+                  <div class="px-3 py-2 bg-base-300/50 flex items-center justify-between">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <.icon name="hero-user-circle" class="h-4 w-4 text-base-content/50 shrink-0" />
+                      <span class="text-xs font-semibold truncate"><%= agent_lbl %></span>
+                      <span class={"badge badge-xs #{risk_badge_class(max_risk)}"}><%= max_risk %></span>
+                      <span class="text-xs text-base-content/40"><%= length(gates) %> request<%= if length(gates) > 1, do: "s" %></span>
+                    </div>
+                    <%!-- Batch actions for the group --%>
+                    <div class="flex items-center gap-1">
+                      <button phx-click="approve_group" phx-value-agent={agent_id} class="btn btn-success btn-xs gap-1" title="Approve all from this agent">
+                        <.icon name="hero-check" class="h-3 w-3" /> All
+                      </button>
+                      <div class="dropdown dropdown-end dropdown-top">
+                        <label tabindex="0" class="btn btn-info btn-xs btn-outline gap-1 cursor-pointer" title="Time-limited allow">
+                          <.icon name="hero-clock" class="h-3 w-3" />
+                        </label>
+                        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-44 p-1 shadow-lg border border-base-content/10 mb-1">
+                          <li class="menu-title text-[10px]">Allow all from this agent for:</li>
+                          <li><button phx-click="approve_group_for" phx-value-agent={agent_id} phx-value-minutes="5" class="text-xs">5 minutes</button></li>
+                          <li><button phx-click="approve_group_for" phx-value-agent={agent_id} phx-value-minutes="15" class="text-xs">15 minutes</button></li>
+                          <li><button phx-click="approve_group_for" phx-value-agent={agent_id} phx-value-minutes="30" class="text-xs">30 minutes</button></li>
+                          <li><button phx-click="approve_group_for" phx-value-agent={agent_id} phx-value-minutes="60" class="text-xs">1 hour</button></li>
+                        </ul>
                       </div>
-                      <%!-- Subtitle: agent context --%>
-                      <p class="text-xs text-base-content/50 mt-0.5 truncate">
-                        <%= agent_lbl %> · session:<%= truncate_session(gate.session_id) %>
-                      </p>
-                    </div>
-                    <%!-- Countdown --%>
-                    <div
-                      class="text-xs text-amber-400/70 font-mono tabular-nums shrink-0"
-                      phx-hook="CountdownTimer"
-                      id={"countdown-#{gate.request_id}"}
-                      data-seconds="20"
-                    >
-                      <span data-countdown-display>20s</span>
+                      <button phx-click="deny_group" phx-value-agent={agent_id} class="btn btn-error btn-xs gap-1" title="Deny all from this agent">
+                        <.icon name="hero-x-mark" class="h-3 w-3" /> All
+                      </button>
                     </div>
                   </div>
 
-                  <%!-- Description: what this authorization is actually for --%>
-                  <div class="text-xs text-base-content/70 space-y-1">
-                    <%= if gate[:action_detail] do %>
-                      <p><%= gate.action_detail %></p>
-                    <% end %>
-                    <%= if cmd_preview do %>
-                      <pre class="font-mono text-[11px] bg-base-300 rounded px-2 py-1 truncate text-zinc-400"><%= cmd_preview %></pre>
-                    <% end %>
-                    <%= if gate[:approval_reasoning] do %>
-                      <p class="text-amber-300/60 italic"><%= gate.approval_reasoning %></p>
+                  <%!-- Individual requests within the group --%>
+                  <div class="divide-y divide-base-content/5">
+                    <%= for gate <- gates do %>
+                      <% action_type_label = action_type_display(gate[:action_type]) %>
+                      <% cmd_preview = extract_command_preview(gate.params) %>
+                      <div class="px-3 py-2 space-y-1.5" id={"auth-card-#{gate.request_id}"}>
+                        <div class="flex items-start justify-between gap-2">
+                          <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                              <span class={"text-[10px] font-bold px-1 py-0.5 rounded #{action_type_class(gate[:action_type])}"}><%= action_type_label %></span>
+                              <span class="text-xs font-semibold text-base-content"><%= gate.tool_name %></span>
+                              <span class={"badge badge-xs #{risk_badge_class(gate.risk_level)}"}><%= gate.risk_level %></span>
+                            </div>
+                            <%!-- Description context --%>
+                            <%= if gate[:action_detail] do %>
+                              <p class="text-[11px] text-base-content/60 mt-0.5"><%= gate.action_detail %></p>
+                            <% end %>
+                            <%= if cmd_preview do %>
+                              <pre class="font-mono text-[10px] bg-base-300 rounded px-1.5 py-0.5 mt-0.5 truncate text-zinc-400 max-w-lg"><%= cmd_preview %></pre>
+                            <% end %>
+                            <%= if gate[:approval_reasoning] do %>
+                              <p class="text-[10px] text-amber-300/50 italic mt-0.5"><%= gate.approval_reasoning %></p>
+                            <% end %>
+                          </div>
+                          <%!-- Per-item countdown + actions --%>
+                          <div class="flex items-center gap-1.5 shrink-0">
+                            <div
+                              class="text-[10px] text-amber-400/60 font-mono tabular-nums"
+                              phx-hook="CountdownTimer"
+                              id={"countdown-#{gate.request_id}"}
+                              data-seconds="20"
+                            >
+                              <span data-countdown-display>20s</span>
+                            </div>
+                            <button phx-click="approve_gate" phx-value-id={gate.request_id} class="btn btn-success btn-xs btn-square" title="Approve">
+                              <.icon name="hero-check" class="h-3 w-3" />
+                            </button>
+                            <button phx-click="deny_gate" phx-value-id={gate.request_id} class="btn btn-error btn-xs btn-square" title="Deny">
+                              <.icon name="hero-x-mark" class="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     <% end %>
                   </div>
 
-                  <%!-- Actions row: graduated approve/deny options --%>
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <button phx-click="approve_gate" phx-value-id={gate.request_id} class="btn btn-success btn-xs gap-1">
-                      <.icon name="hero-check" class="h-3 w-3" /> Approve
-                    </button>
-                    <div class="dropdown dropdown-top">
-                      <label tabindex="0" class="btn btn-info btn-xs btn-outline gap-1 cursor-pointer">
-                        <.icon name="hero-clock" class="h-3 w-3" /> Allow for...
-                      </label>
-                      <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-36 p-1 shadow-lg border border-base-content/10 mb-1">
-                        <li><button phx-click="approve_for" phx-value-id={gate.request_id} phx-value-minutes="5" class="text-xs">5 minutes</button></li>
-                        <li><button phx-click="approve_for" phx-value-id={gate.request_id} phx-value-minutes="15" class="text-xs">15 minutes</button></li>
-                        <li><button phx-click="approve_for" phx-value-id={gate.request_id} phx-value-minutes="30" class="text-xs">30 minutes</button></li>
-                        <li><button phx-click="approve_for" phx-value-id={gate.request_id} phx-value-minutes="60" class="text-xs">1 hour</button></li>
-                      </ul>
+                  <%!-- Group footer: tool-level always allow/deny --%>
+                  <%= if length(Enum.uniq_by(gates, & &1.tool_name)) > 0 do %>
+                    <div class="px-3 py-1.5 bg-base-300/30 flex items-center gap-1.5 flex-wrap text-[10px]">
+                      <span class="text-base-content/40">Tools:</span>
+                      <%= for tool <- Enum.uniq_by(gates, & &1.tool_name) do %>
+                        <span class="badge badge-xs badge-ghost font-mono"><%= tool.tool_name %></span>
+                        <button phx-click="always_allow_tool" phx-value-id={tool.request_id} class="text-success hover:underline">always allow</button>
+                        <button phx-click="always_deny_tool" phx-value-id={tool.request_id} class="text-error hover:underline">always deny</button>
+                        <span class="text-base-content/20">|</span>
+                      <% end %>
                     </div>
-                    <button phx-click="always_allow_tool" phx-value-id={gate.request_id} class="btn btn-warning btn-xs btn-outline gap-1">
-                      <.icon name="hero-check-badge" class="h-3 w-3" /> Always Allow
-                    </button>
-                    <div class="flex-1"></div>
-                    <button phx-click="deny_gate" phx-value-id={gate.request_id} class="btn btn-error btn-xs gap-1">
-                      <.icon name="hero-x-mark" class="h-3 w-3" /> Deny
-                    </button>
-                    <button phx-click="always_deny_tool" phx-value-id={gate.request_id} class="btn btn-error btn-xs btn-outline gap-1">
-                      Always Deny
-                    </button>
-                  </div>
+                  <% end %>
                 </div>
               <% end %>
             </div>
@@ -795,6 +857,18 @@ defmodule ApmV5Web.AuthorizationLive do
   defp safe_list_rules do
     try do PolicyRulesStore.list_rules() rescue _ -> [] end
   end
+
+  defp group_pending_by_agent(pending) do
+    pending
+    |> Enum.group_by(& &1.agent_id)
+    |> Enum.sort_by(fn {_agent, gates} -> -length(gates) end)
+  end
+
+  defp risk_weight(:critical), do: 4
+  defp risk_weight(:high), do: 3
+  defp risk_weight(:medium), do: 2
+  defp risk_weight(:low), do: 1
+  defp risk_weight(_), do: 0
 
   defp action_type_display(nil), do: "OPERATION"
   defp action_type_display(:destructive), do: "DESTRUCTIVE"

@@ -64,6 +64,11 @@ defmodule ApmV5Web.SkillsLive do
       |> assign(:show_dry_run_modal, false)
       |> assign(:dry_run_skill, nil)
       |> assign(:dry_run_preview, "")
+      |> assign(:view_mode, "grid")
+      |> assign(:group_by, "none")
+      |> assign(:fix_in_progress, false)
+      |> assign(:fix_progress, [])
+      |> assign(:fix_current, nil)
 
     {:ok, socket}
   end
@@ -85,22 +90,15 @@ defmodule ApmV5Web.SkillsLive do
       class="flex h-screen bg-base-300 overflow-hidden"
       phx-window-keydown="keydown"
     >
-      <%!-- Sidebar --%>
-      <nav aria-label="Main navigation">
-        <.sidebar_nav current_path="/skills" skill_count={@active_skill_count} />
-      </nav>
+      <.sidebar_nav current_path="/skills" skill_count={@active_skill_count} />
 
       <%!-- Main area --%>
-      <main
-        id="main-content"
-        role="main"
-        aria-label="Skills dashboard"
-        class="flex-1 flex flex-col overflow-hidden"
-      >
-        <%!-- Top bar --%>
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <%!-- Standard header bar --%>
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
           <div class="flex items-center gap-3">
             <h1 class="text-sm font-semibold text-base-content">Skills</h1>
+            <span class="badge badge-sm badge-primary">{length(@registry_skills)}</span>
             <div
               role="tablist"
               aria-label="Skills views"
@@ -145,9 +143,30 @@ defmodule ApmV5Web.SkillsLive do
             </div>
           </div>
 
-          <div :if={@tab == :registry} class="flex items-center gap-2">
+          <div class="flex items-center gap-2">
+            <%!-- View toggle (registry tab only) --%>
+            <div :if={@tab == :registry} class="btn-group">
+              <button
+                class={["btn btn-xs", @view_mode == "grid" && "btn-active"]}
+                phx-click="set_view_mode"
+                phx-value-mode="grid"
+                aria-label="Grid view"
+                aria-pressed={to_string(@view_mode == "grid")}
+              >
+                <.icon name="hero-squares-2x2" class="size-3.5" />
+              </button>
+              <button
+                class={["btn btn-xs", @view_mode == "list" && "btn-active"]}
+                phx-click="set_view_mode"
+                phx-value-mode="list"
+                aria-label="List view"
+                aria-pressed={to_string(@view_mode == "list")}
+              >
+                <.icon name="hero-list-bullet" class="size-3.5" />
+              </button>
+            </div>
             <span
-              :if={active_filter_count(assigns) > 0}
+              :if={@tab == :registry and active_filter_count(assigns) > 0}
               aria-live="polite"
               aria-atomic="true"
               class="badge badge-xs badge-info"
@@ -155,6 +174,7 @@ defmodule ApmV5Web.SkillsLive do
               {active_filter_count(assigns)} filter{if active_filter_count(assigns) > 1, do: "s", else: ""} active
             </span>
             <button
+              :if={@tab == :registry}
               class={["btn btn-xs btn-primary", @audit_loading && "loading"]}
               phx-click="audit_all"
               disabled={@audit_loading}
@@ -211,6 +231,19 @@ defmodule ApmV5Web.SkillsLive do
               <option value="tdd" selected={@filter_methodology == "tdd"}>TDD</option>
               <option value="elixir_architect" selected={@filter_methodology == "elixir_architect"}>Elixir Architect</option>
             </select>
+
+            <label for="group-by" class="sr-only">Group by</label>
+            <select
+              id="group-by"
+              name="group_by"
+              class="select select-xs select-bordered"
+              aria-label="Group skills by"
+            >
+              <option value="none" selected={@group_by == "none"}>No grouping</option>
+              <option value="tier" selected={@group_by == "tier"}>By Tier</option>
+              <option value="source" selected={@group_by == "source"}>By Source</option>
+              <option value="methodology" selected={@group_by == "methodology"}>By Methodology</option>
+            </select>
           </form>
 
           <button
@@ -224,7 +257,7 @@ defmodule ApmV5Web.SkillsLive do
         </div>
 
         <%!-- Body --%>
-        <div class="flex-1 overflow-y-auto p-4">
+        <main id="main-content" role="main" aria-label="Skills dashboard" class="flex-1 overflow-y-auto p-4">
           <%!-- Registry Tab --%>
           <div
             :if={@tab == :registry}
@@ -273,27 +306,93 @@ defmodule ApmV5Web.SkillsLive do
               Showing {length(@filtered_skills)} of {length(@registry_skills)} skills
             </div>
 
-            <%!-- Tier card sections (critical → needs attention → healthy) --%>
-            <% {healthy, needs_attention, critical} = split_tiers(@filtered_skills) %>
+            <%!-- Batch action bar --%>
+            <%= if MapSet.size(@selected_skills) > 0 do %>
+              <div class="bg-primary/10 border border-primary/20 rounded-lg px-4 py-2 flex items-center justify-between">
+                <span class="text-sm">{MapSet.size(@selected_skills)} selected</span>
+                <div class="flex gap-2">
+                  <button phx-click="batch_fix" class="btn btn-warning btn-xs">Fix Selected</button>
+                  <button phx-click="batch_audit" class="btn btn-info btn-xs">Audit Selected</button>
+                  <button phx-click="clear_selection" class="btn btn-ghost btn-xs">Clear</button>
+                </div>
+              </div>
+            <% end %>
 
-            <.skill_tier_cards
-              tier={:critical}
-              skills={critical}
-              collapsed={Map.get(@collapsed_tiers, :critical, false)}
-              selected={@selected_skill}
-            />
-            <.skill_tier_cards
-              tier={:needs_attention}
-              skills={needs_attention}
-              collapsed={Map.get(@collapsed_tiers, :needs_attention, false)}
-              selected={@selected_skill}
-            />
-            <.skill_tier_cards
-              tier={:healthy}
-              skills={healthy}
-              collapsed={Map.get(@collapsed_tiers, :healthy, true)}
-              selected={@selected_skill}
-            />
+            <%!-- Fix progress panel --%>
+            <%= if @fix_in_progress do %>
+              <div class="bg-base-200 border border-warning/20 rounded-lg p-3 space-y-2">
+                <div class="flex items-center gap-2">
+                  <span class="loading loading-spinner loading-xs text-warning"></span>
+                  <span class="text-sm font-semibold">Fixing skills...</span>
+                  <span class="text-xs text-base-content/50">
+                    {length(Enum.filter(@fix_progress, fn {_, s, _} -> s == :done end))}/{length(@fix_progress)}
+                  </span>
+                </div>
+                <%= for {name, status, msg} <- @fix_progress do %>
+                  <div class="flex items-center gap-2 text-xs">
+                    <%= case status do %>
+                      <% :done -> %><.icon name="hero-check-circle" class="h-4 w-4 text-success" />
+                      <% :running -> %><span class="loading loading-spinner loading-xs"></span>
+                      <% :pending -> %><.icon name="hero-clock" class="h-4 w-4 text-base-content/30" />
+                      <% :error -> %><.icon name="hero-x-circle" class="h-4 w-4 text-error" />
+                    <% end %>
+                    <span class="font-mono">{name}</span>
+                    <span class="text-base-content/50">{msg}</span>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+
+            <%!-- Grouped or flat rendering --%>
+            <%= if @group_by != "none" do %>
+              <%= for {group_name, group_skills} <- group_skills(@filtered_skills, @group_by) do %>
+                <div class="collapse collapse-arrow bg-base-200 mb-2">
+                  <input type="checkbox" checked />
+                  <div class="collapse-title text-sm font-medium">
+                    {group_name} <span class="badge badge-sm">{length(group_skills)}</span>
+                  </div>
+                  <div class="collapse-content">
+                    <%= if @view_mode == "list" do %>
+                      <.skill_list_view skills={group_skills} selected_skills={@selected_skills} selected_skill={@selected_skill} />
+                    <% else %>
+                      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" role="list">
+                        <.skill_card :for={skill <- group_skills} skill={skill} selected_skill={@selected_skill} selected_skills={@selected_skills} />
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            <% else %>
+              <%!-- Flat rendering (no grouping) --%>
+              <%= if @view_mode == "list" do %>
+                <.skill_list_view skills={@filtered_skills} selected_skills={@selected_skills} selected_skill={@selected_skill} />
+              <% else %>
+                <%!-- Tier card sections (critical -> needs attention -> healthy) --%>
+                <% {healthy, needs_attention, critical} = split_tiers(@filtered_skills) %>
+
+                <.skill_tier_cards
+                  tier={:critical}
+                  skills={critical}
+                  collapsed={Map.get(@collapsed_tiers, :critical, false)}
+                  selected={@selected_skill}
+                  selected_skills={@selected_skills}
+                />
+                <.skill_tier_cards
+                  tier={:needs_attention}
+                  skills={needs_attention}
+                  collapsed={Map.get(@collapsed_tiers, :needs_attention, false)}
+                  selected={@selected_skill}
+                  selected_skills={@selected_skills}
+                />
+                <.skill_tier_cards
+                  tier={:healthy}
+                  skills={healthy}
+                  collapsed={Map.get(@collapsed_tiers, :healthy, true)}
+                  selected={@selected_skill}
+                  selected_skills={@selected_skills}
+                />
+              <% end %>
+            <% end %>
 
             <div :if={@registry_skills == []} class="text-center py-12 text-base-content/30">
               <p>No skills found in ~/.claude/skills/</p>
@@ -582,8 +681,8 @@ defmodule ApmV5Web.SkillsLive do
               </div>
             </section>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
 
     <%!-- Skill detail drawer --%>
@@ -1074,6 +1173,54 @@ defmodule ApmV5Web.SkillsLive do
     {:noreply, assign(socket, :tab, String.to_existing_atom(tab))}
   end
 
+  def handle_event("set_view_mode", %{"mode" => mode}, socket) when mode in ~w(grid list) do
+    {:noreply, assign(socket, :view_mode, mode)}
+  end
+
+  def handle_event("toggle_skill_select", %{"name" => name}, socket) do
+    selected =
+      if MapSet.member?(socket.assigns.selected_skills, name),
+        do: MapSet.delete(socket.assigns.selected_skills, name),
+        else: MapSet.put(socket.assigns.selected_skills, name)
+
+    {:noreply, assign(socket, :selected_skills, selected)}
+  end
+
+  def handle_event("clear_selection", _params, socket) do
+    {:noreply, assign(socket, :selected_skills, MapSet.new())}
+  end
+
+  def handle_event("batch_fix", _params, socket) do
+    skills = MapSet.to_list(socket.assigns.selected_skills)
+
+    case skills do
+      [] ->
+        {:noreply, socket}
+
+      [first | _] ->
+        progress = Enum.map(skills, fn name -> {name, :pending, "waiting..."} end)
+        progress = List.replace_at(progress, 0, {first, :running, "fixing..."})
+        parent = self()
+
+        Task.start(fn ->
+          result = ActionEngine.run_action("fix_skill_frontmatter", "", %{"skill_name" => first})
+          send(parent, {:fix_step_complete, first, result})
+        end)
+
+        {:noreply,
+         assign(socket,
+           fix_in_progress: true,
+           fix_progress: progress,
+           fix_current: first
+         )}
+    end
+  end
+
+  def handle_event("batch_audit", _params, socket) do
+    SkillsRegistryStore.refresh_all()
+    {:noreply, assign(socket, audit_loading: true, selected_skills: MapSet.new())}
+  end
+
   def handle_event("audit_all", _params, socket) do
     SkillsRegistryStore.refresh_all()
     {:noreply, assign(socket, :audit_loading, true)}
@@ -1119,18 +1266,8 @@ defmodule ApmV5Web.SkillsLive do
     {:noreply, assign(socket, page: clamped, selected_skills: MapSet.new())}
   end
 
-  def handle_event("toggle_select_skill", %{"skill" => name}, socket) do
-    selected =
-      if MapSet.member?(socket.assigns.selected_skills, name),
-        do: MapSet.delete(socket.assigns.selected_skills, name),
-        else: MapSet.put(socket.assigns.selected_skills, name)
-
-    {:noreply, assign(socket, selected_skills: selected)}
-  end
-
   def handle_event("select_all", _params, socket) do
-    page_skills = paginated_skills(socket.assigns.filtered_skills, socket.assigns.page, socket.assigns.per_page)
-    names = Enum.map(page_skills, & &1.name) |> MapSet.new()
+    names = Enum.map(socket.assigns.filtered_skills, & &1.name) |> MapSet.new()
 
     selected =
       if MapSet.subset?(names, socket.assigns.selected_skills),
@@ -1332,6 +1469,7 @@ defmodule ApmV5Web.SkillsLive do
       |> assign(:search_query, Map.get(params, "search", ""))
       |> assign(:filter_tier, Map.get(params, "tier", "all"))
       |> assign(:filter_methodology, Map.get(params, "methodology", "all"))
+      |> assign(:group_by, Map.get(params, "group_by", socket.assigns.group_by))
       |> apply_filters()
 
     {:noreply, socket}
@@ -1343,6 +1481,7 @@ defmodule ApmV5Web.SkillsLive do
       |> assign(:search_query, "")
       |> assign(:filter_tier, "all")
       |> assign(:filter_methodology, "all")
+      |> assign(:group_by, "none")
       |> apply_filters()
 
     {:noreply, socket}
@@ -1376,6 +1515,45 @@ defmodule ApmV5Web.SkillsLive do
     {:noreply, assign(socket, fix_preview: preview, fix_preview_loading: false)}
   end
 
+  def handle_info({:fix_step_complete, name, _result}, socket) do
+    progress = socket.assigns.fix_progress
+    # Mark completed skill as done
+    progress =
+      Enum.map(progress, fn
+        {^name, :running, _msg} -> {name, :done, "complete"}
+        other -> other
+      end)
+
+    # Find next pending skill
+    next =
+      Enum.find(progress, fn
+        {_n, :pending, _m} -> true
+        _ -> false
+      end)
+
+    case next do
+      {next_name, :pending, _msg} ->
+        progress =
+          Enum.map(progress, fn
+            {^next_name, :pending, _m} -> {next_name, :running, "fixing..."}
+            other -> other
+          end)
+
+        parent = self()
+
+        Task.start(fn ->
+          result = ActionEngine.run_action("fix_skill_frontmatter", "", %{"skill_name" => next_name})
+          send(parent, {:fix_step_complete, next_name, result})
+        end)
+
+        {:noreply, assign(socket, fix_progress: progress, fix_current: next_name)}
+
+      nil ->
+        # All done
+        {:noreply, assign(socket, fix_progress: progress, fix_in_progress: false, fix_current: nil)}
+    end
+  end
+
   def handle_info({:skill_tracked, _session_id, _skill_name}, socket) do
     active_session = socket.assigns.active_session
     session_skills = if active_session, do: SkillTracker.get_session_skills(active_session), else: %{}
@@ -1407,8 +1585,11 @@ defmodule ApmV5Web.SkillsLive do
   attr :skills, :list, required: true
   attr :collapsed, :boolean, default: false
   attr :selected, :any, default: nil
+  attr :selected_skills, :any, default: nil
 
   defp skill_tier_cards(assigns) do
+    assigns = assign(assigns, :selected_skills, assigns[:selected_skills] || MapSet.new())
+
     ~H"""
     <section
       :if={@skills != []}
@@ -1440,45 +1621,117 @@ defmodule ApmV5Web.SkillsLive do
         role="list"
         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
       >
-        <article
-          :for={skill <- @skills}
-          role="listitem"
-          class={[
-            "card bg-base-200 border border-base-300 p-3 cursor-pointer",
-            "hover:border-primary/50 hover:bg-base-300 transition-colors",
-            @selected && @selected.name == skill.name && "border-primary bg-primary/5"
-          ]}
-          phx-click="select_skill"
-          phx-value-name={skill.name}
-          tabindex="0"
-          phx-keydown={JS.push("select_skill", value: %{name: skill.name})}
-          phx-key="Enter"
-          aria-label={"#{skill.name}: #{health_label(skill.health_score)}, score #{skill.health_score}"}
-        >
-          <div class="flex items-start gap-3">
-            <div class="flex-shrink-0 mt-0.5">
-              {health_ring(skill.health_score)}
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="text-sm font-semibold truncate">{skill.name}</span>
-              </div>
-              <p class="text-[11px] text-base-content/60 line-clamp-2 mb-2">
-                {skill.description || "No description"}
-              </p>
-              <div class="flex items-center gap-1 flex-wrap">
-                <span class={["badge badge-xs", desc_quality_badge(skill.description_quality)]}>
-                  {skill.description_quality}
-                </span>
-                <span class="text-[10px] text-base-content/40">
-                  {format_modified(skill.last_modified)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </article>
+        <.skill_card :for={skill <- @skills} skill={skill} selected_skill={@selected} selected_skills={@selected_skills} />
       </div>
     </section>
+    """
+  end
+
+  attr :skill, :map, required: true
+  attr :selected_skill, :any, default: nil
+  attr :selected_skills, :any, default: nil
+
+  defp skill_card(assigns) do
+    assigns = assign(assigns, :selected_skills, assigns[:selected_skills] || MapSet.new())
+
+    ~H"""
+    <article
+      role="listitem"
+      class={[
+        "card bg-base-200 border border-base-300 p-3 cursor-pointer",
+        "hover:border-primary/50 hover:bg-base-300 transition-colors",
+        @selected_skill && @selected_skill.name == @skill.name && "border-primary bg-primary/5",
+        MapSet.member?(@selected_skills, @skill.name) && "ring-1 ring-primary/40"
+      ]}
+      phx-click="select_skill"
+      phx-value-name={@skill.name}
+      tabindex="0"
+      phx-keydown={JS.push("select_skill", value: %{name: @skill.name})}
+      phx-key="Enter"
+      aria-label={"#{@skill.name}: #{health_label(@skill.health_score)}, score #{@skill.health_score}"}
+    >
+      <div class="flex items-start gap-3">
+        <div class="flex-shrink-0 mt-1">
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs checkbox-primary"
+            checked={MapSet.member?(@selected_skills, @skill.name)}
+            phx-click="toggle_skill_select"
+            phx-value-name={@skill.name}
+          />
+        </div>
+        <div class="flex-shrink-0 mt-0.5">
+          {health_ring(@skill.health_score)}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm font-semibold truncate">{@skill.name}</span>
+          </div>
+          <p class="text-[11px] text-base-content/60 line-clamp-2 mb-2">
+            {@skill.description || "No description"}
+          </p>
+          <div class="flex items-center gap-1 flex-wrap">
+            <span class={["badge badge-xs", desc_quality_badge(@skill.description_quality)]}>
+              {@skill.description_quality}
+            </span>
+            <span class="text-[10px] text-base-content/40">
+              {format_modified(@skill.last_modified)}
+            </span>
+          </div>
+        </div>
+      </div>
+    </article>
+    """
+  end
+
+  attr :skills, :list, required: true
+  attr :selected_skills, :any, required: true
+  attr :selected_skill, :any, default: nil
+
+  defp skill_list_view(assigns) do
+    ~H"""
+    <div class="overflow-x-auto">
+      <table class="table table-xs table-zebra w-full" aria-label="Skills list">
+        <thead>
+          <tr class="text-[10px] uppercase tracking-wider text-base-content/40">
+            <th class="w-8"><input type="checkbox" class="checkbox checkbox-xs" phx-click="select_all" /></th>
+            <th>Name</th>
+            <th>Tier</th>
+            <th>Health</th>
+            <th>Source</th>
+            <th>Triggers</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            :for={skill <- @skills}
+            class={["hover cursor-pointer", MapSet.member?(@selected_skills, skill.name) && "bg-primary/10"]}
+            phx-click="select_skill"
+            phx-value-name={skill.name}
+          >
+            <td>
+              <input
+                type="checkbox"
+                class="checkbox checkbox-xs checkbox-primary"
+                checked={MapSet.member?(@selected_skills, skill.name)}
+                phx-click="toggle_skill_select"
+                phx-value-name={skill.name}
+              />
+            </td>
+            <td class="font-mono text-xs">{skill.name}</td>
+            <td><span class={["badge badge-xs", skill_tier_badge_class(skill)]}>{skill_tier_label(skill)}</span></td>
+            <td class="tabular-nums">{skill.health_score || "-"}</td>
+            <td class="text-xs text-base-content/50">{Map.get(skill, :source, "user")}</td>
+            <td class="tabular-nums">{Map.get(skill, :trigger_count, 0)}</td>
+            <td class="text-xs text-base-content/60 truncate max-w-xs">{skill.description || "-"}</td>
+          </tr>
+          <tr :if={@skills == []}>
+            <td colspan="7" class="text-center text-base-content/30 py-6">No skills match filters</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     """
   end
 
@@ -1561,6 +1814,60 @@ defmodule ApmV5Web.SkillsLive do
     end)
   end
 
+  defp group_skills(skills, "tier") do
+    skills
+    |> Enum.group_by(fn skill ->
+      cond do
+        skill.health_score >= 80 -> "Healthy"
+        skill.health_score >= 50 -> "Needs Attention"
+        true -> "Critical"
+      end
+    end)
+    |> Enum.sort_by(fn {group, _} ->
+      case group do
+        "Critical" -> 0
+        "Needs Attention" -> 1
+        "Healthy" -> 2
+        _ -> 3
+      end
+    end)
+  end
+
+  defp group_skills(skills, "source") do
+    skills
+    |> Enum.group_by(fn skill -> Map.get(skill, :source, "user") |> to_string() end)
+    |> Enum.sort_by(fn {group, _} -> group end)
+  end
+
+  defp group_skills(skills, "methodology") do
+    skills
+    |> Enum.group_by(fn skill ->
+      case methodology_for_skill(skill.name) do
+        nil -> "None"
+        m -> m |> to_string() |> String.capitalize()
+      end
+    end)
+    |> Enum.sort_by(fn {group, _} -> group end)
+  end
+
+  defp group_skills(skills, _), do: [{"All", skills}]
+
+  defp skill_tier_badge_class(skill) do
+    cond do
+      skill.health_score >= 80 -> "badge-success"
+      skill.health_score >= 50 -> "badge-warning"
+      true -> "badge-error"
+    end
+  end
+
+  defp skill_tier_label(skill) do
+    cond do
+      skill.health_score >= 80 -> "healthy"
+      skill.health_score >= 50 -> "attention"
+      true -> "critical"
+    end
+  end
+
   defp split_tiers(skills) do
     healthy = Enum.filter(skills, &(&1.health_score >= 80))
     needs_attention = Enum.filter(skills, &(&1.health_score in 50..79))
@@ -1572,7 +1879,8 @@ defmodule ApmV5Web.SkillsLive do
     [
       assigns.search_query != "",
       assigns.filter_tier != "all",
-      assigns.filter_methodology != "all"
+      assigns.filter_methodology != "all",
+      assigns.group_by != "none"
     ]
     |> Enum.count(& &1)
   end
@@ -1743,13 +2051,6 @@ defmodule ApmV5Web.SkillsLive do
   defp ag_ui_text_class(score) when score >= 50, do: "text-warning"
   defp ag_ui_text_class(_), do: "text-error"
 
-  defp total_pages(skills, per_page) when per_page > 0, do: max(1, ceil(length(skills) / per_page))
-  defp total_pages(_, _), do: 1
-
-  defp paginated_skills(skills, page, per_page) do
-    start = (page - 1) * per_page
-    Enum.slice(skills, start, per_page)
-  end
 
   defp build_dry_run_preview(nil), do: "No skill selected."
 

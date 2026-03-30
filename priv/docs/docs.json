@@ -1,5 +1,5 @@
 {
-  "version": "8.10.0",
+  "version": "8.11.0",
   "title": "CCEM APM Documentation",
   "categories": [
     {
@@ -21,7 +21,7 @@
           "slug": "changelog",
           "title": "Changelog",
           "file": "changelog.md",
-          "description": "Version history: v8.10.0 Auto-Approval + Command Context + Dashboard Widgets + Agent Alignment, v8.9.0 platform refactor, v8.7.0 SimpleAgents plugin, v8.6.0 AgentLock notification reliability, v7.0.0 AgentLock authorization protocol, v6.4.0 Skills UX overhaul",
+          "description": "Version history: v8.11.0 Authorization UX Redesign + Plugin Expansion + Library Dashboard + Session Filters, v8.10.0 Auto-Approval + Command Context + Dashboard Widgets, v8.9.0 platform refactor, v8.7.0 SimpleAgents plugin, v8.6.0 AgentLock notification reliability, v7.0.0 AgentLock authorization protocol",
           "icon": "hero-clipboard-document-list",
           "order": 1,
           "tags": ["changelog", "releases", "history"]
@@ -136,7 +136,7 @@
           "slug": "developer/architecture",
           "title": "System Architecture",
           "file": "developer/architecture.md",
-          "description": "OTP supervision tree, GenServer stores (AutoApprovalStore + WidgetRegistry + LayoutStore v8.10.0, PlanePmAlign v8.9.0, auth modules v7.0.0, ClaudeUsageStore v6.4.0, ShowcaseDataStore v6.0.0, SkillsRegistryStore v4.2.0, AgentActivityLog v6.1.0), ETS tables, PubSub topics, data flow",
+          "description": "OTP supervision tree, GenServer stores (LibraryStore + PluginRepositoryStore v8.11.0, AutoApprovalStore + WidgetRegistry + LayoutStore v8.10.0, PlanePmAlign v8.9.0, auth modules v7.0.0, ClaudeUsageStore v6.4.0, ShowcaseDataStore v6.0.0, SkillsRegistryStore v4.2.0, AgentActivityLog v6.1.0), ETS tables, PubSub topics, data flow",
           "icon": "hero-building-library",
           "order": 0,
           "tags": ["architecture", "otp", "genserver", "design"]
@@ -145,7 +145,7 @@
           "slug": "developer/api-reference",
           "title": "REST API Reference",
           "file": "developer/api-reference.md",
-          "description": "Complete REST API: Auto-Approval Policies (v8.10.0), Plane-PM Align (v8.9.0), authorization (v7.0.0), agents, notifications, UPM, formations, showcase, activity log (v6.1.0), domain controllers (v6.2.0), ports, usage (v6.4.0), skills, config, export/import",
+          "description": "Complete REST API: Plugin Repositories + CC Plugin Bridge + Library (v8.11.0), Auto-Approval Policies (v8.10.0), Plane-PM Align (v8.9.0), authorization (v7.0.0), agents, notifications, UPM, formations, showcase, activity log (v6.1.0), domain controllers (v6.2.0), ports, usage (v6.4.0), skills, config, export/import",
           "icon": "hero-globe-alt",
           "order": 1,
           "tags": ["api", "rest", "endpoints", "websocket", "authorization"]

@@ -1,7 +1,9 @@
 # REST API Reference
 
-Complete API endpoint documentation for CCEM APM v8.10.1. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
+Complete API endpoint documentation for CCEM APM v8.11.0. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
 
+> **v8.11.0 additions**: Plugin Repository API (`/api/v2/plugins/repositories`) for managing plugin sources. Claude Code Plugin Bridge (`/api/v2/plugins/cc/*`) for discovering CC ecosystem plugins. Library API (`/api/v2/library/*`) for the 7-tab resource catalog.
+>
 > **v8.10.1 additions**: Usage Limits API (`GET /api/usage/limits`) with model capability data and utilization. API Key Management (`/api/v2/auth/api-keys`) CRUD. Claude Code Discovery plugin at `/plugins/claude-code`. LVM Status integration at `/integrations/lvm`.
 >
 > **v8.10.0 additions**: Auto-Approval Policies API (`/api/v2/auth/auto-approval-policies`) with 6 endpoints for hierarchical scope matching policy CRUD + test-match dry-run. `CommandContextExtractor` enriches all pending approvals with `action_type`, `action_detail`, and `approval_reasoning`.
@@ -2156,6 +2158,262 @@ Response:
   "issues_synced": 42,
   "duration_ms": 312
 }
+```
+
+---
+
+## Claude Code Plugin Bridge Endpoints (v8.11.0)
+
+Discover plugins from the Claude Code ecosystem via `ClaudeCodePluginBridge`.
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| GET | `/api/v2/plugins/cc/plugins` | List all discovered Claude Code plugins |
+| GET | `/api/v2/plugins/cc/summary` | Summary of Claude Code plugin ecosystem |
+
+### GET /api/v2/plugins/cc/plugins
+
+Returns all plugins discovered from the Claude Code ecosystem (MCP servers, hooks, skills).
+
+```bash
+curl http://localhost:3032/api/v2/plugins/cc/plugins
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "plugins": [
+    {
+      "name": "agent-browser",
+      "type": "mcp_server",
+      "source": "claude_code",
+      "status": "active"
+    }
+  ],
+  "total": 12
+}
+```
+
+### GET /api/v2/plugins/cc/summary
+
+Returns a summary with counts by type and scope.
+
+```bash
+curl http://localhost:3032/api/v2/plugins/cc/summary
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "total": 12,
+  "by_type": {"mcp_server": 5, "hook": 4, "skill": 3},
+  "by_scope": {"user": 8, "project": 4}
+}
+```
+
+---
+
+## Plugin Repository Endpoints (v8.11.0)
+
+Manage plugin repository sources via `PluginRepositoryStore`.
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| GET | `/api/v2/plugins/repositories` | List all plugin repositories |
+| POST | `/api/v2/plugins/repositories` | Register a new plugin repository |
+| GET | `/api/v2/plugins/repositories/:id` | Get repository details |
+| PATCH | `/api/v2/plugins/repositories/:id` | Update repository metadata |
+| DELETE | `/api/v2/plugins/repositories/:id` | Remove a repository |
+
+### GET /api/v2/plugins/repositories
+
+List all registered plugin repositories.
+
+```bash
+curl http://localhost:3032/api/v2/plugins/repositories
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "repositories": [
+    {
+      "id": "repo-abc123",
+      "name": "ccem-core",
+      "url": "https://github.com/peguesj/ccem-plugins",
+      "scope": "apm",
+      "plugin_count": 8,
+      "last_synced_at": "2026-03-30T10:00:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+### POST /api/v2/plugins/repositories
+
+Register a new plugin repository.
+
+```bash
+curl -X POST http://localhost:3032/api/v2/plugins/repositories \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "custom-plugins",
+    "url": "https://github.com/org/plugins",
+    "scope": "ccem"
+  }'
+```
+
+Response (201):
+
+```json
+{
+  "ok": true,
+  "repository": {
+    "id": "repo-xyz789",
+    "name": "custom-plugins",
+    "url": "https://github.com/org/plugins",
+    "scope": "ccem"
+  }
+}
+```
+
+### PATCH /api/v2/plugins/repositories/:id
+
+Update repository metadata.
+
+```bash
+curl -X PATCH http://localhost:3032/api/v2/plugins/repositories/repo-xyz789 \
+  -H "Content-Type: application/json" \
+  -d '{"name": "updated-name"}'
+```
+
+### DELETE /api/v2/plugins/repositories/:id
+
+Remove a registered repository.
+
+```bash
+curl -X DELETE http://localhost:3032/api/v2/plugins/repositories/repo-xyz789
+```
+
+Response:
+
+```json
+{"ok": true, "id": "repo-xyz789", "status": "deleted"}
+```
+
+---
+
+## Library Endpoints (v8.11.0)
+
+The Library dashboard provides a 7-tab resource catalog backed by `LibraryStore` GenServer.
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| GET | `/api/v2/library/agents` | List all registered agents |
+| GET | `/api/v2/library/skills` | List all tracked skills |
+| GET | `/api/v2/library/mcp` | List all MCP server configurations |
+| GET | `/api/v2/library/tools` | List all available tools |
+| GET | `/api/v2/library/commands` | List all slash commands |
+| GET | `/api/v2/library/patterns` | List all discovered patterns |
+| GET | `/api/v2/library/learnings` | List all captured learnings |
+
+### GET /api/v2/library/agents
+
+Returns all agents from the library catalog.
+
+```bash
+curl http://localhost:3032/api/v2/library/agents
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "agents": [
+    {
+      "id": "orchestrator-agent",
+      "name": "Master Orchestrator",
+      "type": "orchestrator",
+      "source": "manifest",
+      "description": "Master compound request decomposition"
+    }
+  ],
+  "total": 67
+}
+```
+
+### GET /api/v2/library/skills
+
+Returns all skills with health scores and metadata.
+
+```bash
+curl http://localhost:3032/api/v2/library/skills
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "skills": [
+    {
+      "name": "upm",
+      "health_score": 92,
+      "tier": "healthy",
+      "triggers": ["upm", "/upm"],
+      "last_invoked": "2026-03-30T10:00:00Z"
+    }
+  ],
+  "total": 45
+}
+```
+
+### GET /api/v2/library/mcp
+
+Returns all MCP server configurations.
+
+```bash
+curl http://localhost:3032/api/v2/library/mcp
+```
+
+### GET /api/v2/library/tools
+
+Returns all available tools across agents and MCP servers.
+
+```bash
+curl http://localhost:3032/api/v2/library/tools
+```
+
+### GET /api/v2/library/commands
+
+Returns all registered slash commands.
+
+```bash
+curl http://localhost:3032/api/v2/library/commands
+```
+
+### GET /api/v2/library/patterns
+
+Returns discovered patterns from agent execution history.
+
+```bash
+curl http://localhost:3032/api/v2/library/patterns
+```
+
+### GET /api/v2/library/learnings
+
+Returns captured learnings from agent sessions.
+
+```bash
+curl http://localhost:3032/api/v2/library/learnings
 ```
 
 ---

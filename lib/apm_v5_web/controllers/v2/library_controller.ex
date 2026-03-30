@@ -8,7 +8,8 @@ defmodule ApmV5Web.V2.LibraryController do
     GET /api/v2/library/skills    -- all cataloged skills
     GET /api/v2/library/commands  -- all cataloged commands
     GET /api/v2/library/mcp       -- all MCP server configurations
-    GET /api/v2/library/tools     -- all tools and hooks
+    GET /api/v2/library/tools     -- all tools
+    GET /api/v2/library/hooks     -- all hooks (filesystem + configured + user)
     GET /api/v2/library/patterns  -- all reusable patterns
     GET /api/v2/library/learnings -- all memory/learning files
     POST /api/v2/library/refresh  -- trigger a full rescan
@@ -25,7 +26,7 @@ defmodule ApmV5Web.V2.LibraryController do
     json(conn, %{
       data: summary,
       total: summary.agents + summary.skills + summary.mcp_servers +
-             summary.tools + summary.commands + summary.patterns + summary.learnings
+             summary.tools + Map.get(summary, :hooks, 0) + summary.commands + summary.patterns + summary.learnings
     })
   end
 
@@ -56,6 +57,12 @@ defmodule ApmV5Web.V2.LibraryController do
   @doc "GET /api/v2/library/tools -- all tools and hooks"
   def tools(conn, _params) do
     items = LibraryStore.list_tools()
+    json(conn, %{data: items, count: length(items)})
+  end
+
+  @doc "GET /api/v2/library/hooks -- all hooks"
+  def hooks(conn, _params) do
+    items = LibraryStore.list_hooks()
     json(conn, %{data: items, count: length(items)})
   end
 
