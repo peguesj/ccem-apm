@@ -19,7 +19,8 @@ defmodule ApmV5Web.SessionManagerLive do
   def mount(params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:sessions")
-      Process.send_after(self(), :refresh, @refresh_ms)
+      # Immediate refresh after 1s to catch sessions that loaded after initial mount
+      Process.send_after(self(), :refresh, 1_000)
     end
 
     sessions = SessionManager.list_sessions()
