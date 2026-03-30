@@ -1,8 +1,32 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file. Latest: v8.9.0 Platform refactor (modular sidebar, agent identity, formation grouping, Plane-PM align, notification buffer), v8.7.0 SimpleAgents plugin, v8.6.0 AgentLock notification reliability, v8.5.0 AgentLock gate notifications + 20s timeout + namespace UX, v7.0.0 AgentLock authorization protocol, v6.4.0 Skills UX overhaul, v6.3.0 Claude usage management, v6.2.0 domain controllers, v6.1.0 observability, v6.0.0 CCEM UI + port management.
+All notable changes to CCEM APM are documented in this file. Latest: v8.10.0 Auto-Approval Policies + Command Context Enrichment + Dashboard Widgets + Agent Alignment + LVM Foundation.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [8.10.0] - 2026-03-30
+
+Agent Alignment Registry, Dashboard Widgets, AutoApproval Policies, Command Context Enrichment, LVM Integration Foundation.
+
+### Added
+- **`ApmV5.Auth.AutoApprovalStore`** GenServer — hierarchical scope matching for automatic tool approval. ETS-backed with TTL expiration every 30s. AND logic: all specified scopes (agent_id, formation_id, session_id, project) must match. Precedence: agent > formation > session > project. Supports `allowed_tools`, `allowed_risk_levels`, `allow_action_types` filtering. 313 LOC, 27 tests.
+- **`ApmV5Web.V2.AutoApprovalController`** — 6 REST endpoints at `/api/v2/auth/auto-approval-policies`: list, create, show, update, delete, test-match (dry-run policy matching).
+- **`ApmV5.Auth.CommandContextExtractor`** — tool-agnostic command intent analysis. Classifies bash, SQL, file, network operations as `:destructive`, `:write`, `:read`, or `:unknown`. 40+ regex patterns for common commands. Returns `action_type`, `action_detail`, `risk_rationale`, `approval_reasoning`. 388 LOC, 28 tests.
+- **`PendingDecisions` command context enrichment** — all escalated approval requests now include `action_type`, `action_detail`, `risk_rationale`, `approval_reasoning` fields from `CommandContextExtractor.analyze/2`. Human-readable notification body with command-specific context.
+- **`AuthorizationGate` auto-approval pipeline** — checks `AutoApprovalStore.find_matching/6` before escalating to human approval. Auto-approved requests issue tokens and increment policy counters. Broadcasts `:auth_auto_approved` events.
+- **`ApmV5.WidgetRegistry`** GenServer — ETS-backed registry for 8 core dashboard widgets: agent_fleet, formation_monitor, notification_hub, upm_status, metrics_overview, skill_health, port_status, recent_activity. Plugin-extensible via `register_widget/1`. Widget schema includes category, source_module, refresh_interval, grid dimensions, config_schema.
+- **`ApmV5.LayoutStore`** GenServer — 6 built-in layout presets (Default, Compact, Detailed, Analyst, Operator, Developer) + 12 scenario presets loaded from `priv/dashboard/presets.json`. Per-session user layouts in ETS. 12-column CSS grid coordinate system with responsive breakpoints.
+- **`ApmV5.AgentIdentity`** module — agent manifest and alignment utilities. 67-agent registry with referential integrity validation across GenServers, supervisors, plugins, and integrations.
+- **`ApmV5Web.AlignmentLive`** at `/alignment` — agent alignment dashboard with D3.js dependency graph visualization.
+
+### Changed
+- `mix.exs`: version bumped 8.9.0 -> 8.10.0
+- `@server_version` in `ApiController`: 8.9.0 -> 8.10.0
+- `@app_version` in `SidebarNav`: 8.9.0 -> 8.10.0
+- `AuthorizationGate.authorize/5`: auto-approval check inserted before PendingDecisions escalation
+- `PendingDecisions.add/5`: CommandContextExtractor enrichment on every escalation
 
 ---
 

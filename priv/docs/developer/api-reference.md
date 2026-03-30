@@ -1,7 +1,9 @@
 # REST API Reference
 
-Complete API endpoint documentation for CCEM APM v8.9.0. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
+Complete API endpoint documentation for CCEM APM v8.10.0. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
 
+> **v8.10.0 additions**: Auto-Approval Policies API (`/api/v2/auth/auto-approval-policies`) with 6 endpoints for hierarchical scope matching policy CRUD + test-match dry-run. `CommandContextExtractor` enriches all pending approvals with `action_type`, `action_detail`, and `approval_reasoning`.
+>
 > **v8.9.0 additions**: Plane-PM Align API (`/api/v2/plane/sync-status`, `/api/v2/plane/sync`) for persistent Plane sync status and on-demand sync trigger.
 >
 > **v7.0.0 additions**: AgentLock Authorization API (`/api/v2/auth/*`) with 19 endpoints for token management, policy CRUD, session control, rate limiting, context inspection, and redaction preview.

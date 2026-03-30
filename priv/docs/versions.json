@@ -1,6 +1,34 @@
 {
-  "latest": "8.9.0",
+  "latest": "8.10.0",
   "versions": [
+    {
+      "version": "8.10.0",
+      "date": "2026-03-30",
+      "label": "v8.10.0 -- Auto-Approval + Command Context + Dashboard Widgets",
+      "summary": "AutoApprovalStore GenServer, CommandContextExtractor, WidgetRegistry, LayoutStore, AgentIdentity alignment, LVM integration foundation.",
+      "features": [
+        "AutoApprovalStore: hierarchical scope matching (agent > formation > session > project) with AND logic, TTL expiry, ETS-backed",
+        "AutoApproval REST API: 6 endpoints at /api/v2/auth/auto-approval-policies (CRUD + test-match)",
+        "CommandContextExtractor: 40+ patterns for bash/SQL/file/network ops, returns action_type/action_detail/approval_reasoning",
+        "PendingDecisions enrichment: all escalations include command context (action_type, action_detail, risk_rationale)",
+        "AuthorizationGate auto-approval pipeline: checks AutoApprovalStore before escalating to human",
+        "WidgetRegistry: 8 core dashboard widgets, plugin-extensible, ETS-backed with schema validation",
+        "LayoutStore: 6 presets + 12 scenario layouts, 12-column CSS grid, per-session user layouts",
+        "AgentIdentity: 67-agent manifest with referential integrity validation",
+        "AlignmentLive: /alignment dashboard with D3.js dependency graph"
+      ],
+      "new_endpoints": [
+        "GET /api/v2/auth/auto-approval-policies",
+        "POST /api/v2/auth/auto-approval-policies",
+        "GET /api/v2/auth/auto-approval-policies/:id",
+        "PATCH /api/v2/auth/auto-approval-policies/:id",
+        "DELETE /api/v2/auth/auto-approval-policies/:id",
+        "POST /api/v2/auth/auto-approval-policies/test-match"
+      ],
+      "new_pages": [
+        "/alignment"
+      ]
+    },
     {
       "version": "8.9.0",
       "date": "2026-03-28",

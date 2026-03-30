@@ -43,3 +43,4 @@ archive/
 .worktrees/
 assets/.claude/
 .claude/worktrees/
+.DS_Store
