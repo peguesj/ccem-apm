@@ -359,10 +359,53 @@ defmodule ApmV5Web.AuthorizationLive do
     {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
   end
 
+  # ── Keyboard shortcut handlers ──────────────────────────────────────────────
+  # Enter → approve first pending (only when panel visible)
+  # Escape → minimize panel (dismiss, not deny)
+  # Ctrl+D → deny first pending
+
+  @impl true
+  def handle_event("auth_keydown", %{"key" => "Enter"}, socket) do
+    if socket.assigns.pending != [] and not socket.assigns.modal_minimized and not socket.assigns.auth_dismissed do
+      [top | _] = socket.assigns.pending
+      PendingDecisions.decide(top.request_id, :approve)
+      {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+    else
+      # Minimized toast bar: Enter also approves first pending
+      if socket.assigns.pending != [] and socket.assigns.modal_minimized and not socket.assigns.auth_dismissed do
+        [top | _] = socket.assigns.pending
+        PendingDecisions.decide(top.request_id, :approve)
+        {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+      else
+        {:noreply, socket}
+      end
+    end
+  end
+
+  def handle_event("auth_keydown", %{"key" => "Escape"}, socket) do
+    if socket.assigns.pending != [] and not socket.assigns.auth_dismissed do
+      {:noreply, assign(socket, modal_minimized: true)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("auth_keydown", %{"key" => "d", "ctrlKey" => true}, socket) do
+    if socket.assigns.pending != [] and not socket.assigns.auth_dismissed do
+      [top | _] = socket.assigns.pending
+      PendingDecisions.decide(top.request_id, :deny)
+      {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("auth_keydown", _params, socket), do: {:noreply, socket}
+
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
+    <div class="flex h-screen bg-base-300 overflow-hidden" phx-window-keydown="auth_keydown">
       <.sidebar_nav current_path="/authorization" />
 
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -397,7 +440,7 @@ defmodule ApmV5Web.AuthorizationLive do
                   <button phx-click="dismiss_all_pending" class="btn btn-ghost btn-xs text-zinc-500 hover:text-red-400" title="Deny all">
                     Deny All
                   </button>
-                  <button phx-click="toggle_modal_minimize" class="btn btn-ghost btn-xs btn-square" title="Minimize to toast">
+                  <button phx-click="toggle_modal_minimize" class="btn btn-ghost btn-xs btn-square" title="Minimize (Esc)">
                     <.icon name="hero-minus" class="h-3.5 w-3.5" />
                   </button>
                   <button phx-click="dismiss_auth" class="btn btn-ghost btn-xs btn-square" title="Dismiss (stays in Pending tab)">
@@ -485,11 +528,11 @@ defmodule ApmV5Web.AuthorizationLive do
                             >
                               <span data-countdown-display>20s</span>
                             </div>
-                            <button phx-click="approve_gate" phx-value-id={gate.request_id} class="btn btn-success btn-xs btn-square" title="Approve">
-                              <.icon name="hero-check" class="h-3 w-3" />
+                            <button phx-click="approve_gate" phx-value-id={gate.request_id} class="btn btn-success btn-xs gap-1" title="Approve (Enter)">
+                              <.icon name="hero-check" class="h-3 w-3" /> <kbd class="kbd kbd-xs ml-0.5 opacity-60">↵</kbd>
                             </button>
-                            <button phx-click="deny_gate" phx-value-id={gate.request_id} class="btn btn-error btn-xs btn-square" title="Deny">
-                              <.icon name="hero-x-mark" class="h-3 w-3" />
+                            <button phx-click="deny_gate" phx-value-id={gate.request_id} class="btn btn-error btn-xs gap-1" title="Deny (Ctrl+D)">
+                              <.icon name="hero-x-mark" class="h-3 w-3" /> <kbd class="kbd kbd-xs ml-0.5 opacity-60">ctrl+d</kbd>
                             </button>
                           </div>
                         </div>
@@ -544,6 +587,8 @@ defmodule ApmV5Web.AuthorizationLive do
                 <% end %>
               </div>
               <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                <kbd class="kbd kbd-xs opacity-40">↵ approve</kbd>
+                <kbd class="kbd kbd-xs opacity-40">esc dismiss</kbd>
                 <button phx-click="approve_gate" phx-value-id={top.request_id} class="btn btn-success btn-xs">Approve</button>
                 <button phx-click="deny_gate" phx-value-id={top.request_id} class="btn btn-error btn-xs">Deny</button>
                 <%= if length(@pending) > 1 do %>
