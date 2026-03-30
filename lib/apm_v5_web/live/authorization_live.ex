@@ -9,7 +9,6 @@ defmodule ApmV5Web.AuthorizationLive do
   use ApmV5Web, :live_view
 
   alias ApmV5.Auth.{AuthorizationGate, SessionStore, PendingDecisions, PolicyRulesStore}
-  alias ApmV5.Notifications.ActionSchema
   alias ApmV5.NamespaceResolver
 
   @refresh_ms 5_000
@@ -524,7 +523,7 @@ defmodule ApmV5Web.AuthorizationLive do
                 <.icon name="hero-shield-exclamation" class="h-4 w-4 text-amber-400 shrink-0" />
                 <% [top | _rest] = @pending %>
                 <% agent_lbl = NamespaceResolver.agent_label(top.agent_id) %>
-                <% cmd_preview = extract_command_preview(top.params) %>
+                <% cmd_preview = describe_tool_action(top.tool_name, top.params) %>
                 <span class="text-xs text-base-content/70 truncate">
                   <strong class="text-amber-300"><%= agent_lbl %></strong>
                   <span class="text-zinc-500 mx-1">&middot;</span>
