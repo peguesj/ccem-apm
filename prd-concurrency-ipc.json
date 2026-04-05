@@ -9,7 +9,7 @@
       "title": "ApmV5.ConcurrencyLayer - Task.Supervisor wrappers",
       "wave": 1,
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "description": "Fire-and-forget, bounded async stream, supervised tasks. Replaces raw Task.start calls. Telemetry events on task lifecycle."
     },
     {
@@ -17,7 +17,7 @@
       "title": "ApmV5.JobQueue GenServer with priority + retry",
       "wave": 1,
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "description": "ETS-backed :job_queue with priority levels, max_concurrent, exponential backoff retry."
     },
     {
@@ -25,7 +25,7 @@
       "title": "ApmV5.NativeTransport.UnixSocket listener",
       "wave": 1,
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "description": "gen_tcp UDS listener at /tmp/ccem-apm.sock, length-prefixed ETF framing."
     },
     {
@@ -33,7 +33,7 @@
       "title": "Telemetry instrumentation on hot paths",
       "wave": 1,
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "description": ":telemetry spans on PendingDecisions, PubSub broadcast, AuthorizationGate, AgentRegistry."
     },
     {
@@ -41,7 +41,7 @@
       "title": "CCEMHelper UnixSocketTransport actor",
       "wave": 1,
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "description": "NWConnection unix endpoint actor with AsyncStream<Frame> event source."
     },
     {"id":"US-306","title":"ChannelBridge - PubSub to UDS","wave":2,"priority":6,"passes":false},

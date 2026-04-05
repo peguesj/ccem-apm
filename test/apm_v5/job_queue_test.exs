@@ -4,10 +4,26 @@ defmodule ApmV5.JobQueueTest do
   alias ApmV5.JobQueue
 
   setup do
-    # Stop any existing instance and start fresh for each test
+    # Stop any existing instance and wait for name deregistration.
     case Process.whereis(JobQueue) do
-      nil -> :ok
-      pid -> GenServer.stop(pid)
+      nil ->
+        :ok
+
+      pid ->
+        ref = Process.monitor(pid)
+        GenServer.stop(pid, :normal, 1_000)
+
+        receive do
+          {:DOWN, ^ref, :process, _, _} -> :ok
+        after
+          1_000 -> :ok
+        end
+    end
+
+    # Ensure the Task.Supervisor backing the JobQueue is alive (app may have
+    # stopped it when previous test crashed). Start only if missing.
+    unless Process.whereis(ApmV5.ConcurrencyLayer.TaskSupervisor) do
+      {:ok, _} = Task.Supervisor.start_link(name: ApmV5.ConcurrencyLayer.TaskSupervisor)
     end
 
     {:ok, _pid} =
@@ -33,17 +49,18 @@ defmodule ApmV5.JobQueueTest do
 
   test "respects priority ordering" do
     parent = self()
-    # Saturate the queue first
-    JobQueue.enqueue(fn -> Process.sleep(100); send(parent, {:done, :a}) end)
-    JobQueue.enqueue(fn -> Process.sleep(100); send(parent, {:done, :b}) end)
-    # These are queued
+    # Saturate the queue with two long-running jobs so subsequent enqueues are queued.
+    JobQueue.enqueue(fn -> Process.sleep(200); send(parent, {:done, :a}) end)
+    JobQueue.enqueue(fn -> Process.sleep(200); send(parent, {:done, :b}) end)
+    # Let the dispatcher tick and pick them up.
+    Process.sleep(100)
+    # Both slots now busy; these two are queued by priority.
     JobQueue.enqueue(fn -> send(parent, {:done, :low}) end, priority: :low)
     JobQueue.enqueue(fn -> send(parent, {:done, :critical}) end, priority: :critical)
 
-    # critical runs before low
     messages =
       for _ <- 1..4 do
-        assert_receive {:done, v}, 2_000
+        assert_receive {:done, v}, 3_000
         v
       end
 
