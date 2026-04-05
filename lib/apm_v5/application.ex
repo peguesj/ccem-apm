@@ -11,6 +11,9 @@ defmodule ApmV5.Application do
     :inets.start()
     :ssl.start()
 
+    # Attach default telemetry logger handlers (v8.12.1)
+    _ = ApmV5.Instrumentation.attach_default_handlers()
+
     # Initialize LifecycleMapper ETS tables before supervision tree starts
     ApmV5.AgUi.LifecycleMapper.init_tables()
 
