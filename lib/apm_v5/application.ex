@@ -20,6 +20,8 @@ defmodule ApmV5.Application do
       {Phoenix.PubSub, name: ApmV5.PubSub},
       # Unified concurrency layer -- supervised fire-and-forget task pool (v8.12.1)
       ApmV5.ConcurrencyLayer,
+      # Priority job queue with exponential backoff retry (v8.12.1)
+      ApmV5.JobQueue,
       # Sub-supervisor: core infrastructure (ConfigLoader, DashboardStore, AuditLog, etc.)
       ApmV5.Supervisors.CoreSupervisor,
       # Remaining top-level GenServers (no logical grouping)
