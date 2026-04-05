@@ -525,4 +525,13 @@ defmodule ApmV5Web.Router do
       live_dashboard "/dashboard", metrics: ApmV5Web.Telemetry
     end
   end
+
+  # ── CATCH-ALL (must be last) ───────────────────────────────────────────────
+  # Serves a clean 404 page for any unrecognised GET so users never see the
+  # Phoenix debug error page (which can crash in dev when CodeReloader.Server
+  # is unavailable).
+  scope "/", ApmV5Web do
+    pipe_through :browser
+    get "/*path", PageController, :not_found
+  end
 end

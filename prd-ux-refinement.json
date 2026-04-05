@@ -1,0 +1,48 @@
+{
+  "branchName": "worktree-ccem-ux-refinement",
+  "title": "APM UX Refinements from live-integration-testing findings",
+  "stories": [
+    {
+      "id": "US-401",
+      "title": "Catch-all 404 route prevents Phoenix crash on unknown paths",
+      "priority": "critical",
+      "passes": false,
+      "acceptance": "GET /jobs (and any unknown path) returns clean 404 NotFound, no Phoenix error page"
+    },
+    {
+      "id": "US-402",
+      "title": "Consistent empty-state components on /plugins tabs",
+      "priority": "high",
+      "passes": false,
+      "acceptance": "All 4 tabs (MCP/Discovered/Engine/Claude Code) render an icon + message + CTA when empty instead of one-line text"
+    },
+    {
+      "id": "US-403",
+      "title": "Session Timeline hides empty swim lanes",
+      "priority": "high",
+      "passes": false,
+      "acceptance": "Swim lanes with 0 events are collapsed behind a Show empty lanes toggle"
+    },
+    {
+      "id": "US-404",
+      "title": "Session list group-by-date option",
+      "priority": "high",
+      "passes": false,
+      "acceptance": "Session list offers Date grouping (Today/Yesterday/Last 7 days/Older); detail metadata in 2-col grid"
+    },
+    {
+      "id": "US-405",
+      "title": "Usage dashboard zero-value empty state",
+      "priority": "medium",
+      "passes": false,
+      "acceptance": "Model Breakdown hides rows with all-zero totals and shows empty-state with sync hint when nothing has been recorded"
+    },
+    {
+      "id": "US-406",
+      "title": "Docs sidebar shows category context to disambiguate duplicate titles",
+      "priority": "medium",
+      "passes": false,
+      "acceptance": "TOC entries with duplicate titles across categories are visually distinguishable"
+    }
+  ]
+}

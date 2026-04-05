@@ -12,6 +12,59 @@ defmodule ApmV5Web.PageController do
   end
 
   @doc """
+  Renders a clean 404 page for unknown browser routes.
+
+  Acts as a safety-net for any GET that does not match a registered route so
+  that visitors never see the Phoenix debug error page (which can crash on
+  missing dev-only processes like Phoenix.CodeReloader.Server).
+  """
+  def not_found(conn, _params) do
+    path = conn.request_path
+
+    html = """
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>404 · Not Found · CCEM APM</title>
+        <style>
+          body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center}
+          .wrap{max-width:640px;padding:48px;text-align:center}
+          h1{font-size:72px;margin:0;font-weight:700;letter-spacing:-2px;color:#818cf8}
+          h2{font-size:20px;margin:8px 0 24px;font-weight:500;color:#cbd5e1}
+          p{margin:8px 0;color:#94a3b8;font-size:14px;line-height:1.6}
+          code{background:#1e293b;padding:2px 8px;border-radius:4px;font-family:"SF Mono","Monaco",monospace;color:#a5b4fc;font-size:13px}
+          a{color:#818cf8;text-decoration:none;font-weight:500}
+          a:hover{text-decoration:underline}
+          .nav{margin-top:32px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+          .nav a{padding:8px 16px;border:1px solid #334155;border-radius:8px;transition:all 0.15s}
+          .nav a:hover{background:#1e293b;border-color:#475569;text-decoration:none}
+        </style>
+      </head>
+      <body>
+        <div class="wrap">
+          <h1>404</h1>
+          <h2>Route not found</h2>
+          <p>The path <code>#{Plug.HTML.html_escape(path)}</code> is not registered with this APM server.</p>
+          <div class="nav">
+            <a href="/">Dashboard</a>
+            <a href="/sessions">Sessions</a>
+            <a href="/plugins">Plugins</a>
+            <a href="/docs">Docs</a>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    conn
+    |> put_status(:not_found)
+    |> put_resp_content_type("text/html")
+    |> send_resp(:not_found, html)
+  end
+
+  @doc """
   Serves the Scalar API Reference UI pointing at the OpenAPI spec.
   Self-contained HTML page — no template needed.
   """
