@@ -147,6 +147,11 @@ defmodule ApmV5.SkillsRegistryStore do
     has_examples = File.dir?(Path.join(skill_dir, "examples"))
     has_template = File.exists?(Path.join(skill_dir, "template.md"))
 
+    # Content-based section detection inside SKILL.md
+    content_lower = String.downcase(content)
+    has_templates_section = has_template or String.contains?(content_lower, "## template")
+    has_examples_section = has_examples or String.contains?(content_lower, "## example")
+
     health_score =
       compute_health(
         has_frontmatter and has_name and has_description_field,
@@ -167,6 +172,8 @@ defmodule ApmV5.SkillsRegistryStore do
       trigger_count: trigger_count,
       has_examples: has_examples,
       has_template: has_template,
+      has_templates_section: has_templates_section,
+      has_examples_section: has_examples_section,
       last_modified: last_modified_iso(skill_dir),
       file_count: count_files(skill_dir),
       raw_frontmatter: frontmatter,

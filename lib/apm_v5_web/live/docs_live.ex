@@ -172,18 +172,23 @@ defmodule ApmV5Web.DocsLive do
     <div class="flex h-screen bg-base-300 overflow-hidden">
       <.sidebar_nav current_path="/docs" skill_count={@active_skill_count} />
 
-      <%!-- Main docs area --%>
-      <div class="flex-1 flex overflow-hidden">
-        <%!-- Mobile header --%>
-        <div class="lg:hidden fixed top-0 left-0 right-0 z-30 bg-base-200 border-b border-base-300 h-12 flex items-center px-4 gap-3">
-          <button phx-click="toggle_mobile_toc" class="btn btn-ghost btn-sm btn-square">
-            <.icon name="hero-bars-3" class="size-5" />
-          </button>
-          <a href="/docs" class="text-sm font-semibold text-primary">Docs</a>
-          <span :if={@doc_title && @current_path != "index"} class="text-xs text-base-content/50 truncate">
-            / {@doc_title}
-          </span>
-        </div>
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <button phx-click="toggle_mobile_toc" class="btn btn-ghost btn-xs btn-square lg:hidden">
+              <.icon name="hero-bars-3" class="size-4" />
+            </button>
+            <h2 class="text-sm font-semibold text-base-content">Documentation</h2>
+            <span :if={@doc_title && @current_path != "index"} class="text-xs text-base-content/50 truncate">
+              / {@doc_title}
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-base-content/40">v{@latest_version}</span>
+          </div>
+        </header>
+
+        <div class="flex-1 flex overflow-hidden">
 
         <%!-- Mobile TOC overlay --%>
         <div
@@ -490,6 +495,7 @@ defmodule ApmV5Web.DocsLive do
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
     <.wizard page="welcome" dom_id="ccem-wizard-welcome-docs" />

@@ -45,6 +45,34 @@ defmodule ApmV5.ShowcaseDataStore do
     Map.get(data, "features", [])
   end
 
+  @doc "Returns diagram metadata for a project (mmd/puml/svg files discovered on disk)."
+  @spec get_diagrams(String.t() | nil) :: [map()]
+  def get_diagrams(project_name) do
+    data = get_showcase_data(project_name)
+    Map.get(data, "diagrams", [])
+  end
+
+  @doc "Returns queryable tab definitions for a project."
+  @spec get_tabs(String.t() | nil) :: [map()]
+  def get_tabs(project_name) do
+    data = get_showcase_data(project_name)
+    Map.get(data, "tabs", [])
+  end
+
+  @doc "Returns tab data for a specific tab, with optional query filtering."
+  @spec get_tab_data(String.t() | nil, String.t(), map()) :: map()
+  def get_tab_data(project_name, tab_id, query \\ %{}) do
+    data = get_showcase_data(project_name)
+    tabs = Map.get(data, "tabs", [])
+
+    case Enum.find(tabs, fn t -> t["id"] == tab_id end) do
+      nil -> %{"error" => "tab_not_found", "tab_id" => tab_id}
+      tab ->
+        raw_data = tab["data"] || %{}
+        filter_tab_data(raw_data, query)
+    end
+  end
+
   @doc """
   Returns a list of all discovered showcase project names.
   Combines projects from:
@@ -285,6 +313,8 @@ defmodule ApmV5.ShowcaseDataStore do
       "redaction_rules" => load_json(Path.join(path, "redaction-rules.json"), %{}),
       "speaker_notes" => load_json(Path.join(path, "speaker-notes.json"), %{}),
       "slides" => load_json(Path.join(path, "slides.json"), %{}),
+      "diagrams" => load_diagrams(path),
+      "tabs" => load_tabs(path),
       "version" => "7.0.0",
       "path" => path
     }
@@ -303,4 +333,140 @@ defmodule ApmV5.ShowcaseDataStore do
     end
   end
 
+  # --- Diagram Discovery ---
+
+  @diagram_extensions ~w(.mmd .puml .svg)
+
+  defp load_diagrams(path) do
+    # Look in sibling diagrams/ dir (../diagrams relative to data/)
+    diagrams_dir = Path.join(Path.dirname(path), "diagrams")
+
+    # Also check project-specific diagrams inside the data dir
+    project_diagrams_dir = Path.join(path, "diagrams")
+
+    dirs = [diagrams_dir, project_diagrams_dir]
+    |> Enum.filter(&File.dir?/1)
+    |> Enum.uniq()
+
+    Enum.flat_map(dirs, fn dir ->
+      case File.ls(dir) do
+        {:ok, entries} ->
+          entries
+          |> Enum.filter(fn f -> Path.extname(f) in @diagram_extensions end)
+          |> Enum.map(fn filename ->
+            full_path = Path.join(dir, filename)
+            ext = Path.extname(filename)
+            basename = Path.rootname(filename)
+
+            %{
+              "id" => basename,
+              "filename" => filename,
+              "path" => full_path,
+              "type" => diagram_type(ext),
+              "format" => String.trim_leading(ext, "."),
+              "content" => File.read!(full_path),
+              "size_bytes" => File.stat!(full_path).size
+            }
+          end)
+
+        {:error, _} -> []
+      end
+    end)
+  end
+
+  defp diagram_type(".mmd"), do: "mermaid"
+  defp diagram_type(".puml"), do: "plantuml"
+  defp diagram_type(".svg"), do: "svg"
+  defp diagram_type(_), do: "unknown"
+
+  # --- Queryable Tabs ---
+
+  defp load_tabs(path) do
+    # Check for explicit tabs.json config
+    tabs_config = load_json(Path.join(path, "tabs.json"), nil)
+
+    if tabs_config do
+      # Explicit tab definitions — enrich each with data from its source file
+      Enum.map(tabs_config, fn tab ->
+        source = tab["source"]
+        data = if source, do: load_json(Path.join(path, source), %{}), else: %{}
+        Map.put(tab, "data", data)
+      end)
+    else
+      # Auto-discover tabs from JSON files that aren't core showcase files
+      core_files = ~w(features.json narrative-content.json diagram-design-system.json
+                      redaction-rules.json speaker-notes.json slides.json tabs.json
+                      manifest.json status.json README.md)
+
+      case File.ls(path) do
+        {:ok, entries} ->
+          entries
+          |> Enum.filter(fn f -> String.ends_with?(f, ".json") end)
+          |> Enum.reject(fn f -> f in core_files end)
+          |> Enum.map(fn filename ->
+            basename = Path.rootname(filename)
+            data = load_json(Path.join(path, filename), %{})
+
+            %{
+              "id" => basename,
+              "label" => basename |> String.replace("-", " ") |> String.replace("_", " ") |> capitalize_words(),
+              "source" => filename,
+              "type" => infer_tab_type(data),
+              "queryable" => true,
+              "data" => data
+            }
+          end)
+
+        {:error, _} -> []
+      end
+    end
+  end
+
+  defp infer_tab_type(data) when is_list(data), do: "list"
+  defp infer_tab_type(data) when is_map(data), do: "object"
+  defp infer_tab_type(_), do: "raw"
+
+  defp capitalize_words(str) do
+    str
+    |> String.split(" ")
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
+  end
+
+  # --- Tab Query Filtering ---
+
+  defp filter_tab_data(data, query) when map_size(query) == 0, do: data
+
+  defp filter_tab_data(data, query) when is_map(data) do
+    search = Map.get(query, "search", "")
+
+    if search != "" do
+      search_lower = String.downcase(search)
+
+      data
+      |> Enum.filter(fn {key, value} ->
+        String.contains?(String.downcase(to_string(key)), search_lower) or
+        String.contains?(String.downcase(to_string(inspect(value))), search_lower)
+      end)
+      |> Map.new()
+    else
+      data
+    end
+  end
+
+  defp filter_tab_data(data, query) when is_list(data) do
+    search = Map.get(query, "search", "")
+
+    if search != "" do
+      search_lower = String.downcase(search)
+
+      Enum.filter(data, fn item ->
+        String.contains?(String.downcase(inspect(item)), search_lower)
+      end)
+    else
+      data
+    end
+  end
+
+  defp filter_tab_data(data, _query), do: data
 end

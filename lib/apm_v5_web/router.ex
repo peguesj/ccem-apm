@@ -122,6 +122,9 @@ defmodule ApmV5Web.Router do
     live "/integrations", PluginDashboardLive, :integrations_tab
     live "/integrations/lvm", LvmStatusLive, :index
 
+    # Extension: library
+    live "/library", LibraryLive, :index
+
     # Extension: upm
     live "/upm/module", UpmLive, :index
     live "/upm/module/:project_id", UpmLive, :project
@@ -453,6 +456,19 @@ defmodule ApmV5Web.Router do
     # ── EXTENSION: plugins ────────────────────────────────────────────────
     get "/plugins", PluginController, :index
     post "/plugins/reload", PluginController, :reload
+
+    # CC bridge (read-only) — MUST be before /:name catch-all
+    get "/plugins/cc/plugins", PluginController, :cc_plugins
+    get "/plugins/cc/summary", PluginController, :cc_summary
+
+    # Repository management
+    get "/plugins/repositories", RepositoryController, :index
+    post "/plugins/repositories", RepositoryController, :create
+    get "/plugins/repositories/:name", RepositoryController, :show
+    patch "/plugins/repositories/:name", RepositoryController, :update
+    delete "/plugins/repositories/:name", RepositoryController, :delete
+
+    # Plugin CRUD (catch-all /:name routes MUST be last)
     get "/plugins/:name", PluginController, :show
     post "/plugins/:name/action", PluginController, :invoke_action
     get "/plugins/:name/board", PluginController, :board
@@ -478,6 +494,18 @@ defmodule ApmV5Web.Router do
     # ── EXTENSION: plane (upm companion) ──────────────────────────────────
     get "/plane/sync-status", PlaneController, :sync_status
     post "/plane/sync", PlaneController, :sync
+
+    # ── EXTENSION: library ────────────────────────────────────────────────
+    get "/library", LibraryController, :index
+    get "/library/agents", LibraryController, :agents
+    get "/library/skills", LibraryController, :skills
+    get "/library/commands", LibraryController, :commands
+    get "/library/mcp", LibraryController, :mcp
+    get "/library/tools", LibraryController, :tools
+    get "/library/hooks", LibraryController, :hooks
+    get "/library/patterns", LibraryController, :patterns
+    get "/library/learnings", LibraryController, :learnings
+    post "/library/refresh", LibraryController, :refresh
   end
 
   # A2UI flexible format endpoint

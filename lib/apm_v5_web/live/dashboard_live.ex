@@ -102,6 +102,7 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:show_showcase, true)
       |> assign(:saved_layouts, DashboardStore.list_layouts())
       |> assign(:agentlock_pending, safe_list_pending())
+      |> assign(:auth_dismissed, false)
       |> assign(:saved_presets, DashboardStore.list_presets())
       # Global filter bar state (Splunk/ELK-style)
       |> assign(:filter_status, nil)
@@ -471,45 +472,54 @@ defmodule ApmV5Web.DashboardLive do
               </div>
             </.live_region>
 
-            <%!-- US-003: AgentLock Pending Approval Banner (compact floating) --%>
-            <%= if @agentlock_pending != [] do %>
-              <div id="dashboard-agentlock-pending" class="space-y-1.5" role="alert" aria-live="assertive">
-                <%= for gate <- @agentlock_pending do %>
-                  <% label = NamespaceResolver.gate_label(gate.request_id, gate.tool_name) %>
-                  <% agent_lbl = NamespaceResolver.agent_label(gate.agent_id) %>
+            <%!-- US-003: AgentLock Pending Approval Toast (compact, non-disruptive) --%>
+            <%= if @agentlock_pending != [] && !@auth_dismissed do %>
+              <% [top | _rest] = @agentlock_pending %>
+              <% label = NamespaceResolver.gate_label(top.request_id, top.tool_name) %>
+              <% agent_lbl = NamespaceResolver.agent_label(top.agent_id) %>
+              <div
+                id="dashboard-agentlock-toast"
+                class="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-950/30 px-3 py-2 text-xs"
+                role="alert"
+                aria-live="assertive"
+              >
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                  <.icon name="hero-shield-exclamation" class="h-4 w-4 text-amber-400 shrink-0" />
+                  <span class="font-mono text-amber-300 font-semibold truncate"><%= label %></span>
+                  <span class="text-zinc-500">&middot;</span>
+                  <span class="text-zinc-300 truncate"><%= agent_lbl %></span>
+                  <span class="text-zinc-500">&middot;</span>
+                  <span class="text-zinc-400"><%= top.risk_level %> risk</span>
                   <div
-                    id={"dashboard-gate-#{gate.request_id}"}
-                    class="flex items-center justify-between rounded-lg border border-amber-500/70 bg-amber-950/50 px-3 py-2 text-xs shadow-lg"
                     phx-hook="CountdownTimer"
+                    id={"dashboard-toast-cd-#{top.request_id}"}
                     data-seconds="20"
-                    data-gate-id={gate.request_id}
+                    class="text-[10px] font-mono text-amber-400/60 tabular-nums shrink-0"
                   >
-                    <div class="flex items-center gap-2 min-w-0">
-                      <.icon name="hero-shield-exclamation" class="h-4 w-4 text-amber-400 shrink-0" />
-                      <span class="font-mono text-amber-300 font-semibold truncate"><%= label %></span>
-                      <span class="text-zinc-400 shrink-0">·</span>
-                      <span class="text-zinc-300 truncate"><%= agent_lbl %></span>
-                      <span class="text-zinc-500 shrink-0">·</span>
-                      <span class="text-zinc-400 shrink-0"><%= gate.risk_level %> risk</span>
-                    </div>
-                    <div class="flex items-center gap-2 flex-shrink-0 ml-3">
-                      <span class="font-mono text-amber-400 tabular-nums" data-countdown-display>20s</span>
-                      <button
-                        phx-click="approve_gate"
-                        phx-value-id={gate.request_id}
-                        class="rounded px-2.5 py-0.5 bg-emerald-700 hover:bg-emerald-600 text-white font-medium transition-colors"
-                      >Approve</button>
-                      <button
-                        phx-click="deny_gate"
-                        phx-value-id={gate.request_id}
-                        class="rounded px-2.5 py-0.5 bg-red-700 hover:bg-red-600 text-white font-medium transition-colors"
-                      >Deny</button>
-                      <.link navigate="/authorization" class="text-amber-400/60 hover:text-amber-400 transition-colors" title="View all in AgentLock">
-                        <.icon name="hero-arrow-top-right-on-square" class="h-3.5 w-3.5" />
-                      </.link>
-                    </div>
+                    <span data-countdown-display>20s</span>
                   </div>
-                <% end %>
+                  <%= if length(@agentlock_pending) > 1 do %>
+                    <span class="badge badge-xs badge-warning"><%= length(@agentlock_pending) %></span>
+                  <% end %>
+                </div>
+                <div class="flex items-center gap-1.5 flex-shrink-0 ml-3">
+                  <button
+                    phx-click="approve_gate"
+                    phx-value-id={top.request_id}
+                    class="btn btn-success btn-xs"
+                  >Approve</button>
+                  <button
+                    phx-click="deny_gate"
+                    phx-value-id={top.request_id}
+                    class="btn btn-error btn-xs"
+                  >Deny</button>
+                  <.link navigate="/authorization" class="btn btn-ghost btn-xs" title="View in Authorization">
+                    <.icon name="hero-arrow-top-right-on-square" class="h-3 w-3" />
+                  </.link>
+                  <button phx-click="dismiss_auth" class="btn btn-ghost btn-xs btn-square" title="Dismiss">
+                    <.icon name="hero-x-mark" class="h-3 w-3" />
+                  </button>
+                </div>
               </div>
             <% end %>
 
@@ -1032,6 +1042,10 @@ defmodule ApmV5Web.DashboardLive do
     {:noreply, assign(socket, :agentlock_pending, pending)}
   end
 
+  def handle_event("dismiss_auth", _params, socket) do
+    {:noreply, assign(socket, :auth_dismissed, true)}
+  end
+
   def handle_event("showcase:dismiss", _params, socket) do
     {:noreply, assign(socket, :show_showcase, false)}
   end
@@ -1439,6 +1453,7 @@ defmodule ApmV5Web.DashboardLive do
     {:noreply,
      socket
      |> assign(:agentlock_pending, pending)
+     |> assign(:auth_dismissed, false)
      |> push_event("show_toast", %{
        type: "warning",
        title: "AgentLock: Approval Required",

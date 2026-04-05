@@ -35,7 +35,9 @@ defmodule ApmV5Web.AuthorizationLive do
          page_title: "Authorization",
          decisions: [],
          pending: safe_list_pending(),
-         policy_rules: safe_list_rules()
+         policy_rules: safe_list_rules(),
+         modal_minimized: true,
+         auth_dismissed: false
        })
      )}
   end
@@ -145,7 +147,7 @@ defmodule ApmV5Web.AuthorizationLive do
   end
 
   def handle_info({:pending_decision_added, _entry}, socket) do
-    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending(), auth_dismissed: false)}
   end
 
   def handle_info({:pending_decision_resolved, _entry}, socket) do
@@ -228,107 +230,182 @@ defmodule ApmV5Web.AuthorizationLive do
   end
 
   @impl true
+  def handle_event("toggle_modal_minimize", _params, socket) do
+    {:noreply, assign(socket, modal_minimized: !socket.assigns.modal_minimized, auth_dismissed: false)}
+  end
+
+  @impl true
+  def handle_event("dismiss_auth", _params, socket) do
+    {:noreply, assign(socket, :auth_dismissed, true)}
+  end
+
+  @impl true
+  def handle_event("reshow_auth", _params, socket) do
+    {:noreply, assign(socket, auth_dismissed: false, modal_minimized: true)}
+  end
+
+  @impl true
+  def handle_event("approve_for", %{"id" => request_id, "minutes" => minutes_str}, socket) do
+    minutes = String.to_integer(minutes_str)
+    entry = Enum.find(socket.assigns.pending, &(&1.request_id == request_id))
+
+    if entry do
+      # Approve the immediate request
+      PendingDecisions.decide(request_id, :approve)
+
+      # Create a time-limited auto-approval policy
+      ApmV5.Auth.AutoApprovalStore.create(%{
+        agent_id: entry.agent_id,
+        session_id: entry.session_id,
+        allowed_tools: [entry.tool_name],
+        allowed_risk_levels: :all,
+        expires_at: DateTime.add(DateTime.utc_now(), minutes * 60, :second),
+        created_by: "authorization_live",
+        reason: "Approved #{entry.tool_name} for #{minutes}min via Authorization UI"
+      })
+    end
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  @impl true
+  def handle_event("always_allow_tool", %{"id" => request_id}, socket) do
+    entry = Enum.find(socket.assigns.pending, &(&1.request_id == request_id))
+
+    if entry do
+      PendingDecisions.decide(request_id, :approve)
+
+      # Create permanent auto-approval for this tool (24h TTL, effectively permanent)
+      ApmV5.Auth.AutoApprovalStore.create(%{
+        allowed_tools: [entry.tool_name],
+        allowed_risk_levels: :all,
+        expires_at: DateTime.add(DateTime.utc_now(), 86_400, :second),
+        created_by: "authorization_live",
+        reason: "Always allow #{entry.tool_name} via Authorization UI"
+      })
+    end
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  @impl true
+  def handle_event("always_deny_tool", %{"id" => request_id}, socket) do
+    entry = Enum.find(socket.assigns.pending, &(&1.request_id == request_id))
+
+    if entry do
+      PendingDecisions.decide(request_id, :deny)
+      PolicyRulesStore.add_rule(entry.tool_name, :always_deny)
+    end
+
+    {:noreply,
+     socket
+     |> assign(pending: PendingDecisions.list_pending(), policy_rules: PolicyRulesStore.list_rules())}
+  end
+
+  @impl true
+  def handle_event("approve_group", %{"agent" => agent_id}, socket) do
+    socket.assigns.pending
+    |> Enum.filter(&(&1.agent_id == agent_id))
+    |> Enum.each(&PendingDecisions.decide(&1.request_id, :approve))
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  @impl true
+  def handle_event("deny_group", %{"agent" => agent_id}, socket) do
+    socket.assigns.pending
+    |> Enum.filter(&(&1.agent_id == agent_id))
+    |> Enum.each(&PendingDecisions.decide(&1.request_id, :deny))
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  @impl true
+  def handle_event("approve_group_for", %{"agent" => agent_id, "minutes" => minutes_str}, socket) do
+    minutes = String.to_integer(minutes_str)
+    gates = Enum.filter(socket.assigns.pending, &(&1.agent_id == agent_id))
+
+    Enum.each(gates, &PendingDecisions.decide(&1.request_id, :approve))
+
+    # Create time-limited policy for the agent's tools
+    tool_names = gates |> Enum.map(& &1.tool_name) |> Enum.uniq()
+    ApmV5.Auth.AutoApprovalStore.create(%{
+      agent_id: agent_id,
+      allowed_tools: tool_names,
+      allowed_risk_levels: :all,
+      expires_at: DateTime.add(DateTime.utc_now(), minutes * 60, :second),
+      created_by: "authorization_live",
+      reason: "Approved #{length(tool_names)} tools for #{minutes}min via group action"
+    })
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  @impl true
+  def handle_event("approve_all_pending", _params, socket) do
+    Enum.each(socket.assigns.pending, fn p ->
+      PendingDecisions.decide(p.request_id, :approve)
+    end)
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  @impl true
+  def handle_event("dismiss_all_pending", _params, socket) do
+    Enum.each(socket.assigns.pending, fn p ->
+      PendingDecisions.decide(p.request_id, :deny)
+    end)
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+  end
+
+  # ── Keyboard shortcut handlers ──────────────────────────────────────────────
+  # Enter → approve first pending (only when panel visible)
+  # Escape → minimize panel (dismiss, not deny)
+  # Ctrl+D → deny first pending
+
+  @impl true
+  def handle_event("auth_keydown", %{"key" => "Enter"}, socket) do
+    if socket.assigns.pending != [] and not socket.assigns.modal_minimized and not socket.assigns.auth_dismissed do
+      [top | _] = socket.assigns.pending
+      PendingDecisions.decide(top.request_id, :approve)
+      {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+    else
+      # Minimized toast bar: Enter also approves first pending
+      if socket.assigns.pending != [] and socket.assigns.modal_minimized and not socket.assigns.auth_dismissed do
+        [top | _] = socket.assigns.pending
+        PendingDecisions.decide(top.request_id, :approve)
+        {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+      else
+        {:noreply, socket}
+      end
+    end
+  end
+
+  def handle_event("auth_keydown", %{"key" => "Escape"}, socket) do
+    if socket.assigns.pending != [] and not socket.assigns.auth_dismissed do
+      {:noreply, assign(socket, modal_minimized: true)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("auth_keydown", %{"key" => "d", "ctrlKey" => true}, socket) do
+    if socket.assigns.pending != [] and not socket.assigns.auth_dismissed do
+      [top | _] = socket.assigns.pending
+      PendingDecisions.decide(top.request_id, :deny)
+      {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("auth_keydown", _params, socket), do: {:noreply, socket}
+
+  @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <%!-- US-003: Full-screen AgentLock approval modal — shown when pending decisions exist --%>
-      <%= if @pending != [] do %>
-        <% [top_gate | _rest] = @pending %>
-        <% label = NamespaceResolver.gate_label(top_gate.request_id, top_gate.tool_name) %>
-        <% agent_lbl = NamespaceResolver.agent_label(top_gate.agent_id) %>
-        <div
-          id="agentlock-approval-modal"
-          class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-title"
-        >
-          <div class="bg-base-200 border border-amber-500/60 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
-            <div class="flex items-center gap-3 mb-4">
-              <.icon name="hero-shield-exclamation" class="h-7 w-7 text-amber-400 shrink-0" />
-              <div>
-                <h2 id="modal-title" class="text-base font-bold text-amber-300">AgentLock — Approval Required</h2>
-                <%= if length(@pending) > 1 do %>
-                  <p class="text-xs text-zinc-400 mt-0.5"><%= length(@pending) %> pending · showing most recent</p>
-                <% end %>
-              </div>
-            </div>
-
-            <div class="space-y-3 mb-5">
-              <div class="rounded-lg bg-base-300 border border-base-content/10 px-4 py-3 space-y-1.5">
-                <div class="flex items-center justify-between text-xs">
-                  <span class="text-base-content/50">Tool</span>
-                  <span class="font-mono font-semibold text-amber-300"><%= label %></span>
-                </div>
-                <div class="flex items-center justify-between text-xs">
-                  <span class="text-base-content/50">Agent</span>
-                  <span class="font-mono text-zinc-300"><%= agent_lbl %></span>
-                </div>
-                <div class="flex items-center justify-between text-xs">
-                  <span class="text-base-content/50">Risk</span>
-                  <span class={"badge badge-sm #{risk_badge_class(top_gate.risk_level)}"}><%= top_gate.risk_level %></span>
-                </div>
-                <div class="flex items-center justify-between text-xs">
-                  <span class="text-base-content/50">Session</span>
-                  <span class="font-mono text-zinc-400"><%= truncate_session(top_gate.session_id) %></span>
-                </div>
-                <%= if map_size(top_gate.params) > 0 do %>
-                  <div class="mt-2 pt-2 border-t border-base-content/10">
-                    <span class="text-xs text-base-content/50 block mb-1">Params</span>
-                    <div class="text-xs font-mono bg-base-100 rounded p-2 truncate text-zinc-300">
-                      <%= inspect(top_gate.params) %>
-                    </div>
-                  </div>
-                <% end %>
-              </div>
-
-              <%!-- Countdown --%>
-              <div
-                class="flex items-center gap-2 text-xs text-amber-400/70"
-                phx-hook="CountdownTimer"
-                id={"modal-countdown-#{top_gate.request_id}"}
-                data-seconds="20"
-                data-gate-id={top_gate.request_id}
-              >
-                <.icon name="hero-clock" class="h-3.5 w-3.5" />
-                <span>Auto-expires in </span>
-                <span class="font-mono tabular-nums font-semibold" data-countdown-display>20s</span>
-                <span>— decision required</span>
-              </div>
-            </div>
-
-            <div class="flex gap-3">
-              <button
-                phx-click="approve_gate"
-                phx-value-id={top_gate.request_id}
-                class="btn btn-success flex-1 gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                Approve
-              </button>
-              <button
-                phx-click="deny_gate"
-                phx-value-id={top_gate.request_id}
-                class="btn btn-error flex-1 gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Deny
-              </button>
-            </div>
-
-            <%= if length(@pending) > 1 do %>
-              <p class="text-center text-xs text-base-content/40 mt-3">
-                Additional requests visible in the Pending tab below
-              </p>
-            <% end %>
-          </div>
-        </div>
-      <% end %>
-
+    <div class="flex h-screen bg-base-300 overflow-hidden" phx-window-keydown="auth_keydown">
       <.sidebar_nav current_path="/authorization" />
 
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -336,11 +413,208 @@ defmodule ApmV5Web.AuthorizationLive do
           <div class="flex items-center gap-3">
             <h2 class="text-sm font-semibold text-base-content">AgentLock Authorization</h2>
             <div class="badge badge-sm badge-ghost">{@summary.registered_tools} tools</div>
+            <%= if length(@pending) > 0 do %>
+              <button phx-click="reshow_auth" class="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors">
+                <.icon name="hero-bell-alert" class="h-4 w-4 text-amber-400 animate-pulse" />
+                <span class="text-xs font-semibold text-amber-300"><%= length(@pending) %> pending</span>
+              </button>
+            <% end %>
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xs text-base-content/40">Auto-refresh 5s</span>
           </div>
         </header>
+
+        <%!-- Authorization Notification Panel — inline above main content --%>
+        <%= if @pending != [] && !@modal_minimized && !@auth_dismissed do %>
+          <div class="border-b border-amber-500/30 bg-gradient-to-b from-amber-950/30 to-base-300 relative z-20" role="alert" aria-live="assertive">
+            <div class="px-4 py-3 space-y-2 max-h-[50vh] overflow-y-auto">
+              <%!-- Panel header with count and dismiss controls --%>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <.icon name="hero-shield-exclamation" class="h-5 w-5 text-amber-400" />
+                  <h3 class="text-sm font-bold text-amber-300">Authorization Required</h3>
+                  <span class="badge badge-sm badge-warning"><%= length(@pending) %></span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button phx-click="dismiss_all_pending" class="btn btn-ghost btn-xs text-zinc-500 hover:text-red-400" title="Deny all">
+                    Deny All
+                  </button>
+                  <button phx-click="toggle_modal_minimize" class="btn btn-ghost btn-xs btn-square" title="Minimize (Esc)">
+                    <.icon name="hero-minus" class="h-3.5 w-3.5" />
+                  </button>
+                  <button phx-click="dismiss_auth" class="btn btn-ghost btn-xs btn-square" title="Dismiss (stays in Pending tab)">
+                    <.icon name="hero-x-mark" class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <%!-- Grouped authorization cards — combined by agent for simultaneous requests --%>
+              <% grouped = group_pending_by_agent(@pending) %>
+              <%= for {agent_id, gates} <- grouped do %>
+                <% agent_lbl = NamespaceResolver.agent_label(agent_id) %>
+                <% _tool_names = Enum.map(gates, & &1.tool_name) |> Enum.uniq() |> Enum.join(", ") %>
+                <% max_risk = gates |> Enum.map(& &1.risk_level) |> Enum.max_by(&risk_weight/1) %>
+                <div class="rounded-lg bg-base-200 border border-base-content/10 overflow-hidden">
+                  <%!-- Group header --%>
+                  <div class="px-3 py-2 bg-base-300/50 flex items-center justify-between">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <.icon name="hero-user-circle" class="h-4 w-4 text-base-content/50 shrink-0" />
+                      <span class="text-xs font-semibold truncate"><%= agent_lbl %></span>
+                      <span class={"badge badge-xs #{risk_badge_class(max_risk)}"}><%= max_risk %></span>
+                      <span class="text-xs text-base-content/40"><%= length(gates) %> request<%= if length(gates) > 1, do: "s" %></span>
+                    </div>
+                    <%!-- Batch actions for the group --%>
+                    <div class="flex items-center gap-1">
+                      <button phx-click="approve_group" phx-value-agent={agent_id} class="btn btn-success btn-xs gap-1" title="Approve all from this agent">
+                        <.icon name="hero-check" class="h-3 w-3" /> All
+                      </button>
+                      <div class="dropdown dropdown-end dropdown-top">
+                        <label tabindex="0" class="btn btn-info btn-xs btn-outline gap-1 cursor-pointer" title="Time-limited allow">
+                          <.icon name="hero-clock" class="h-3 w-3" />
+                        </label>
+                        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-44 p-1 shadow-lg border border-base-content/10 mb-1">
+                          <li class="menu-title text-[10px]">Allow all from this agent for:</li>
+                          <li><button phx-click="approve_group_for" phx-value-agent={agent_id} phx-value-minutes="5" class="text-xs">5 minutes</button></li>
+                          <li><button phx-click="approve_group_for" phx-value-agent={agent_id} phx-value-minutes="15" class="text-xs">15 minutes</button></li>
+                          <li><button phx-click="approve_group_for" phx-value-agent={agent_id} phx-value-minutes="30" class="text-xs">30 minutes</button></li>
+                          <li><button phx-click="approve_group_for" phx-value-agent={agent_id} phx-value-minutes="60" class="text-xs">1 hour</button></li>
+                        </ul>
+                      </div>
+                      <button phx-click="deny_group" phx-value-agent={agent_id} class="btn btn-error btn-xs gap-1" title="Deny all from this agent">
+                        <.icon name="hero-x-mark" class="h-3 w-3" /> All
+                      </button>
+                    </div>
+                  </div>
+
+                  <%!-- Individual requests within the group --%>
+                  <div class="divide-y divide-base-content/5">
+                    <%= for gate <- gates do %>
+                      <% action_type_label = action_type_display(gate[:action_type]) %>
+                      <% human_desc = describe_tool_action(gate.tool_name, gate.params) %>
+                      <div class="px-3 py-2 space-y-1.5" id={"auth-card-#{gate.request_id}"}>
+                        <div class="flex items-start justify-between gap-2">
+                          <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                              <span class={"text-[10px] font-bold px-1 py-0.5 rounded #{action_type_class(gate[:action_type])}"}><%= action_type_label %></span>
+                              <span class="text-xs font-semibold text-base-content"><%= gate.tool_name %></span>
+                              <span class={"badge badge-xs #{risk_badge_class(gate.risk_level)}"}><%= gate.risk_level %></span>
+                            </div>
+                            <%!-- Human-readable description of what the tool is doing --%>
+                            <p class="text-[11px] text-base-content/70 mt-0.5"><%= human_desc %></p>
+                            <%= if gate[:action_detail] && gate[:action_detail] != human_desc do %>
+                              <p class="text-[10px] text-base-content/50"><%= gate.action_detail %></p>
+                            <% end %>
+                            <%= if gate[:approval_reasoning] do %>
+                              <p class="text-[10px] text-amber-300/50 italic"><%= gate.approval_reasoning %></p>
+                            <% end %>
+                            <%!-- Collapsible tool payload --%>
+                            <%= if map_size(gate.params) > 0 do %>
+                              <details class="mt-1">
+                                <summary class="text-[10px] text-base-content/40 cursor-pointer hover:text-base-content/60">
+                                  Show payload (<%= map_size(gate.params) %> fields)
+                                </summary>
+                                <pre class="font-mono text-[10px] bg-base-300 rounded p-2 mt-1 overflow-x-auto max-h-32 overflow-y-auto text-zinc-400 whitespace-pre-wrap"><%= format_params_display(gate.params) %></pre>
+                              </details>
+                            <% end %>
+                          </div>
+                          <%!-- Per-item countdown + actions --%>
+                          <div class="flex items-center gap-1.5 shrink-0">
+                            <div
+                              class="text-[10px] text-amber-400/60 font-mono tabular-nums"
+                              phx-hook="CountdownTimer"
+                              id={"countdown-#{gate.request_id}"}
+                              data-seconds="20"
+                            >
+                              <span data-countdown-display>20s</span>
+                            </div>
+                            <button phx-click="approve_gate" phx-value-id={gate.request_id} class="btn btn-success btn-xs gap-1" title="Approve (Enter)">
+                              <.icon name="hero-check" class="h-3 w-3" /> <kbd class="kbd kbd-xs ml-0.5 opacity-60">↵</kbd>
+                            </button>
+                            <button phx-click="deny_gate" phx-value-id={gate.request_id} class="btn btn-error btn-xs gap-1" title="Deny (Ctrl+D)">
+                              <.icon name="hero-x-mark" class="h-3 w-3" /> <kbd class="kbd kbd-xs ml-0.5 opacity-60">ctrl+d</kbd>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    <% end %>
+                  </div>
+
+                  <%!-- Group footer: tool-level always allow/deny --%>
+                  <%= if length(Enum.uniq_by(gates, & &1.tool_name)) > 0 do %>
+                    <div class="px-3 py-1.5 bg-base-300/30 flex items-center gap-1.5 flex-wrap text-[10px]">
+                      <span class="text-base-content/40">Tools:</span>
+                      <%= for tool <- Enum.uniq_by(gates, & &1.tool_name) do %>
+                        <span class="badge badge-xs badge-ghost font-mono"><%= tool.tool_name %></span>
+                        <button phx-click="always_allow_tool" phx-value-id={tool.request_id} class="text-success hover:underline">always allow</button>
+                        <button phx-click="always_deny_tool" phx-value-id={tool.request_id} class="text-error hover:underline">always deny</button>
+                        <span class="text-base-content/20">|</span>
+                      <% end %>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Minimized toast bar — compact actionable strip when panel is collapsed --%>
+        <%= if @pending != [] && @modal_minimized && !@auth_dismissed do %>
+          <div class="border-b border-amber-500/20 bg-amber-950/20 px-4 py-2 relative z-20">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <.icon name="hero-shield-exclamation" class="h-4 w-4 text-amber-400 shrink-0" />
+                <% [top | _rest] = @pending %>
+                <% agent_lbl = NamespaceResolver.agent_label(top.agent_id) %>
+                <% cmd_preview = describe_tool_action(top.tool_name, top.params) %>
+                <span class="text-xs text-base-content/70 truncate">
+                  <strong class="text-amber-300"><%= agent_lbl %></strong>
+                  <span class="text-zinc-500 mx-1">&middot;</span>
+                  <span class="font-mono"><%= top.tool_name %></span>
+                  <%= if cmd_preview do %>
+                    <span class="text-zinc-500 mx-1">&middot;</span>
+                    <span class="text-zinc-400"><%= String.slice(to_string(cmd_preview), 0, 50) %></span>
+                  <% end %>
+                  <span class="text-zinc-500 mx-1">&middot;</span>
+                  <span class={"font-semibold #{if top.risk_level in [:high, :critical], do: "text-red-400", else: "text-amber-400"}"}><%= top.risk_level %> risk</span>
+                </span>
+                <div phx-hook="CountdownTimer" id={"toast-cd-#{top.request_id}"} data-seconds="20"
+                  class="text-[10px] font-mono text-amber-400/60 tabular-nums shrink-0">
+                  <span data-countdown-display>20s</span>
+                </div>
+                <%= if length(@pending) > 1 do %>
+                  <span class="badge badge-xs badge-warning shrink-0"><%= length(@pending) %></span>
+                <% end %>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                <kbd class="kbd kbd-xs opacity-40">↵ approve</kbd>
+                <kbd class="kbd kbd-xs opacity-40">esc dismiss</kbd>
+                <button phx-click="approve_gate" phx-value-id={top.request_id} class="btn btn-success btn-xs">Approve</button>
+                <button phx-click="deny_gate" phx-value-id={top.request_id} class="btn btn-error btn-xs">Deny</button>
+                <%= if length(@pending) > 1 do %>
+                  <div class="dropdown dropdown-end dropdown-bottom">
+                    <label tabindex="0" class="btn btn-warning btn-xs btn-outline cursor-pointer" title="Approve all pending">
+                      All (<%= length(@pending) %>)
+                    </label>
+                    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-40 p-1 shadow-lg border border-base-content/10 mt-1">
+                      <li><button phx-click="approve_all_pending" class="text-xs text-success">Approve All</button></li>
+                      <li><button phx-click="dismiss_all_pending" class="text-xs text-error">Deny All</button></li>
+                    </ul>
+                  </div>
+                <% end %>
+                <button phx-click="toggle_modal_minimize" class="btn btn-ghost btn-xs" title="Show details">
+                  <.icon name="hero-chevron-down" class="h-3 w-3" />
+                </button>
+                <a href="/authorization" class="btn btn-ghost btn-xs" title="Open Authorization page">
+                  <.icon name="hero-arrow-top-right-on-square" class="h-3 w-3" />
+                </a>
+                <button phx-click="dismiss_auth" class="btn btn-ghost btn-xs btn-square" title="Dismiss">
+                  <.icon name="hero-x-mark" class="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+        <% end %>
 
         <main class="flex-1 overflow-y-auto p-4 space-y-4">
 
@@ -702,6 +976,89 @@ defmodule ApmV5Web.AuthorizationLive do
   defp safe_list_rules do
     try do PolicyRulesStore.list_rules() rescue _ -> [] end
   end
+
+  defp group_pending_by_agent(pending) do
+    pending
+    |> Enum.group_by(& &1.agent_id)
+    |> Enum.sort_by(fn {_agent, gates} -> -length(gates) end)
+  end
+
+  defp risk_weight(:critical), do: 4
+  defp risk_weight(:high), do: 3
+  defp risk_weight(:medium), do: 2
+  defp risk_weight(:low), do: 1
+  defp risk_weight(_), do: 0
+
+  defp action_type_display(nil), do: "OPERATION"
+  defp action_type_display(:destructive), do: "DESTRUCTIVE"
+  defp action_type_display(:write), do: "WRITE"
+  defp action_type_display(:read), do: "READ"
+  defp action_type_display(:unknown), do: "OPERATION"
+  defp action_type_display(other), do: String.upcase(to_string(other))
+
+  defp action_type_class(nil), do: "bg-zinc-700 text-zinc-300"
+  defp action_type_class(:destructive), do: "bg-red-900/60 text-red-300"
+  defp action_type_class(:write), do: "bg-amber-900/60 text-amber-300"
+  defp action_type_class(:read), do: "bg-blue-900/60 text-blue-300"
+  defp action_type_class(_), do: "bg-zinc-700 text-zinc-300"
+
+  defp describe_tool_action(tool_name, params) when is_map(params) do
+    case tool_name do
+      "Bash" ->
+        cmd = Map.get(params, "command", "")
+        if cmd != "", do: "Running shell command: #{String.slice(cmd, 0, 120)}", else: "Executing shell command"
+
+      "Write" ->
+        path = Map.get(params, "file_path", "unknown")
+        "Writing file: #{path}"
+
+      "Edit" ->
+        path = Map.get(params, "file_path", "unknown")
+        old = Map.get(params, "old_string", "")
+        "Editing #{path} — replacing #{String.length(old)} chars"
+
+      "Read" ->
+        path = Map.get(params, "file_path", "unknown")
+        "Reading file: #{path}"
+
+      "Glob" ->
+        pattern = Map.get(params, "pattern", "*")
+        "Searching for files matching: #{pattern}"
+
+      "Grep" ->
+        pattern = Map.get(params, "pattern", "")
+        "Searching file contents for: #{String.slice(pattern, 0, 80)}"
+
+      "Agent" ->
+        desc = Map.get(params, "description", Map.get(params, "prompt", ""))
+        type = Map.get(params, "subagent_type", "general-purpose")
+        "Launching #{type} agent: #{String.slice(desc, 0, 100)}"
+
+      "Skill" ->
+        skill = Map.get(params, "skill", "unknown")
+        "Invoking skill: /#{skill}"
+
+      "WebFetch" ->
+        url = Map.get(params, "url", "unknown")
+        "Fetching URL: #{String.slice(url, 0, 100)}"
+
+      _ ->
+        desc = Map.get(params, "description", "")
+        if desc != "", do: desc, else: "#{tool_name} operation"
+    end
+  end
+  defp describe_tool_action(tool_name, _), do: "#{tool_name} operation"
+
+  defp format_params_display(params) when is_map(params) do
+    params
+    |> Enum.sort_by(fn {k, _} -> k end)
+    |> Enum.map(fn {k, v} ->
+      val = if is_binary(v), do: v, else: inspect(v)
+      "#{k}: #{val}"
+    end)
+    |> Enum.join("\n")
+  end
+  defp format_params_display(_), do: ""
 
   defp risk_badge_class(level) do
     case level do

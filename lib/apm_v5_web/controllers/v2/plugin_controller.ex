@@ -13,6 +13,7 @@ defmodule ApmV5Web.V2.PluginController do
   use ApmV5Web, :controller
 
   alias ApmV5.Plugins.PluginRegistry
+  alias ApmV5.Plugins.ClaudeCodePluginBridge
 
   @pubsub ApmV5.PubSub
   @topic "apm:plugins"
@@ -129,6 +130,17 @@ defmodule ApmV5Web.V2.PluginController do
     }})
 
     json(conn, %{reloaded: results, plugins: plugins, count: length(plugins)})
+  end
+
+  @doc "GET /api/v2/plugins/cc/plugins — list installed Claude Code plugins"
+  def cc_plugins(conn, _params) do
+    plugins = ClaudeCodePluginBridge.list_cc_plugins()
+    json(conn, %{data: plugins, count: length(plugins)})
+  end
+
+  @doc "GET /api/v2/plugins/cc/summary — Claude Code plugin ecosystem summary"
+  def cc_summary(conn, _params) do
+    json(conn, %{data: ClaudeCodePluginBridge.get_summary()})
   end
 
   defp drop_nils(map), do: Enum.reject(map, fn {_k, v} -> is_nil(v) end) |> Map.new()

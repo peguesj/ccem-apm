@@ -118,15 +118,12 @@ defmodule ApmV5Web.ScannerLive do
 
       <%!-- Main content --%>
       <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Header --%>
-        <header class="bg-base-200 border-b border-base-300 flex-shrink-0">
-          <div class="h-12 flex items-center justify-between px-4">
-            <div class="flex items-center gap-3">
-              <h2 class="text-sm font-semibold text-base-content">Project Scanner</h2>
-              <span class="text-xs text-base-content/40"><%= scanner_status_text(@scanner_status) %></span>
-            </div>
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">Project Scanner</h2>
+            <div class="badge badge-sm badge-ghost"><%= scanner_status_text(@scanner_status) %></div>
           </div>
-          <div class="px-4 pb-3">
+          <div class="flex items-center gap-2">
             <form phx-submit="scan" class="flex gap-2">
               <input
                 type="text"
@@ -134,11 +131,11 @@ defmodule ApmV5Web.ScannerLive do
                 value={@base_path}
                 phx-change="update_path"
                 placeholder="~/Developer"
-                class="input input-bordered input-sm flex-1 bg-base-100 text-sm"
+                class="input input-bordered input-xs bg-base-100 text-xs w-48"
               />
-              <button type="submit" disabled={@scanning} class="btn btn-primary btn-sm">
+              <button type="submit" disabled={@scanning} class="btn btn-primary btn-xs">
                 <%= if @scanning do %>
-                  <span class="animate-pulse">Scanning…</span>
+                  <span class="animate-pulse">Scanning...</span>
                 <% else %>
                   Scan
                 <% end %>

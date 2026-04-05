@@ -3,7 +3,7 @@ defmodule ApmV5.ActionEngine do
   GenServer for running predefined actions against developer projects.
   Actions: deploy_apm_hooks, add_memory_pointer, backfill_apm_config, analyze_project,
            fix_skill_frontmatter, complete_skill_description, add_skill_triggers,
-           backfill_project_memory, update_hooks.
+           add_skill_templates, add_skill_examples, backfill_project_memory, update_hooks.
   """
   use GenServer
   require Logger
@@ -71,6 +71,22 @@ defmodule ApmV5.ActionEngine do
       params: [%{name: "skill_name", type: "string", required: true}]
     },
     %{
+      id: "add_skill_templates",
+      name: "Add Skill Templates",
+      description: "Generate a templates section in SKILL.md with boilerplate/template content for the skill.",
+      category: "skill_audit",
+      icon: "document-duplicate",
+      params: [%{name: "skill_name", type: "string", required: true}]
+    },
+    %{
+      id: "add_skill_examples",
+      name: "Add Skill Examples",
+      description: "Generate a usage examples section in SKILL.md demonstrating how to invoke and use the skill.",
+      category: "skill_audit",
+      icon: "code-bracket",
+      params: [%{name: "skill_name", type: "string", required: true}]
+    },
+    %{
       id: "backfill_project_memory",
       name: "Backfill Project Memory",
       description: "Read project directory and generate a CCEM APM memory section for .claude/CLAUDE.md.",
@@ -127,14 +143,6 @@ defmodule ApmV5.ActionEngine do
       description: "Intelligently reassign conflicting ports using AG-UI event flow. Analyzes clashes, proposes resolutions, and confirms via chat before applying.",
       category: "ports",
       icon: "bolt",
-      params: []
-    },
-    %{
-      id: "crate_digger_status",
-      name: "CrateDigger Status",
-      description: "Verify CrateDigger installation in an SFA project. Checks migration files (crates, crate_track_configs, who_sampled_cache), context module, schema files, WhoSampledScraper, LiveView, router entry, and sidebar nav link. Reports per-component status and missing items.",
-      category: "analysis",
-      icon: "musical-note",
       params: []
     },
     # AgentLock authorization actions (v7.0.0)
@@ -210,6 +218,18 @@ defmodule ApmV5.ActionEngine do
       category: "integration",
       icon: "cpu-chip",
       params: []
+    },
+    %{
+      id: "manage_showcases",
+      name: "Manage Project Showcases",
+      description: "Discover, manage, and create project showcases. Lists all projects with showcase status (standalone/central/unconfigured). Integrates with /upm plan/build, /plane-pm align daemon, /apm reporting, and /apm-auth approval gates. Can generate central showcase entries or link standalone project showcases.",
+      category: "showcase",
+      icon: "presentation-chart-bar",
+      params: [
+        %{name: "action", type: "string", required: true, options: ["list", "info", "create"]},
+        %{name: "project", type: "string", required: false},
+        %{name: "config", type: "object", required: false}
+      ]
     }
   ]
 
@@ -628,6 +648,108 @@ defmodule ApmV5.ActionEngine do
     {:error, "Missing required param: skill_name (got: #{inspect(params)})"}
   end
 
+  defp execute_action("add_skill_templates", _project_path, %{"skill_name" => skill_name}) do
+    skill_md = Path.join([@skills_dir, skill_name, "SKILL.md"])
+
+    case File.read(skill_md) do
+      {:ok, content} ->
+        content_lower = String.downcase(content)
+
+        if String.contains?(content_lower, "## template") do
+          {:ok, %{status: "ok", message: "Templates section already present", skill: skill_name, changes: []}}
+        else
+          templates_section = """
+
+## Templates
+
+### Basic Usage Template
+
+```
+/<#{skill_name}> <args>
+```
+
+### Configuration Template
+
+```yaml
+# #{skill_name} configuration
+enabled: true
+options: {}
+```
+"""
+
+          case File.write(skill_md, content <> templates_section) do
+            :ok ->
+              notify_skill_audit_complete(skill_name, "add_skill_templates")
+              {:ok, %{status: "ok", message: "Templates section added", skill: skill_name, changes: ["templates section appended"]}}
+
+            {:error, reason} ->
+              {:error, "write failed: #{reason}"}
+          end
+        end
+
+      _ ->
+        {:error, "SKILL.md not found for skill: #{skill_name}"}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("add_skill_templates", _project_path, params) do
+    {:error, "Missing required param: skill_name (got: #{inspect(params)})"}
+  end
+
+  defp execute_action("add_skill_examples", _project_path, %{"skill_name" => skill_name}) do
+    skill_md = Path.join([@skills_dir, skill_name, "SKILL.md"])
+
+    case File.read(skill_md) do
+      {:ok, content} ->
+        content_lower = String.downcase(content)
+
+        if String.contains?(content_lower, "## example") do
+          {:ok, %{status: "ok", message: "Examples section already present", skill: skill_name, changes: []}}
+        else
+          examples_section = """
+
+## Examples
+
+### Example 1: Basic invocation
+
+```
+/#{skill_name}
+```
+
+Runs the skill with default options.
+
+### Example 2: With arguments
+
+```
+/#{skill_name} --option value
+```
+
+Runs the skill with custom configuration.
+"""
+
+          case File.write(skill_md, content <> examples_section) do
+            :ok ->
+              notify_skill_audit_complete(skill_name, "add_skill_examples")
+              {:ok, %{status: "ok", message: "Examples section added", skill: skill_name, changes: ["examples section appended"]}}
+
+            {:error, reason} ->
+              {:error, "write failed: #{reason}"}
+          end
+        end
+
+      _ ->
+        {:error, "SKILL.md not found for skill: #{skill_name}"}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("add_skill_examples", _project_path, params) do
+    {:error, "Missing required param: skill_name (got: #{inspect(params)})"}
+  end
+
   defp execute_action("backfill_project_memory", project_path, _params) do
     claude_dir = Path.join(project_path, ".claude")
     File.mkdir_p(claude_dir)
@@ -803,6 +925,69 @@ defmodule ApmV5.ActionEngine do
     e -> {:error, Exception.message(e)}
   end
 
+  defp execute_action("manage_showcases", _project_path, params) do
+    action = Map.get(params, "action", "list")
+
+    case action do
+      "list" ->
+        projects = ApmV5.Showcases.ShowcaseManager.list_projects()
+        stats = ApmV5.Showcases.ShowcaseManager.stats()
+
+        {:ok,
+         %{
+           message: "Project showcases listed",
+           projects: projects,
+           stats: stats
+         }}
+
+      "info" ->
+        project = Map.get(params, "project")
+
+        unless project do
+          {:error, "project parameter required for info action"}
+        else
+          case ApmV5.Showcases.ShowcaseManager.get_project_showcase(project) do
+            {:ok, info} ->
+              {:ok,
+               %{
+                 message: "Project showcase info retrieved",
+                 project: project,
+                 showcase_info: info
+               }}
+
+            {:error, _} ->
+              {:error, "project not found: #{project}"}
+          end
+        end
+
+      "create" ->
+        project = Map.get(params, "project")
+        config = Map.get(params, "config", %{})
+
+        unless project do
+          {:error, "project parameter required for create action"}
+        else
+          case ApmV5.Showcases.ShowcaseManager.create_showcase(project, config) do
+            {:ok, result} ->
+              {:ok,
+               %{
+                 message: "Showcase created or configured",
+                 project: project,
+                 result: result
+               }}
+
+            {:error, reason} ->
+              {:error, "Failed to create showcase: #{inspect(reason)}"}
+          end
+        end
+
+      _ ->
+        {:error, "Unknown action: #{action}. Expected: list, info, create"}
+    end
+  rescue
+    e -> {:error, "manage_showcases failed: #{Exception.message(e)}"}
+  end
+
   defp execute_action("register_all_ports", _project_path, _params) do
     project_configs = ApmV5.PortManager.get_project_configs()
 
@@ -911,61 +1096,6 @@ defmodule ApmV5.ActionEngine do
     e -> {:error, Exception.message(e)}
   end
 
-  defp execute_action("crate_digger_status", project_path, _params) do
-    # Expected paths relative to project_path
-    checks = [
-      {:migration, "priv/repo/migrations", "create_crate_digger_tables"},
-      {:context, "lib/sound_forge/crate_digger.ex", nil},
-      {:schema_crate, "lib/sound_forge/crate_digger/crate.ex", nil},
-      {:schema_track_config, "lib/sound_forge/crate_digger/crate_track_config.ex", nil},
-      {:schema_cache, "lib/sound_forge/crate_digger/who_sampled_cache.ex", nil},
-      {:scraper, "lib/sound_forge/crate_digger/who_sampled_scraper.ex", nil},
-      {:live_view, "lib/sound_forge_web/live/crate_digger_live.ex", nil},
-      {:router, "lib/sound_forge_web/router.ex", "CrateDiggerLive"},
-      {:sidebar, "lib/sound_forge_web/live/components/sidebar.ex", "crate"},
-      {:floki_dep, "mix.exs", "floki"}
-    ]
-
-    results =
-      Enum.map(checks, fn
-        {:migration, rel_dir, pattern} ->
-          dir = Path.join(project_path, rel_dir)
-          found =
-            case File.ls(dir) do
-              {:ok, files} -> Enum.any?(files, &String.contains?(&1, pattern))
-              _ -> false
-            end
-          {rel_dir <> "/" <> pattern, found}
-
-        {_key, rel_path, nil} ->
-          {rel_path, File.exists?(Path.join(project_path, rel_path))}
-
-        {_key, rel_path, pattern} ->
-          path = Path.join(project_path, rel_path)
-          found =
-            case File.read(path) do
-              {:ok, content} -> String.contains?(content, pattern)
-              _ -> false
-            end
-          {rel_path <> " (contains: #{pattern})", found}
-      end)
-
-    present = Enum.count(results, fn {_, ok} -> ok end)
-    missing = Enum.filter(results, fn {_, ok} -> !ok end) |> Enum.map(&elem(&1, 0))
-
-    status = if missing == [], do: "complete", else: "partial"
-
-    {:ok, %{
-      status: status,
-      total_checks: length(results),
-      present: present,
-      missing_count: length(missing),
-      missing: missing,
-      details: Enum.map(results, fn {name, ok} -> %{check: name, ok: ok} end)
-    }}
-  rescue
-    e -> {:error, Exception.message(e)}
-  end
 
   # -- AgentLock authorization actions (v7.0.0) --
 

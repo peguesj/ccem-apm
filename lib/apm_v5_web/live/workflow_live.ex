@@ -212,31 +212,29 @@ defmodule ApmV5Web.WorkflowLive do
 
       <!-- Main content -->
       <div class="flex-1 flex flex-col overflow-hidden">
-        <!-- Header -->
-        <div class="bg-base-200 border-b border-base-300 px-6 py-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <h1 class="text-lg font-bold"><%= @workflow.title %></h1>
-              <p class="text-base-content/60 text-sm"><%= @workflow.description %></p>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="badge badge-ghost badge-sm"><%= length(@steps) %> steps</span>
-              <span class="badge badge-primary badge-sm">Interactive</span>
-              <%= if @active_tab == "current" do %>
-                <button
-                  phx-click="toggle_inspector"
-                  class={["btn btn-ghost btn-sm gap-1", @inspector_open && "btn-active"]}
-                  title="Toggle inspector"
-                >
-                  <.icon name="hero-bars-3-bottom-right" class="w-4 h-4" />
-                  Inspector
-                </button>
-              <% end %>
-            </div>
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content"><%= @workflow.title %></h2>
+            <div class="badge badge-sm badge-ghost"><%= length(@steps) %> steps</div>
+            <span class="badge badge-primary badge-sm">Interactive</span>
           </div>
+          <div class="flex items-center gap-2">
+            <%= if @active_tab == "current" do %>
+              <button
+                phx-click="toggle_inspector"
+                class={["btn btn-ghost btn-xs gap-1", @inspector_open && "btn-active"]}
+                title="Toggle inspector"
+              >
+                <.icon name="hero-bars-3-bottom-right" class="w-4 h-4" />
+                Inspector
+              </button>
+            <% end %>
+          </div>
+        </header>
+        <div class="bg-base-200 border-b border-base-300 px-4 py-1 flex-shrink-0">
           <!-- Pill-tab bar (UPM only) -->
           <%= if @active_tab do %>
-            <div class="flex gap-1 mt-3">
+            <div class="flex gap-1">
               <button
                 phx-click="set_tab"
                 phx-value-tab="default"

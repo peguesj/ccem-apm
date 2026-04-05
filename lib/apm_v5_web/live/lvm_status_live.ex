@@ -70,14 +70,26 @@ defmodule ApmV5Web.LvmStatusLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-6 space-y-6">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-white">LVM Platform Status</h1>
-        <button phx-click="refresh" class="btn btn-sm btn-outline btn-info">Refresh</button>
-      </div>
+    <div class="flex h-screen bg-base-300 overflow-hidden">
+      <.sidebar_nav current_path="/integrations/lvm" skill_count={@active_skill_count} />
 
-      <%!-- Tab navigation --%>
-      <div role="tablist" class="tabs tabs-bordered">
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-base-content">LVM Platform Status</h2>
+            <div class="badge badge-sm badge-ghost"><%= length(@models) %> models</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-base-content/40">Auto-refresh 30s</span>
+            <button phx-click="refresh" class="btn btn-xs btn-ghost gap-1">
+              <.icon name="hero-arrow-path" class="size-3.5" /> Refresh
+            </button>
+          </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-4 space-y-4">
+          <%!-- Tab navigation --%>
+          <div role="tablist" class="tabs tabs-bordered">
         <a role="tab" class={"tab #{if @active_tab == "models", do: "tab-active"}"} phx-click="switch_tab" phx-value-tab="models">
           Models (<%= length(@models) %>)
         </a>
@@ -155,6 +167,8 @@ defmodule ApmV5Web.LvmStatusLive do
           <% _ -> %>
             <div class="text-center text-sm opacity-50 py-8">Unknown tab</div>
         <% end %>
+          </div>
+        </main>
       </div>
     </div>
     """

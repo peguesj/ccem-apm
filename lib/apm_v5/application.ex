@@ -46,6 +46,12 @@ defmodule ApmV5.Application do
       ApmV5.BackfillStore,
       ApmV5.SkillsRegistryStore,
       ApmV5.ShowcaseDataStore,
+      # Skill dependency analyzer -- scans ~/.claude/skills/ and ./commands/ (Phase 1: v1.0.0)
+      ApmV5.Skills.SkillAnalyzer,
+      # Skill health scorer -- 5-dimension health assessment (Phase 2: v1.0.0)
+      ApmV5.Skills.SkillHealthScorer,
+      # Showcase Manager -- discover/manage project showcases, integrate with UPM/Plane/Auth
+      ApmV5.Showcases.ShowcaseManager,
       # Sub-supervisor: AG-UI protocol layer
       ApmV5.Supervisors.AgUiSupervisorGroup,
       # Claude usage tracking (US-042)
@@ -54,6 +60,9 @@ defmodule ApmV5.Application do
       ApmV5.SessionManager,
       # Namespace Resolver -- human-readable labels for agents/sessions/gates (v8.5.0)
       ApmV5.NamespaceResolver,
+      # CC plugin bridge + repository store -- before PluginSupervisor/Registry
+      ApmV5.Plugins.ClaudeCodePluginBridge,
+      ApmV5.Plugins.PluginRepositoryStore,
       # Plugin Engine (v8.0.0) -- supervisor before registry
       ApmV5.Plugins.PluginSupervisor,
       ApmV5.Plugins.PluginRegistry,
@@ -68,6 +77,8 @@ defmodule ApmV5.Application do
       ApmV5.Supervisors.AuthSupervisor,
       # Persistent Plane-PM alignment agent -- polls Plane every 5min, broadcasts plane:sync (US-018)
       ApmV5.PlanePmAlign,
+      # Library catalog -- scans skills/agents/commands/MCP/hooks/patterns/learnings (v8.10.1)
+      ApmV5.LibraryStore,
       # Dashboard widget system -- WidgetRegistry + LayoutStore (widget-system)
       ApmV5.WidgetRegistry,
       ApmV5.LayoutStore,
