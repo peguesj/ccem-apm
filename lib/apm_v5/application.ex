@@ -29,6 +29,8 @@ defmodule ApmV5.Application do
       ApmV5.Supervisors.CoreSupervisor,
       # Status cache -- 1s TTL ETS cache for /api/status + /api/health hot paths
       ApmV5.StatusCache,
+      # Dashboard snapshot cache -- 2s TTL preloaded mount data (US-603)
+      ApmV5.DashboardData,
       # Remaining top-level GenServers (no logical grouping)
       ApmV5.SkillTracker,
       ApmV5.MetricsCollector,

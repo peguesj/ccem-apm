@@ -58,10 +58,13 @@ defmodule ApmV5Web.DashboardLive do
     commands = ProjectStore.get_commands(active_project || "_global")
     ralph_data = load_ralph_for_project(active_project, config)
     session_count = count_config_sessions(config)
-    upm_status = UpmStore.get_status()
-    project_configs = safe_call(fn -> PortManager.get_project_configs() end, %{})
-    port_clashes = safe_call(fn -> PortManager.detect_clashes() end, [])
-    port_ranges = safe_call(fn -> PortManager.get_port_ranges() end, %{})
+    # Batch-fetch cross-project data from DashboardData snapshot cache (US-603)
+    # Single ETS read replaces 6 sequential GenServer.calls on cold mount.
+    snap = ApmV5.DashboardData.snapshot()
+    upm_status = snap.upm_status || UpmStore.get_status()
+    project_configs = snap.project_configs
+    port_clashes = snap.port_clashes
+    port_ranges = snap.port_ranges
 
     socket =
       socket
@@ -100,10 +103,10 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:chat_messages, [])
       |> assign(:chat_input, "")
       |> assign(:show_showcase, true)
-      |> assign(:saved_layouts, DashboardStore.list_layouts())
+      |> assign(:saved_layouts, snap.saved_layouts)
       |> assign(:agentlock_pending, safe_list_pending())
       |> assign(:auth_dismissed, false)
-      |> assign(:saved_presets, DashboardStore.list_presets())
+      |> assign(:saved_presets, snap.saved_presets)
       # Global filter bar state (Splunk/ELK-style)
       |> assign(:filter_status, nil)
       |> assign(:filter_namespace, nil)
