@@ -44,6 +44,12 @@ defmodule ApmV5.Auth.PendingDecisions do
   @doc "Queue a new pending escalation. Returns `{:ok, request_id}`."
   @spec add(String.t(), String.t(), atom(), String.t(), map()) :: {:ok, String.t()}
   def add(tool_name, session_id, risk_level, agent_id, params \\ %{}) do
+    :telemetry.execute(
+      [:apm_v5, :auth, :pending_decisions, :add],
+      %{count: 1},
+      %{tool: tool_name, session_id: session_id, risk_level: risk_level, agent_id: agent_id}
+    )
+
     GenServer.call(__MODULE__, {:add, tool_name, session_id, risk_level, agent_id, params})
   end
 
@@ -51,6 +57,12 @@ defmodule ApmV5.Auth.PendingDecisions do
   Returns `{:ok, token_id}` when approved and a token is issued, `:ok` otherwise."
   @spec decide(String.t(), :approve | :deny) :: {:ok, String.t()} | :ok | {:error, :not_found}
   def decide(request_id, decision) when decision in [:approve, :deny] do
+    :telemetry.execute(
+      [:apm_v5, :auth, :pending_decisions, :decide],
+      %{count: 1},
+      %{request_id: request_id, decision: decision}
+    )
+
     GenServer.call(__MODULE__, {:decide, request_id, decision})
   end
 

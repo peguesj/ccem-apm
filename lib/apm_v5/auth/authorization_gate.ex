@@ -55,7 +55,13 @@ defmodule ApmV5.Auth.AuthorizationGate do
   @spec authorize(String.t(), String.t(), String.t(), String.t(), map()) ::
           {:ok, String.t()} | {:error, atom(), String.t()}
   def authorize(agent_id, session_id, tool_name, role \\ "agent", params \\ %{}) do
-    GenServer.call(__MODULE__, {:authorize, agent_id, session_id, tool_name, role, params})
+    ApmV5.Instrumentation.span(
+      [:apm_v5, :auth, :authorization_gate, :evaluate],
+      %{tool: tool_name, agent_id: agent_id, session_id: session_id, role: role},
+      fn ->
+        GenServer.call(__MODULE__, {:authorize, agent_id, session_id, tool_name, role, params})
+      end
+    )
   end
 
   @doc """

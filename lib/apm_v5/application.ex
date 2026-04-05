@@ -11,6 +11,9 @@ defmodule ApmV5.Application do
     :inets.start()
     :ssl.start()
 
+    # Attach default telemetry logger handlers (v8.12.1)
+    _ = ApmV5.Instrumentation.attach_default_handlers()
+
     # Initialize LifecycleMapper ETS tables before supervision tree starts
     ApmV5.AgUi.LifecycleMapper.init_tables()
 
@@ -18,6 +21,10 @@ defmodule ApmV5.Application do
       ApmV5Web.Telemetry,
       {DNSCluster, query: Application.get_env(:apm_v5, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ApmV5.PubSub},
+      # Unified concurrency layer -- supervised fire-and-forget task pool (v8.12.1)
+      ApmV5.ConcurrencyLayer,
+      # Priority job queue with exponential backoff retry (v8.12.1)
+      ApmV5.JobQueue,
       # Sub-supervisor: core infrastructure (ConfigLoader, DashboardStore, AuditLog, etc.)
       ApmV5.Supervisors.CoreSupervisor,
       # Status cache -- 1s TTL ETS cache for /api/status + /api/health hot paths
