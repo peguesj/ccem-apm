@@ -1,0 +1,76 @@
+{
+  "name": "Mirofish Plugin — Miro Board Integration for CCEM APM",
+  "version": "1.0.0",
+  "branchName": "worktree-ccem-mirofish-plugin",
+  "description": "APM plugin exposing Miro REST API v2 operations as plugin actions for research + coalescence workflows. Formation agents post findings as sticky notes on a shared board.",
+  "stories": [
+    {
+      "id": "US-501",
+      "title": "Miro REST API v2 :httpc client with rate-limit retry",
+      "priority": 1,
+      "passes": true,
+      "acceptance_criteria": [
+        "MiroClient uses Erlang :httpc (no external HTTP deps)",
+        "Reads access token from MIRO_ACCESS_TOKEN env var or ~/.config/mirofish/token",
+        "Handles 429 with Retry-After header, retries once (max 10s wait)",
+        "All public functions return {:ok, map()} | {:error, reason} tagged tuples",
+        "parse_response_body/1 exposed for unit testing"
+      ]
+    },
+    {
+      "id": "US-502",
+      "title": "MirofishPlugin module implementing PluginBehaviour",
+      "priority": 2,
+      "passes": true,
+      "acceptance_criteria": [
+        "Implements plugin_name, plugin_description, plugin_version, plugin_scope (:ccem)",
+        "list_endpoints/0 returns 9 action descriptors",
+        "handle_action/3 dispatches: list_boards, get_board, create_board, create_sticky, create_frame, create_text, list_items, delete_item, coalesce_findings",
+        "coalesce_findings bulk-creates sticky notes in a 4-column grid",
+        "Atom keys in params are normalized to strings",
+        "Invalid params return {:error, {:invalid_params, action}}",
+        "Unknown actions return {:error, {:unknown_action, action}}"
+      ]
+    },
+    {
+      "id": "US-503",
+      "title": "Registry integration — auto-register MirofishPlugin",
+      "priority": 3,
+      "passes": true,
+      "acceptance_criteria": [
+        "ApmV5.Plugins.Mirofish.MirofishPlugin added to @default_plugins in PluginRegistry",
+        "mix compile --warnings-as-errors passes",
+        "Plugin is discoverable via PluginRegistry.list_plugins/0 at runtime"
+      ]
+    },
+    {
+      "id": "US-504",
+      "title": "Test coverage for plugin + client response parsing",
+      "priority": 4,
+      "passes": true,
+      "acceptance_criteria": [
+        "16 ExUnit tests, 0 failures",
+        "Plugin metadata tests (name/version/description/scope)",
+        "list_endpoints returns 9 descriptors",
+        "Missing token returns {:error, :no_token} when no file and no env",
+        "Unknown action and missing params error paths covered",
+        "coalesce_findings with empty list returns {:ok, %{created: 0}}",
+        "parse_response_body handles JSON object, array, empty body, non-JSON, charlist, realistic sticky-note response"
+      ]
+    },
+    {
+      "id": "US-505",
+      "title": "SKILL documentation at ~/.claude/skills/mirofish/SKILL.md",
+      "priority": 5,
+      "passes": true,
+      "acceptance_criteria": [
+        "Frontmatter with name, description, version, scope, tier, methodology",
+        "Auth setup documented (env var + token file)",
+        "All 9 action commands documented with examples",
+        "Integration patterns with /formation and /coalesce explained",
+        "Rate limit guidance included",
+        "Out-of-scope items listed for v1.0.0"
+      ]
+    }
+  ]
+}
