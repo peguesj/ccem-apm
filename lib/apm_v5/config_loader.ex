@@ -110,22 +110,27 @@ defmodule ApmV5.ConfigLoader do
 
     new_config = Map.put(state.config, "projects", updated_projects)
 
-    case Jason.encode(new_config, pretty: true) do
-      {:ok, json} ->
-        case File.write(state.config_path, json) do
-          :ok ->
-            Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:config", {:config_reloaded, new_config})
-            {:reply, {:ok, new_config}, %{state | config: new_config}}
+    # Move disk persistence off the GenServer loop so concurrent get_config/1
+    # reads are never blocked by File.write. State update is synchronous.
+    config_path = state.config_path
+    Task.start(fn ->
+      case Jason.encode(new_config, pretty: true) do
+        {:ok, json} ->
+          case File.write(config_path, json) do
+            :ok -> :ok
+            {:error, reason} ->
+              require Logger
+              Logger.error("[ConfigLoader] Failed to persist config: #{inspect(reason)}")
+          end
 
-          {:error, reason} ->
-            require Logger
-            Logger.error("[ConfigLoader] Failed to persist config: #{inspect(reason)}")
-            {:reply, {:error, "disk write failed: #{reason}"}, state}
-        end
+        {:error, reason} ->
+          require Logger
+          Logger.error("[ConfigLoader] Failed to encode config: #{inspect(reason)}")
+      end
+    end)
 
-      {:error, reason} ->
-        {:reply, {:error, "JSON encode failed: #{inspect(reason)}"}, state}
-    end
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:config", {:config_reloaded, new_config})
+    {:reply, {:ok, new_config}, %{state | config: new_config}}
   end
 
   def handle_call(:reload, _from, state) do
