@@ -118,7 +118,20 @@ defmodule ApmV5.PortManager do
     # This avoids N+1 sync calls into ConfigLoader from inside this handle_call,
     # which was causing :get_port_map calls to time out at 5s under contention.
     apm_config = ApmV5.ConfigLoader.get_config()
-    apm_projects = Map.get(apm_config, "projects", %{})
+    # apm_config.json "projects" may be either a map (by name) or a list of
+    # project maps. Normalize to a map keyed by name to keep Map.get lookups
+    # O(1) and crash-safe under continuous scanning (US-602).
+    apm_projects =
+      case Map.get(apm_config, "projects", %{}) do
+        projects when is_map(projects) ->
+          projects
+
+        projects when is_list(projects) ->
+          Map.new(projects, fn p -> {p["name"], p} end)
+
+        _ ->
+          %{}
+      end
 
     # Enrich with active port status and primary_port/ownership from apm_config
     enriched =
