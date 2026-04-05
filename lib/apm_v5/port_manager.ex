@@ -86,6 +86,12 @@ defmodule ApmV5.PortManager do
 
   @impl true
   def handle_call(:get_project_configs, _from, state) do
+    # Fetch full config ONCE (single GenServer.call) instead of per-project
+    # This avoids N+1 sync calls into ConfigLoader from inside this handle_call,
+    # which was causing :get_port_map calls to time out at 5s under contention.
+    apm_config = ApmV5.ConfigLoader.get_config()
+    apm_projects = Map.get(apm_config, "projects", %{})
+
     # Enrich with active port status and primary_port/ownership from apm_config
     enriched =
       Enum.map(state.project_configs, fn {name, config} ->
@@ -100,8 +106,8 @@ defmodule ApmV5.PortManager do
             |> Map.put(:server_type, if(active_info, do: active_info[:server_type]))
           end)
 
-        # Merge primary_port and port_ownership from apm_config.json
-        apm_project = ApmV5.ConfigLoader.get_project(name)
+        # Merge primary_port and port_ownership from apm_config.json (in-memory lookup)
+        apm_project = Map.get(apm_projects, name)
         primary_port = if apm_project, do: apm_project["primary_port"]
         port_ownership = if apm_project, do: apm_project["port_ownership"], else: "shared"
 
