@@ -54,6 +54,7 @@ defmodule ApmV5Web.SessionTimelineLive do
       |> assign(:selected_event, nil)
       |> assign(:hidden_categories, MapSet.new())
       |> assign(:filter_categories, @categories)
+      |> assign(:show_empty_lanes, false)
       |> load_events()
 
     {:ok, socket}
@@ -93,6 +94,18 @@ defmodule ApmV5Web.SessionTimelineLive do
                 {label}
               </button>
             </div>
+            <button
+              class={[
+                "btn btn-xs",
+                @show_empty_lanes && "btn-primary",
+                !@show_empty_lanes && "btn-ghost"
+              ]}
+              phx-click="toggle_empty_lanes"
+              title="Toggle visibility of lanes with no events in the selected window"
+            >
+              <.icon name={if @show_empty_lanes, do: "hero-eye", else: "hero-eye-slash"} class="size-3" />
+              {empty_lane_count(@swim_lanes)} empty
+            </button>
             <button class="btn btn-ghost btn-xs" phx-click="refresh">
               <.icon name="hero-arrow-path" class="size-3" />
               Refresh
@@ -113,9 +126,9 @@ defmodule ApmV5Web.SessionTimelineLive do
             <%!-- Time ruler --%>
             <.time_ruler window_minutes={@time_window_minutes} />
 
-            <%!-- One row per category --%>
+            <%!-- One row per category (empty lanes hidden unless toggled) --%>
             <.swim_lane
-              :for={lane <- @swim_lanes}
+              :for={lane <- visible_lanes(@swim_lanes, @show_empty_lanes)}
               lane={lane}
               hidden={MapSet.member?(@hidden_categories, lane.category)}
               selected_event={@selected_event}
@@ -311,6 +324,10 @@ defmodule ApmV5Web.SessionTimelineLive do
     {:noreply, assign(socket, selected_event: nil)}
   end
 
+  def handle_event("toggle_empty_lanes", _params, socket) do
+    {:noreply, assign(socket, show_empty_lanes: !socket.assigns.show_empty_lanes)}
+  end
+
   def handle_event("set_time_window", %{"minutes" => mins}, socket) do
     socket =
       socket
@@ -493,6 +510,11 @@ defmodule ApmV5Web.SessionTimelineLive do
       true -> "info"
     end
   end
+
+  defp visible_lanes(lanes, true), do: lanes
+  defp visible_lanes(lanes, false), do: Enum.reject(lanes, fn lane -> lane.count == 0 end)
+
+  defp empty_lane_count(lanes), do: Enum.count(lanes, fn lane -> lane.count == 0 end)
 
   defp lane_label_color("lifecycle"), do: "text-primary"
   defp lane_label_color("auth"),      do: "text-secondary"
