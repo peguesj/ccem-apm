@@ -1,0 +1,56 @@
+{
+  "version": "8.12.1",
+  "branchName": "worktree-ccem-concurrency-native-ipc",
+  "title": "CCEM APM Concurrency Abstraction + Native macOS IPC Bridge",
+  "description": "Unified concurrency layer (Task.Supervisor + JobQueue) and Unix Domain Socket transport for push-based CCEMHelper updates. Replaces 3s REST polling with server-push over UDS + Darwin notifications.",
+  "stories": [
+    {
+      "id": "US-301",
+      "title": "ApmV5.ConcurrencyLayer - Task.Supervisor wrappers",
+      "wave": 1,
+      "priority": 1,
+      "passes": false,
+      "description": "Fire-and-forget, bounded async stream, supervised tasks. Replaces raw Task.start calls. Telemetry events on task lifecycle."
+    },
+    {
+      "id": "US-302",
+      "title": "ApmV5.JobQueue GenServer with priority + retry",
+      "wave": 1,
+      "priority": 2,
+      "passes": false,
+      "description": "ETS-backed :job_queue with priority levels, max_concurrent, exponential backoff retry."
+    },
+    {
+      "id": "US-303",
+      "title": "ApmV5.NativeTransport.UnixSocket listener",
+      "wave": 1,
+      "priority": 3,
+      "passes": false,
+      "description": "gen_tcp UDS listener at /tmp/ccem-apm.sock, length-prefixed ETF framing."
+    },
+    {
+      "id": "US-304",
+      "title": "Telemetry instrumentation on hot paths",
+      "wave": 1,
+      "priority": 4,
+      "passes": false,
+      "description": ":telemetry spans on PendingDecisions, PubSub broadcast, AuthorizationGate, AgentRegistry."
+    },
+    {
+      "id": "US-305",
+      "title": "CCEMHelper UnixSocketTransport actor",
+      "wave": 1,
+      "priority": 5,
+      "passes": false,
+      "description": "NWConnection unix endpoint actor with AsyncStream<Frame> event source."
+    },
+    {"id":"US-306","title":"ChannelBridge - PubSub to UDS","wave":2,"priority":6,"passes":false},
+    {"id":"US-307","title":"NativeAPMClient - UDS subscriptions","wave":2,"priority":7,"passes":false},
+    {"id":"US-308","title":"DarwinNotify module","wave":2,"priority":8,"passes":false},
+    {"id":"US-309","title":"DarwinNotificationListener Swift","wave":2,"priority":9,"passes":false},
+    {"id":"US-310","title":"Migrate PendingDecisions to ConcurrencyLayer","wave":3,"priority":10,"passes":false},
+    {"id":"US-311","title":"Migrate CCEMHelper polls to subscriptions","wave":3,"priority":11,"passes":false},
+    {"id":"US-312","title":"Feature flag native_transport_enabled","wave":3,"priority":12,"passes":false},
+    {"id":"US-313","title":"v8.12.1 release","wave":4,"priority":13,"passes":false}
+  ]
+}

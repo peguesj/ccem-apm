@@ -18,6 +18,8 @@ defmodule ApmV5.Application do
       ApmV5Web.Telemetry,
       {DNSCluster, query: Application.get_env(:apm_v5, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ApmV5.PubSub},
+      # Unified concurrency layer -- supervised fire-and-forget task pool (v8.12.1)
+      ApmV5.ConcurrencyLayer,
       # Sub-supervisor: core infrastructure (ConfigLoader, DashboardStore, AuditLog, etc.)
       ApmV5.Supervisors.CoreSupervisor,
       # Remaining top-level GenServers (no logical grouping)
