@@ -88,6 +88,8 @@ defmodule ApmV5.Application do
       ApmV5.PlanePmAlign,
       # Library catalog -- scans skills/agents/commands/MCP/hooks/patterns/learnings (v8.10.1)
       ApmV5.LibraryStore,
+      # Worktree lifecycle tracking (v8.12.0) -- ETS-backed registry for git worktrees
+      ApmV5.WorktreeStore,
       # Dashboard widget system -- WidgetRegistry + LayoutStore (widget-system)
       ApmV5.WidgetRegistry,
       ApmV5.LayoutStore,

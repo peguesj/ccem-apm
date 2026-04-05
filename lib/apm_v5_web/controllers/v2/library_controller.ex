@@ -83,4 +83,52 @@ defmodule ApmV5Web.V2.LibraryController do
     LibraryStore.refresh()
     json(conn, %{status: "refresh_triggered"})
   end
+
+  @doc """
+  GET /api/v2/library/graph -- relationship graph for D3 rendering.
+
+  Query params:
+    * `focus` — focus node id (e.g. `skill:upm`)
+    * `depth` — neighborhood radius (default 2)
+    * `types` — comma-separated node types to include (e.g. `skill,agent`)
+  """
+  def graph(conn, params) do
+    opts =
+      []
+      |> maybe_put(:focus, Map.get(params, "focus"))
+      |> put_depth(Map.get(params, "depth"))
+      |> put_types(Map.get(params, "types"))
+
+    graph = ApmV5.Library.GraphBuilder.build_graph(opts)
+
+    json(conn, %{data: graph, count: length(graph.nodes)})
+  end
+
+  defp maybe_put(opts, _key, nil), do: opts
+  defp maybe_put(opts, _key, ""), do: opts
+  defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp put_depth(opts, nil), do: Keyword.put(opts, :depth, 2)
+  defp put_depth(opts, value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, _} when n > 0 -> Keyword.put(opts, :depth, n)
+      _ -> Keyword.put(opts, :depth, 2)
+    end
+  end
+  defp put_depth(opts, value) when is_integer(value), do: Keyword.put(opts, :depth, value)
+
+  defp put_types(opts, nil), do: opts
+  defp put_types(opts, ""), do: opts
+  defp put_types(opts, types) when is_binary(types) do
+    parsed =
+      types
+      |> String.split(",", trim: true)
+      |> Enum.map(&String.trim/1)
+      |> Enum.map(&String.to_atom/1)
+
+    case parsed do
+      [] -> opts
+      list -> Keyword.put(opts, :types, list)
+    end
+  end
 end

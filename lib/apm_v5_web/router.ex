@@ -296,6 +296,13 @@ defmodule ApmV5Web.Router do
     # ── EXTENSION: ag_ui (v1) ─────────────────────────────────────────────
     get "/ag-ui/events", AgUiController, :events
 
+    # ── EXTENSION: worktrees (v1) ─────────────────────────────────────────
+    get "/worktrees", V2.WorktreeController, :index
+    post "/worktrees/register", V2.WorktreeController, :register
+    get "/worktrees/:id", V2.WorktreeController, :show
+    patch "/worktrees/:id", V2.WorktreeController, :update
+    delete "/worktrees/:id", V2.WorktreeController, :delete
+
     # ── EXTENSION: usage (v1) ─────────────────────────────────────────────
     get "/usage", UsageController, :index
     get "/usage/summary", UsageController, :summary
@@ -505,6 +512,7 @@ defmodule ApmV5Web.Router do
     get "/library/hooks", LibraryController, :hooks
     get "/library/patterns", LibraryController, :patterns
     get "/library/learnings", LibraryController, :learnings
+    get "/library/graph", LibraryController, :graph
     post "/library/refresh", LibraryController, :refresh
   end
 
