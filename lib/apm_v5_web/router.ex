@@ -512,6 +512,7 @@ defmodule ApmV5Web.Router do
     get "/library/hooks", LibraryController, :hooks
     get "/library/patterns", LibraryController, :patterns
     get "/library/learnings", LibraryController, :learnings
+    get "/library/graph", LibraryController, :graph
     post "/library/refresh", LibraryController, :refresh
   end
 
