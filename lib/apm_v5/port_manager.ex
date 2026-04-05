@@ -9,6 +9,8 @@ defmodule ApmV5.PortManager do
 
   @server __MODULE__
   @sessions_dir Path.expand("~/Developer/ccem/apm/sessions")
+  # Continuous scan interval (ms) — can be overridden via Application env :port_scan_interval
+  @default_scan_interval_ms 5_000
 
   @namespace_ranges %{
     web: 3000..3999,
@@ -64,7 +66,17 @@ defmodule ApmV5.PortManager do
   @impl true
   def init(_opts) do
     Logger.info("PortManager starting...")
-    {:ok, %{port_map: %{}, active_ports: %{}, project_configs: %{}, last_scan: nil}, {:continue, :initial_scan}}
+
+    state = %{
+      port_map: %{},
+      active_ports: %{},
+      project_configs: %{},
+      last_scan: nil,
+      scan_interval_ms: scan_interval_ms(),
+      scan_in_flight: false
+    }
+
+    {:ok, state, {:continue, :initial_scan}}
   end
 
   @impl true
@@ -73,12 +85,28 @@ defmodule ApmV5.PortManager do
     port_map = port_map_from_configs(project_configs)
     Logger.info("PortManager: #{map_size(port_map)} configured ports loaded")
     # Kick off async port scan — do not block init
-    Task.start(fn ->
-      active = do_scan_active_ports()
-      GenServer.cast(@server, {:scan_result, active})
-    end)
+    kick_async_scan()
+    # Schedule continuous scan loop (US-602)
+    Process.send_after(self(), :continuous_scan, state.scan_interval_ms)
 
-    {:noreply, %{state | port_map: port_map, project_configs: project_configs}}
+    {:noreply, %{state | port_map: port_map, project_configs: project_configs, scan_in_flight: true}}
+  end
+
+  @impl true
+  def handle_info(:continuous_scan, state) do
+    # Periodic background lsof scan — never blocks handle_call.
+    # Skip launching a new task if previous scan still in flight to avoid
+    # runaway process creation under lsof slowness.
+    state =
+      if state.scan_in_flight do
+        state
+      else
+        kick_async_scan()
+        %{state | scan_in_flight: true}
+      end
+
+    Process.send_after(self(), :continuous_scan, state.scan_interval_ms)
+    {:noreply, state}
   end
 
   @impl true
@@ -176,11 +204,15 @@ defmodule ApmV5.PortManager do
 
   @impl true
   def handle_call(:scan_active_ports, _from, state) do
-    # Trigger async scan via Task; reply immediately with cached data (non-blocking)
-    Task.start(fn ->
-      active = do_scan_active_ports()
-      GenServer.cast(@server, {:scan_result, active})
-    end)
+    # Continuous-scan loop keeps state.active_ports fresh; just return cached data.
+    # If no scan is in flight, kick one off opportunistically.
+    state =
+      if state.scan_in_flight do
+        state
+      else
+        kick_async_scan()
+        %{state | scan_in_flight: true}
+      end
 
     {:reply, state.active_ports, state}
   end
@@ -263,10 +295,21 @@ defmodule ApmV5.PortManager do
       _ -> :ok
     end
 
-    {:noreply, %{state | active_ports: active, port_map: enriched_port_map, last_scan: DateTime.utc_now()}}
+    {:noreply, %{state | active_ports: active, port_map: enriched_port_map, last_scan: DateTime.utc_now(), scan_in_flight: false}}
   end
 
   # Private
+
+  defp kick_async_scan do
+    Task.start(fn ->
+      active = do_scan_active_ports()
+      GenServer.cast(@server, {:scan_result, active})
+    end)
+  end
+
+  defp scan_interval_ms do
+    Application.get_env(:apm_v5, :port_scan_interval, @default_scan_interval_ms)
+  end
 
   defp build_project_configs do
     session_files()
