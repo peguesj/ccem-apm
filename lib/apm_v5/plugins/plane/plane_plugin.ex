@@ -21,9 +21,26 @@ defmodule ApmV5.Plugins.Plane.PlanePlugin do
       Cancelled   => 80645a72-1150-4fc1-af9c-b1e85c30cd86
   """
 
-  @behaviour ApmV5.Plugins.PluginBehaviour
+  use ApmV5.Plugins.SkillPluginBridge
 
   alias ApmV5.PlaneClient
+
+  @skill_commands ~w(list_issues get_issue list_projects board_state search_issues create_issue update_issue_state list_cycles list_modules)
+
+  # ── SkillPluginBridge ────────────────────────────────────────────────────────
+
+  @impl ApmV5.Plugins.SkillPluginBridge
+  def skill_name, do: "plane-pm"
+
+  @impl ApmV5.Plugins.SkillPluginBridge
+  def skill_path, do: Path.expand("~/.claude/skills/plane-pm/SKILL.md")
+
+  @impl ApmV5.Plugins.SkillPluginBridge
+  def skill_commands, do: @skill_commands
+
+  @impl ApmV5.Plugins.SkillPluginBridge
+  def dispatch_skill_command(command, params),
+    do: handle_action(command, params, [])
 
   @ccem_project_id "a20e1d2e-3139-406e-ae03-dc6d1d8cb995"
 
@@ -39,17 +56,17 @@ defmodule ApmV5.Plugins.Plane.PlanePlugin do
 
   # ── PluginBehaviour ──────────────────────────────────────────────────────────
 
-  @impl true
+  @impl ApmV5.Plugins.PluginBehaviour
   def plugin_name, do: "plane"
 
-  @impl true
+  @impl ApmV5.Plugins.PluginBehaviour
   def plugin_description,
-    do: "Plane PM integration — list/search issues, board state, project list"
+    do: "Plane PM integration — list/search issues, board state, project list, cycles, modules"
 
-  @impl true
-  def plugin_version, do: "1.0.0"
+  @impl ApmV5.Plugins.PluginBehaviour
+  def plugin_version, do: "1.1.0"
 
-  @impl true
+  @impl ApmV5.Plugins.PluginBehaviour
   def list_endpoints do
     [
       %{
@@ -80,11 +97,31 @@ defmodule ApmV5.Plugins.Plane.PlanePlugin do
           query: "string (optional — matches sequence/name/description)",
           state_name: "string (optional — one of Backlog|Todo|In Progress|Done|Cancelled)"
         }
+      },
+      %{
+        action: "create_issue",
+        description: "Create a new issue",
+        params: %{project_id: "string (optional)", name: "string (required)", description: "string (optional)", state: "string (optional)"}
+      },
+      %{
+        action: "update_issue_state",
+        description: "Update an issue's state by name",
+        params: %{project_id: "string (optional)", issue_id: "string (required)", state_name: "string (required)"}
+      },
+      %{
+        action: "list_cycles",
+        description: "List cycles for a project",
+        params: %{project_id: "string (optional)"}
+      },
+      %{
+        action: "list_modules",
+        description: "List modules for a project",
+        params: %{project_id: "string (optional)"}
       }
     ]
   end
 
-  @impl true
+  @impl ApmV5.Plugins.PluginBehaviour
   def handle_action("list_issues", params, _opts) do
     project_id = Map.get(params, "project_id", @ccem_project_id)
 
@@ -184,6 +221,75 @@ defmodule ApmV5.Plugins.Plane.PlanePlugin do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  def handle_action("create_issue", %{"name" => name} = params, _opts) when is_binary(name) do
+    project_id = Map.get(params, "project_id", @ccem_project_id)
+    body = %{
+      "name" => name,
+      "description_html" => Map.get(params, "description", ""),
+      "state" => Map.get(params, "state")
+    } |> Enum.reject(fn {_k, v} -> is_nil(v) end) |> Map.new()
+
+    if function_exported?(PlaneClient, :create_issue, 2) do
+      case apply(PlaneClient, :create_issue, [project_id, body]) do
+        {:ok, issue} -> {:ok, normalize_issue(issue)}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, {:not_implemented, "PlaneClient.create_issue/2"}}
+    end
+  end
+
+  def handle_action("create_issue", _params, _opts),
+    do: {:error, {:missing_param, "name is required"}}
+
+  def handle_action("update_issue_state", %{"issue_id" => issue_id, "state_name" => state_name} = params, _opts) do
+    project_id = Map.get(params, "project_id", @ccem_project_id)
+
+    case Enum.find(@state_map, fn {_id, name} -> name == state_name end) do
+      nil ->
+        {:error, {:invalid_state, state_name}}
+
+      {state_id, _name} ->
+        if function_exported?(PlaneClient, :update_issue, 3) do
+          case apply(PlaneClient, :update_issue, [project_id, issue_id, %{"state" => state_id}]) do
+            {:ok, issue} -> {:ok, normalize_issue(issue)}
+            {:error, reason} -> {:error, reason}
+          end
+        else
+          {:error, {:not_implemented, "PlaneClient.update_issue/3"}}
+        end
+    end
+  end
+
+  def handle_action("update_issue_state", _params, _opts),
+    do: {:error, {:missing_param, "issue_id and state_name are required"}}
+
+  def handle_action("list_cycles", params, _opts) do
+    project_id = Map.get(params, "project_id", @ccem_project_id)
+
+    if function_exported?(PlaneClient, :list_cycles, 1) do
+      case apply(PlaneClient, :list_cycles, [project_id]) do
+        {:ok, data} -> {:ok, %{cycles: extract_results(data), project_id: project_id}}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:ok, %{cycles: [], project_id: project_id, note: "PlaneClient.list_cycles/1 not yet implemented"}}
+    end
+  end
+
+  def handle_action("list_modules", params, _opts) do
+    project_id = Map.get(params, "project_id", @ccem_project_id)
+
+    if function_exported?(PlaneClient, :list_modules, 1) do
+      case apply(PlaneClient, :list_modules, [project_id]) do
+        {:ok, data} -> {:ok, %{modules: extract_results(data), project_id: project_id}}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:ok, %{modules: [], project_id: project_id, note: "PlaneClient.list_modules/1 not yet implemented"}}
     end
   end
 
