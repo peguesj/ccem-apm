@@ -1,11 +1,32 @@
 defmodule ApmV5Web.Components.SidebarNav do
-  @moduledoc "Shared sidebar navigation component for all LiveViews."
+  @moduledoc """
+  Shared sidebar navigation component for all LiveViews.
+
+  Organized into a 5-section taxonomy per the v8.9.0 platform refactor:
+
+  1. **CORE** — main monitoring surfaces (Dashboard, Showcase, Projects,
+     Formations, Sessions, Conversations, Timeline, Notifications, Health)
+  2. **AUTHORIZATION** — AgentLock subsystem (Authorization, Routing)
+  3. **PLUGINS** — dynamic section populated from `PluginRegistry.list_plugins/0`
+     (Plugins index, per-plugin entries, Library)
+  4. **INTEGRATIONS** — dynamic section populated from
+     `IntegrationRegistry.list_integrations/0` (Integrations index, AG-UI, Ralph)
+  5. **SYSTEM** — config, analytics, developer tools (Skills, Usage, Analytics,
+     Actions, Background Tasks, Ports, Project Scanner, UAT, Docs)
+
+  The `plugins` and `integrations` attrs are populated via
+  `assign_sidebar_nav_data/1`, which safely polls the registries with
+  try/rescue guards so sidebar rendering never fails if a registry GenServer
+  is unavailable.
+  """
   use Phoenix.Component
   import ApmV5Web.CoreComponents, only: [icon: 1]
 
   attr :current_path, :string, required: true
   attr :notification_count, :integer, default: 0
   attr :skill_count, :integer, default: 0
+  attr :plugins, :list, default: []
+  attr :integrations, :list, default: []
 
   def sidebar_nav(assigns) do
     assigns = assign(assigns, :version, version())
@@ -30,39 +51,115 @@ defmodule ApmV5Web.Components.SidebarNav do
         <div class="text-xs text-base-content/40 mt-0.5 sidebar-label sidebar-version">v{@version}</div>
       </div>
       <nav class="flex-1 p-2 space-y-0.5 overflow-y-auto" aria-label="Main navigation">
-        <div class="px-2 pt-3 pb-1 sidebar-label">
-          <span class="text-[10px] font-semibold uppercase tracking-widest text-base-content/30">CCEM Management</span>
-        </div>
-        <.nav_item icon="hero-presentation-chart-bar" label="Showcase" href="/showcase" current_path={@current_path} />
-        <.nav_item icon="hero-globe-alt" label="All Projects" href="/apm-all" current_path={@current_path} />
-        <.nav_item icon="hero-signal" label="Ports" href="/ports" current_path={@current_path} />
-        <.nav_item icon="hero-bolt" label="Actions" href="/actions" current_path={@current_path} />
-        <.nav_item icon="hero-magnifying-glass" label="Project Scanner" href="/scanner" current_path={@current_path} />
-        <div class="px-2 pt-3 pb-1 sidebar-label">
-          <span class="text-[10px] font-semibold uppercase tracking-widest text-base-content/30">APM Monitoring</span>
-        </div>
-        <.nav_item icon="hero-squares-2x2" label="Dashboard" href="/" current_path={@current_path} />
-        <.nav_item icon="hero-rectangle-group" label="Formations" href="/formation" current_path={@current_path} />
-        <.nav_item icon="hero-cpu-chip" label="AG-UI" href="/ag-ui" current_path={@current_path} />
-        <.nav_item icon="hero-chat-bubble-left-right" label="Conversations" href="/conversations" current_path={@current_path} />
-        <.nav_item icon="hero-sparkles" label="Skills" href="/skills" current_path={@current_path} badge={@skill_count} />
-        <.nav_item icon="hero-queue-list" label="Background Tasks" href="/tasks" current_path={@current_path} />
-        <.nav_item icon="hero-heart" label="Health" href="/health" current_path={@current_path} />
-        <.nav_item icon="hero-bell" label="Notifications" href="/notifications" current_path={@current_path} badge={@notification_count} />
-        <.nav_item icon="hero-chart-bar" label="Analytics" href="/analytics" current_path={@current_path} />
-        <.nav_item icon="hero-cpu-chip" label="Usage" href="/usage" current_path={@current_path} />
-        <.nav_item icon="hero-shield-check" label="Authorization" href="/authorization" current_path={@current_path} />
-        <.nav_item icon="hero-map" label="Routing" href="/routing" current_path={@current_path} />
-        <.nav_item icon="hero-computer-desktop" label="Sessions" href="/sessions" current_path={@current_path} />
-        <.nav_item icon="hero-arrow-path" label="Ralph" href="/ralph" current_path={@current_path} />
-        <.nav_item icon="hero-clock" label="Timeline" href="/timeline" current_path={@current_path} />
-        <.nav_item icon="hero-beaker" label="UAT" href="/uat" current_path={@current_path} />
-        <.nav_item icon="hero-puzzle-piece" label="Plugins" href="/plugins" current_path={@current_path} />
-        <.nav_item icon="hero-circle-stack" label="Integrations" href="/integrations" current_path={@current_path} />
-        <.nav_item icon="hero-book-open" label="Library" href="/library" current_path={@current_path} />
-        <.nav_item icon="hero-document-text" label="Docs" href="/docs" current_path={@current_path} />
+        <.core_nav
+          current_path={@current_path}
+          notification_count={@notification_count}
+        />
+        <.auth_nav current_path={@current_path} />
+        <.plugins_nav current_path={@current_path} plugins={@plugins} />
+        <.integrations_nav current_path={@current_path} integrations={@integrations} />
+        <.system_nav current_path={@current_path} skill_count={@skill_count} />
       </nav>
     </aside>
+    """
+  end
+
+  # ── Section: CORE ────────────────────────────────────────────────────────────
+  attr :current_path, :string, required: true
+  attr :notification_count, :integer, default: 0
+
+  defp core_nav(assigns) do
+    ~H"""
+    <.section_header label="Core" />
+    <.nav_item icon="hero-squares-2x2" label="Dashboard" href="/" current_path={@current_path} />
+    <.nav_item icon="hero-presentation-chart-bar" label="Showcase" href="/showcase" current_path={@current_path} />
+    <.nav_item icon="hero-globe-alt" label="All Projects" href="/apm-all" current_path={@current_path} />
+    <.nav_item icon="hero-rectangle-group" label="Formations" href="/formation" current_path={@current_path} />
+    <.nav_item icon="hero-computer-desktop" label="Sessions" href="/sessions" current_path={@current_path} />
+    <.nav_item icon="hero-chat-bubble-left-right" label="Conversations" href="/conversations" current_path={@current_path} />
+    <.nav_item icon="hero-clock" label="Timeline" href="/timeline" current_path={@current_path} />
+    <.nav_item icon="hero-bell" label="Notifications" href="/notifications" current_path={@current_path} badge={@notification_count} />
+    <.nav_item icon="hero-heart" label="Health" href="/health" current_path={@current_path} />
+    """
+  end
+
+  # ── Section: AUTHORIZATION ───────────────────────────────────────────────────
+  attr :current_path, :string, required: true
+
+  defp auth_nav(assigns) do
+    ~H"""
+    <.section_header label="Authorization" />
+    <.nav_item icon="hero-shield-check" label="Authorization" href="/authorization" current_path={@current_path} />
+    <.nav_item icon="hero-map" label="Routing" href="/routing" current_path={@current_path} />
+    """
+  end
+
+  # ── Section: PLUGINS (dynamic) ───────────────────────────────────────────────
+  attr :current_path, :string, required: true
+  attr :plugins, :list, required: true
+
+  defp plugins_nav(assigns) do
+    ~H"""
+    <.section_header label="Plugins" />
+    <.nav_item icon="hero-puzzle-piece" label="Plugins" href="/plugins" current_path={@current_path} />
+    <.nav_item
+      :for={plugin <- @plugins}
+      icon="hero-puzzle-piece"
+      label={humanize_name(plugin[:name] || plugin["name"] || "plugin")}
+      href={plugin_href(plugin)}
+      current_path={@current_path}
+    />
+    <.nav_item icon="hero-book-open" label="Library" href="/library" current_path={@current_path} />
+    """
+  end
+
+  # ── Section: INTEGRATIONS (dynamic) ──────────────────────────────────────────
+  attr :current_path, :string, required: true
+  attr :integrations, :list, required: true
+
+  defp integrations_nav(assigns) do
+    ~H"""
+    <.section_header label="Integrations" />
+    <.nav_item icon="hero-circle-stack" label="Integrations" href="/integrations" current_path={@current_path} />
+    <.nav_item icon="hero-cpu-chip" label="AG-UI" href="/ag-ui" current_path={@current_path} />
+    <.nav_item icon="hero-arrow-path" label="Ralph" href="/ralph" current_path={@current_path} />
+    <.nav_item
+      :for={integ <- filtered_integrations(@integrations)}
+      icon="hero-circle-stack"
+      label={humanize_name(integ[:name] || integ["name"] || "integration")}
+      href={integration_href(integ)}
+      current_path={@current_path}
+    />
+    """
+  end
+
+  # ── Section: SYSTEM ──────────────────────────────────────────────────────────
+  attr :current_path, :string, required: true
+  attr :skill_count, :integer, default: 0
+
+  defp system_nav(assigns) do
+    ~H"""
+    <.section_header label="System" />
+    <.nav_item icon="hero-sparkles" label="Skills" href="/skills" current_path={@current_path} badge={@skill_count} />
+    <.nav_item icon="hero-cpu-chip" label="Usage" href="/usage" current_path={@current_path} />
+    <.nav_item icon="hero-chart-bar" label="Analytics" href="/analytics" current_path={@current_path} />
+    <.nav_item icon="hero-bolt" label="Actions" href="/actions" current_path={@current_path} />
+    <.nav_item icon="hero-queue-list" label="Background Tasks" href="/tasks" current_path={@current_path} />
+    <.nav_item icon="hero-signal" label="Ports" href="/ports" current_path={@current_path} />
+    <.nav_item icon="hero-magnifying-glass" label="Project Scanner" href="/scanner" current_path={@current_path} />
+    <.nav_item icon="hero-beaker" label="UAT" href="/uat" current_path={@current_path} />
+    <.nav_item icon="hero-document-text" label="Docs" href="/docs" current_path={@current_path} />
+    """
+  end
+
+  # ── Components ───────────────────────────────────────────────────────────────
+  attr :label, :string, required: true
+
+  defp section_header(assigns) do
+    ~H"""
+    <div class="px-2 pt-3 pb-1 sidebar-label">
+      <span class="text-[10px] font-semibold uppercase tracking-widest text-base-content/30">{@label}</span>
+    </div>
     """
   end
 
@@ -93,6 +190,80 @@ defmodule ApmV5Web.Components.SidebarNav do
       <span :if={@badge > 0} class="badge badge-xs badge-primary ml-auto sidebar-badge">{@badge}</span>
     </a>
     """
+  end
+
+  # ── Helpers ──────────────────────────────────────────────────────────────────
+
+  @doc """
+  Safely assigns sidebar nav data (plugins + integrations) to a LiveView socket.
+  Call from `mount/3` to populate the dynamic sections.
+
+  Wraps registry calls in try/rescue so sidebar rendering never fails if a
+  registry GenServer is down.
+  """
+  def assign_sidebar_nav_data(socket) do
+    plugins = safe_list_plugins()
+    integrations = safe_list_integrations()
+
+    socket
+    |> Phoenix.Component.assign(:plugins, plugins)
+    |> Phoenix.Component.assign(:integrations, integrations)
+  end
+
+  @doc "Safely list plugins; returns [] on any failure."
+  @spec safe_list_plugins() :: [map()]
+  def safe_list_plugins do
+    try do
+      ApmV5.Plugins.PluginRegistry.list_plugins()
+    rescue
+      _ -> []
+    catch
+      :exit, _ -> []
+      _, _ -> []
+    end
+  end
+
+  @doc "Safely list integrations; returns [] on any failure."
+  @spec safe_list_integrations() :: [map()]
+  def safe_list_integrations do
+    try do
+      ApmV5.Integrations.IntegrationRegistry.list_integrations()
+    rescue
+      _ -> []
+    catch
+      :exit, _ -> []
+      _, _ -> []
+    end
+  end
+
+  # Filter out integrations that already have dedicated sidebar entries
+  # (ag-ui, ag_ui) to avoid duplication with the static AG-UI nav item.
+  defp filtered_integrations(integrations) do
+    Enum.reject(integrations, fn i ->
+      name = i[:name] || i["name"] || ""
+      slug = name |> to_string() |> String.downcase() |> String.replace(~r/[\s_-]/, "")
+      slug in ["agui", "ralph"]
+    end)
+  end
+
+  defp plugin_href(plugin) do
+    name = plugin[:name] || plugin["name"] || ""
+    slug = name |> to_string() |> String.downcase() |> String.replace(" ", "-")
+    "/plugins/#{slug}"
+  end
+
+  defp integration_href(integ) do
+    name = integ[:name] || integ["name"] || ""
+    slug = name |> to_string() |> String.downcase() |> String.replace(" ", "-")
+    "/integrations/#{slug}"
+  end
+
+  defp humanize_name(name) do
+    name
+    |> to_string()
+    |> String.replace(["_", "-"], " ")
+    |> String.split(" ", trim: true)
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 
   @app_version "8.11.0"
