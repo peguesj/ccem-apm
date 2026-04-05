@@ -15,7 +15,7 @@ defmodule ApmV5Web.Components.GettingStartedWizard do
     "welcome" => [
       %{
         title: "Welcome to CCEM APM",
-        subtitle: "Your Agentic Performance Monitor",
+        subtitle: "Your Agent Performance & Management",
         body: "CCEM APM gives you real-time visibility into your AI agent fleet. Monitor performance, manage resources, and orchestrate complex multi-agent formations — all from a single dashboard.",
         features: ["Real-time agent fleet status", "Formation orchestration", "Token & performance telemetry"],
         illustration: "monitoring"

@@ -1,6 +1,6 @@
 # CCEM APM v4
 
-**Agentic Performance Monitor** -- real-time monitoring dashboard for Claude Code agent sessions, with AG-UI protocol support.
+**Agent Performance & Management** -- real-time monitoring dashboard for Claude Code agent sessions, with AG-UI protocol support.
 
 Built with Phoenix LiveView, daisyUI, D3.js, the AG-UI Elixir SDK, and a companion SwiftUI menubar agent.
 

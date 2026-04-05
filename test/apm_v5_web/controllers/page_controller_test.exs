@@ -13,7 +13,7 @@ defmodule ApmV5Web.DashboardLiveTest do
 
   test "GET / renders the dashboard LiveView", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Agent Performance Monitor"
+    assert html_response(conn, 200) =~ "Agent Performance &amp; Management"
   end
 
   test "dashboard displays sidebar navigation", %{conn: conn} do

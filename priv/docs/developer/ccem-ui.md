@@ -220,7 +220,7 @@ This pattern is followed by `CcemOverviewLive` (`/ccem`), `ShowcaseLive` (`/show
 
 ### APM Monitoring Pages
 
-Pages in the APM Monitoring section use route-specific titles, e.g. `"Agent Dashboard"`, `"Formations"`, `"AG-UI Events"`. The `page_title` assign also propagates to the browser tab via the root layout's `<.live_title>` tag with suffix `" · Agent Performance Monitor"`.
+Pages in the APM Monitoring section use route-specific titles, e.g. `"Agent Dashboard"`, `"Formations"`, `"AG-UI Events"`. The `page_title` assign also propagates to the browser tab via the root layout's `<.live_title>` tag with suffix `" · Agent Performance & Management"`.
 
 ### Implementation Pattern
 
@@ -233,7 +233,7 @@ def mount(_params, _session, socket) do
 end
 ```
 
-The browser tab title then reads: `CCEM Management · Agent Performance Monitor`.
+The browser tab title then reads: `CCEM Management · Agent Performance & Management`.
 
 ---
 
@@ -652,7 +652,7 @@ mix test
 Navigate to `http://localhost:3032/my-feature` and verify:
 - Sidebar highlights the new nav item as active
 - Header displays the correct page title
-- Browser tab shows `My Feature · Agent Performance Monitor`
+- Browser tab shows `My Feature · Agent Performance & Management`
 - Sidebar section placement is correct (CCEM Management vs APM Monitoring)
 
 ---
