@@ -85,3 +85,56 @@
 - Files changed: CCEMAgent Models/HealthStatus.swift, Services/APMClient.swift, Services/EnvironmentMonitor.swift, CCEMAgentApp.swift
 - Learnings: UNUserNotificationCenter.add() is async in Swift; separate poll intervals prevent notification spam; seenNotificationIds Set prevents duplicate toasts
 ---
+
+## v8.12.0 Wave 1 — Skill Plugins + Library Graph (2026-04-03)
+
+### US-243 - SkillPluginBridge behaviour extension
+- Created lib/apm_v5/plugins/skill_plugin_bridge.ex with @behaviour wrapping PluginBehaviour
+- Callbacks: skill_name/0, skill_path/0, skill_commands/0, dispatch_skill_command/2
+- `use ApmV5.Plugins.SkillPluginBridge` macro auto-implements plugin_scope/0=:ccem, nav_items/0, default_enabled?/0
+- Added dispatch_async/3 fire-and-forget helper and dispatch_skill_command/3 synchronous wrapper
+- test/apm_v5/plugins/skill_plugin_bridge_test.exs — 6 test cases, all pass
+---
+
+### US-247 - /worktree skill upgrade with APM integration
+- Updated ~/.claude/skills/worktree/SKILL.md with APM Integration section
+- Documented fire-and-forget curl patterns to POST /api/worktrees/register, GET /api/worktrees, DELETE /api/worktrees/:id
+- New commands: /worktree status, /worktree link-session, /worktree apm-sync
+- Metadata fields documented: worktree_id, branch, base_branch, path, created_at, parent_session_id, formation_id, project, status
+- NOTE: file is outside worktree; edit lives in user skill dir
+---
+
+### US-248 - WorktreeStore GenServer
+- Created lib/apm_v5/worktree_store.ex — GenServer + ETS :worktree_store
+- API: register/1, list/0, get/1, update/2, prune/1, list_by_project/1
+- PubSub broadcasts {:worktree_event, event, metadata} on "apm:worktrees"
+- Added to ApmV5.Application supervision tree after LibraryStore
+- test/apm_v5/worktree_store_test.exs — 10 test cases, all pass
+---
+
+### US-257 - LibraryGraphBuilder
+- Created lib/apm_v5/library/graph_builder.ex
+- build_graph/0, build_graph/1, build_graph/2 with filter opts (focus, depth, types)
+- Node schema: %{id, type, label, category, group, metadata}
+- Edge schema: %{source, target, relationship, weight} with :calls|:uses|:implements|:records|:wraps
+- Parses LibraryStore categories for relationships: skill->skill (mentions), skill->tool, skill->pattern (related_skills), skill->learning, agent->tool, command->skill (name match)
+- BFS neighborhood filter with depth parameter
+- test/apm_v5/library/graph_builder_test.exs — 9 test cases, all pass
+---
+
+### US-259 - library_graph.js D3.js hook
+- Created assets/js/hooks/library_graph.js
+- d3.forceSimulation with charge(-400), link(distance 80), center, collision(NODE_RADIUS+6)
+- Node colors: skill=#5daaff, agent=#7eef6d, command=#ffaa44, tool=#c084fc, pattern=#fde047, learning=#9ca3af, mcp=#f472b6
+- Railway aesthetic: #0f1420 bg, radial dot grid, glassmorphic nodes, glow filter on hover
+- Pan/zoom via d3.zoom(), click node pushes 'focus_node' to LiveView
+- Keyboard: arrows pan, +/- zoom, Enter focus, Escape reset
+- handleEvent('graph_data') for initial render + handleEvent('focus_node') to center
+- Hook registered in assets/js/app.js
+---
+
+### Wave 1 Summary
+- 5/5 stories complete, 25 new tests, 0 failures
+- mix compile --warnings-as-errors: PASS
+- Files created: 6 (3 lib + 2 tests + 1 hook js) + 1 SKILL.md edit + 1 app.js edit
+---

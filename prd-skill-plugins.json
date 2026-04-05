@@ -1,0 +1,396 @@
+{
+  "project": "CCEM APM",
+  "branchName": "ralph/ccem-v8-12-0-skill-plugins",
+  "baseBranch": "main",
+  "description": "Expose /upm, /pm, /plane-pm, /worktree, /refactor-max skills as first-class APM plugins via PluginBehaviour. Upgrade /worktree skill with APM integration.",
+  "methodology": "refactor-max",
+  "upm": {
+    "planeProjectId": "a20e1d2e-3139-406e-ae03-dc6d1d8cb995",
+    "checkpointRange": "CP-243 to CP-256",
+    "builtWaves": 0,
+    "verifiedAt": null,
+    "shippedAt": null,
+    "prUrl": null
+  },
+  "notes": {
+    "existing_plugins": [
+      "PlanePlugin (plane) — already implements PluginBehaviour; extend to match skill-plugin pattern",
+      "RalphPlugin — existing reference pattern"
+    ],
+    "new_plugins": [
+      "UpmPlugin — wraps /upm workflow orchestrator",
+      "PmPlugin — platform-agnostic PM adapter (Plane/Linear/Jira resolution)",
+      "WorktreePlugin — git worktree lifecycle management",
+      "RefactorMaxPlugin — refactor-max methodology exposure"
+    ],
+    "scope_boundary": "Plugins are thin Elixir adapters that call through to the skill logic via shell-out, HTTP to CCEMHelper, or in-process action handlers. Skills remain the source of truth for workflow logic. Plugins expose actions + LiveViews + nav items."
+  },
+  "userStories": [
+    {
+      "id": "US-243",
+      "title": "Define SkillPluginBridge behaviour extension",
+      "description": "Create ApmV5.Plugins.SkillPluginBridge module that wraps PluginBehaviour with skill-specific conventions: skill_name/0, skill_path/0 (path to SKILL.md), skill_commands/0 (list of subcommands exposed as actions), dispatch_skill_command/2 helper that shells out or invokes in-process logic.",
+      "acceptanceCriteria": [
+        "SkillPluginBridge module at lib/apm_v5/plugins/skill_plugin_bridge.ex",
+        "Defines @behaviour wrapping PluginBehaviour with added callbacks: skill_name/0, skill_path/0, skill_commands/0",
+        "Provides dispatch_skill_command/2 helper function with fire-and-forget Task option",
+        "Includes `use ApmV5.Plugins.SkillPluginBridge` macro that auto-implements plugin_scope/0 as :ccem and registers default nav_items/0",
+        "mix compile --warnings-as-errors passes",
+        "mix test passes with at least 3 new test cases"
+      ],
+      "estimatedPoints": 2,
+      "dependencies": [],
+      "status": "completed",
+      "passes": true,
+      "wave": 1
+    },
+    {
+      "id": "US-244",
+      "title": "Create UpmPlugin with full workflow action catalog",
+      "description": "Implement ApmV5.Plugins.Upm.UpmPlugin exposing the /upm workflow as 9 APM actions: plan, build, verify, ship, status, sync, integrity, usage, formation. Each action accepts workflow params (feature description, wave number, story IDs) and returns structured results.",
+      "acceptanceCriteria": [
+        "UpmPlugin module at lib/apm_v5/plugins/upm/upm_plugin.ex",
+        "Implements SkillPluginBridge behaviour",
+        "list_endpoints/0 returns 9 action descriptors: plan, build, verify, ship, status, sync, integrity, usage, formation",
+        "handle_action/3 dispatches each action with param validation",
+        "plan action accepts feature_description, returns prd_path + plane_issues created",
+        "status action reads current prd.json and reports story/wave/checkpoint state",
+        "nav_items/0 returns Plan/Build/Verify/Ship/Status subitems",
+        "plugin_live_module/0 returns ApmV5Web.Plugins.UpmLive",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": ["US-243"],
+      "status": "pending",
+      "passes": false,
+      "wave": 2
+    },
+    {
+      "id": "US-245",
+      "title": "Create PmPlugin as platform-agnostic adapter wrapper",
+      "description": "Implement ApmV5.Plugins.Pm.PmPlugin exposing platform-agnostic PM operations with adapter resolution chain (--pm flag > project CLAUDE.md > pm-config.json default > active_pm global). Delegates to Plane/Linear/Jira adapters based on resolution.",
+      "acceptanceCriteria": [
+        "PmPlugin module at lib/apm_v5/plugins/pm/pm_plugin.ex",
+        "Implements SkillPluginBridge behaviour",
+        "Actions: resolve_adapter, list_issues, get_issue, update_state, list_projects, board_state",
+        "resolve_adapter/1 returns {:ok, adapter_module} using 4-step resolution chain",
+        "Delegates all operations to resolved adapter (PlaneAdapter, LinearAdapter, JiraAdapter stubs exist in UPM codebase)",
+        "nav_items/0 returns PM Board, Resolver Status, Config subitems",
+        "Handles missing pm-config.json gracefully with sensible defaults",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": ["US-243"],
+      "status": "pending",
+      "passes": false,
+      "wave": 2
+    },
+    {
+      "id": "US-246",
+      "title": "Refactor PlanePlugin to extend SkillPluginBridge",
+      "description": "Migrate existing PlanePlugin to use new SkillPluginBridge behaviour while preserving all current actions (list_issues, get_issue, list_projects, board_state, search_issues). Add missing actions: create_issue, update_issue_state, list_cycles, list_modules.",
+      "acceptanceCriteria": [
+        "PlanePlugin uses SkillPluginBridge behaviour instead of raw PluginBehaviour",
+        "All existing 5 actions still functional with identical signatures",
+        "4 new actions added: create_issue, update_issue_state, list_cycles, list_modules",
+        "skill_path/0 returns path to ~/.claude/skills/plane-pm/SKILL.md",
+        "plugin_scope/0 returns :ccem (was :apm)",
+        "Backwards compatible: existing handle_action/3 calls unchanged",
+        "mix compile --warnings-as-errors passes",
+        "mix test passes"
+      ],
+      "estimatedPoints": 2,
+      "dependencies": ["US-243"],
+      "status": "pending",
+      "passes": false,
+      "wave": 2
+    },
+    {
+      "id": "US-247",
+      "title": "Upgrade /worktree skill with APM integration metadata",
+      "description": "Enhance ~/.claude/skills/worktree/SKILL.md with APM integration section: worktree registration on create, automatic APM project mapping, heartbeat on activity, cleanup triggers on prune. Add metadata tracking (created_at, branch, parent_session_id, formation_id).",
+      "acceptanceCriteria": [
+        "SKILL.md includes new 'APM Integration' section with registration patterns",
+        "worktree create wrapper curls POST /api/worktrees/register with metadata",
+        "worktree list wrapper queries GET /api/worktrees for enriched metadata",
+        "worktree prune wrapper curls DELETE /api/worktrees/:id",
+        "New commands documented: /worktree status, /worktree link-session, /worktree apm-sync",
+        "Metadata fields: created_at, branch, base_branch, parent_session_id, formation_id, project, status",
+        "Fire-and-forget pattern for all APM calls"
+      ],
+      "estimatedPoints": 2,
+      "dependencies": [],
+      "status": "completed",
+      "passes": true,
+      "wave": 1
+    },
+    {
+      "id": "US-248",
+      "title": "Create WorktreeStore GenServer for worktree lifecycle tracking",
+      "description": "Implement ApmV5.WorktreeStore GenServer with ETS backing to track worktree metadata (create, list, update, prune). Provides REST endpoints at /api/worktrees/* for the upgraded worktree skill.",
+      "acceptanceCriteria": [
+        "WorktreeStore module at lib/apm_v5/worktree_store.ex",
+        "ETS table :worktree_store with {worktree_id => metadata} schema",
+        "GenServer API: register/1, list/0, get/1, update/2, prune/1, list_by_project/1",
+        "Metadata schema: worktree_id, branch, base_branch, path, created_at, parent_session_id, formation_id, project, status",
+        "PubSub broadcasts on apm:worktrees topic for create/update/prune events",
+        "Added to ApmV5.Application supervision tree",
+        "mix compile --warnings-as-errors passes",
+        "mix test passes with at least 5 test cases"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": [],
+      "status": "completed",
+      "passes": true,
+      "wave": 1
+    },
+    {
+      "id": "US-249",
+      "title": "Create WorktreeController REST API + router routes",
+      "description": "Implement ApmV5Web.V2.WorktreeController with 5 endpoints: GET /api/worktrees, POST /api/worktrees/register, GET /api/worktrees/:id, PATCH /api/worktrees/:id, DELETE /api/worktrees/:id. Delegates to WorktreeStore.",
+      "acceptanceCriteria": [
+        "WorktreeController at lib/apm_v5_web/controllers/v2/worktree_controller.ex",
+        "5 endpoints wired in router.ex under :api_v2 scope",
+        "POST /api/worktrees/register accepts branch, path, base_branch, project fields",
+        "GET /api/worktrees supports ?project=foo filter",
+        "Response envelopes: {data: [...], count: N} for list, {data: {...}} for single",
+        "Error responses use standard {error: {code: ..., message: ...}} format",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2,
+      "dependencies": ["US-248"],
+      "status": "pending",
+      "passes": false,
+      "wave": 2
+    },
+    {
+      "id": "US-250",
+      "title": "Create WorktreePlugin wrapping WorktreeStore",
+      "description": "Implement ApmV5.Plugins.Worktree.WorktreePlugin exposing worktree operations as APM actions. Delegates to WorktreeStore. Provides LiveView at /plugins/worktree with list + inspector.",
+      "acceptanceCriteria": [
+        "WorktreePlugin module at lib/apm_v5/plugins/worktree/worktree_plugin.ex",
+        "Implements SkillPluginBridge behaviour",
+        "Actions: list, register, get, update, prune, link_session, sync_git",
+        "sync_git action parses `git worktree list --porcelain` and reconciles with WorktreeStore",
+        "link_session action associates a worktree with an active session_id",
+        "nav_items/0 returns Worktrees, Sessions Link, Git Sync subitems",
+        "plugin_live_module/0 returns ApmV5Web.Plugins.WorktreeLive",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": ["US-243", "US-248", "US-249"],
+      "status": "pending",
+      "passes": false,
+      "wave": 3
+    },
+    {
+      "id": "US-251",
+      "title": "Create RefactorMaxPlugin exposing refactor methodology",
+      "description": "Implement ApmV5.Plugins.RefactorMax.RefactorMaxPlugin exposing refactor-max methodology as APM actions: scan_code_smells, generate_refactor_plan, execute_refactor, verify_refactor. Integrates with FormationStore for orchestrated refactor execution.",
+      "acceptanceCriteria": [
+        "RefactorMaxPlugin module at lib/apm_v5/plugins/refactor_max/refactor_max_plugin.ex",
+        "Implements SkillPluginBridge behaviour",
+        "Actions: scan_code_smells, generate_refactor_plan, execute_refactor, verify_refactor, list_refactors, get_refactor",
+        "scan_code_smells accepts target_path, returns list of detected smells with severity",
+        "generate_refactor_plan produces structured plan JSON with phases",
+        "execute_refactor delegates to FormationStore to deploy refactor agents",
+        "verify_refactor runs mix compile + mix test + reports results",
+        "nav_items/0 returns Scan, Plan, Execute, Verify subitems",
+        "plugin_live_module/0 returns ApmV5Web.Plugins.RefactorMaxLive",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": ["US-243"],
+      "status": "pending",
+      "passes": false,
+      "wave": 2
+    },
+    {
+      "id": "US-252",
+      "title": "Create UpmLive LiveView at /plugins/upm",
+      "description": "Implement ApmV5Web.Plugins.UpmLive with 5 tabs: Plan (current prd.json viewer), Build (wave execution status + logs), Verify (tsc/integration/unit test matrix), Ship (commit/push/PR forms), Status (story/checkpoint/Plane state drift detector).",
+      "acceptanceCriteria": [
+        "UpmLive at lib/apm_v5_web/live/plugins/upm_live.ex",
+        "Route mounted at /plugins/upm via router.ex",
+        "5 tabs with tab state in socket assigns",
+        "Plan tab reads active prd.json and renders story list with status badges",
+        "Build tab shows current wave, running agents, last tsc result",
+        "Verify tab shows 3-column test matrix (tsc/integration/unit)",
+        "Ship tab has commit/push/PR action buttons",
+        "Status tab shows 3-column drift table (prd.json | Plane | CLAUDE.md)",
+        "PubSub subscribes to apm:upm topic for live updates",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": ["US-244"],
+      "status": "pending",
+      "passes": false,
+      "wave": 3
+    },
+    {
+      "id": "US-253",
+      "title": "Create PmLive LiveView at /plugins/pm",
+      "description": "Implement ApmV5Web.Plugins.PmLive showing resolved PM adapter, available adapters status, and issue board viewer agnostic of underlying platform.",
+      "acceptanceCriteria": [
+        "PmLive at lib/apm_v5_web/live/plugins/pm_live.ex",
+        "Route mounted at /plugins/pm",
+        "Shows resolved adapter for current project with resolution path breadcrumb",
+        "Lists all configured adapters with status (configured/unconfigured/unreachable)",
+        "Board tab shows issues grouped by state, agnostic of platform",
+        "Config tab renders pm-config.json editor",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2,
+      "dependencies": ["US-245"],
+      "status": "pending",
+      "passes": false,
+      "wave": 3
+    },
+    {
+      "id": "US-254",
+      "title": "Create WorktreeLive LiveView at /plugins/worktree",
+      "description": "Implement ApmV5Web.Plugins.WorktreeLive with worktree list (sortable by project/branch/created_at), detail drawer, git sync button, session link dropdown.",
+      "acceptanceCriteria": [
+        "WorktreeLive at lib/apm_v5_web/live/plugins/worktree_live.ex",
+        "Route mounted at /plugins/worktree",
+        "Worktree list with filter by project and status",
+        "Click row opens detail drawer with metadata, linked session, formation",
+        "Git Sync button triggers sync_git action and refreshes list",
+        "Session link dropdown populated from SessionManager.list_sessions/0",
+        "PubSub subscribes to apm:worktrees topic",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": ["US-250"],
+      "status": "pending",
+      "passes": false,
+      "wave": 3
+    },
+    {
+      "id": "US-255",
+      "title": "Create RefactorMaxLive LiveView at /plugins/refactor-max",
+      "description": "Implement ApmV5Web.Plugins.RefactorMaxLive with 4 tabs: Scan (code smell report), Plan (generated refactor plan viewer), Execute (active refactor formation status), Verify (test matrix after refactor).",
+      "acceptanceCriteria": [
+        "RefactorMaxLive at lib/apm_v5_web/live/plugins/refactor_max_live.ex",
+        "Route mounted at /plugins/refactor-max",
+        "Scan tab renders code smells grouped by severity with file path links",
+        "Plan tab shows phased refactor plan JSON with wave grouping",
+        "Execute tab shows formation agents and their progress",
+        "Verify tab shows tsc/test/compile matrix post-refactor",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 3,
+      "dependencies": ["US-251"],
+      "status": "pending",
+      "passes": false,
+      "wave": 3
+    },
+    {
+      "id": "US-257",
+      "title": "Create LibraryGraphBuilder — extract skill/agent/command/tool/pattern/learning relationships",
+      "description": "Implement ApmV5.Library.GraphBuilder module that reads LibraryStore data (7 categories: agents, skills, MCP, tools, commands, patterns, learnings) and builds a relationship graph. Edges: skill calls skill, skill calls agent, skill uses tool, skill implements pattern, skill records learning, agent calls tool, command wraps skill.",
+      "acceptanceCriteria": [
+        "GraphBuilder module at lib/apm_v5/library/graph_builder.ex",
+        "build_graph/1 returns %{nodes: [...], edges: [...], metadata: %{...}}",
+        "Node schema: %{id, type (:skill|:agent|:command|:tool|:pattern|:learning|:mcp), label, category, group, metadata}",
+        "Edge schema: %{source, target, relationship (:calls|:uses|:implements|:records|:wraps), weight}",
+        "Parses SKILL.md frontmatter for skill-to-skill references (e.g. 'Related skills:')",
+        "Parses agent prompts for tool invocations and skill references",
+        "Parses command files for underlying skill wrappers",
+        "build_graph/2 accepts filter opts: {focus: node_id, depth: N, types: [:skill, :agent, ...]}",
+        "mix compile --warnings-as-errors passes",
+        "mix test passes with at least 6 test cases covering all edge types"
+      ],
+      "estimatedPoints": 4,
+      "dependencies": [],
+      "status": "completed",
+      "passes": true,
+      "wave": 1
+    },
+    {
+      "id": "US-258",
+      "title": "Add GET /api/v2/library/graph endpoint",
+      "description": "Implement library graph REST endpoint in LibraryController. Accepts optional ?focus, ?depth, ?types query params. Returns graph data for D3 rendering.",
+      "acceptanceCriteria": [
+        "GET /api/v2/library/graph route added to router.ex",
+        "LibraryController.graph/2 action delegates to GraphBuilder.build_graph/2",
+        "Query params: focus (node_id), depth (integer, default 2), types (comma-separated)",
+        "Response: {data: {nodes: [...], edges: [...], metadata: {...}}, count: N}",
+        "Supports ?focus=skill:upm to render the upm skill and its 2-hop neighborhood",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2,
+      "dependencies": ["US-257"],
+      "status": "pending",
+      "passes": false,
+      "wave": 2
+    },
+    {
+      "id": "US-259",
+      "title": "Create library_graph.js D3.js hook — Railway-inspired node graph with Lottie animations",
+      "description": "Implement LiveView hook rendering Railway-style force-directed graph with D3.js v7. Nodes colored by type (skill=blue, agent=green, command=orange, tool=purple, pattern=yellow, learning=gray). Edges labeled with relationship type. Lottie SVG animations for node entry/exit transitions.",
+      "acceptanceCriteria": [
+        "New file assets/js/hooks/library_graph.js with LiveView hook",
+        "d3.forceSimulation() with forces: charge (-400), link (distance 80), center, collision",
+        "Node types distinguished by color + icon glyph (hero-icons SVG inline)",
+        "Edge labels show relationship type on hover",
+        "Railway-inspired aesthetic: dark #0f1420 bg, dot grid, glassmorphic node cards, soft glow on hover",
+        "Lottie animations for node pulse-in (300ms) and edge draw (500ms)",
+        "Pan/zoom via d3.zoom(), click node to push_event('focus_node', id) to LiveView",
+        "Keyboard navigation: arrows to pan, +/- to zoom, Enter to focus node, Escape to reset",
+        "Hook registered in assets/js/app.js Hooks object",
+        "Handles handleEvent('graph_data') with {nodes, edges, metadata}",
+        "Handles handleEvent('focus_node') to highlight and center a node"
+      ],
+      "estimatedPoints": 5,
+      "dependencies": [],
+      "status": "completed",
+      "passes": true,
+      "wave": 1
+    },
+    {
+      "id": "US-260",
+      "title": "Add Graph tab to LibraryLive with focus inspector panel",
+      "description": "Integrate graph view into LibraryLive as 8th tab (Graph). Left: D3 graph canvas. Right: node inspector panel showing selected node metadata, incoming/outgoing edges, related nodes, and deep-link to detail view. Type filter chips above canvas.",
+      "acceptanceCriteria": [
+        "LibraryLive gains 'Graph' as 8th tab (after Learnings)",
+        "Graph canvas takes full width, inspector panel as right-side drawer (w-96)",
+        "Type filter chips above canvas (skill/agent/command/tool/pattern/learning/mcp) with toggle state",
+        "Focus dropdown: select any node to focus graph on it with depth=2",
+        "Depth slider (1-4) controls neighborhood radius",
+        "Inspector panel shows: node label, type badge, description, metadata JSON viewer",
+        "Incoming edges list (what calls this node)",
+        "Outgoing edges list (what this node calls)",
+        "Deep-link: click related node in panel jumps focus to that node",
+        "PubSub subscribes to apm:library topic for live updates",
+        "push_event('graph_data', ...) on tab activation and filter changes",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 4,
+      "dependencies": ["US-258", "US-259"],
+      "status": "pending",
+      "passes": false,
+      "wave": 3
+    },
+    {
+      "id": "US-256",
+      "title": "v8.12.0 release — CHANGELOG, mix.exs bump, docs update, plugin registry wiring",
+      "description": "Bump mix.exs and @server_version/@app_version to 8.12.0. Update CHANGELOG.md and priv/docs/changelog.md with skill-plugin integration + library graph. Wire all 5 new plugins into PluginRegistry auto-registration. Update OpenAPI spec.",
+      "acceptanceCriteria": [
+        "mix.exs version: 8.11.0 -> 8.12.0",
+        "@server_version and @app_version updated to 8.12.0",
+        "CHANGELOG.md root + priv/docs/changelog.md have v8.12.0 section covering skill plugins + library graph",
+        "PluginRegistry init registers: UpmPlugin, PmPlugin, WorktreePlugin, RefactorMaxPlugin (and PlanePlugin refactored)",
+        "OpenAPI spec includes new /api/worktrees/* and /api/v2/library/graph endpoints",
+        "priv/docs/developer/api-reference.md documents new endpoints",
+        "versions.json has v8.12.0 entry",
+        "mix compile --warnings-as-errors passes"
+      ],
+      "estimatedPoints": 2,
+      "dependencies": ["US-244", "US-245", "US-246", "US-250", "US-251", "US-252", "US-253", "US-254", "US-255", "US-260"],
+      "status": "pending",
+      "passes": false,
+      "wave": 4
+    }
+  ]
+}
