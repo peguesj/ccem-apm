@@ -295,6 +295,17 @@ defmodule ApmV5.PortManager do
       _ -> :ok
     end
 
+    # US-604: report first-scan completion to BootReporter
+    if is_nil(state.last_scan) do
+      try do
+        Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:boot", {:port_scan_complete, map_size(active)})
+      rescue
+        _ -> :ok
+      catch
+        :exit, _ -> :ok
+      end
+    end
+
     {:noreply, %{state | active_ports: active, port_map: enriched_port_map, last_scan: DateTime.utc_now(), scan_in_flight: false}}
   end
 
