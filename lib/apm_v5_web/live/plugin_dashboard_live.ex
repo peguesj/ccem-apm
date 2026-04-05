@@ -47,6 +47,41 @@ defmodule ApmV5Web.PluginDashboardLive do
   defp status_class(:initializing), do: "badge-info"
   defp status_class(_), do: "badge-ghost"
 
+  # ── Empty state component ──────────────────────────────────────────────────
+
+  attr :icon, :string, default: "hero-cube-transparent"
+  attr :title, :string, required: true
+  attr :hint, :string, default: nil
+  attr :cta_label, :string, default: nil
+  attr :cta_event, :string, default: nil
+  attr :cta_href, :string, default: nil
+
+  defp empty_state(assigns) do
+    ~H"""
+    <div class="flex flex-col items-center justify-center py-12 px-6 text-center">
+      <div class="size-12 rounded-full bg-base-300/60 flex items-center justify-center mb-3">
+        <.icon name={@icon} class="size-6 text-base-content/40" />
+      </div>
+      <p class="text-sm font-medium text-base-content/70">{@title}</p>
+      <p :if={@hint} class="text-xs text-base-content/40 mt-1 max-w-md">{@hint}</p>
+      <button
+        :if={@cta_label && @cta_event}
+        phx-click={@cta_event}
+        class="btn btn-xs btn-primary mt-4 gap-1"
+      >
+        <.icon name="hero-arrow-path" class="size-3.5" /> {@cta_label}
+      </button>
+      <a
+        :if={@cta_label && @cta_href && !@cta_event}
+        href={@cta_href}
+        class="btn btn-xs btn-primary mt-4 gap-1"
+      >
+        <.icon name="hero-arrow-top-right-on-square" class="size-3.5" /> {@cta_label}
+      </a>
+    </div>
+    """
+  end
+
   # ── Mount ────────────────────────────────────────────────────────────────────
 
   @impl true
@@ -385,6 +420,11 @@ defmodule ApmV5Web.PluginDashboardLive do
   end
 
   @impl true
+  def handle_event("refresh", _params, socket) do
+    {:noreply, assign_data(socket)}
+  end
+
+  @impl true
   def handle_event("add_repo", %{"name" => name, "url" => url}, socket) do
     ApmV5.Plugins.PluginRepositoryStore.add_repo(%{"name" => name, "url" => url, "source" => "custom"})
     {:noreply, assign_repos(socket)}
@@ -656,10 +696,15 @@ defmodule ApmV5Web.PluginDashboardLive do
             <div :if={@active_tab == "mcp"}>
               <div class="bg-base-200 rounded-lg p-4">
                 <h2 class="text-sm font-semibold mb-3">MCP Servers ({length(@mcp_servers)})</h2>
-                <div :if={@mcp_servers == []} class="text-xs text-base-content/40 py-6 text-center">
-                  No MCP servers found in ~/.claude/settings.json
-                </div>
-                <div class="overflow-x-auto">
+                <.empty_state
+                  :if={@mcp_servers == []}
+                  icon="hero-server-stack"
+                  title="No MCP servers configured"
+                  hint="Add MCP servers to ~/.claude/settings.json under the mcpServers key. Reload the page after editing."
+                  cta_label="Reload"
+                  cta_event="refresh"
+                />
+                <div :if={@mcp_servers != []} class="overflow-x-auto">
                   <table class="table table-xs w-full">
                     <thead><tr><th>Name</th><th>Type</th><th>Command</th><th>Args</th></tr></thead>
                     <tbody>
@@ -679,10 +724,15 @@ defmodule ApmV5Web.PluginDashboardLive do
             <div :if={@active_tab == "discovered"}>
               <div class="bg-base-200 rounded-lg p-4">
                 <h2 class="text-sm font-semibold mb-3">Discovered Plugins ({length(@plugins)})</h2>
-                <div :if={@plugins == []} class="text-xs text-base-content/40 py-6 text-center">
-                  No plugins found in ~/.claude-plugin/ or ~/.claude/plugins/
-                </div>
-                <div class="overflow-x-auto">
+                <.empty_state
+                  :if={@plugins == []}
+                  icon="hero-puzzle-piece"
+                  title="No plugins discovered"
+                  hint="Install Claude Code plugins into ~/.claude-plugin/ or ~/.claude/plugins/ and rescan."
+                  cta_label="Rescan"
+                  cta_event="refresh"
+                />
+                <div :if={@plugins != []} class="overflow-x-auto">
                   <table class="table table-xs w-full">
                     <thead><tr><th>Name</th><th>Version</th><th>Description</th></tr></thead>
                     <tbody>
@@ -699,8 +749,12 @@ defmodule ApmV5Web.PluginDashboardLive do
 
             <%!-- Engine Plugins (interactive) --%>
             <div :if={@active_tab == "registered"}>
-              <div :if={@registered_plugins == []} class="bg-base-200 rounded-lg p-4 text-xs text-base-content/40 text-center py-8">
-                No plugins registered in PluginRegistry yet.
+              <div :if={@registered_plugins == []} class="bg-base-200 rounded-lg p-4">
+                <.empty_state
+                  icon="hero-squares-2x2"
+                  title="No engine plugins registered"
+                  hint="Engine plugins self-register with ApmV5.Plugins.PluginRegistry on boot. If the list is empty, the registry may not have started."
+                />
               </div>
               <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 <div
@@ -853,9 +907,14 @@ defmodule ApmV5Web.PluginDashboardLive do
                 </div>
               </div>
 
-              <div :if={@cc_plugins == []} class="text-xs text-base-content/40 py-8 text-center">
-                No Claude Code plugins found in ~/.claude/plugins/
-              </div>
+              <.empty_state
+                :if={@cc_plugins == []}
+                icon="hero-puzzle-piece"
+                title="No Claude Code plugins installed"
+                hint="Install plugins into ~/.claude/plugins/ via the Claude Code marketplace, then rescan."
+                cta_label="Rescan"
+                cta_event="rescan_cc"
+              />
 
               <%!-- Plugin card grid --%>
               <div :if={@cc_plugins != []} class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">

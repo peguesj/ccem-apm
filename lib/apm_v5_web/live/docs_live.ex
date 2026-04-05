@@ -548,6 +548,7 @@ defmodule ApmV5Web.DocsLive do
       </div>
 
       <%!-- TOC tree --%>
+      <% duplicate_titles = find_duplicate_titles(@toc) %>
       <div :if={!@search_results} class="space-y-1">
         <div :for={group <- @toc} class="mb-1">
           <%!-- Category header --%>
@@ -579,6 +580,12 @@ defmodule ApmV5Web.DocsLive do
               title={Map.get(item, :description, nil)}
             >
               <span class="truncate">{item.title}</span>
+              <span
+                :if={MapSet.member?(duplicate_titles, item.title)}
+                class="ml-auto text-[10px] text-base-content/30 font-mono flex-shrink-0"
+              >
+                {slug_suffix(item.slug)}
+              </span>
             </a>
           </div>
         </div>
@@ -615,6 +622,25 @@ defmodule ApmV5Web.DocsLive do
 
   defp format_category(category) do
     Map.get(@category_labels, category, String.capitalize(category))
+  end
+
+  # Returns a MapSet of titles that appear more than once across the entire TOC
+  # so the sidebar can disambiguate them with a short slug suffix.
+  defp find_duplicate_titles(toc) do
+    toc
+    |> Enum.flat_map(fn group -> Enum.map(group.items, & &1.title) end)
+    |> Enum.frequencies()
+    |> Enum.filter(fn {_title, count} -> count > 1 end)
+    |> Enum.map(fn {title, _} -> title end)
+    |> MapSet.new()
+  end
+
+  # Extracts the category segment of a slug ("user/authorization" -> "user").
+  defp slug_suffix(slug) do
+    case String.split(slug, "/", parts: 2) do
+      [category, _] -> category
+      _ -> slug
+    end
   end
 
   defp category_sort_key(cat) do

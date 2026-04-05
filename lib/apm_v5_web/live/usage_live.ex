@@ -180,40 +180,59 @@ defmodule ApmV5Web.UsageLive do
           <% end %>
 
           <%!-- Section 2: Per-model breakdown table --%>
-          <%= if map_size(@summary.model_breakdown) > 0 do %>
-            <div class="bg-base-200 rounded-lg overflow-hidden">
-              <div class="px-4 py-3 border-b border-base-300">
-                <h3 class="text-xs font-semibold uppercase tracking-widest text-base-content/50">Model Breakdown</h3>
+          <% nonzero_models = nonzero_model_breakdown(@summary.model_breakdown) %>
+          <%= cond do %>
+            <% map_size(@summary.model_breakdown) == 0 -> %>
+              <div class="bg-base-200 rounded-lg p-8 text-center">
+                <div class="size-12 rounded-full bg-base-300/60 flex items-center justify-center mx-auto mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-6 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <p class="text-sm font-medium text-base-content/70">No usage recorded yet</p>
+                <p class="text-xs text-base-content/40 mt-1 max-w-md mx-auto">
+                  Claude tool invocations write usage events to <code class="text-xs">~/.claude/projects/*/</code>. Use Claude Code with any model and reload this page.
+                </p>
               </div>
-              <div class="overflow-x-auto">
-                <table class="table table-sm w-full">
-                  <thead>
-                    <tr class="text-base-content/50 text-xs">
-                      <th>Model</th>
-                      <th class="text-right">Input</th>
-                      <th class="text-right">Output</th>
-                      <th class="text-right">Cache</th>
-                      <th class="text-right">Tool Calls</th>
-                      <th class="text-right">Sessions</th>
-                      <th>Last Seen</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <%= for {model, stats} <- Enum.sort_by(@summary.model_breakdown, fn {_, s} -> Map.get(s, :input_tokens, 0) end, :desc) do %>
-                      <tr class="hover">
-                        <td class="font-mono text-xs">{model}</td>
-                        <td class="text-right font-mono text-xs">{format_tokens(Map.get(stats, :input_tokens, 0))}</td>
-                        <td class="text-right font-mono text-xs">{format_tokens(Map.get(stats, :output_tokens, 0))}</td>
-                        <td class="text-right font-mono text-xs">{format_tokens(Map.get(stats, :cache_tokens, 0))}</td>
-                        <td class="text-right font-mono text-xs">{Map.get(stats, :tool_calls, 0)}</td>
-                        <td class="text-right font-mono text-xs">{Map.get(stats, :sessions, 0)}</td>
-                        <td class="text-xs text-base-content/50">{format_last_seen(Map.get(stats, :last_seen))}</td>
+            <% nonzero_models == [] -> %>
+              <div class="bg-base-200 rounded-lg p-8 text-center">
+                <p class="text-sm font-medium text-base-content/70">Model metadata present but all token counts are zero</p>
+                <p class="text-xs text-base-content/40 mt-1">Usage events may have been reset. New invocations will populate this table.</p>
+              </div>
+            <% true -> %>
+              <div class="bg-base-200 rounded-lg overflow-hidden">
+                <div class="px-4 py-3 border-b border-base-300">
+                  <h3 class="text-xs font-semibold uppercase tracking-widest text-base-content/50">Model Breakdown</h3>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="table table-sm w-full">
+                    <thead>
+                      <tr class="text-base-content/50 text-xs">
+                        <th>Model</th>
+                        <th class="text-right">Input</th>
+                        <th class="text-right">Output</th>
+                        <th class="text-right">Cache</th>
+                        <th class="text-right">Tool Calls</th>
+                        <th class="text-right">Sessions</th>
+                        <th>Last Seen</th>
                       </tr>
-                    <% end %>
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      <%= for {model, stats} <- Enum.sort_by(nonzero_models, fn {_, s} -> Map.get(s, :input_tokens, 0) end, :desc) do %>
+                        <tr class="hover">
+                          <td class="font-mono text-xs">{model}</td>
+                          <td class="text-right font-mono text-xs">{format_tokens(Map.get(stats, :input_tokens, 0))}</td>
+                          <td class="text-right font-mono text-xs">{format_tokens(Map.get(stats, :output_tokens, 0))}</td>
+                          <td class="text-right font-mono text-xs">{format_tokens(Map.get(stats, :cache_tokens, 0))}</td>
+                          <td class="text-right font-mono text-xs">{Map.get(stats, :tool_calls, 0)}</td>
+                          <td class="text-right font-mono text-xs">{Map.get(stats, :sessions, 0)}</td>
+                          <td class="text-xs text-base-content/50">{format_last_seen(Map.get(stats, :last_seen))}</td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
           <% end %>
 
           <%!-- Section 3: Per-project accordion --%>
@@ -385,6 +404,15 @@ defmodule ApmV5Web.UsageLive do
   # -------------------------------------------------------------------------
   # Private helpers
   # -------------------------------------------------------------------------
+
+  defp nonzero_model_breakdown(breakdown) do
+    Enum.filter(breakdown, fn {_model, stats} ->
+      Map.get(stats, :input_tokens, 0) > 0 ||
+        Map.get(stats, :output_tokens, 0) > 0 ||
+        Map.get(stats, :cache_tokens, 0) > 0 ||
+        Map.get(stats, :tool_calls, 0) > 0
+    end)
+  end
 
   defp format_tokens(n) when n >= 1_000_000 do
     "#{Float.round(n / 1_000_000, 1)}M"

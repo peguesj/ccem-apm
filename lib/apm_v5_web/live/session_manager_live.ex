@@ -178,6 +178,7 @@ defmodule ApmV5Web.SessionManagerLive do
                 class="select select-xs select-bordered flex-1 text-xs"
               >
                 <option value="none" selected={@group_by == "none"}>No grouping</option>
+                <option value="date" selected={@group_by == "date"}>By date</option>
                 <option value="project" selected={@group_by == "project"}>By project</option>
                 <option value="context" selected={@group_by == "context"}>By init context</option>
                 <option value="working_context" selected={@group_by == "working_context"}>By branch/worktree</option>
@@ -329,7 +330,7 @@ defmodule ApmV5Web.SessionManagerLive do
       <.stat_card label="Skills" value={get_in(@session, [:claude_config, :skill_count]) || 0} icon="hero-sparkles" />
     </div>
 
-    <div class="space-y-3">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 border-t border-base-300 pt-3">
       <.info_row label="Session ID" value={to_string(@session[:session_id] || "")} mono />
       <.info_row label="Project" value={to_string(@session[:project_name] || "")} />
       <.info_row label="Root" value={to_string(@session[:project_root] || "")} mono />
@@ -585,7 +586,48 @@ defmodule ApmV5Web.SessionManagerLive do
     |> Enum.sort_by(fn {name, _} -> String.downcase(name) end)
   end
 
+  defp group_sessions(sessions, "date") do
+    today = Date.utc_today()
+    yesterday = Date.add(today, -1)
+    week_ago = Date.add(today, -7)
+
+    sessions
+    |> Enum.group_by(fn s -> date_bucket(s, today, yesterday, week_ago) end)
+    |> Enum.sort_by(fn {name, _} -> date_bucket_order(name) end)
+  end
+
   defp group_sessions(sessions, _), do: [{"All Sessions", sessions}]
+
+  defp date_bucket(session, today, yesterday, week_ago) do
+    case parse_session_date(session[:start_time]) do
+      nil -> "Unknown"
+      date ->
+        cond do
+          Date.compare(date, today) == :eq -> "Today"
+          Date.compare(date, yesterday) == :eq -> "Yesterday"
+          Date.compare(date, week_ago) in [:gt, :eq] -> "Last 7 days"
+          true -> "Older"
+        end
+    end
+  end
+
+  defp date_bucket_order("Today"), do: 0
+  defp date_bucket_order("Yesterday"), do: 1
+  defp date_bucket_order("Last 7 days"), do: 2
+  defp date_bucket_order("Older"), do: 3
+  defp date_bucket_order(_), do: 4
+
+  defp parse_session_date(nil), do: nil
+  defp parse_session_date(""), do: nil
+
+  defp parse_session_date(str) when is_binary(str) do
+    case DateTime.from_iso8601(str) do
+      {:ok, dt, _} -> DateTime.to_date(dt)
+      _ -> nil
+    end
+  end
+
+  defp parse_session_date(_), do: nil
 
   defp detect_init_context(session) do
     slug = to_string(session[:slug] || "") |> String.downcase()
