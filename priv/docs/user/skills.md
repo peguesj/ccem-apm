@@ -422,7 +422,7 @@ Response:
       "name": "ccem-apm",
       "health_score": 92,
       "has_frontmatter": true,
-      "description": "Agentic Performance Monitor skill for CCEM APM.",
+      "description": "Agent Performance & Management skill for CCEM APM.",
       "description_quality": "good",
       "file_count": 3,
       "has_examples": true,
@@ -450,7 +450,7 @@ Response:
     "name": "ccem-apm",
     "health_score": 92,
     "has_frontmatter": true,
-    "description": "Agentic Performance Monitor skill for CCEM APM.",
+    "description": "Agent Performance & Management skill for CCEM APM.",
     "description_quality": "good",
     "raw_frontmatter": {
       "name": "ccem-apm",

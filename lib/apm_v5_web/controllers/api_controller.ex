@@ -17,6 +17,7 @@ defmodule ApmV5Web.ApiController do
   alias ApmV5.EnvironmentScanner
   alias ApmV5.CommandRunner
   alias ApmV5.AgUi.HookBridge
+  alias ApmV5.StatusCache
 
   @server_version "8.11.0"
 
@@ -26,39 +27,23 @@ defmodule ApmV5Web.ApiController do
 
   @doc "GET /health -- v3-compatible health check"
   def health(conn, _params) do
-    uptime = ApmV5.Uptime.seconds()
-    config = safe_get_config()
-    projects = Map.get(config, "projects", [])
-
-    project_summaries =
-      Enum.map(projects, fn p ->
-        name = p["name"]
-        agent_count = length(AgentRegistry.list_agents(name))
-        session_count = length(Map.get(p, "sessions", []))
-
-        %{
-          name: name,
-          status: p["status"] || "active",
-          agent_count: agent_count,
-          session_count: session_count
-        }
-      end)
-
-    json(conn, %{
-      status: "ok",
-      uptime: uptime,
-      server_version: @server_version,
-      total_projects: length(projects),
-      active_project: Map.get(config, "active_project"),
-      projects: project_summaries
-    })
+    payload = StatusCache.fetch(:health_payload, &build_health_payload/0)
+    json(conn, payload)
   end
 
   @doc "GET /api/status -- existing v4 status endpoint (includes project data for CCEMHelper)"
   def status(conn, _params) do
+    payload = StatusCache.fetch(:status_payload, &build_status_payload/0)
+    json(conn, payload)
+  end
+
+  # Builds /api/status response. Runs at most once per cache TTL.
+  # Uses a single-pass agent map instead of N × :ets.tab2list to avoid O(projects × agents).
+  defp build_status_payload do
     uptime = ApmV5.Uptime.seconds()
     agents = AgentRegistry.list_agents()
     sessions = AgentRegistry.list_sessions()
+    agent_counts_by_project = build_agent_counts_by_project(agents)
 
     session_id =
       case sessions do
@@ -68,22 +53,9 @@ defmodule ApmV5Web.ApiController do
 
     config = safe_get_config()
     project_list = Map.get(config, "projects", [])
+    project_summaries = build_project_summaries(project_list, agent_counts_by_project)
 
-    project_summaries =
-      Enum.map(project_list, fn p ->
-        name = p["name"]
-        agent_count = length(AgentRegistry.list_agents(name))
-        session_count = length(Map.get(p, "sessions", []))
-
-        %{
-          name: name,
-          status: p["status"] || "active",
-          agent_count: agent_count,
-          session_count: session_count
-        }
-      end)
-
-    json(conn, %{
+    %{
       status: "ok",
       uptime: uptime,
       agent_count: length(agents),
@@ -92,7 +64,53 @@ defmodule ApmV5Web.ApiController do
       total_projects: length(project_list),
       active_project: Map.get(config, "active_project"),
       projects: project_summaries
-    })
+    }
+  end
+
+  defp build_health_payload do
+    uptime = ApmV5.Uptime.seconds()
+    agents = AgentRegistry.list_agents()
+    agent_counts_by_project = build_agent_counts_by_project(agents)
+    config = safe_get_config()
+    projects = Map.get(config, "projects", [])
+    project_summaries = build_project_summaries(projects, agent_counts_by_project)
+
+    %{
+      status: "ok",
+      uptime: uptime,
+      server_version: @server_version,
+      total_projects: length(projects),
+      active_project: Map.get(config, "active_project"),
+      projects: project_summaries
+    }
+  end
+
+  # Single O(agents) pass to build {project_name => agent_count} map.
+  # Agents with nil project_name count toward every project (matches legacy semantics
+  # of `list_agents(project_name)` which includes nil-project agents).
+  defp build_agent_counts_by_project(agents) do
+    {by_project, nil_count} =
+      Enum.reduce(agents, {%{}, 0}, fn agent, {acc, nil_c} ->
+        case Map.get(agent, :project_name) do
+          nil -> {acc, nil_c + 1}
+          name -> {Map.update(acc, name, 1, &(&1 + 1)), nil_c}
+        end
+      end)
+
+    {by_project, nil_count}
+  end
+
+  defp build_project_summaries(project_list, {by_project, nil_count}) do
+    Enum.map(project_list, fn p ->
+      name = p["name"]
+      named = Map.get(by_project, name, 0)
+      %{
+        name: name,
+        status: p["status"] || "active",
+        agent_count: named + nil_count,
+        session_count: length(Map.get(p, "sessions", []))
+      }
+    end)
   end
 
   @doc "GET /api/data -- master data aggregation (v3-compatible)"

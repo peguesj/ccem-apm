@@ -113,7 +113,7 @@ defmodule ApmV5.Integration.FullStackTest do
 
       {:ok, _view, html} = live(conn, ~p"/")
 
-      assert html =~ "Agent Performance Monitor"
+      assert html =~ "Agent Performance &amp; Management"
       assert html =~ "LiveView Agent"
       assert html =~ "Worker Agent"
       assert html =~ "active"

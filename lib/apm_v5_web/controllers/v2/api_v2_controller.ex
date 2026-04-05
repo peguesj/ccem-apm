@@ -225,7 +225,7 @@ defmodule ApmV5Web.V2.ApiV2Controller do
       "info" => %{
         "title" => "CCEM APM API",
         "version" => Mix.Project.config()[:version],
-        "description" => "Complete REST API for CCEM Agent Performance Monitor v#{Mix.Project.config()[:version]}. AgentLock authorization protocol, Plugin Engine, domain-split controllers, CCEM Management routes. Also available at /api/openapi.json."
+        "description" => "Complete REST API for CCEM Agent Performance & Management v#{Mix.Project.config()[:version]}. AgentLock authorization protocol, Plugin Engine, domain-split controllers, CCEM Management routes. Also available at /api/openapi.json."
       },
       "servers" => [%{"url" => "http://localhost:3032", "description" => "Local APM server"}],
       "tags" => [

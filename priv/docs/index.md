@@ -1,6 +1,6 @@
 # CCEM APM Documentation
 
-**Version 7.0.0** | Phoenix/Elixir Agentic Performance Monitor
+**Version 7.0.0** | Phoenix/Elixir Agent Performance & Management
 
 A real-time monitoring and orchestration platform for Claude Code AI agent sessions, providing fleet visualization, multi-project tracking, and autonomous workflow management.
 

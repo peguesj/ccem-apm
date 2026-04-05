@@ -20,6 +20,8 @@ defmodule ApmV5.Application do
       {Phoenix.PubSub, name: ApmV5.PubSub},
       # Sub-supervisor: core infrastructure (ConfigLoader, DashboardStore, AuditLog, etc.)
       ApmV5.Supervisors.CoreSupervisor,
+      # Status cache -- 1s TTL ETS cache for /api/status + /api/health hot paths
+      ApmV5.StatusCache,
       # Remaining top-level GenServers (no logical grouping)
       ApmV5.SkillTracker,
       ApmV5.MetricsCollector,
