@@ -1,5 +1,49 @@
 # Changelog
 
+## v8.11.1 (2026-04-03)
+
+### Cold-Start Performance — Eager Warmup + Continuous Port Scanning
+
+Following the v8.11.0 StatusCache + PortManager fixes (which brought cold-start
+from ~6s down to 1.2s), this release attacks the remaining cold-path latency
+through eager cache warmup and continuous background work.
+
+**Eager StatusCache warmup** (US-601)
+- Extracted `ApmV5.StatusPayloadBuilder` so payloads can be built before any
+  HTTP request arrives
+- `StatusCache.handle_continue(:warmup, _)` spawns async Tasks that populate
+  `:status_payload` and `:health_payload` on boot
+- Periodic proactive refresh every 500ms (half the 1s TTL) keeps cache warm
+  without depending on request traffic
+- First `/api/status` after boot now hits warm ETS data
+
+**PortManager continuous scan** (US-602)
+- Added `:continuous_scan` loop at 5s interval (configurable via
+  `:apm_v5 :port_scan_interval` application env)
+- `scan_in_flight` flag prevents runaway Task creation under lsof slowness
+- `scan_active_ports/0` handle_call returns cached data in <50ms (p99); never
+  blocks on lsof I/O
+
+**DashboardLive batch mount** (US-603)
+- New `ApmV5.DashboardData` GenServer with 2s TTL snapshot cache
+- Preloads 6 cross-project GenServer calls (PortManager×3, DashboardStore×2,
+  UpmStore) into a single `Snapshot` struct
+- `DashboardLive.mount/3` replaces 6 sequential calls with one ETS lookup
+
+**BootReporter telemetry** (US-604)
+- New `ApmV5.Telemetry.BootReporter` subscribes to `apm:boot` topic
+- Records timeline in `:apm_boot_timeline` ETS table (duplicate_bag)
+- Events: `cache_warmup_started`, `cache_warmup_complete`,
+  `port_scan_complete`, `first_request_served`
+- Re-broadcasts on `apm:notifications` for LiveView consumption
+
+**Cold-start benchmark** (US-605)
+- New `bench/cold_start_bench.exs` measures `/api/status` latency (100 iters)
+- Targets: p50<100ms, p95<200ms, p99<500ms
+- Baseline (v8.11.0): p50=161ms, p95=254ms, p99=351ms
+
+---
+
 ## v8.10.1 (2026-03-30)
 
 ### Backlog Resolution — Plugins, LVM, API Keys, Usage Limits, Discovery UIs
