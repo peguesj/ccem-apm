@@ -7,21 +7,21 @@
   "upm": {
     "planeProjectId": "a20e1d2e-3139-406e-ae03-dc6d1d8cb995",
     "checkpointRange": "CP-243 to CP-256",
-    "builtWaves": 0,
+    "builtWaves": 2,
     "verifiedAt": null,
     "shippedAt": null,
     "prUrl": null
   },
   "notes": {
     "existing_plugins": [
-      "PlanePlugin (plane) — already implements PluginBehaviour; extend to match skill-plugin pattern",
-      "RalphPlugin — existing reference pattern"
+      "PlanePlugin (plane) \u2014 already implements PluginBehaviour; extend to match skill-plugin pattern",
+      "RalphPlugin \u2014 existing reference pattern"
     ],
     "new_plugins": [
-      "UpmPlugin — wraps /upm workflow orchestrator",
-      "PmPlugin — platform-agnostic PM adapter (Plane/Linear/Jira resolution)",
-      "WorktreePlugin — git worktree lifecycle management",
-      "RefactorMaxPlugin — refactor-max methodology exposure"
+      "UpmPlugin \u2014 wraps /upm workflow orchestrator",
+      "PmPlugin \u2014 platform-agnostic PM adapter (Plane/Linear/Jira resolution)",
+      "WorktreePlugin \u2014 git worktree lifecycle management",
+      "RefactorMaxPlugin \u2014 refactor-max methodology exposure"
     ],
     "scope_boundary": "Plugins are thin Elixir adapters that call through to the skill logic via shell-out, HTTP to CCEMHelper, or in-process action handlers. Skills remain the source of truth for workflow logic. Plugins expose actions + LiveViews + nav items."
   },
@@ -60,9 +60,11 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 3,
-      "dependencies": ["US-243"],
-      "status": "pending",
-      "passes": false,
+      "dependencies": [
+        "US-243"
+      ],
+      "status": "completed",
+      "passes": true,
       "wave": 2
     },
     {
@@ -80,9 +82,11 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 3,
-      "dependencies": ["US-243"],
-      "status": "pending",
-      "passes": false,
+      "dependencies": [
+        "US-243"
+      ],
+      "status": "completed",
+      "passes": true,
       "wave": 2
     },
     {
@@ -100,9 +104,11 @@
         "mix test passes"
       ],
       "estimatedPoints": 2,
-      "dependencies": ["US-243"],
-      "status": "pending",
-      "passes": false,
+      "dependencies": [
+        "US-243"
+      ],
+      "status": "completed",
+      "passes": true,
       "wave": 2
     },
     {
@@ -158,9 +164,11 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 2,
-      "dependencies": ["US-248"],
-      "status": "pending",
-      "passes": false,
+      "dependencies": [
+        "US-248"
+      ],
+      "status": "completed",
+      "passes": true,
       "wave": 2
     },
     {
@@ -178,7 +186,11 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 3,
-      "dependencies": ["US-243", "US-248", "US-249"],
+      "dependencies": [
+        "US-243",
+        "US-248",
+        "US-249"
+      ],
       "status": "pending",
       "passes": false,
       "wave": 3
@@ -200,9 +212,11 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 3,
-      "dependencies": ["US-243"],
-      "status": "pending",
-      "passes": false,
+      "dependencies": [
+        "US-243"
+      ],
+      "status": "completed",
+      "passes": true,
       "wave": 2
     },
     {
@@ -222,7 +236,9 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 3,
-      "dependencies": ["US-244"],
+      "dependencies": [
+        "US-244"
+      ],
       "status": "pending",
       "passes": false,
       "wave": 3
@@ -241,7 +257,9 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 2,
-      "dependencies": ["US-245"],
+      "dependencies": [
+        "US-245"
+      ],
       "status": "pending",
       "passes": false,
       "wave": 3
@@ -261,7 +279,9 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 3,
-      "dependencies": ["US-250"],
+      "dependencies": [
+        "US-250"
+      ],
       "status": "pending",
       "passes": false,
       "wave": 3
@@ -280,14 +300,16 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 3,
-      "dependencies": ["US-251"],
+      "dependencies": [
+        "US-251"
+      ],
       "status": "pending",
       "passes": false,
       "wave": 3
     },
     {
       "id": "US-257",
-      "title": "Create LibraryGraphBuilder — extract skill/agent/command/tool/pattern/learning relationships",
+      "title": "Create LibraryGraphBuilder \u2014 extract skill/agent/command/tool/pattern/learning relationships",
       "description": "Implement ApmV5.Library.GraphBuilder module that reads LibraryStore data (7 categories: agents, skills, MCP, tools, commands, patterns, learnings) and builds a relationship graph. Edges: skill calls skill, skill calls agent, skill uses tool, skill implements pattern, skill records learning, agent calls tool, command wraps skill.",
       "acceptanceCriteria": [
         "GraphBuilder module at lib/apm_v5/library/graph_builder.ex",
@@ -320,14 +342,16 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 2,
-      "dependencies": ["US-257"],
-      "status": "pending",
-      "passes": false,
+      "dependencies": [
+        "US-257"
+      ],
+      "status": "completed",
+      "passes": true,
       "wave": 2
     },
     {
       "id": "US-259",
-      "title": "Create library_graph.js D3.js hook — Railway-inspired node graph with Lottie animations",
+      "title": "Create library_graph.js D3.js hook \u2014 Railway-inspired node graph with Lottie animations",
       "description": "Implement LiveView hook rendering Railway-style force-directed graph with D3.js v7. Nodes colored by type (skill=blue, agent=green, command=orange, tool=purple, pattern=yellow, learning=gray). Edges labeled with relationship type. Lottie SVG animations for node entry/exit transitions.",
       "acceptanceCriteria": [
         "New file assets/js/hooks/library_graph.js with LiveView hook",
@@ -367,14 +391,17 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 4,
-      "dependencies": ["US-258", "US-259"],
+      "dependencies": [
+        "US-258",
+        "US-259"
+      ],
       "status": "pending",
       "passes": false,
       "wave": 3
     },
     {
       "id": "US-256",
-      "title": "v8.12.0 release — CHANGELOG, mix.exs bump, docs update, plugin registry wiring",
+      "title": "v8.12.0 release \u2014 CHANGELOG, mix.exs bump, docs update, plugin registry wiring",
       "description": "Bump mix.exs and @server_version/@app_version to 8.12.0. Update CHANGELOG.md and priv/docs/changelog.md with skill-plugin integration + library graph. Wire all 5 new plugins into PluginRegistry auto-registration. Update OpenAPI spec.",
       "acceptanceCriteria": [
         "mix.exs version: 8.11.0 -> 8.12.0",
@@ -387,7 +414,18 @@
         "mix compile --warnings-as-errors passes"
       ],
       "estimatedPoints": 2,
-      "dependencies": ["US-244", "US-245", "US-246", "US-250", "US-251", "US-252", "US-253", "US-254", "US-255", "US-260"],
+      "dependencies": [
+        "US-244",
+        "US-245",
+        "US-246",
+        "US-250",
+        "US-251",
+        "US-252",
+        "US-253",
+        "US-254",
+        "US-255",
+        "US-260"
+      ],
       "status": "pending",
       "passes": false,
       "wave": 4
