@@ -11,7 +11,7 @@ defmodule ApmV5.StatusPayloadBuilder do
   alias ApmV5.AgentRegistry
   alias ApmV5.ConfigLoader
 
-  @server_version "8.11.1"
+  @server_version "9.0.0"
 
   @spec build_status_payload() :: map()
   def build_status_payload do

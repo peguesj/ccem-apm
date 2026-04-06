@@ -1,8 +1,43 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file. Latest: v8.11.0 — Authorization UX Redesign, Plugin System Expansion, Session Filters, Library Dashboard, /529 Rate Limit Skill.
+All notable changes to CCEM APM are documented in this file. Latest: v9.0.0 — Ecosystem Refactoring: Diligent Architecture, New Integrations, Synergize, Railway-Style Graphs.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [9.0.0] - 2026-04-06
+
+Major ecosystem refactoring: Diligent architecture type, 4 new integrations, Synergize cross-copilot action, Railway-inspired graph visualizations, RoutingGraph fix, Showcase dual-tab, and comprehensive UX improvements.
+
+### Added
+- **Diligent Architecture** — new first-class architecture type (Fleet -> Formation -> Squadron -> Swarm -> Agent) with ArchitectureBehaviour, ArchitectureStore GenServer, ArchitectureLive at `/architecture`, and Railway-inspired glassmorphic D3 graph (ArchitectureGraph hook)
+- **RoutingGraph JS hook** — D3 force-directed authorization routing visualization (was completely missing, causing blank `/routing` page)
+- **Showcase dual-tab** — Engine (APM-integrated) + Standalone (iframe/external) mode toggle
+- **4 new integrations** — ClaudeMem (project memory files), ClaudeFlow (methodology workflows), ClaudeExpertise (expertise sources), UAT (test runner bridge)
+- **Synergize action** — generates cross-copilot configuration for 9 IDEs (GitHub Copilot, Cursor, Continue, Cline, Codex, Roo Code, JetBrains, Replit, Antigravity) with symlink/copy/reference modes
+- **ProcessMemoryMonitor GenServer** — sweeps all registered processes every 30s, ETS ring buffer, PubSub diagnostics
+- **ErrorDaemon** — Erlang :logger handler for error capture with 5s dedup and PubSub broadcast
+- **NotificationSettings GenServer** — per-category notification preferences with JSON persistence
+- **SettingsStore + SettingsLive** — centralized 6-tab settings page at `/settings` (General/Notifications/Auth/Integrations/Plugins/Display)
+- **V2 Tasks API** — `POST /api/v2/tasks/register` for hook-based background task population
+- **Library markdown rendering** — Earmark integration for description rendering with AI-generated placeholders
+- **Nav hierarchy** — Library expandable subsection with 7 children, dynamic plugin child nav items via SidebarHelpers
+- **Dockerfile + docker-compose.yml** — containerization support for APM server
+
+### Fixed
+- **app.js merge conflict** — resolved unresolved `<<<<<<< HEAD` markers that would break JS build
+- **Skills hook name mismatch** — `SkillsHook` properly mapped as `Skills:` key in hook registry
+- **Port reconciliation** — Dashboard and `/ports` now use same PortManager data source with PubSub refresh
+- **Auth routing** — RoutingGraph D3 hook created and registered (was phantom reference)
+
+### Changed
+- `mix.exs`: version bumped 8.11.1 -> 9.0.0
+- `@server_version` / `@app_version`: "8.11.1" -> "9.0.0"
+- Dashboard right column: replaced Commands/Todos tabs with Formation/Sessions tabs
+- Dashboard inspector tab: added AG-UI context section and formation breadcrumb
+- Integration registry: 4 new default integrations (7 total)
+- Memory management: ETS caps + periodic pruning in AgentRegistry (5000), SessionManager (500), AuthorizationGate (5000), ClaudeUsageStore (10000)
 
 ---
 
