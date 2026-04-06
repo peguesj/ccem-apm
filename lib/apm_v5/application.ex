@@ -99,6 +99,10 @@ defmodule ApmV5.Application do
       ApmV5.LayoutStore,
       # Architecture store -- Diligent fleet hierarchy (v9.0.0)
       ApmV5.Architectures.ArchitectureStore,
+      # Hook registry -- hookable points catalog (v9.1.0)
+      ApmV5.HookRegistry,
+      # Proxy layer -- Cache + RateLimiter (v9.3.0)
+      ApmV5.Proxy.Supervisor,
       # Outbound relay tunnel -- dials Azure relay when TUNNEL_RELAY_URL is set (v8.5.0)
       ApmV5.Tunnel.Supervisor,
       # Start to serve requests, typically the last entry
