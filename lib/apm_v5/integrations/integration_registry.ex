@@ -25,7 +25,11 @@ defmodule ApmV5.Integrations.IntegrationRegistry do
   @default_integrations [
     ApmV5.Integrations.Agentlock.AgentlockIntegration,
     ApmV5.Integrations.AgUi.AgUiIntegration,
-    ApmV5.Integrations.Lvm.LvmIntegration
+    ApmV5.Integrations.Lvm.LvmIntegration,
+    ApmV5.Integrations.ClaudeMem.ClaudeMemIntegration,
+    ApmV5.Integrations.ClaudeFlow.ClaudeFlowIntegration,
+    ApmV5.Integrations.ClaudeExpertise.ClaudeExpertiseIntegration,
+    ApmV5.Integrations.Uat.UatIntegration
   ]
 
   # ── Public API ──────────────────────────────────────────────────────────────
