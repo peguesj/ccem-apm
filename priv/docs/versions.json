@@ -1,6 +1,26 @@
 {
-  "latest": "8.11.0",
+  "latest": "9.0.0",
   "versions": [
+    {
+      "version": "9.0.0",
+      "date": "2026-04-06",
+      "label": "v9.0.0 -- Ecosystem Refactoring: Architecture, Integrations, Synergize",
+      "summary": "Diligent Architecture type, 4 new integrations (ClaudeMem/ClaudeFlow/ClaudeExpertise/UAT), Synergize cross-copilot action, SettingsLive, Railway-style graphs, RoutingGraph fix, memory management caps.",
+      "features": [
+        "Diligent Architecture (Fleet->Formation->Squadron->Swarm->Agent) with ArchitectureLive and Railway-style D3 graph",
+        "4 new integrations: ClaudeMem, ClaudeFlow, ClaudeExpertise, UAT",
+        "Synergize action for 9 copilots (GitHub Copilot, Cursor, Continue, Cline, Codex, Roo Code, JetBrains, Replit, Antigravity)",
+        "SettingsLive 6-tab centralized settings at /settings",
+        "RoutingGraph JS hook (fixed blank auth routing page)",
+        "Showcase dual-tab (Engine + Standalone)",
+        "ProcessMemoryMonitor + ErrorDaemon for stability",
+        "NotificationSettings with per-category preferences",
+        "Memory management caps on 4 GenServers",
+        "Dockerfile + docker-compose.yml",
+        "Library markdown rendering via Earmark",
+        "Nav hierarchy with expandable Library + dynamic plugin children"
+      ]
+    },
     {
       "version": "8.11.0",
       "date": "2026-03-30",
