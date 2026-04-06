@@ -46,6 +46,8 @@ import ShowcaseSyncHook from "./hooks/showcase_sync"
 import AlignmentGraph from "./hooks/alignment_graph"
 import MermaidHook from "./hooks/mermaid_hook"
 import LibraryGraph from "./hooks/library_graph"
+import RoutingGraph from "./hooks/routing_graph"
+import ArchitectureGraph from "./hooks/architecture_graph"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -96,14 +98,13 @@ const Hooks = {
   ShowcaseHook,
   LoadContext,
   CcemAssistant,
-  SkillsHook,
+  Skills: SkillsHook,
   ShowcaseSyncHook,
   AlignmentGraph,
-<<<<<<< HEAD
-  MermaidHook
-=======
-  LibraryGraph
->>>>>>> 2c1fa79 (feat: US-259 - library_graph.js D3 hook with Railway-inspired node graph)
+  MermaidHook,
+  LibraryGraph,
+  RoutingGraph,
+  ArchitectureGraph
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

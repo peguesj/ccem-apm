@@ -83,6 +83,7 @@ defmodule ApmV5Web.Router do
     live "/scanner", ScannerLive, :index
     live "/actions", ActionsLive, :index
     live "/actions/alignment", AlignmentLive, :index
+    live "/architecture", ArchitectureLive, :index
     live "/analytics", AnalyticsLive, :index
     live "/health", HealthCheckLive, :index
     live "/conversations", ConversationMonitorLive, :index

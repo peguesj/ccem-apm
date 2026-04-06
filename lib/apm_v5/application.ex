@@ -97,6 +97,8 @@ defmodule ApmV5.Application do
       # Dashboard widget system -- WidgetRegistry + LayoutStore (widget-system)
       ApmV5.WidgetRegistry,
       ApmV5.LayoutStore,
+      # Architecture store -- Diligent fleet hierarchy (v9.0.0)
+      ApmV5.Architectures.ArchitectureStore,
       # Outbound relay tunnel -- dials Azure relay when TUNNEL_RELAY_URL is set (v8.5.0)
       ApmV5.Tunnel.Supervisor,
       # Start to serve requests, typically the last entry

@@ -48,6 +48,10 @@ defmodule ApmV5Web.ShowcaseLive do
       |> assign(:design_system, %{})
       |> assign(:version, "7.0.0")
       |> assign(:activity_log, [])
+      # Showcase mode: :engine (APM-integrated data) or :standalone (iframe/external)
+      |> assign(:showcase_mode, :engine)
+      |> assign(:standalone_projects, list_standalone_projects())
+      |> assign(:standalone_url, nil)
       # Queryable tabs + diagrams (v2)
       |> assign(:tabs, [])
       |> assign(:diagrams, [])
@@ -117,6 +121,25 @@ defmodule ApmV5Web.ShowcaseLive do
           </div>
 
           <div class="flex items-center gap-2 text-xs text-base-content/50">
+            <%!-- Engine / Standalone mode toggle (US-120) --%>
+            <div class="join">
+              <button
+                phx-click="switch_mode"
+                phx-value-mode="engine"
+                class={"join-item btn btn-xs #{if @showcase_mode == :engine, do: "btn-primary", else: "btn-ghost"}"}
+              >
+                <.icon name="hero-cpu-chip" class="size-3" />
+                Engine
+              </button>
+              <button
+                phx-click="switch_mode"
+                phx-value-mode="standalone"
+                class={"join-item btn btn-xs #{if @showcase_mode == :standalone, do: "btn-primary", else: "btn-ghost"}"}
+              >
+                <.icon name="hero-globe-alt" class="size-3" />
+                Standalone
+              </button>
+            </div>
             <span class="font-mono">v{@version}</span>
             <button
               id="showcase-fullscreen-btn"
@@ -201,9 +224,40 @@ defmodule ApmV5Web.ShowcaseLive do
           </div>
         </div>
 
+        <%!-- Standalone mode: iframe-based external showcases (US-120) --%>
+        <div :if={@showcase_mode == :standalone} class="flex-1 overflow-hidden bg-base-300">
+          <div :if={@standalone_url} class="h-full">
+            <iframe src={@standalone_url} class="w-full h-full border-0" title="Standalone Showcase" />
+          </div>
+          <div :if={is_nil(@standalone_url)} class="h-full flex flex-col items-center justify-center p-8">
+            <.icon name="hero-globe-alt" class="size-12 text-base-content/20 mb-4" />
+            <h3 class="text-lg font-semibold text-base-content/60 mb-2">Standalone Showcases</h3>
+            <p class="text-sm text-base-content/40 mb-6 text-center max-w-md">
+              Select a project with a standalone showcase server, or projects with
+              migrated static showcases in priv/static/showcase/projects/.
+            </p>
+            <div :if={@standalone_projects != []} class="grid grid-cols-2 gap-3 w-full max-w-lg">
+              <button
+                :for={sp <- @standalone_projects}
+                phx-click="open_standalone"
+                phx-value-project={sp.name}
+                class="card bg-base-200 hover:bg-base-100 transition-colors cursor-pointer"
+              >
+                <div class="card-body p-4">
+                  <h4 class="font-semibold text-sm">{sp.name}</h4>
+                  <p class="text-xs text-base-content/50">{sp.source}</p>
+                </div>
+              </button>
+            </div>
+            <div :if={@standalone_projects == []} class="text-sm text-base-content/30">
+              No standalone showcases found. Run <code>/showcase standalone start</code> to create one.
+            </div>
+          </div>
+        </div>
+
         <%!-- Showcase container — ShowcaseHook mounts here; engine targets inner phx-update=ignore div --%>
         <div
-          :if={is_nil(@active_tab) || (@active_tab != "__diagrams__" && !Enum.any?(@tabs, fn t -> t["id"] == @active_tab end))}
+          :if={@showcase_mode == :engine && (is_nil(@active_tab) || (@active_tab != "__diagrams__" && !Enum.any?(@tabs, fn t -> t["id"] == @active_tab end)))}
           id="showcase-container"
           phx-hook="ShowcaseHook"
           data-project={@active_project || "ccem"}
@@ -283,6 +337,17 @@ defmodule ApmV5Web.ShowcaseLive do
       |> push_event("showcase:tab-filtered", %{tab_id: active_tab, data: filtered, query: query})
 
     {:noreply, socket}
+  end
+
+  def handle_event("switch_mode", %{"mode" => mode}, socket) do
+    mode_atom = if mode == "standalone", do: :standalone, else: :engine
+    {:noreply, assign(socket, :showcase_mode, mode_atom)}
+  end
+
+  def handle_event("open_standalone", %{"project" => project}, socket) do
+    sp = Enum.find(socket.assigns.standalone_projects, &(&1.name == project))
+    url = if sp, do: sp.url, else: nil
+    {:noreply, assign(socket, :standalone_url, url)}
   end
 
   def handle_event("load_diagram", %{"id" => diagram_id}, socket) do
@@ -545,6 +610,35 @@ defmodule ApmV5Web.ShowcaseLive do
     # Deduplicate by name, keeping first occurrence
     base
     |> Enum.uniq_by(fn p -> p["name"] end)
+  end
+
+  # Discover standalone showcases: static files in priv/ + any running showcase servers
+  defp list_standalone_projects do
+    static_dir = Path.join(to_string(:code.priv_dir(:apm_v5)), "static/showcase/projects")
+
+    static_projects =
+      if File.dir?(static_dir) do
+        static_dir
+        |> File.ls!()
+        |> Enum.filter(&File.dir?(Path.join(static_dir, &1)))
+        |> Enum.map(fn name ->
+          %{name: name, source: "static", url: "/showcase/projects/#{name}/index.html"}
+        end)
+      else
+        []
+      end
+
+    # Check for showcase data directory (~/Developer/ccem/showcase/)
+    showcase_dir = Path.expand("~/Developer/ccem/showcase/client")
+
+    external =
+      if File.dir?(showcase_dir) do
+        [%{name: "ccem-standalone", source: "local server (port 8080)", url: "http://localhost:8080"}]
+      else
+        []
+      end
+
+    static_projects ++ external
   end
 
   defp safe_get_config do
