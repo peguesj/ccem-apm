@@ -20,6 +20,7 @@ defmodule ApmV5.LibraryStore do
   @commands_dir Path.expand("~/.claude/commands")
   @config_dir Path.expand("~/.claude/config")
   @settings_path Path.expand("~/.claude/settings.json")
+  @user_mcp_path Path.expand("~/.mcp.json")
   @memory_dir Path.expand("~/.claude/projects/-Users-jeremiah-Developer-ccem/memory")
   @hooks_dir Path.expand("~/Developer/ccem/apm/hooks")
 
@@ -259,8 +260,29 @@ defmodule ApmV5.LibraryStore do
 
   defp scan_mcp_servers do
     settings_mcps = scan_settings_mcp()
+    user_mcps = scan_user_mcp_json()
     project_mcps = scan_project_mcps()
-    (settings_mcps ++ project_mcps) |> Enum.uniq_by(& &1.name)
+    (settings_mcps ++ user_mcps ++ project_mcps) |> Enum.uniq_by(& &1.name)
+  end
+
+  defp scan_user_mcp_json do
+    case safe_read_json(@user_mcp_path) do
+      {:ok, data} ->
+        servers = Map.get(data, "mcpServers", %{})
+
+        Enum.map(servers, fn {name, config} ->
+          %{
+            name: name,
+            display_name: name |> String.replace("-", " ") |> titlecase(),
+            source: "~/.mcp.json",
+            scope: "user",
+            status: "configured",
+            description: "User MCP: #{Map.get(config, "command", name)}"
+          }
+        end)
+
+      {:error, _} -> []
+    end
   end
 
   defp scan_settings_mcp do
