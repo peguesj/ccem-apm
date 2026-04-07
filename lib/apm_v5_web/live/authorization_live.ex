@@ -46,6 +46,7 @@ defmodule ApmV5Web.AuthorizationLive do
          policy_rules: safe_list_rules(),
          modal_minimized: true,
          auth_dismissed: false,
+         selected_ids: MapSet.new(),
          show_settings_modal: false,
          risk_eval_mode: :automatic,
          risk_threshold: 50,
@@ -160,6 +161,10 @@ defmodule ApmV5Web.AuthorizationLive do
   end
 
   def handle_info({:pending_decision_added, _entry}, socket) do
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending(), auth_dismissed: false)}
+  end
+
+  def handle_info({:approval_batch, _entries}, socket) do
     {:noreply, assign(socket, pending: PendingDecisions.list_pending(), auth_dismissed: false)}
   end
 
@@ -377,6 +382,47 @@ defmodule ApmV5Web.AuthorizationLive do
   end
 
   @impl true
+  def handle_event("toggle_select", %{"id" => id}, socket) do
+    selected = socket.assigns.selected_ids
+
+    selected =
+      if MapSet.member?(selected, id),
+        do: MapSet.delete(selected, id),
+        else: MapSet.put(selected, id)
+
+    {:noreply, assign(socket, selected_ids: selected)}
+  end
+
+  @impl true
+  def handle_event("select_all", _params, socket) do
+    all_ids = socket.assigns.pending |> Enum.map(& &1.request_id) |> MapSet.new()
+    {:noreply, assign(socket, selected_ids: all_ids)}
+  end
+
+  @impl true
+  def handle_event("select_none", _params, socket) do
+    {:noreply, assign(socket, selected_ids: MapSet.new())}
+  end
+
+  @impl true
+  def handle_event("approve_selected", _params, socket) do
+    Enum.each(socket.assigns.selected_ids, fn id ->
+      PendingDecisions.decide(id, :approve)
+    end)
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending(), selected_ids: MapSet.new())}
+  end
+
+  @impl true
+  def handle_event("deny_selected", _params, socket) do
+    Enum.each(socket.assigns.selected_ids, fn id ->
+      PendingDecisions.decide(id, :deny)
+    end)
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending(), selected_ids: MapSet.new())}
+  end
+
+  @impl true
   def handle_event("toggle_settings_modal", _params, socket) do
     {:noreply, assign(socket, show_settings_modal: !socket.assigns.show_settings_modal)}
   end
@@ -500,6 +546,21 @@ defmodule ApmV5Web.AuthorizationLive do
               </div>
               <div class="flex items-center gap-1.5">
                 <span class="badge badge-warning badge-sm">Approval Required</span>
+                <button phx-click="select_all" class="btn btn-ghost btn-xs text-zinc-400" title="Select all">
+                  Select All
+                </button>
+                <button phx-click="select_none" class="btn btn-ghost btn-xs text-zinc-400" title="Clear selection">
+                  None
+                </button>
+                <%= if MapSet.size(@selected_ids) > 0 do %>
+                  <button phx-click="approve_selected" class="btn btn-success btn-xs gap-1" title="Approve selected">
+                    <.icon name="hero-check" class="h-3 w-3" /> Approve (<%= MapSet.size(@selected_ids) %>)
+                  </button>
+                  <button phx-click="deny_selected" class="btn btn-error btn-xs gap-1" title="Deny selected">
+                    <.icon name="hero-x-mark" class="h-3 w-3" /> Deny (<%= MapSet.size(@selected_ids) %>)
+                  </button>
+                <% end %>
+                <span class="text-base-content/20">|</span>
                 <button phx-click="dismiss_all_pending" class="btn btn-ghost btn-xs text-zinc-500 hover:text-red-400" title="Deny all">
                   Deny All
                 </button>
@@ -558,6 +619,15 @@ defmodule ApmV5Web.AuthorizationLive do
                       <% human_desc = describe_tool_action(gate.tool_name, gate.params) %>
                       <div class="px-3 py-2 space-y-1.5" id={"auth-card-#{gate.request_id}"}>
                         <div class="flex items-start justify-between gap-2">
+                          <label class="flex items-center shrink-0 mt-0.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              class="checkbox checkbox-xs checkbox-warning"
+                              checked={MapSet.member?(@selected_ids, gate.request_id)}
+                              phx-click="toggle_select"
+                              phx-value-id={gate.request_id}
+                            />
+                          </label>
                           <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-1.5 flex-wrap">
                               <span class={"text-[10px] font-bold px-1 py-0.5 rounded #{action_type_class(gate[:action_type])}"}><%= action_type_label %></span>

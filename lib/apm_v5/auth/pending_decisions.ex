@@ -178,8 +178,13 @@ defmodule ApmV5.Auth.PendingDecisions do
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_added, entry})
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_added, entry})
 
-    # Fire immediate notification so CCEMHelper delivers macOS banner within 1-2s
-    Task.start(fn -> notify_approval_required(entry) end)
+    # Route through ApprovalQueue for debounced batch notifications (US-323)
+    # Falls back to direct notification if ApprovalQueue isn't running
+    if Process.whereis(ApmV5.Auth.ApprovalQueue) do
+      ApmV5.Auth.ApprovalQueue.enqueue(entry)
+    else
+      Task.start(fn -> notify_approval_required(entry) end)
+    end
 
     Logger.info("[PendingDecisions] Queued: #{request_id} — #{tool_name} (#{risk_level})")
     {:reply, {:ok, request_id}, state}

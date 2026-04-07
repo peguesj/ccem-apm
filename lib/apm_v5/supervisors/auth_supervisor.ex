@@ -22,6 +22,8 @@ defmodule ApmV5.Supervisors.AuthSupervisor do
       ApmV5.Auth.PolicyRulesStore,
       # Auto-approval policies for hierarchical scope matching
       ApmV5.Auth.AutoApprovalStore,
+      # Debouncing approval queue — batches notifications over 200ms window (US-323)
+      ApmV5.Auth.ApprovalQueue,
       # Pending decisions queue for human-in-the-loop approvals
       ApmV5.Auth.PendingDecisions,
       ApmV5.Auth.AuthorizationGate
