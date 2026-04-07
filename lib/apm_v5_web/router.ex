@@ -107,6 +107,7 @@ defmodule ApmV5Web.Router do
 
     # Extension: agentlock
     live "/authorization", AuthorizationLive, :index
+    live "/approvals-history", ApprovalHistoryLive, :index
     live "/routing", RoutingLive, :index
 
     # Extension: usage
@@ -441,6 +442,10 @@ defmodule ApmV5Web.Router do
     get "/auth/api-keys", AuthController, :list_api_keys
     post "/auth/api-keys", AuthController, :create_api_key
     delete "/auth/api-keys/:id", AuthController, :revoke_api_key
+
+    # Approval audit history (US-326)
+    post "/approvals/log", AuthController, :log_approval
+    get "/approvals/history", AuthController, :list_approval_history
 
     get "/auth/policy/rules", AuthController, :list_policy_rules
     post "/auth/policy/rules", AuthController, :add_policy_rule

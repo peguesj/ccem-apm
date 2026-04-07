@@ -29,6 +29,7 @@ defmodule ApmV5.Auth.PendingDecisions do
 
   alias ApmV5.Auth.TokenStore
   alias ApmV5.Auth.CommandContextExtractor
+  alias ApmV5.Auth.ApprovalAuditLog
 
   @table :agentlock_pending
   @ttl_seconds 20
@@ -207,6 +208,7 @@ defmodule ApmV5.Auth.PendingDecisions do
                 :ets.insert(@table, {request_id, updated})
                 Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
                 Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
+                log_to_audit(updated)
                 Logger.info("[PendingDecisions] Approved + token issued: #{request_id} → #{token_id}")
                 {:reply, {:ok, token_id}, state}
 
@@ -219,6 +221,7 @@ defmodule ApmV5.Auth.PendingDecisions do
                 :ets.insert(@table, {request_id, updated})
                 Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
                 Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
+                log_to_audit(updated)
                 Logger.warning("[PendingDecisions] Approved but token generation failed: #{request_id}")
                 {:reply, :ok, state}
             end
@@ -232,6 +235,7 @@ defmodule ApmV5.Auth.PendingDecisions do
             :ets.insert(@table, {request_id, updated})
             Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
             Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
+            log_to_audit(updated)
             Logger.info("[PendingDecisions] Denied: #{request_id}")
             {:reply, :ok, state}
         end
@@ -261,6 +265,27 @@ defmodule ApmV5.Auth.PendingDecisions do
   end
 
   # ── Private ──────────────────────────────────────────────────────────────────
+
+  defp log_to_audit(entry) do
+    if Process.whereis(ApprovalAuditLog) do
+      ApprovalAuditLog.log_decision(%{
+        agent_id: entry.agent_id,
+        tool_name: entry.tool_name,
+        decision: entry.decision,
+        request_id: entry.request_id,
+        session_id: entry.session_id,
+        risk_level: entry.risk_level,
+        timestamp: entry.decided_at || DateTime.utc_now(),
+        context_snapshot: %{
+          action_type: entry[:action_type],
+          action_detail: entry[:action_detail],
+          risk_rationale: entry[:risk_rationale],
+          params: entry.params,
+          token_id: Map.get(entry, :token_id)
+        }
+      })
+    end
+  end
 
   defp sanitize_params(params) when is_map(params) do
     # Keep all useful context for the reviewer — truncate large values

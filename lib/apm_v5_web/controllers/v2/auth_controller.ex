@@ -18,7 +18,8 @@ defmodule ApmV5Web.V2.AuthController do
     RedactionEngine,
     RateLimiter,
     PolicyRulesStore,
-    PendingDecisions
+    PendingDecisions,
+    ApprovalAuditLog
   }
 
   # ---------------------------------------------------------------------------
@@ -475,6 +476,73 @@ defmodule ApmV5Web.V2.AuthController do
     }})
 
     json(conn, %{ok: true, request_id: request_id, message: "Test notification injected"})
+  end
+
+  # ---------------------------------------------------------------------------
+  # Approval History (US-326)
+  # ---------------------------------------------------------------------------
+
+  @doc "POST /api/v2/approvals/log — Record an authorization decision"
+  def log_approval(conn, params) do
+    entry = %{
+      agent_id: Map.get(params, "agent_id", "unknown"),
+      tool_name: Map.get(params, "tool_name", "unknown"),
+      decision: params |> Map.get("decision", "approve") |> String.to_existing_atom(),
+      request_id: Map.get(params, "request_id"),
+      session_id: Map.get(params, "session_id"),
+      risk_level: Map.get(params, "risk_level"),
+      context_snapshot: Map.get(params, "context_snapshot", %{})
+    }
+
+    ApprovalAuditLog.log_decision(entry)
+    json(conn, %{ok: true, logged: true})
+  end
+
+  @doc "GET /api/v2/approvals/history — List approval audit log with optional filters"
+  def list_approval_history(conn, params) do
+    opts =
+      []
+      |> maybe_add_opt(:agent_id, Map.get(params, "agent_id"))
+      |> maybe_add_opt(:tool_name, Map.get(params, "tool_name"))
+      |> maybe_add_opt(:decision, parse_decision(Map.get(params, "decision")))
+      |> maybe_add_opt(:limit, parse_limit(Map.get(params, "limit")))
+
+    entries =
+      ApprovalAuditLog.list_entries(opts)
+      |> Enum.map(&audit_entry_to_json/1)
+
+    json(conn, %{ok: true, entries: entries, count: length(entries)})
+  end
+
+  defp parse_decision("approve"), do: :approve
+  defp parse_decision("deny"), do: :deny
+  defp parse_decision(_), do: nil
+
+  defp parse_limit(nil), do: nil
+  defp parse_limit(val) when is_binary(val) do
+    case Integer.parse(val) do
+      {n, _} -> n
+      :error -> nil
+    end
+  end
+  defp parse_limit(val) when is_integer(val), do: val
+  defp parse_limit(_), do: nil
+
+  defp maybe_add_opt(opts, _key, nil), do: opts
+  defp maybe_add_opt(opts, key, val), do: Keyword.put(opts, key, val)
+
+  defp audit_entry_to_json(%{} = entry) do
+    %{
+      id: entry[:id],
+      agent_id: entry.agent_id,
+      tool_name: entry.tool_name,
+      decision: entry.decision,
+      request_id: entry[:request_id],
+      session_id: entry[:session_id],
+      risk_level: entry[:risk_level],
+      timestamp: if(entry[:timestamp], do: DateTime.to_iso8601(entry.timestamp)),
+      context_snapshot: entry[:context_snapshot] || %{}
+    }
   end
 
   # ---------------------------------------------------------------------------
