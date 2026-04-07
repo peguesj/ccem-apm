@@ -262,7 +262,8 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         %{"name" => "Plugins", "description" => "[extension:plugins] Plugin Engine — modular capability extensions", "x-extension" => true},
         %{"name" => "Integrations", "description" => "[extension:plugins] Integration Engine — symbiosis between plugins and native features", "x-extension" => true},
         %{"name" => "Usage", "description" => "[extension:usage] Claude usage tracking — token/model/cost per project and session", "x-extension" => true},
-        %{"name" => "Plane", "description" => "[extension:plane] Plane PM alignment agent — sync status and manual sync trigger", "x-extension" => true}
+        %{"name" => "Plane", "description" => "[extension:plane] Plane PM alignment agent — sync status and manual sync trigger", "x-extension" => true},
+        %{"name" => "Approvals", "description" => "[extension:agentlock] Grouped approval workflow with execution context, audit logging, and keyboard shortcuts", "x-extension" => true}
       ],
       "paths" => build_paths(),
       "components" => %{
@@ -1097,6 +1098,124 @@ defmodule ApmV5Web.V2.ApiV2Controller do
             "422" => %{"description" => "Apply failed"}
           }
         }
+      },
+
+      # Approvals — grouped approval workflow with execution context (v9.0.0)
+      "/api/v2/approvals" => %{
+        "get" => %{
+          "operationId" => "listApprovals",
+          "summary" => "List approval requests with optional filters",
+          "description" => "Returns approval requests with execution context, supporting filters by status, agent_id, and tool_name. Supports grouped notification display.",
+          "tags" => ["Approvals"],
+          "parameters" => [
+            %{"name" => "status", "in" => "query", "required" => false, "schema" => %{"type" => "string", "enum" => ["pending", "approved", "rejected", "timeout"]}},
+            %{"name" => "agent_id", "in" => "query", "required" => false, "schema" => %{"type" => "string"}},
+            %{"name" => "tool_name", "in" => "query", "required" => false, "schema" => %{"type" => "string"}},
+            %{"$ref" => "#/components/parameters/LimitParam"}
+          ],
+          "responses" => %{"200" => %{"description" => "Approval request list",
+            "content" => %{"application/json" => %{"schema" => %{
+              "type" => "object",
+              "properties" => %{
+                "approvals" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/ApprovalRequest"}},
+                "pending_count" => %{"type" => "integer"},
+                "total" => %{"type" => "integer"}
+              }}}}}}
+        },
+        "post" => %{
+          "operationId" => "createApprovalRequest",
+          "summary" => "Create an approval request with execution context",
+          "description" => "Submits a new approval request including tool execution context for grouped notification display. Triggers CCEMHelper notification with keyboard shortcut support.",
+          "tags" => ["Approvals"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/ApprovalRequest"}}}},
+          "responses" => %{
+            "201" => %{"description" => "Approval request created",
+              "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/ApprovalRequest"}}}},
+            "400" => %{"$ref" => "#/components/schemas/Error"}
+          }
+        }
+      },
+      "/api/v2/approvals/{id}" => %{
+        "get" => %{
+          "operationId" => "getApproval",
+          "summary" => "Get a specific approval request with execution context",
+          "tags" => ["Approvals"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{
+            "200" => %{"description" => "Approval detail with execution context",
+              "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/ApprovalRequest"}}}},
+            "404" => %{"description" => "Approval not found"}
+          }
+        }
+      },
+      "/api/v2/approvals/{id}/approve" => %{
+        "post" => %{
+          "operationId" => "approveRequest",
+          "summary" => "Approve a pending approval request",
+          "description" => "Approves the request. Can be triggered via CCEMHelper keyboard shortcut (Cmd+Y).",
+          "tags" => ["Approvals"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "responses" => %{
+            "200" => %{"description" => "Approved"},
+            "404" => %{"description" => "Not found"},
+            "409" => %{"description" => "Not in pending state"}
+          }
+        }
+      },
+      "/api/v2/approvals/{id}/reject" => %{
+        "post" => %{
+          "operationId" => "rejectRequest",
+          "summary" => "Reject a pending approval request",
+          "description" => "Rejects the request with optional reason. Can be triggered via CCEMHelper keyboard shortcut (Cmd+N).",
+          "tags" => ["Approvals"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
+          "requestBody" => %{"required" => false, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object",
+            "properties" => %{"reason" => %{"type" => "string", "description" => "Rejection reason"}}}}}},
+          "responses" => %{
+            "200" => %{"description" => "Rejected"},
+            "404" => %{"description" => "Not found"},
+            "409" => %{"description" => "Not in pending state"}
+          }
+        }
+      },
+      "/api/v2/approvals/log" => %{
+        "post" => %{
+          "operationId" => "logApprovalAudit",
+          "summary" => "Log an approval audit entry",
+          "description" => "Records an approval decision with full execution context snapshot for audit trail. Used by AgentLock and CCEMHelper to persist decision history.",
+          "tags" => ["Approvals"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/ApprovalAuditEntry"}}}},
+          "responses" => %{
+            "201" => %{"description" => "Audit entry recorded",
+              "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/ApprovalAuditEntry"}}}},
+            "400" => %{"$ref" => "#/components/schemas/Error"}
+          }
+        }
+      },
+      "/api/v2/approvals/history" => %{
+        "get" => %{
+          "operationId" => "getApprovalHistory",
+          "summary" => "Get approval audit history with filters",
+          "description" => "Returns paginated approval audit entries. Supports filtering by agent_id, tool_name, decision, and time range.",
+          "tags" => ["Approvals"],
+          "parameters" => [
+            %{"name" => "agent_id", "in" => "query", "required" => false, "schema" => %{"type" => "string"}},
+            %{"name" => "tool_name", "in" => "query", "required" => false, "schema" => %{"type" => "string"}},
+            %{"name" => "decision", "in" => "query", "required" => false, "schema" => %{"type" => "string", "enum" => ["approved", "rejected", "timeout"]}},
+            %{"$ref" => "#/components/parameters/SinceParam"},
+            %{"$ref" => "#/components/parameters/LimitParam"},
+            %{"$ref" => "#/components/parameters/CursorParam"}
+          ],
+          "responses" => %{"200" => %{"description" => "Approval audit history",
+            "content" => %{"application/json" => %{"schema" => %{
+              "type" => "object",
+              "properties" => %{
+                "entries" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/ApprovalAuditEntry"}},
+                "total" => %{"type" => "integer"},
+                "next_cursor" => %{"type" => "string", "nullable" => true}
+              }}}}}}
+        }
       }
     }
   end
@@ -1219,7 +1338,44 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         "affected_skill_count" => %{"type" => "integer"},
         "diff_count" => %{"type" => "integer"},
         "started_at" => %{"type" => "string", "format" => "date-time"},
-        "completed_at" => %{"type" => "string", "format" => "date-time"}}}
+        "completed_at" => %{"type" => "string", "format" => "date-time"}}},
+      # Approval workflow schemas (v9.0.0)
+      "ExecutionContext" => %{"type" => "object", "description" => "Execution context for an approval request — describes what the tool will do and its impact", "properties" => %{
+        "tool_name" => %{"type" => "string", "description" => "Name of the tool requesting approval"},
+        "tool_purpose" => %{"type" => "string", "description" => "Human-readable description of what the tool will do"},
+        "affected_files" => %{"type" => "array", "items" => %{"type" => "string"}, "description" => "File paths that will be read, written, or deleted"},
+        "estimated_impact" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"], "description" => "Estimated impact level of the operation"}}},
+      "ApprovalRequest" => %{"type" => "object", "description" => "Approval request with execution context for grouped notification display (v9.0.0)", "properties" => %{
+        "id" => %{"type" => "string"},
+        "agent_id" => %{"type" => "string"},
+        "session_id" => %{"type" => "string"},
+        "tool_name" => %{"type" => "string"},
+        "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]},
+        "status" => %{"type" => "string", "enum" => ["pending", "approved", "rejected", "timeout"]},
+        "execution_context" => %{"$ref" => "#/components/schemas/ExecutionContext"},
+        "display_name" => %{"type" => "string", "nullable" => true, "description" => "Human-readable agent label"},
+        "keyboard_shortcuts" => %{"type" => "object", "description" => "Available keyboard shortcuts for this approval",
+          "properties" => %{
+            "approve" => %{"type" => "string", "example" => "Cmd+Y", "description" => "Shortcut to approve"},
+            "reject" => %{"type" => "string", "example" => "Cmd+N", "description" => "Shortcut to reject"},
+            "details" => %{"type" => "string", "example" => "Cmd+D", "description" => "Shortcut to view details"},
+            "dismiss" => %{"type" => "string", "example" => "Escape", "description" => "Shortcut to dismiss modal"}}},
+        "group_key" => %{"type" => "string", "nullable" => true, "description" => "Grouping key for batched notifications (e.g. agent_id or tool_name)"},
+        "decision" => %{"type" => "string", "nullable" => true},
+        "decided_at" => %{"type" => "string", "format" => "date-time", "nullable" => true},
+        "inserted_at" => %{"type" => "string", "format" => "date-time"},
+        "expires_at" => %{"type" => "string", "format" => "date-time"}}},
+      "ApprovalAuditEntry" => %{"type" => "object", "description" => "Audit log entry for an approval decision (v9.0.0)", "properties" => %{
+        "id" => %{"type" => "string"},
+        "agent_id" => %{"type" => "string"},
+        "tool_name" => %{"type" => "string"},
+        "timestamp" => %{"type" => "string", "format" => "date-time"},
+        "decision" => %{"type" => "string", "enum" => ["approved", "rejected", "timeout"]},
+        "context_snapshot" => %{"$ref" => "#/components/schemas/ExecutionContext"},
+        "reason" => %{"type" => "string", "nullable" => true},
+        "method" => %{"type" => "string", "description" => "How the decision was made", "enum" => ["keyboard_shortcut", "button_click", "api", "auto_approval", "timeout"]},
+        "session_id" => %{"type" => "string"},
+        "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]}}}
     }
   end
 
