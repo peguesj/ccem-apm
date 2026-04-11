@@ -48,6 +48,7 @@ import MermaidHook from "./hooks/mermaid_hook"
 import LibraryGraph from "./hooks/library_graph"
 import RoutingGraph from "./hooks/routing_graph"
 import ArchitectureGraph from "./hooks/architecture_graph"
+import SessionDiagram from "./hooks/session_diagram"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -104,7 +105,8 @@ const Hooks = {
   MermaidHook,
   LibraryGraph,
   RoutingGraph,
-  ArchitectureGraph
+  ArchitectureGraph,
+  SessionDiagram
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
