@@ -156,13 +156,15 @@ defmodule ApmV5.Plugins.PluginBehaviour do
   @callback dashboard_widgets() :: [map()]
 
   @doc """
-  Optional. Returns the scope of this plugin — `:apm` for APM-native plugins,
-  `:ccem` for CCEM-level plugins, or `:claude_code` for plugins bridged from
-  Claude Code's native plugin ecosystem.
+  Optional. Returns the scope of this plugin:
+    - `:apm`         — APM-native monitoring/dashboard plugins
+    - `:ccem`        — CCEM-level workflow plugins (skill bridges, PM, UPM, etc.)
+    - `:claude_code` — plugins bridged from Claude Code's native plugin ecosystem
+    - `:security`    — security-focused plugins that scan/guard tool calls and file writes
 
   Defaults to `:apm` when not implemented.
   """
-  @callback plugin_scope() :: :apm | :ccem | :claude_code
+  @callback plugin_scope() :: :apm | :ccem | :claude_code | :security
 
   @optional_callbacks [
     inspector_section: 1,
