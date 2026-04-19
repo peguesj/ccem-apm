@@ -21,6 +21,9 @@ defmodule ApmV5Web.DashboardLive do
   alias ApmV5.PortManager
   alias ApmV5.GraphBuilder
   alias ApmV5.ChatStore
+  alias ApmV5.LayoutStore
+  alias ApmV5.WidgetConfigStore
+  alias ApmV5.DashboardScopeEngine
 
   import ApmV5Web.Components.GettingStartedShowcase
 
@@ -45,6 +48,11 @@ defmodule ApmV5Web.DashboardLive do
       ApmV5.AgUi.EventBus.subscribe("state:*")
       ApmV5.AgUi.EventBus.subscribe("activity:*")
       ApmV5.AgUi.EventBus.subscribe("special:custom")
+
+      # Widgetization Engine: subscribe to scope and session events (US-360)
+      session_id = socket.id
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "dashboard:scope:#{session_id}")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "dashboard:session:#{session_id}")
     end
 
     config = safe_get_config()
@@ -112,6 +120,13 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:filter_namespace, nil)
       |> assign(:filter_agent_type, nil)
       |> assign(:filter_query, "")
+      # Widgetization Engine assigns (US-360, US-367)
+      |> assign(:widget_scope_type, :global)
+      |> assign(:widget_scope_value, nil)
+      |> assign(:widget_pinned_id, nil)
+      |> assign(:widget_edit_panel_id, nil)
+      |> assign(:widget_session_configs, load_widget_session_configs(socket))
+      |> assign(:widget_layout_placements, load_widget_layout(socket))
       |> push_graph_data(agents)
 
     {:ok, socket}
@@ -145,6 +160,29 @@ defmodule ApmV5Web.DashboardLive do
   end
 
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
+
+  # ── Widgetization Engine helpers (US-367) ────────────────────────────────────
+
+  defp load_widget_session_configs(socket) do
+    try do
+      WidgetConfigStore.get_all_configs(socket.id)
+    rescue
+      _ -> %{}
+    end
+  end
+
+  defp load_widget_layout(socket) do
+    try do
+      case LayoutStore.get_user_layout(socket.id) do
+        %{placements: placements} -> placements
+        _ ->
+          preset = LayoutStore.get_preset("default")
+          if preset, do: preset.placements, else: []
+      end
+    rescue
+      _ -> []
+    end
+  end
 
   defp filter_by_status(agents, nil), do: agents
   defp filter_by_status(agents, ""), do: agents
@@ -989,6 +1027,65 @@ defmodule ApmV5Web.DashboardLive do
     {:noreply, socket |> assign(:chat_scope, scope) |> assign(:chat_messages, messages)}
   end
 
+  # ── Widgetization Engine — widget edit, pin, config, and layout events (US-367) ──
+
+  def handle_event("widget_edit_open", %{"widget_id" => widget_id}, socket) do
+    {:noreply, assign(socket, :widget_edit_panel_id, widget_id)}
+  end
+
+  def handle_event("widget_edit_close", _params, socket) do
+    {:noreply, assign(socket, :widget_edit_panel_id, nil)}
+  end
+
+  def handle_event("widget_config_saved", %{"widget_id" => widget_id, "config" => config}, socket)
+      when is_binary(widget_id) and is_map(config) do
+    session_id = socket.id
+    WidgetConfigStore.put_config(session_id, widget_id, config)
+    updated_configs = WidgetConfigStore.get_all_configs(session_id)
+    {:noreply,
+     socket
+     |> assign(:widget_edit_panel_id, nil)
+     |> assign(:widget_session_configs, updated_configs)}
+  end
+
+  def handle_event("widget_pin_toggle", %{"widget_id" => widget_id}, socket) do
+    session_id = socket.id
+    current_pinned = socket.assigns.widget_pinned_id
+
+    if current_pinned == widget_id do
+      DashboardScopeEngine.unpin(session_id)
+    else
+      DashboardScopeEngine.pin_scope_source(session_id, widget_id)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("widget_scope_select", %{"scope_type" => scope_type_str, "scope_value" => scope_value}, socket) do
+    session_id = socket.id
+    scope_type = String.to_existing_atom(scope_type_str)
+    DashboardScopeEngine.broadcast_scope(session_id, scope_type, scope_value)
+    {:noreply, socket}
+  rescue
+    ArgumentError -> {:noreply, socket}
+  end
+
+  def handle_event("layout_reorder", %{"order" => widget_order}, socket) when is_list(widget_order) do
+    session_id = socket.id
+    current_layout = LayoutStore.get_user_layout(session_id) || %{}
+    LayoutStore.save_user_layout(session_id, Map.put(current_layout, :widget_order, widget_order))
+    {:noreply, socket}
+  end
+
+  def handle_event("layout_preset_select", %{"preset_id" => preset_id}, socket) do
+    case LayoutStore.get_preset(preset_id) do
+      nil ->
+        {:noreply, socket}
+      preset ->
+        {:noreply, assign(socket, :widget_layout_placements, preset.placements)}
+    end
+  end
+
   # Agent control events — call registry directly (same server)
   def handle_event("agent:control", %{"action" => action, "id" => id}, socket) do
     new_status = case action do
@@ -1506,6 +1603,24 @@ defmodule ApmV5Web.DashboardLive do
   end
 
   def handle_info({:token_consumed, _}, socket), do: {:noreply, socket}
+
+  # ── Widgetization Engine — Scope PubSub handlers (US-360) ────────────────────
+
+  def handle_info({:scope_changed, scope_type, scope_value}, socket) do
+    {:noreply,
+     socket
+     |> assign(:widget_scope_type, scope_type)
+     |> assign(:widget_scope_value, scope_value)}
+  end
+
+  def handle_info({:pinned_widget_changed, widget_id}, socket) do
+    {:noreply, assign(socket, :widget_pinned_id, widget_id)}
+  end
+
+  def handle_info({:widget_config_updated, _widget_id, _config}, socket) do
+    # Config stored in WidgetConfigStore; re-render will pick it up via assigns
+    {:noreply, socket}
+  end
 
   def handle_info(_msg, socket) do
     {:noreply, socket}

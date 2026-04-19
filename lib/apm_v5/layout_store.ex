@@ -154,6 +154,47 @@ defmodule ApmV5.LayoutStore do
     :ok
   end
 
+  @doc "Save a widget config override for a session. Broadcasts :widget_config_updated via PubSub."
+  @spec save_widget_config(String.t(), String.t(), map()) :: :ok
+  def save_widget_config(session_id, widget_id, config)
+      when is_binary(session_id) and is_binary(widget_id) and is_map(config) do
+    :ets.insert(@table, {"widget_config:#{session_id}:#{widget_id}", config})
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "dashboard:session:#{session_id}", {:widget_config_updated, widget_id, config})
+    :ok
+  end
+
+  @doc "Retrieve a widget config override for a session."
+  @spec get_widget_config(String.t(), String.t()) :: map() | nil
+  def get_widget_config(session_id, widget_id)
+      when is_binary(session_id) and is_binary(widget_id) do
+    case :ets.lookup(@table, "widget_config:#{session_id}:#{widget_id}") do
+      [{_key, config}] -> config
+      [] -> nil
+    end
+  end
+
+  @doc "Set the pinned widget for a session. Pass nil to unpin. Broadcasts :pinned_widget_changed via PubSub."
+  @spec set_pinned_widget(String.t(), String.t() | nil) :: :ok
+  def set_pinned_widget(session_id, widget_id) when is_binary(session_id) do
+    key = "pinned_widget:#{session_id}"
+    if is_nil(widget_id) do
+      :ets.delete(@table, key)
+    else
+      :ets.insert(@table, {key, widget_id})
+    end
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "dashboard:session:#{session_id}", {:pinned_widget_changed, widget_id})
+    :ok
+  end
+
+  @doc "Get the currently pinned widget id for a session, or nil if none."
+  @spec get_pinned_widget(String.t()) :: String.t() | nil
+  def get_pinned_widget(session_id) when is_binary(session_id) do
+    case :ets.lookup(@table, "pinned_widget:#{session_id}") do
+      [{_key, widget_id}] -> widget_id
+      [] -> nil
+    end
+  end
+
   # ── GenServer Callbacks ───────────────────────────────────────────────────────
 
   @impl true

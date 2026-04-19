@@ -15,8 +15,8 @@ defmodule ApmV5Web.AuthorizationLive do
 
   use ApmV5Web, :live_view
 
-  alias ApmV5.Auth.{AuthorizationGate, PendingDecisions, PolicyRulesStore}
-  alias ApmV5.{NamespaceResolver, SessionManager}
+  alias ApmV5.Auth.{AuthorizationGate, PendingDecisions, PolicyRulesStore, SessionStore}
+  alias ApmV5.NamespaceResolver
 
   @refresh_ms 5_000
   @max_decisions 20
@@ -41,7 +41,7 @@ defmodule ApmV5Web.AuthorizationLive do
        |> Map.merge(%{
          active_tab: "overview",
          page_title: "Authorization",
-         decisions: [],
+         decisions: load_recent_decisions(),
          pending: safe_list_pending(),
          policy_rules: safe_list_rules(),
          modal_minimized: true,
@@ -1203,11 +1203,14 @@ defmodule ApmV5Web.AuthorizationLive do
 
   defp load_data do
     summary = try do AuthorizationGate.summary() rescue _ -> %{registered_tools: 0, active_sessions: 0, tokens: %{}, total_authorized: 0, total_denied: 0, total_escalated: 0, risk_distribution: %{}} end
-    sessions = try do SessionManager.list_sessions() rescue _ -> [] end
+    sessions = try do SessionStore.list_active() rescue _ -> [] end
     tools = try do AuthorizationGate.list_tools() rescue _ -> [] end
     audit_entries = try do
       ApmV5.AuditLog.tail(30)
-      |> Enum.filter(fn e -> String.starts_with?(Map.get(e, :event_type, ""), "auth:") end)
+      |> Enum.filter(fn e ->
+        et = Map.get(e, :event_type, "")
+        is_binary(et) and String.starts_with?(et, "auth:")
+      end)
     rescue _ -> [] end
 
     %{
@@ -1217,6 +1220,52 @@ defmodule ApmV5Web.AuthorizationLive do
       audit_entries: audit_entries
     }
   end
+
+  defp load_recent_decisions do
+    try do
+      ApmV5.AuditLog.tail(@max_decisions)
+      |> Enum.filter(fn e ->
+        et = Map.get(e, :event_type, "")
+        is_binary(et) and et in [
+          "auth:authorization_granted",
+          "auth:authorization_denied",
+          "auth:authorization_escalated",
+          "auth:auto_approval_granted",
+          "auth:rate_limited"
+        ]
+      end)
+      |> Enum.map(fn e ->
+        status = case Map.get(e, :event_type, "") do
+          "auth:authorization_granted" -> :granted
+          "auth:auto_approval_granted" -> :granted
+          "auth:authorization_denied" -> :denied
+          "auth:authorization_escalated" -> :escalated
+          "auth:rate_limited" -> :rate_limited
+          _ -> :unknown
+        end
+
+        details = Map.get(e, :details, %{})
+
+        %{
+          tool: Map.get(e, :resource, "unknown"),
+          status: status,
+          risk_level: normalize_risk_level(Map.get(details, :risk_level, "none")),
+          session_id: Map.get(details, :session_id, ""),
+          timestamp: Map.get(e, :timestamp, DateTime.utc_now() |> DateTime.to_iso8601())
+        }
+      end)
+    rescue
+      _ -> []
+    end
+  end
+
+  defp normalize_risk_level(level) when is_atom(level), do: level
+  defp normalize_risk_level("none"), do: :none
+  defp normalize_risk_level("low"), do: :low
+  defp normalize_risk_level("medium"), do: :medium
+  defp normalize_risk_level("high"), do: :high
+  defp normalize_risk_level("critical"), do: :critical
+  defp normalize_risk_level(_), do: :none
 
   defp safe_list_pending do
     try do PendingDecisions.list_pending() rescue _ -> [] end

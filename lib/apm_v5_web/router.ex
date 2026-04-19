@@ -508,6 +508,14 @@ defmodule ApmV5Web.Router do
     get "/plane/sync-status", PlaneController, :sync_status
     post "/plane/sync", PlaneController, :sync
 
+    # ── EXTENSION: widgetization engine ──────────────────────────────────
+    get "/widgets", WidgetController, :index
+    get "/widgets/:id", WidgetController, :show
+    patch "/widgets/:id/config", WidgetController, :update_config
+    get "/dashboard/layout", WidgetController, :get_layout
+    post "/dashboard/layout", WidgetController, :save_layout
+    post "/dashboard/pin", WidgetController, :pin_widget
+
     # ── EXTENSION: library ────────────────────────────────────────────────
     get "/library", LibraryController, :index
     get "/library/agents", LibraryController, :agents

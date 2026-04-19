@@ -49,11 +49,6 @@ defmodule ApmV5.PluginScanner do
   end
 
   @impl true
-  def handle_info({:scan_result, new_state}, _state) do
-    {:noreply, new_state}
-  end
-
-  @impl true
   def handle_call(:get_mcp_servers, _from, state) do
     {:reply, state.mcp_servers, state}
   end
@@ -66,6 +61,11 @@ defmodule ApmV5.PluginScanner do
   @impl true
   def handle_cast(:rescan, state) do
     {:noreply, do_scan(state)}
+  end
+
+  @impl true
+  def handle_info({:scan_result, new_state}, _state) do
+    {:noreply, new_state}
   end
 
   @impl true

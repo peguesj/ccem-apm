@@ -76,16 +76,16 @@ defmodule ApmV5.Skills.SkillHealthScorer do
   end
 
   @impl true
+  def handle_call(:rescore, _from, state) do
+    _ = perform_scoring()
+    {:reply, :ok, %{state | last_refresh: System.monotonic_time(:second)}}
+  end
+
+  @impl true
   def handle_info(:initial_score, state) do
     _ = perform_scoring()
     Process.send_after(self(), :refresh, @health_refresh_interval)
     {:noreply, %{state | last_refresh: System.monotonic_time(:second)}}
-  end
-
-  @impl true
-  def handle_call(:rescore, _from, state) do
-    _ = perform_scoring()
-    {:reply, :ok, %{state | last_refresh: System.monotonic_time(:second)}}
   end
 
   @impl true

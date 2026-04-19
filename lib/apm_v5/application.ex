@@ -82,6 +82,8 @@ defmodule ApmV5.Application do
       ApmV5.Integrations.IntegrationRegistry,
       ApmV5.WidgetRegistry,
       ApmV5.LayoutStore,
+      ApmV5.WidgetConfigStore,
+      ApmV5.DashboardScopeEngine,
       # --- APM-001: Still disabled (boot-blocking or heavy external I/O) ---
       # ApmV5.SessionManager,      # BUG-1 root cause: PortManager timeout during enrich
       # ApmV5.PlanePmAlign,        # Blocking Plane API HTTP calls on init

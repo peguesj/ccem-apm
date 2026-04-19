@@ -49,6 +49,7 @@ import LibraryGraph from "./hooks/library_graph"
 import RoutingGraph from "./hooks/routing_graph"
 import ArchitectureGraph from "./hooks/architecture_graph"
 import SessionDiagram from "./hooks/session_diagram"
+import DashboardGrid from "./hooks/dashboard_grid"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -106,7 +107,8 @@ const Hooks = {
   LibraryGraph,
   RoutingGraph,
   ArchitectureGraph,
-  SessionDiagram
+  SessionDiagram,
+  DashboardGrid
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
