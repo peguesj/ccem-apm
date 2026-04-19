@@ -124,6 +124,9 @@ defmodule ApmV5Web.Router do
     live "/integrations", PluginDashboardLive, :integrations_tab
     live "/integrations/lvm", LvmStatusLive, :index
 
+    # Extension: skill drift detector
+    live "/skill-drift", SkillDriftLive, :index
+
     # Extension: library
     live "/library", LibraryLive, :index
 
@@ -515,6 +518,11 @@ defmodule ApmV5Web.Router do
     get "/dashboard/layout", WidgetController, :get_layout
     post "/dashboard/layout", WidgetController, :save_layout
     post "/dashboard/pin", WidgetController, :pin_widget
+
+    # ── EXTENSION: skill drift detector ──────────────────────────────────
+    get "/skill-drift/scan", SkillDriftController, :scan
+    get "/skill-drift/report", SkillDriftController, :report
+    post "/skill-drift/fix", SkillDriftController, :fix
 
     # ── EXTENSION: library ────────────────────────────────────────────────
     get "/library", LibraryController, :index

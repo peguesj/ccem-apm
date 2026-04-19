@@ -89,7 +89,8 @@ defmodule ApmV5.Plugins.PluginRegistry do
     ApmV5.Plugins.SimpleAgents.SimpleAgentsPlugin,
     ApmV5.Plugins.ClaudeCode.ClaudeCodePlugin,
     ApmV5.Plugins.Lvm.ClaudePlatformLvmPlugin,
-    ApmV5.Plugins.Mirofish.MirofishPlugin
+    ApmV5.Plugins.Mirofish.MirofishPlugin,
+    ApmV5.Plugins.SkillDrift.SkillDriftPlugin
   ]
 
   @impl true
