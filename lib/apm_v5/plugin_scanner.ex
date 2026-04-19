@@ -40,7 +40,17 @@ defmodule ApmV5.PluginScanner do
 
   @impl true
   def handle_continue(:initial_scan, state) do
-    {:noreply, do_scan(state)}
+    server = self()
+    Task.start(fn ->
+      new_state = do_scan(state)
+      send(server, {:scan_result, new_state})
+    end)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info({:scan_result, new_state}, _state) do
+    {:noreply, new_state}
   end
 
   @impl true
@@ -61,7 +71,12 @@ defmodule ApmV5.PluginScanner do
   @impl true
   def handle_info(:refresh, state) do
     schedule_refresh()
-    {:noreply, do_scan(state)}
+    server = self()
+    Task.start(fn ->
+      new_state = do_scan(state)
+      send(server, {:scan_result, new_state})
+    end)
+    {:noreply, state}
   end
 
   # --- Private helpers ---

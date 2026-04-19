@@ -73,19 +73,10 @@ defmodule ApmV5.Skills.SkillAnalyzer do
   @impl true
   def init(_opts) do
     :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
-
-    # Perform initial scan
-    case scan_skills() do
-      {:ok, skills} ->
-        build_and_cache(skills)
-        Process.send_after(self(), :refresh, @default_refresh_interval)
-        {:ok, %{last_refresh: System.monotonic_time(:second), retry_count: 0}}
-
-      {:error, reason} ->
-        Logger.warning("[SkillAnalyzer] Initial scan failed: #{inspect(reason)}")
-        Process.send_after(self(), :refresh, @default_refresh_interval)
-        {:ok, %{last_refresh: nil, retry_count: 1}}
-    end
+    # Defer scan so init() returns immediately — avoids blocking the supervisor
+    # when ~/.claude/skills/ contains many entries (e.g. 155+ VoltAgent agents).
+    send(self(), :scan_initial)
+    {:ok, %{last_refresh: nil, retry_count: 0}}
   end
 
   @impl true
@@ -122,16 +113,29 @@ defmodule ApmV5.Skills.SkillAnalyzer do
   end
 
   @impl true
+  def handle_info(:scan_initial, state) do
+    Task.start(fn ->
+      case scan_skills() do
+        {:ok, skills} -> build_and_cache(skills)
+        {:error, reason} -> Logger.warning("[SkillAnalyzer] Initial scan failed: #{inspect(reason)}")
+      end
+    end)
+    Process.send_after(self(), :refresh, @default_refresh_interval)
+    {:noreply, %{state | last_refresh: System.monotonic_time(:second), retry_count: 0}}
+  end
+
+  @impl true
   def handle_info(:refresh, state) do
-    case scan_skills() do
-      {:ok, skills} ->
-        build_and_cache(skills)
-        Logger.debug("[SkillAnalyzer] Refresh complete, #{length(skills)} skills indexed")
+    Task.start(fn ->
+      case scan_skills() do
+        {:ok, skills} ->
+          build_and_cache(skills)
+          Logger.debug("[SkillAnalyzer] Refresh complete, #{length(skills)} skills indexed")
 
-      {:error, reason} ->
-        Logger.warning("[SkillAnalyzer] Refresh failed: #{inspect(reason)}")
-    end
-
+        {:error, reason} ->
+          Logger.warning("[SkillAnalyzer] Refresh failed: #{inspect(reason)}")
+      end
+    end)
     Process.send_after(self(), :refresh, @default_refresh_interval)
     {:noreply, %{state | last_refresh: System.monotonic_time(:second)}}
   end

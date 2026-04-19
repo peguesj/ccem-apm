@@ -155,18 +155,27 @@ defmodule ApmV5.ShowcaseDataStore do
   @impl true
   def init(_opts) do
     table = :ets.new(:showcase_data, [:set, :protected, read_concurrency: true])
+
+    # Defer disk I/O so init returns immediately (APM-001 fix)
+    send(self(), :load_initial)
+
+    {:ok, %{table: table}}
+  end
+
+  @impl true
+  def handle_info(:load_initial, state) do
     # Pre-load default CCEM showcase data
     data = load_showcase_data(@default_showcase_path)
-    :ets.insert(table, {"ccem", data})
+    :ets.insert(state.table, {"ccem", data})
 
     # Pre-load project-specific showcase data from showcase/data/projects/
     scan_showcase_project_dirs()
     |> Enum.each(fn %{"name" => name, "showcase_data_path" => path} ->
       project_data = load_showcase_data(path)
-      :ets.insert(table, {name, project_data})
+      :ets.insert(state.table, {name, project_data})
     end)
 
-    {:ok, %{table: table}}
+    {:noreply, state}
   end
 
   @impl true

@@ -11,13 +11,13 @@ config :apm_v5, ApmV5Web.Endpoint,
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: 3032],
   check_origin: false,
-  code_reloader: true,
+  code_reloader: System.get_env("APM_NO_CODE_RELOAD") != "1",
   debug_errors: true,
   secret_key_base: "kY3MVboJ+Qr9zL8db1GpnTfcC1c2MrnokzTtXVfoauKI0hpUP55+TMtv8nGgo4hu",
-  watchers: [
+  watchers: if(System.get_env("APM_NO_WATCHERS") == "1", do: [], else: [
     esbuild: {Esbuild, :install_and_run, [:apm_v5, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:apm_v5, ~w(--watch)]}
-  ]
+  ])
 
 # ## SSL Support
 #

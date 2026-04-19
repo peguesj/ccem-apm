@@ -55,7 +55,8 @@ defmodule ApmV5.EnvironmentScanner do
 
   @impl true
   def handle_continue(:initial_scan, state) do
-    do_scan(state.scan_dirs)
+    scan_dirs = state.scan_dirs
+    Task.start(fn -> do_scan(scan_dirs) end)
     {:noreply, state}
   end
 
@@ -67,7 +68,8 @@ defmodule ApmV5.EnvironmentScanner do
 
   @impl true
   def handle_info(:scan, state) do
-    do_scan(state.scan_dirs)
+    scan_dirs = state.scan_dirs
+    Task.start(fn -> do_scan(scan_dirs) end)
     schedule_scan()
     {:noreply, state}
   end

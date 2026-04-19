@@ -69,11 +69,17 @@ defmodule ApmV5.Skills.SkillHealthScorer do
   def init(_opts) do
     :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
 
-    # Perform initial scoring
-    _ = perform_scoring()
+    # Defer initial scoring so init returns immediately (APM-001 fix)
+    send(self(), :initial_score)
 
+    {:ok, %{last_refresh: nil}}
+  end
+
+  @impl true
+  def handle_info(:initial_score, state) do
+    _ = perform_scoring()
     Process.send_after(self(), :refresh, @health_refresh_interval)
-    {:ok, %{last_refresh: System.monotonic_time(:second)}}
+    {:noreply, %{state | last_refresh: System.monotonic_time(:second)}}
   end
 
   @impl true

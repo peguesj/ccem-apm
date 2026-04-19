@@ -62,7 +62,7 @@ defmodule ApmV5.SkillsRegistryStore do
 
   @impl true
   def handle_info(:scan, state) do
-    do_scan()
+    Task.start(fn -> do_scan() end)
     Process.send_after(self(), :scan, @refresh_interval)
     {:noreply, %{state | last_scanned: DateTime.utc_now()}}
   end
