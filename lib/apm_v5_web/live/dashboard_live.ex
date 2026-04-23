@@ -83,6 +83,8 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:show_other_projects, false)
       |> assign(:agents, agents)
       |> assign(:notifications, notifications)
+      |> assign(:notification_channel_filter, nil)
+      |> assign(:notification_source_filter, nil)
       |> assign(:uptime, uptime)
       |> assign(:agent_count, length(agents))
       |> assign(:active_count, Enum.count(agents, &(&1.status == "active")))
@@ -360,11 +362,37 @@ defmodule ApmV5Web.DashboardLive do
                         </button>
                       </div>
                     </div>
+                    <%!-- Channel / Source filters --%>
+                    <div
+                      :if={Enum.any?(@notifications, &(&1[:channel] || &1[:source]))}
+                      class="flex gap-2 px-3 py-2 border-b border-base-300"
+                    >
+                      <select
+                        class="select select-xs select-bordered flex-1 text-xs"
+                        phx-change="filter_notifications_by_channel"
+                        name="channel"
+                      >
+                        <option value="">All channels</option>
+                        <%= for ch <- @notifications |> Enum.map(& &1[:channel]) |> Enum.reject(&is_nil/1) |> Enum.uniq() |> Enum.sort() do %>
+                          <option value={ch} selected={@notification_channel_filter == ch}>{ch}</option>
+                        <% end %>
+                      </select>
+                      <select
+                        class="select select-xs select-bordered flex-1 text-xs"
+                        phx-change="filter_notifications_by_source"
+                        name="source"
+                      >
+                        <option value="">All sources</option>
+                        <%= for src <- @notifications |> Enum.map(& &1[:source]) |> Enum.reject(&is_nil/1) |> Enum.uniq() |> Enum.sort() do %>
+                          <option value={src} selected={@notification_source_filter == src}>{src}</option>
+                        <% end %>
+                      </select>
+                    </div>
                     <%!-- Notification list --%>
                     <.live_region id="notification-list" politeness="polite">
                       <div class="space-y-0 max-h-96 overflow-y-auto divide-y divide-base-300">
                         <div
-                          :for={notif <- Enum.take(@notifications, 15)}
+                          :for={notif <- @notifications |> filtered_notifications(@notification_channel_filter, @notification_source_filter) |> Enum.take(15)}
                           class={["p-3 text-xs transition-colors hover:bg-base-300/50", if(!notif.read, do: "bg-base-300/30 border-l-2 border-primary", else: "")]}
                         >
                           <div class="flex items-start gap-2">
@@ -372,7 +400,15 @@ defmodule ApmV5Web.DashboardLive do
                               {notif[:type] || notif[:level] || "info"}
                             </span>
                             <div class="flex-1 min-w-0">
-                              <div class="font-semibold truncate">{notif[:title]}</div>
+                              <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="font-semibold truncate">{notif[:title]}</span>
+                                <span
+                                  :if={notif[:channel]}
+                                  class="badge badge-sm badge-outline flex-shrink-0 text-[10px] font-normal"
+                                >
+                                  {notif[:channel]}
+                                </span>
+                              </div>
                               <p class="text-base-content/60 mt-0.5 leading-snug">{notif[:message]}</p>
                               <%!-- Contextual metadata --%>
                               <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[10px] text-base-content/40">
@@ -419,8 +455,11 @@ defmodule ApmV5Web.DashboardLive do
                             </div>
                           </div>
                         </div>
-                        <p :if={@notifications == []} class="text-center text-base-content/40 py-6 text-xs">
-                          No notifications
+                        <p
+                          :if={filtered_notifications(@notifications, @notification_channel_filter, @notification_source_filter) == []}
+                          class="text-center text-base-content/40 py-6 text-xs"
+                        >
+                          {if @notifications == [], do: "No notifications", else: "No notifications match filters"}
                         </p>
                       </div>
                     </.live_region>
@@ -1272,6 +1311,16 @@ defmodule ApmV5Web.DashboardLive do
     {:noreply, assign(socket, :notifications, notifications)}
   end
 
+  def handle_event("filter_notifications_by_channel", %{"channel" => channel}, socket) do
+    filter = if channel == "", do: nil, else: channel
+    {:noreply, assign(socket, :notification_channel_filter, filter)}
+  end
+
+  def handle_event("filter_notifications_by_source", %{"source" => source}, socket) do
+    filter = if source == "", do: nil, else: source
+    {:noreply, assign(socket, :notification_source_filter, filter)}
+  end
+
   def handle_event("select_agent", %{"agent_id" => agent_id}, socket) do
     agent = AgentRegistry.get_agent(agent_id)
 
@@ -1768,6 +1817,13 @@ defmodule ApmV5Web.DashboardLive do
   defp agent_type_badge_class("swarm"), do: "badge-warning"
   defp agent_type_badge_class("orchestrator"), do: "badge-accent"
   defp agent_type_badge_class(_), do: "badge-ghost"
+
+  defp filtered_notifications(notifications, channel_filter, source_filter) do
+    Enum.filter(notifications, fn n ->
+      (is_nil(channel_filter) or n[:channel] == channel_filter) and
+        (is_nil(source_filter) or n[:source] == source_filter)
+    end)
+  end
 
   defp notif_badge_class("error"), do: "badge-error"
   defp notif_badge_class("warning"), do: "badge-warning"

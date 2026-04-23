@@ -71,7 +71,11 @@ export default {
     this._lastData = null
     this._scope = null
     this.initGraph()
-    this.handleEvent("formation_data", (data) => this.render(data))
+    this._extraEdges = []
+    this.handleEvent("formation_data", (data) => {
+      this._extraEdges = data.edges || []
+      this.render(data)
+    })
     this.handleEvent("formation:layout", ({ mode }) => {
       this._orientation = mode
       if (this._lastData) this.render(this._lastData)
@@ -235,6 +239,37 @@ export default {
         return (lvl === "agent") ? "3,3" : "5,3"
       })
       .attr("opacity", 0.5)
+
+    // Typed overlay edges (pubsub, aggregation, data_export)
+    const EDGE_STYLES = {
+      pubsub:      { color: "#3b82f6", dash: "4,4",  width: 1.2, opacity: 0.7 },
+      aggregation: { color: "#22c55e", dash: "6,3",  width: 1.2, opacity: 0.7 },
+      data_export: { color: "#f97316", dash: null,   width: 2.5, opacity: 0.8 },
+    }
+    const typedEdges = (this._extraEdges || []).filter(e => e.edge_type && e.edge_type !== "hierarchy")
+    if (typedEdges.length > 0) {
+      const nodePositions = {}
+      allNodes.forEach(n => { nodePositions[n.data.id] = { x: n.x, y: n.y } })
+      container.selectAll(".typed-edge")
+        .data(typedEdges)
+        .join("path")
+        .attr("class", d => `typed-edge edge-${d.edge_type}`)
+        .attr("d", d => {
+          const src = nodePositions[d.source]
+          const tgt = nodePositions[d.target]
+          if (!src || !tgt) return null
+          const x1 = isLR ? src.y : src.x
+          const y1 = isLR ? src.x : src.y
+          const x2 = isLR ? tgt.y : tgt.x
+          const y2 = isLR ? tgt.x : tgt.y
+          return `M${x1},${y1}L${x2},${y2}`
+        })
+        .attr("fill", "none")
+        .attr("stroke", d => (EDGE_STYLES[d.edge_type] || {}).color || COLORS.link)
+        .attr("stroke-width", d => (EDGE_STYLES[d.edge_type] || {}).width || 1)
+        .attr("stroke-dasharray", d => (EDGE_STYLES[d.edge_type] || {}).dash || null)
+        .attr("opacity", d => (EDGE_STYLES[d.edge_type] || {}).opacity || 0.5)
+    }
 
     // Nodes
     const nodeGroups = container.selectAll(".node")

@@ -128,8 +128,10 @@ defmodule ApmV5Web.Router do
       live "/plugins/ralph", RalphPluginLive, :index
       live "/plugins/ag_ui", AgUiPluginLive, :index
       live "/plugins/claude-code", ClaudeCodeDiscoveryLive, :index
+      live "/plugins/:slug", PluginDashboardLive, :plugin_show
       live "/integrations", PluginDashboardLive, :integrations_tab
       live "/integrations/lvm", LvmStatusLive, :index
+      live "/integrations/:slug", PluginDashboardLive, :integration_show
 
       # Extension: skill drift detector
       live "/skill-drift", SkillDriftLive, :index
@@ -305,6 +307,7 @@ defmodule ApmV5Web.Router do
     get "/formations/:id", FormationApiController, :get_formation
     patch "/formations/:id", FormationApiController, :update_formation
     get "/formations/:id/agents", FormationApiController, :get_formation_agents
+    get "/formations/:id/dot", FormationApiController, :dot
 
     # ── EXTENSION: showcase (v1) ──────────────────────────────────────────
     get "/showcase", ShowcaseApiController, :index

@@ -316,6 +316,8 @@ defmodule ApmV5.AgentRegistry do
         trace: build_trace(notification),
         metadata: atomize_metadata(get_any(notification, [:metadata, "metadata"]) || %{}),
         actions: normalize_actions(get_any(notification, [:actions, "actions"]) || []),
+        channel: get_any(notification, [:channel, "channel"]),
+        source: get_any(notification, [:source, "source"]),
         timestamp: now,
         read: false
       }

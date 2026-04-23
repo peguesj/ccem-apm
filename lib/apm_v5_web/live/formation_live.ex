@@ -43,6 +43,9 @@ defmodule ApmV5Web.FormationLive do
       |> assign(:agent_filter, "")
       |> assign(:role_filter, "")
       |> assign(:scope, nil)
+      |> assign(:dot_source, nil)
+      |> assign(:dot_formation_id, nil)
+      |> assign(:dot_executable, System.find_executable("dot"))
       |> push_formation_graph(formations)
 
     {:ok, socket}
@@ -137,6 +140,13 @@ defmodule ApmV5Web.FormationLive do
               >
                 <.icon name="hero-view-columns" class="size-3" /> TB
               </button>
+              <button
+                phx-click="set_view_mode" phx-value-mode="dot"
+                class={["btn btn-xs gap-1", if(@view_mode == "dot", do: "btn-primary", else: "btn-ghost")]}
+                role="tab" aria-selected={@view_mode == "dot"}
+              >
+                <.icon name="hero-code-bracket" class="size-3" /> DOT
+              </button>
             </div>
             <button phx-click="refresh" class="btn btn-ghost btn-xs">
               <.icon name="hero-arrow-path" class="size-3" /> Refresh
@@ -160,6 +170,34 @@ defmodule ApmV5Web.FormationLive do
             >
             </div>
 
+            <%!-- Edge type legend (graph views only) --%>
+            <div :if={@view_mode in ["graph_td", "graph_lr", "tb"]} class="absolute bottom-2 left-2 z-10">
+              <div class="collapse collapse-arrow bg-base-200 mt-2 shadow-md">
+                <input type="checkbox" checked />
+                <div class="collapse-title text-sm font-medium">Edge Legend</div>
+                <div class="collapse-content">
+                  <div class="flex flex-wrap gap-4 text-xs">
+                    <div class="flex items-center gap-2">
+                      <svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" stroke="#a3a3a3" stroke-width="1.5" stroke-dasharray="5,3"/></svg>
+                      <span>Hierarchy</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="4,4"/></svg>
+                      <span>Pub/Sub</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" stroke="#22c55e" stroke-width="1.2" stroke-dasharray="6,3"/></svg>
+                      <span>Aggregation</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" stroke="#f97316" stroke-width="2.5"/></svg>
+                      <span>Data Export</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <%!-- Hierarchical List view --%>
             <div :if={@view_mode == "list"} class="w-full h-full overflow-y-auto p-4 bg-base-300">
               <.formation_list_view
@@ -173,6 +211,65 @@ defmodule ApmV5Web.FormationLive do
             <%!-- Card Grid view --%>
             <div :if={@view_mode == "cards"} class="w-full h-full overflow-y-auto p-4 bg-base-300">
               <.formation_cards_view formations={@formations} agents={@agents} />
+            </div>
+
+            <%!-- DOT source view --%>
+            <div :if={@view_mode == "dot"} class="w-full h-full overflow-y-auto p-4 bg-base-300">
+              <div class="max-w-4xl mx-auto space-y-4">
+                <%!-- Formation selector --%>
+                <div class="flex flex-wrap gap-2 items-center">
+                  <span class="text-xs text-base-content/50 uppercase tracking-wider">Formation</span>
+                  <%= for formation <- @formations do %>
+                    <button
+                      phx-click="load_dot"
+                      phx-value-id={formation.id}
+                      class={["btn btn-xs", if(@dot_formation_id == formation.id, do: "btn-primary", else: "btn-outline")]}
+                    >
+                      {formation.name}
+                    </button>
+                  <% end %>
+                  <div :if={@formations == []} class="text-xs text-base-content/30 italic">
+                    No formations available.
+                  </div>
+                </div>
+
+                <%!-- DOT output --%>
+                <div :if={@dot_source} class="space-y-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-mono text-base-content/50">
+                      {"/api/formations/#{@dot_formation_id}/dot"}
+                    </span>
+                    <button
+                      phx-click="copy_dot"
+                      class="btn btn-xs btn-ghost"
+                      title="Copy DOT source"
+                    >
+                      <.icon name="hero-clipboard" class="size-3" /> Copy
+                    </button>
+                    <a
+                      :if={@dot_executable}
+                      href={"/api/formations/#{@dot_formation_id}/dot"}
+                      download={"#{@dot_formation_id}.dot"}
+                      class="btn btn-xs btn-ghost"
+                      title="Download .dot file — pipe through `dot -Tpng` to render"
+                    >
+                      <.icon name="hero-arrow-down-tray" class="size-3" /> Download (.dot)
+                    </a>
+                  </div>
+                  <pre
+                    id="dot-source-block"
+                    class="bg-base-200 rounded-lg p-4 text-xs font-mono text-base-content/80 overflow-x-auto whitespace-pre border border-base-300"
+                    phx-hook="CopyDot"
+                  ><code>{@dot_source}</code></pre>
+                  <p :if={@dot_executable} class="text-[10px] text-base-content/30 font-mono">
+                    Render: <span class="text-base-content/50">dot -Tpng &lt;file.dot&gt; -o formation.png</span>
+                  </p>
+                </div>
+
+                <div :if={is_nil(@dot_source) and @formations != []} class="text-xs text-base-content/30 text-center py-8">
+                  Select a formation above to generate its DOT source.
+                </div>
+              </div>
             </div>
 
             <%!-- Empty state (only shown in graph modes) --%>
@@ -589,7 +686,33 @@ defmodule ApmV5Web.FormationLive do
     {:noreply, assign(socket, :view_mode, mode)}
   end
 
+  def handle_event("set_view_mode", %{"mode" => "dot"}, socket) do
+    {:noreply, assign(socket, :view_mode, "dot")}
+  end
+
   def handle_event("set_view_mode", _params, socket), do: {:noreply, socket}
+
+  def handle_event("load_dot", %{"id" => formation_id}, socket) do
+    agents =
+      AgentRegistry.list_agents()
+      |> Enum.filter(fn a -> (a[:formation_id] || a["formation_id"]) == formation_id end)
+
+    dot_source =
+      if agents == [] do
+        nil
+      else
+        ApmV5.FormationDot.generate(formation_id, agents)
+      end
+
+    {:noreply,
+     socket
+     |> assign(:dot_source, dot_source)
+     |> assign(:dot_formation_id, formation_id)}
+  end
+
+  def handle_event("copy_dot", _params, socket) do
+    {:noreply, push_event(socket, "copy_dot_source", %{})}
+  end
 
   def handle_event("filter_agents", %{"value" => query}, socket) do
     filtered = filter_agents_list(socket.assigns.all_agents, query, socket.assigns.role_filter)
@@ -875,12 +998,12 @@ defmodule ApmV5Web.FormationLive do
             status: squadron[:status] || "idle",
             count: squadron_total_count(squadron)
           }
-          e2 = [%{source: formation.id, target: sq_id} | e2]
+          e2 = [%{source: formation.id, target: sq_id, edge_type: "hierarchy"} | e2]
           n2 = [sq_node | n2]
 
           # Direct squadron agents
           {n2, e2} = Enum.reduce(squadron.agents, {n2, e2}, fn agent, {n3, e3} ->
-            {[format_agent_node(agent) | n3], [%{source: sq_id, target: agent.id} | e3]}
+            {[format_agent_node(agent) | n3], [%{source: sq_id, target: agent.id, edge_type: "hierarchy"} | e3]}
           end)
 
           # Swarms
@@ -893,12 +1016,12 @@ defmodule ApmV5Web.FormationLive do
               status: swarm[:status] || "idle",
               count: swarm_total_count(swarm)
             }
-            e3 = [%{source: sq_id, target: sw_id} | e3]
+            e3 = [%{source: sq_id, target: sw_id, edge_type: "hierarchy"} | e3]
             n3 = [sw_node | n3]
 
             # Direct swarm agents
             {n3, e3} = Enum.reduce(Map.get(swarm, :agents, []), {n3, e3}, fn agent, {n4, e4} ->
-              {[format_agent_node(agent) | n4], [%{source: sw_id, target: agent.id} | e4]}
+              {[format_agent_node(agent) | n4], [%{source: sw_id, target: agent.id, edge_type: "hierarchy"} | e4]}
             end)
 
             # Clusters
@@ -911,18 +1034,96 @@ defmodule ApmV5Web.FormationLive do
                 status: cluster[:status] || "idle",
                 count: length(cluster.agents)
               }
-              e4 = [%{source: sw_id, target: cl_id} | e4]
+              e4 = [%{source: sw_id, target: cl_id, edge_type: "hierarchy"} | e4]
               n4 = [cl_node | n4]
 
               Enum.reduce(cluster.agents, {n4, e4}, fn agent, {n5, e5} ->
-                {[format_agent_node(agent) | n5], [%{source: cl_id, target: agent.id} | e5]}
+                {[format_agent_node(agent) | n5], [%{source: cl_id, target: agent.id, edge_type: "hierarchy"} | e5]}
               end)
             end)
           end)
         end)
       end)
 
-    push_event(socket, "formation_data", %{nodes: Enum.reverse(nodes), edges: Enum.reverse(edges)})
+    # Fetch raw agent data (with metadata) for pub/sub and data-export edge derivation.
+    all_agents = AgentRegistry.list_agents()
+
+    # Build a map: channel_name → publisher agent node id
+    publisher_map =
+      nodes
+      |> Enum.filter(&(&1[:level] == "agent"))
+      |> Enum.flat_map(fn node ->
+        raw = Enum.find(all_agents, fn a -> a.id == node.id end)
+        pubs = (raw && get_in(raw, [:metadata, :publishes])) || []
+        Enum.map(pubs, fn ch -> {ch, node.id} end)
+      end)
+      |> Map.new()
+
+    # Pub/sub edges: subscriber → publisher via shared channel name
+    pubsub_edges =
+      nodes
+      |> Enum.filter(&(&1[:level] in ["agent", "squadron"]))
+      |> Enum.flat_map(fn node ->
+        raw = Enum.find(all_agents, fn a -> a.id == node.id end)
+        subs = (raw && get_in(raw, [:metadata, :subscribes])) || []
+
+        Enum.flat_map(subs, fn ch ->
+          case Map.get(publisher_map, ch) do
+            nil -> []
+            pub_id -> [%{source: pub_id, target: node.id, edge_type: "pubsub"}]
+          end
+        end)
+      end)
+
+    # Data-export edges: exporter → importer matched by export label
+    export_edges =
+      nodes
+      |> Enum.filter(&(&1[:level] in ["agent", "squadron"]))
+      |> Enum.flat_map(fn node ->
+        raw = Enum.find(all_agents, fn a -> a.id == node.id end)
+        imports_list = (raw && get_in(raw, [:metadata, :imports])) || []
+
+        Enum.flat_map(imports_list, fn imp ->
+          exporter =
+            Enum.find(nodes, fn n ->
+              n_raw = Enum.find(all_agents, fn a -> a.id == n.id end)
+              n_exports = (n_raw && get_in(n_raw, [:metadata, :exports])) || []
+              imp in n_exports
+            end)
+
+          case exporter do
+            nil -> []
+            exp -> [%{source: exp.id, target: node.id, edge_type: "data_export"}]
+          end
+        end)
+      end)
+
+    # Aggregation edges: workers that publish to channels a squadron lead subscribes to
+    aggregation_edges =
+      nodes
+      |> Enum.filter(&(&1[:level] == "squadron"))
+      |> Enum.flat_map(fn sq_node ->
+        raw = Enum.find(all_agents, fn a -> a.id == sq_node.id end)
+        sq_subs = (raw && get_in(raw, [:metadata, :subscribes])) || []
+
+        # Find agent nodes whose published channels overlap with the squadron's subscriptions
+        nodes
+        |> Enum.filter(&(&1[:level] == "agent"))
+        |> Enum.flat_map(fn agent_node ->
+          agent_raw = Enum.find(all_agents, fn a -> a.id == agent_node.id end)
+          agent_pubs = (agent_raw && get_in(agent_raw, [:metadata, :publishes])) || []
+
+          if Enum.any?(agent_pubs, &(&1 in sq_subs)) do
+            [%{source: agent_node.id, target: sq_node.id, edge_type: "aggregation"}]
+          else
+            []
+          end
+        end)
+      end)
+
+    all_edges = edges ++ pubsub_edges ++ export_edges ++ aggregation_edges
+
+    push_event(socket, "formation_data", %{nodes: Enum.reverse(nodes), edges: Enum.reverse(all_edges)})
   end
 
   # --- Private Helpers ---
