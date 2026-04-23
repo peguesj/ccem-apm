@@ -29,7 +29,15 @@ defmodule ApmV5Web.Components.SidebarNav do
   attr :integrations, :list, default: []
 
   def sidebar_nav(assigns) do
-    assigns = assign(assigns, :version, version())
+    # Always populate plugins/integrations from registries if not provided
+    plugins = if assigns[:plugins] in [nil, []], do: safe_list_plugins(), else: assigns[:plugins]
+    integrations = if assigns[:integrations] in [nil, []], do: safe_list_integrations(), else: assigns[:integrations]
+
+    assigns =
+      assigns
+      |> assign(:plugins, plugins)
+      |> assign(:integrations, integrations)
+      |> assign(:version, version())
 
     ~H"""
     <aside id="apm-sidebar" class="w-52 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
@@ -104,13 +112,15 @@ defmodule ApmV5Web.Components.SidebarNav do
     ~H"""
     <.section_header label="Plugins" />
     <.nav_item icon="hero-puzzle-piece" label="Plugins" href="/plugins" current_path={@current_path} />
-    <.nav_item
-      :for={plugin <- @plugins}
-      icon="hero-puzzle-piece"
-      label={humanize_name(plugin[:name] || plugin["name"] || "plugin")}
-      href={plugin_href(plugin)}
-      current_path={@current_path}
-    />
+    <%= for plugin <- @plugins do %>
+      <% name = plugin[:name] || plugin["name"] || "plugin" %>
+      <.nav_item
+        icon="hero-puzzle-piece"
+        label={humanize_name(name)}
+        href={plugin_href(plugin)}
+        current_path={@current_path}
+      />
+    <% end %>
     <.nav_item icon="hero-book-open" label="Library" href="/library" current_path={@current_path} />
     """
   end
@@ -170,6 +180,7 @@ defmodule ApmV5Web.Components.SidebarNav do
   attr :href, :string, required: true
   attr :current_path, :string, required: true
   attr :badge, :integer, default: 0
+  attr :badge_label, :string, default: nil
 
   defp nav_item(assigns) do
     active =
@@ -190,6 +201,7 @@ defmodule ApmV5Web.Components.SidebarNav do
       <.icon name={@icon} class="size-4 flex-shrink-0" />
       <span class="sidebar-label">{@label}</span>
       <span :if={@badge > 0} class="badge badge-xs badge-primary ml-auto sidebar-badge">{@badge}</span>
+      <span :if={@badge_label} class="badge badge-xs badge-accent ml-auto sidebar-badge">{@badge_label}</span>
     </.link>
     """
   end

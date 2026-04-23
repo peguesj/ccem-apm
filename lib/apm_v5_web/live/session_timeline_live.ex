@@ -57,7 +57,7 @@ defmodule ApmV5Web.SessionTimelineLive do
       |> assign(:show_empty_lanes, false)
       |> load_events()
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   # ---- Render --------------------------------------------------------------

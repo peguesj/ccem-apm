@@ -25,7 +25,8 @@ defmodule ApmV5Web.ApprovalHistoryLive do
      |> assign(:filter_agent_id, "")
      |> assign(:filter_tool_name, "")
      |> assign(:filter_decision, "all")
-     |> assign(:entries, load_entries([]))}
+     |> assign(:entries, load_entries([]))
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

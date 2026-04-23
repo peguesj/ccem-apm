@@ -31,7 +31,8 @@ defmodule ApmV5Web.GenerativeUILive do
      socket
      |> assign(:page_title, "Generative UI")
      |> assign(:components, components)
-     |> assign(:agent_filter, nil)}
+     |> assign(:agent_filter, nil
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
   end
 
   @impl true

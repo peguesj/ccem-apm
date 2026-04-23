@@ -35,7 +35,7 @@ defmodule ApmV5Web.RalphPluginLive do
       |> load_prd_data()
       |> load_history_tasks()
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

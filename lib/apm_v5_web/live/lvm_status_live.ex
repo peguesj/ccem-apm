@@ -30,7 +30,7 @@ defmodule ApmV5Web.LvmStatusLive do
       |> assign(:active_skill_count, skill_count())
       |> load_data()
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

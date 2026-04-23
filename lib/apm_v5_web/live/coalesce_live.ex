@@ -39,16 +39,19 @@ defmodule ApmV5Web.CoalesceLive do
     active_run = if run_id, do: CoalesceOrchestrator.get_run(run_id), else: List.first(runs)
     pending_gates = DecisionGateStore.list_pending()
 
-    {:ok, assign(socket,
-      runs: runs,
-      active_run: active_run,
-      active_run_gates: _gates_for(active_run),
-      pending_gates: pending_gates,
-      selected_diff: nil,
-      selected_gate: nil,
-      flash_message: nil,
-      page_title: "Coalesce — Skill Logic Engine"
-    )}
+    {:ok,
+     socket
+     |> assign(
+       runs: runs,
+       active_run: active_run,
+       active_run_gates: _gates_for(active_run),
+       pending_gates: pending_gates,
+       selected_diff: nil,
+       selected_gate: nil,
+       flash_message: nil,
+       page_title: "Coalesce — Skill Logic Engine"
+     )
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

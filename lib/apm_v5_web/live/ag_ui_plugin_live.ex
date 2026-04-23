@@ -41,7 +41,7 @@ defmodule ApmV5Web.AgUiPluginLive do
       |> load_agents()
       |> load_config()
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

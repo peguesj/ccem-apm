@@ -52,6 +52,38 @@ defmodule ApmV5.Plugins.PluginRegistry do
     end
   end
 
+  @doc "Get a single plugin's metadata including the module. Returns `{:ok, {module, meta}}` or `{:error, :not_found}`."
+  @spec get_plugin_with_module(String.t()) :: {:ok, {module(), map()}} | {:error, :not_found}
+  def get_plugin_with_module(name) do
+    case :ets.lookup(@table, name) do
+      [{^name, {mod, meta}}] -> {:ok, {mod, meta}}
+      [] -> {:error, :not_found}
+    end
+  end
+
+  @doc "Find a plugin by slug (dash-separated, case-insensitive). Tries exact name, then dash→underscore, then substring match."
+  @spec find_plugin_by_slug(String.t()) :: {:ok, {module(), map()}} | {:error, :not_found}
+  def find_plugin_by_slug(slug) do
+    # Try exact match first
+    case get_plugin_with_module(slug) do
+      {:ok, _} = hit -> hit
+      _ ->
+        # Try underscore variant (sidebar generates dashes from underscores)
+        underscore_name = String.replace(slug, "-", "_")
+        case get_plugin_with_module(underscore_name) do
+          {:ok, _} = hit -> hit
+          _ ->
+            # Fuzzy: find plugin whose name matches slug when both are normalized
+            normalized = String.downcase(String.replace(slug, "-", "_"))
+            all = :ets.tab2list(@table)
+            case Enum.find(all, fn {name, _} -> String.downcase(name) == normalized end) do
+              {_name, {mod, meta}} -> {:ok, {mod, meta}}
+              nil -> {:error, :not_found}
+            end
+        end
+    end
+  end
+
   @doc "Check if a plugin declares an orchestration topology."
   @spec topology_declared?(String.t()) :: boolean()
   def topology_declared?(plugin_name) do
@@ -112,8 +144,8 @@ defmodule ApmV5.Plugins.PluginRegistry do
   @impl true
   def init(_opts) do
     table = :ets.new(@table, [:named_table, :public, read_concurrency: true])
-    # Auto-register bundled plugins after init
-    send(self(), :register_defaults)
+    # Register bundled plugins synchronously so they're available immediately
+    Enum.each(@default_plugins, &do_register/1)
     {:ok, %{table: table}}
   end
 

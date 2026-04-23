@@ -35,7 +35,7 @@ defmodule ApmV5Web.ArchitectureLive do
       |> assign(:view_mode, :graph)
       |> build_and_push_tree()
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

@@ -32,7 +32,8 @@ defmodule ApmV5Web.A2ALive do
      |> assign(:page_title, "A2A Messaging")
      |> assign(:stats, safe_stats())
      |> assign(:recent_messages, [])
-     |> assign(:send_form, %{"to_agent" => "", "from_agent" => "", "message_type" => "ping", "payload" => "{}"})}
+     |> assign(:send_form, %{"to_agent" => "", "from_agent" => "", "message_type" => "ping", "payload" => "{}"}
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
   end
 
   @impl true

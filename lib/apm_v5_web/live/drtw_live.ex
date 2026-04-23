@@ -10,7 +10,10 @@ defmodule ApmV5Web.DrtwLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, page_title: "DRTW - Don't Reinvent The Wheel")}
+    {:ok,
+     socket
+     |> assign(page_title: "DRTW - Don't Reinvent The Wheel")
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

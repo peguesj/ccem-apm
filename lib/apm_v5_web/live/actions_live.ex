@@ -38,7 +38,8 @@ defmodule ApmV5Web.ActionsLive do
      |> assign(:selected_project, nil)
      |> assign(:selected_run, nil)
      |> assign(:scanning, false)
-     |> assign(:selected_paths, MapSet.new())}
+     |> assign(:selected_paths, MapSet.new()
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
   end
 
   @impl true

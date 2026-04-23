@@ -24,7 +24,8 @@ defmodule ApmV5Web.AlignmentLive do
      |> assign(:running, false)
      |> assign(:run_id, nil)
      |> assign(:report, nil)
-     |> assign(:error, nil)}
+     |> assign(:error, nil
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
   end
 
   @impl true

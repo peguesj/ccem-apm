@@ -19,7 +19,8 @@ defmodule ApmV5Web.SkillDriftLive do
      |> assign(:page_title, "Skill Drift Detector")
      |> assign(:report, report)
      |> assign(:fixing, false)
-     |> assign(:fix_result, nil)}
+     |> assign(:fix_result, nil)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

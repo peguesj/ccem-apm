@@ -112,7 +112,8 @@ defmodule ApmV5.Integrations.IntegrationRegistry do
   @impl true
   def init(_opts) do
     table = :ets.new(@table, [:named_table, :public, read_concurrency: true])
-    send(self(), :register_defaults)
+    # Register defaults synchronously so they're available at first LiveView mount
+    Enum.each(@default_integrations, &do_register/1)
     {:ok, %{table: table}}
   end
 

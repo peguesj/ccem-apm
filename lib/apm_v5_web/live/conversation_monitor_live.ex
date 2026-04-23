@@ -44,7 +44,7 @@ defmodule ApmV5Web.ConversationMonitorLive do
       )
       |> assign_tray_context()
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   # ── Events ──────────────────────────────────────────────────────────

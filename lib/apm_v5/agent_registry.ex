@@ -462,6 +462,7 @@ defmodule ApmV5.AgentRegistry do
   defp maybe_put(map, fields, string_key, atom_key) do
     case Map.get(fields, string_key, Map.get(fields, atom_key)) do
       nil -> map
+      "" -> map
       value -> Map.put(map, atom_key, value)
     end
   end

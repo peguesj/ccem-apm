@@ -46,7 +46,8 @@ defmodule ApmV5Web.OrchestrationLive do
        selected_run: nil,
        type_badge_colors: @type_badge_colors,
        page_title: "Orchestration"
-     )}
+     )
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   # ── Events ─────────────────────────────────────────────────────────────────

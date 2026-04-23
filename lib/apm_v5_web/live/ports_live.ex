@@ -42,7 +42,8 @@ defmodule ApmV5Web.PortsLive do
      |> assign(:port_ranges, ranges)
      |> assign(:status_filter, "all")
      |> assign(:namespace_filter, "all")
-     |> assign_derived(port_map, clashes)}
+     |> assign_derived(port_map, clashes
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
   end
 
   @impl true

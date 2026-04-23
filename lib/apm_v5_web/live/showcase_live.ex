@@ -59,7 +59,7 @@ defmodule ApmV5Web.ShowcaseLive do
       |> assign(:tab_data, %{})
       |> assign(:tab_query, "")
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

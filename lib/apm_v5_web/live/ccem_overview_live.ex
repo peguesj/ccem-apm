@@ -53,7 +53,7 @@ defmodule ApmV5Web.CcemOverviewLive do
       |> assign(:wizard_page, "welcome")
       |> assign(:wizard_visible, false)
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

@@ -26,7 +26,8 @@ defmodule ApmV5Web.TasksLive do
      |> assign(:page_title, "Background Tasks")
      |> assign(:filter, "all")
      |> assign(:selected_task_id, nil)
-     |> load_tasks()}
+     |> load_tasks()
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

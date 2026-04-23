@@ -48,7 +48,7 @@ defmodule ApmV5Web.FormationLive do
       |> assign(:dot_executable, System.find_executable("dot"))
       |> push_formation_graph(formations)
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
@@ -99,7 +99,7 @@ defmodule ApmV5Web.FormationLive do
               {length(@formations)} formations
             </div>
             <div class="badge badge-sm badge-ghost">
-              {length(@agents)} agents
+              {Enum.sum(Enum.map(@formations, & &1.agent_count))} agents
             </div>
           </div>
           <div class="flex items-center gap-2">
@@ -856,7 +856,10 @@ defmodule ApmV5Web.FormationLive do
     # Live formations from AgentRegistry
     formation_groups =
       agents
-      |> Enum.filter(&(&1[:formation_id] != nil))
+      |> Enum.filter(fn a ->
+        fid = a[:formation_id]
+        fid != nil and fid != ""
+      end)
       |> Enum.group_by(& &1[:formation_id])
 
     live_formations =

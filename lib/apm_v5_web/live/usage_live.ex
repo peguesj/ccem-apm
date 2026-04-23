@@ -38,7 +38,7 @@ defmodule ApmV5Web.UsageLive do
       |> assign(:selected_project, nil)
       |> assign(:expanded_projects, MapSet.new())
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

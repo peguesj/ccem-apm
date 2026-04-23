@@ -103,6 +103,7 @@ defmodule ApmV5Web.PluginDashboardLive do
     {:ok,
      socket
      |> assign_data()
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
      |> assign(
        active_tab: "mcp",
        current_path: "/plugins",
@@ -129,16 +130,56 @@ defmodule ApmV5Web.PluginDashboardLive do
        plugin_repos: [],
        # Slug-based detail views
        selected_plugin_slug: nil,
-       selected_integration_slug: nil
+       selected_integration_slug: nil,
+       detail_plugin: nil
      )}
   end
 
   @impl true
   def handle_params(%{"slug" => slug}, _uri, %{assigns: %{live_action: :plugin_show}} = socket) do
-    {:noreply,
-     socket
-     |> assign(active_tab: "mcp", current_path: "/plugins/#{slug}", page_title: "Plugin: #{humanize(slug)}")
-     |> assign(selected_plugin_slug: slug)}
+    alias ApmV5.Plugins.PluginRegistry
+
+    case PluginRegistry.find_plugin_by_slug(slug) do
+      {:ok, {mod, meta}} ->
+        # If plugin has a dedicated LiveView, redirect to it
+        live_mod =
+          if Code.ensure_loaded?(mod) and function_exported?(mod, :plugin_live_module, 0),
+            do: mod.plugin_live_module(),
+            else: nil
+
+        if live_mod && live_mod != __MODULE__ do
+          # Derive path from the plugin's nav_items or fall back to standard /plugins/:slug
+          nav_path =
+            if function_exported?(mod, :nav_items, 0) do
+              case mod.nav_items() do
+                [{_, path, _} | _] -> path
+                _ -> "/plugins/#{slug}"
+              end
+            else
+              "/plugins/#{slug}"
+            end
+
+          {:noreply, push_navigate(socket, to: nav_path)}
+        else
+          # Render generic plugin detail page
+          {:noreply,
+           socket
+           |> assign(
+             active_tab: "plugin_detail",
+             current_path: "/plugins/#{slug}",
+             page_title: "Plugin: #{meta.name}",
+             selected_plugin_slug: slug,
+             detail_plugin: meta
+           )}
+        end
+
+      {:error, :not_found} ->
+        {:noreply,
+         socket
+         |> assign(active_tab: "mcp", current_path: "/plugins/#{slug}", page_title: "Plugin: #{humanize(slug)}")
+         |> assign(selected_plugin_slug: slug, detail_plugin: nil)
+         |> put_flash(:error, "Plugin \"#{slug}\" not found")}
+    end
   end
 
   def handle_params(%{"slug" => slug}, _uri, %{assigns: %{live_action: :integration_show}} = socket) do
@@ -306,6 +347,21 @@ defmodule ApmV5Web.PluginDashboardLive do
 
       {:noreply, socket}
     end
+  end
+
+  # ── Plugin detail action runner ──────────────────────────────────────────────
+
+  @impl true
+  def handle_event("detail_run_action", %{"plugin" => plugin_name, "action" => action}, socket) do
+    socket = assign(socket, plugin_action_running: true, plugin_action_error: nil, plugin_action_result: nil)
+
+    pid = self()
+    Task.start(fn ->
+      result = ApmV5.Plugins.PluginRegistry.call_plugin_action(plugin_name, action, %{})
+      send(pid, {:plugin_action_done, result})
+    end)
+
+    {:noreply, socket}
   end
 
   # ── Integration event runner events ──────────────────────────────────────────
@@ -649,7 +705,7 @@ defmodule ApmV5Web.PluginDashboardLive do
 
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path={@current_path} />
+      <.sidebar_nav current_path={@current_path} plugins={@plugins} integrations={@integrations} />
 
       <div class="flex-1 flex flex-col overflow-hidden min-w-0">
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
@@ -673,8 +729,8 @@ defmodule ApmV5Web.PluginDashboardLive do
           </div>
         </header>
 
-        <%!-- Tab bar --%>
-        <div class="border-b border-base-300 bg-base-200 px-4 flex gap-1 flex-shrink-0 overflow-x-auto">
+        <%!-- Tab bar (hidden on plugin detail pages) --%>
+        <div :if={@active_tab != "plugin_detail"} class="border-b border-base-300 bg-base-200 px-4 flex gap-1 flex-shrink-0 overflow-x-auto">
           <button :if={@current_path != "/integrations"}
             phx-click="switch_tab" phx-value-tab="mcp"
             class={"tab tab-bordered tab-sm #{if @active_tab == "mcp", do: "tab-active", else: ""}"}>
@@ -721,6 +777,14 @@ defmodule ApmV5Web.PluginDashboardLive do
         <%!-- Content area --%>
         <div class="flex-1 overflow-hidden flex">
           <div class="flex-1 overflow-y-auto p-4 space-y-4">
+
+            <%!-- Plugin Detail Page --%>
+            <div :if={@active_tab == "plugin_detail" and @detail_plugin != nil}>
+              <.plugin_detail_view plugin={@detail_plugin} selected_plugin_slug={@selected_plugin_slug}
+                selected_plugin={@selected_plugin} selected_plugin_action={@selected_plugin_action}
+                plugin_action_params={@plugin_action_params} plugin_action_result={@plugin_action_result}
+                plugin_action_error={@plugin_action_error} plugin_action_running={@plugin_action_running} />
+            </div>
 
             <%!-- MCP Servers --%>
             <div :if={@active_tab == "mcp"}>
@@ -802,7 +866,10 @@ defmodule ApmV5Web.PluginDashboardLive do
                   <div class="card-body">
                     <div class="flex items-center justify-between">
                       <h3 class="font-semibold text-sm">{plugin.name}</h3>
-                      <span class="badge badge-xs badge-primary">v{plugin.version}</span>
+                      <div class="flex gap-1 items-center">
+                        <span :if={plugin.scope == :apm} class="badge badge-xs badge-accent">APM</span>
+                        <span class="badge badge-xs badge-primary">v{plugin.version}</span>
+                      </div>
                     </div>
                     <p class="text-xs text-base-content/60 line-clamp-2">{plugin.description}</p>
                     <div class="flex flex-wrap gap-1 mt-1">
@@ -1044,7 +1111,10 @@ defmodule ApmV5Web.PluginDashboardLive do
           <div :if={@active_tab == "registered" && @selected_plugin} class="w-80 xl:w-96 border-l border-base-300 bg-base-100 flex flex-col flex-shrink-0 overflow-hidden">
             <div class="flex items-center justify-between p-3 border-b border-base-300">
               <div>
-                <p class="font-semibold text-sm">{@selected_plugin.name}</p>
+                <div class="flex items-center gap-2">
+                  <p class="font-semibold text-sm">{@selected_plugin.name}</p>
+                  <span :if={@selected_plugin.scope == :apm} class="badge badge-xs badge-accent">APM</span>
+                </div>
                 <p class="text-xs text-base-content/50">v{@selected_plugin.version}</p>
               </div>
               <button phx-click="close_plugin_panel" class="btn btn-ghost btn-xs btn-circle">
@@ -1121,8 +1191,8 @@ defmodule ApmV5Web.PluginDashboardLive do
                   <span class={"badge badge-xs #{protocol_class(@selected_integration.protocol)}"}>
                     {@selected_integration.protocol}
                   </span>
-                  <span class={"badge badge-xs #{status_class(Map.get(@integration_status_results, @selected_integration.name, @selected_integration.status))}"}>
-                    {Map.get(@integration_status_results, @selected_integration.name, @selected_integration.status)}
+                  <span class={"badge badge-xs #{status_class(safe_status(Map.get(@integration_status_results, @selected_integration.name, @selected_integration.status)))}"}>
+                    {safe_status(Map.get(@integration_status_results, @selected_integration.name, @selected_integration.status))}
                   </span>
                 </div>
               </div>
@@ -1235,4 +1305,117 @@ defmodule ApmV5Web.PluginDashboardLive do
     <.wizard page="welcome" dom_id="ccem-wizard-welcome-plugins" />
     """
   end
+
+  # ── Plugin Detail View Component ────────────────────────────────────────────
+
+  attr :plugin, :map, required: true
+  attr :selected_plugin_slug, :string, required: true
+  attr :selected_plugin, :map, default: nil
+  attr :selected_plugin_action, :string, default: nil
+  attr :plugin_action_params, :string, default: "{}"
+  attr :plugin_action_result, :any, default: nil
+  attr :plugin_action_error, :any, default: nil
+  attr :plugin_action_running, :boolean, default: false
+
+  defp plugin_detail_view(assigns) do
+    ~H"""
+    <div class="max-w-4xl mx-auto space-y-6">
+      <%!-- Back link --%>
+      <div class="flex items-center gap-2">
+        <.link navigate="/plugins" class="btn btn-ghost btn-xs gap-1">
+          <.icon name="hero-arrow-left" class="size-3" /> All Plugins
+        </.link>
+      </div>
+
+      <%!-- Plugin Header --%>
+      <div class="bg-base-200 rounded-lg p-6">
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <h1 class="text-lg font-bold text-base-content">{@plugin.name}</h1>
+              <span class="badge badge-sm badge-outline">{@plugin.version}</span>
+              <span class={["badge badge-sm", scope_badge(@plugin[:scope])]}>
+                {to_string(@plugin[:scope] || :apm)}
+              </span>
+            </div>
+            <p class="text-sm text-base-content/60">{@plugin.description}</p>
+          </div>
+          <div class="text-right text-xs text-base-content/40">
+            <p>Registered: {(@plugin[:registered_at] || "") |> String.slice(0, 10)}</p>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Actions / Endpoints --%>
+      <div :if={(@plugin.endpoints || []) != []} class="bg-base-200 rounded-lg p-4">
+        <h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
+          <.icon name="hero-bolt" class="size-4" /> Actions
+          <span class="badge badge-xs badge-ghost">{length(@plugin.endpoints)}</span>
+        </h2>
+        <div class="space-y-2">
+          <%= for ep <- @plugin.endpoints do %>
+            <div class="flex items-center justify-between bg-base-300/50 rounded px-3 py-2">
+              <div class="flex-1">
+                <span class="text-sm font-mono font-medium text-base-content/80">{ep.action}</span>
+                <span :if={ep[:description]} class="text-xs text-base-content/40 ml-2">{ep.description}</span>
+              </div>
+              <button
+                phx-click="detail_run_action"
+                phx-value-plugin={@plugin.name}
+                phx-value-action={ep.action}
+                class="btn btn-xs btn-primary btn-outline"
+              >
+                Run
+              </button>
+            </div>
+          <% end %>
+        </div>
+
+        <%!-- Action result display --%>
+        <div :if={@plugin_action_result} class="mt-4 bg-success/10 border border-success/30 rounded-lg p-3">
+          <h3 class="text-xs font-semibold text-success mb-1">Result</h3>
+          <pre class="text-xs font-mono text-base-content/70 whitespace-pre-wrap overflow-x-auto max-h-60">{format_result(@plugin_action_result)}</pre>
+        </div>
+        <div :if={@plugin_action_error} class="mt-4 bg-error/10 border border-error/30 rounded-lg p-3">
+          <h3 class="text-xs font-semibold text-error mb-1">Error</h3>
+          <pre class="text-xs font-mono text-error/70 whitespace-pre-wrap">{inspect(@plugin_action_error)}</pre>
+        </div>
+      </div>
+
+      <%!-- Integrations --%>
+      <div :if={(@plugin[:integration_modules] || []) != []} class="bg-base-200 rounded-lg p-4">
+        <h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
+          <.icon name="hero-link" class="size-4" /> Integrations
+        </h2>
+        <div class="flex flex-wrap gap-2">
+          <span :for={int_mod <- @plugin.integration_modules} class="badge badge-sm badge-outline font-mono">
+            {inspect(int_mod) |> String.replace("Elixir.", "")}
+          </span>
+        </div>
+      </div>
+
+      <%!-- Empty state for plugins with no actions --%>
+      <div :if={(@plugin.endpoints || []) == []} class="bg-base-200 rounded-lg p-8 text-center">
+        <.icon name="hero-puzzle-piece" class="size-12 text-base-content/20 mx-auto mb-3" />
+        <p class="text-sm text-base-content/40">This plugin has no callable actions.</p>
+        <p class="text-xs text-base-content/30 mt-1">It may provide widgets, integrations, or background services.</p>
+      </div>
+    </div>
+    """
+  end
+
+  defp scope_badge(:apm), do: "badge-primary"
+  defp scope_badge(:ccem), do: "badge-secondary"
+  defp scope_badge(:claude_code), do: "badge-accent"
+  defp scope_badge(:security), do: "badge-error"
+  defp scope_badge(:memory), do: "badge-info"
+  defp scope_badge(:orchestration), do: "badge-success"
+  defp scope_badge(_), do: "badge-ghost"
+
+  defp format_result(result) when is_map(result) or is_list(result) do
+    Jason.encode!(result, pretty: true)
+  rescue
+    _ -> inspect(result, pretty: true)
+  end
+  defp format_result(result), do: inspect(result, pretty: true)
 end
