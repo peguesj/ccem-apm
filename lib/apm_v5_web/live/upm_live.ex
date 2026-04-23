@@ -31,7 +31,7 @@ defmodule ApmV5Web.UpmLive do
       |> assign(:flash_msg, nil)
       |> load_index_data()
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

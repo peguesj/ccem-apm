@@ -64,6 +64,9 @@ defmodule ApmV5.Auth.Types do
           | :agent_reasoning
           | :web_content
           | :file_content
+          | :file_write
+          | :file_read
+          | :bash_exec
           | :agent_memory
           | :peer_agent
 
@@ -74,6 +77,9 @@ defmodule ApmV5.Auth.Types do
   def source_trust(:tool_output), do: :derived
   def source_trust(:agent_reasoning), do: :derived
   def source_trust(:file_content), do: :derived
+  def source_trust(:file_write), do: :derived
+  def source_trust(:file_read), do: :derived
+  def source_trust(:bash_exec), do: :derived
   def source_trust(:agent_memory), do: :derived
   def source_trust(:peer_agent), do: :derived
   def source_trust(:web_content), do: :untrusted

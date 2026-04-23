@@ -36,7 +36,7 @@ defmodule ApmV5Web.LibraryLive do
       |> assign(:selected_item, nil)
       |> load_all_data()
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

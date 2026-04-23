@@ -92,14 +92,23 @@ defmodule ApmV5.LibraryStore do
 
   @impl true
   def handle_info(:scan, state) do
-    do_full_scan()
-    hash = compute_hash()
-
-    if hash != state.last_hash do
-      Phoenix.PubSub.broadcast(ApmV5.PubSub, @pubsub_topic, {:library_updated, summary()})
-    end
-
+    server = self()
+    pubsub_topic = @pubsub_topic
+    last_hash = state.last_hash
+    Task.start(fn ->
+      do_full_scan()
+      hash = compute_hash()
+      if hash != last_hash do
+        Phoenix.PubSub.broadcast(ApmV5.PubSub, pubsub_topic, {:library_updated, summary()})
+      end
+      send(server, {:scan_complete, hash})
+    end)
     Process.send_after(self(), :scan, @refresh_interval)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info({:scan_complete, hash}, state) do
     {:noreply, %{state | last_hash: hash}}
   end
 

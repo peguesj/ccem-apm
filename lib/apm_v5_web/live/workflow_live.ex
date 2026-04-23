@@ -116,7 +116,8 @@ defmodule ApmV5Web.WorkflowLive do
          |> assign(:active_tab, "default")
          |> assign(:current_context, build_current_context())
          |> assign(:inspector_open, false)
-         |> assign(:selected_story, nil)}
+         |> assign(:selected_story, nil)
+         |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
     end
   end
 
@@ -144,7 +145,8 @@ defmodule ApmV5Web.WorkflowLive do
          |> assign(:active_tab, nil)
          |> assign(:current_context, nil)
          |> assign(:inspector_open, false)
-         |> assign(:selected_story, nil)}
+         |> assign(:selected_story, nil)
+         |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
     end
   end
 

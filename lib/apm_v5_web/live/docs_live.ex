@@ -61,7 +61,7 @@ defmodule ApmV5Web.DocsLive do
       |> assign(:latest_version, versions_data["latest"] || "8.9.0")
       |> assign(:selected_version, nil)
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

@@ -145,11 +145,37 @@ defmodule ApmV5.Integrations.IntegrationBehaviour do
   """
   @callback target_native_feature() :: atom() | nil
 
+  @doc """
+  Optional. Returns the configuration schema for this integration's `connect/1` config.
+
+  Uses the same type-hint format as PluginBehaviour.config_schema/0:
+  `"boolean"`, `"integer"`, `"string"`, `"secret"`, `"enum:val1,val2"`.
+
+  Example:
+
+      def config_schema do
+        %{api_key: "secret", base_url: "string", timeout_ms: "integer"}
+      end
+  """
+  @callback config_schema() :: map()
+
+  @doc "Optional. Returns default values for `config_schema/0` keys."
+  @callback default_config() :: map()
+
+  @doc """
+  Optional. Validates a proposed config map before connect/persist.
+  Return `{:ok, sanitized}` or `{:error, [{field, message}]}`.
+  """
+  @callback validate_config(config :: map()) :: {:ok, map()} | {:error, [{atom(), String.t()}]}
+
   @optional_callbacks [
     inspector_section: 1,
     on_connect_callback: 1,
     on_disconnect_callback: 0,
     required_plugin: 0,
-    target_native_feature: 0
+    target_native_feature: 0,
+    config_schema: 0,
+    default_config: 0,
+    validate_config: 1
   ]
 end

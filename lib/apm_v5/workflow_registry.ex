@@ -1,11 +1,32 @@
 defmodule ApmV5.WorkflowRegistry do
-  @moduledoc "Registry of skill workflow definitions for the generic WorkflowLive visualizer."
+  @moduledoc """
+  Registry of skill workflow definitions for the generic WorkflowLive visualizer.
 
-  @workflows %{
+  Built-in workflows are compiled in as module attributes. Additional workflows
+  can be registered at runtime via `register_workflow/2`, which stores them in
+  the process dictionary of the current process (or a persistent ETS table if
+  the registry GenServer is running).
+
+  ## Orchestration types
+  Each workflow now carries an `orchestration_type` field:
+  - `:pipeline`    — ralph → :autonomous, upm → :formation
+  - `:workflow`    — generic DAG
+  - `:maintenance` — session health/cleanup
+  - `:sync`        — state reconciliation
+  - `:formation`   — multi-wave agent deployment
+  - `:autonomous`  — self-directing decision loop
+  """
+
+  use GenServer
+
+  @table :workflow_registry
+
+  @static_workflows %{
     "ralph" => %{
       id: "ralph",
       title: "Ralph Methodology",
       description: "Autonomous fix loop: PRD → agent formation → commit cycle",
+      orchestration_type: :autonomous,
       icon: "hero-document-text",
       phases: [
         %{id: "setup", label: "Setup", color: "#6366f1"},
@@ -42,6 +63,7 @@ defmodule ApmV5.WorkflowRegistry do
       id: "upm",
       title: "UPM Workflow",
       description: "Unified Project Management: plan → build waves → verify → ship",
+      orchestration_type: :formation,
       icon: "hero-rocket-launch",
       phases: [
         %{id: "plan", label: "Plan", color: "#6366f1"},
@@ -73,15 +95,147 @@ defmodule ApmV5.WorkflowRegistry do
         %{source: "8", target: "9", label: "pass"},
         %{source: "8", target: "7", label: "fix & retry"}
       ]
+    },
+    "skill_chain" => %{
+      id: "skill_chain",
+      title: "Skill Chain Pipeline",
+      description: "Linear pipeline: /upm → /formation → /apm-auth → /coalesce → /plane-pm → /yougotit",
+      orchestration_type: :pipeline,
+      icon: "hero-link",
+      phases: [
+        %{id: "plan", label: "Plan", color: "#6366f1"},
+        %{id: "build", label: "Build", color: "#f59e0b"},
+        %{id: "sync", label: "Sync", color: "#8b5cf6"},
+        %{id: "ship", label: "Ship", color: "#10b981"}
+      ],
+      steps: [
+        %{id: "1", label: "/upm", description: "Unified project management — plan and issue creation.", phase: "plan", x: 200, y: 60},
+        %{id: "2", label: "/formation", description: "Agent formation deployment with wave orchestration.", phase: "build", x: 200, y: 160},
+        %{id: "3", label: "/apm-auth", description: "Agent authentication and session registration.", phase: "build", x: 200, y: 260},
+        %{id: "4", label: "/coalesce", description: "Skill/doc coalesce to sync all references.", phase: "sync", x: 200, y: 360},
+        %{id: "5", label: "/plane-pm", description: "Plane PM issue updates and status sync.", phase: "sync", x: 200, y: 460},
+        %{id: "6", label: "/yougotit", description: "Ship completion gate — notify and close.", phase: "ship", x: 200, y: 560}
+      ],
+      edges: [
+        %{source: "1", target: "2", label: nil},
+        %{source: "2", target: "3", label: nil},
+        %{source: "3", target: "4", label: nil},
+        %{source: "4", target: "5", label: nil},
+        %{source: "5", target: "6", label: nil}
+      ]
+    },
+    "devdrive_sync" => %{
+      id: "devdrive_sync",
+      title: "DevDrive Sync",
+      description: "Bidirectional git<->ETS worktree reconciliation",
+      orchestration_type: :sync,
+      icon: "hero-arrows-right-left",
+      phases: [
+        %{id: "read", label: "Read", color: "#6366f1"},
+        %{id: "reconcile", label: "Reconcile", color: "#f59e0b"},
+        %{id: "write", label: "Write", color: "#10b981"}
+      ],
+      steps: [
+        %{id: "1", label: "Read git state", description: "Read current worktree and branch state from git.", phase: "read", x: 200, y: 60},
+        %{id: "2", label: "Read ETS state", description: "Read current worktree records from ETS WorktreeStore.", phase: "read", x: 200, y: 160},
+        %{id: "3", label: "Diff", description: "Compute delta between git and ETS state.", phase: "reconcile", x: 200, y: 260},
+        %{id: "4", label: "Apply to ETS", description: "Update ETS records to reflect git truth.", phase: "write", x: 200, y: 360},
+        %{id: "5", label: "Broadcast", description: "PubSub broadcast of reconciliation result.", phase: "write", x: 200, y: 460}
+      ],
+      edges: [
+        %{source: "1", target: "3", label: nil},
+        %{source: "2", target: "3", label: nil},
+        %{source: "3", target: "4", label: nil},
+        %{source: "4", target: "5", label: nil}
+      ]
+    },
+    "session_maintenance" => %{
+      id: "session_maintenance",
+      title: "Session Maintenance",
+      description: "Scheduled session health-check, cleanup, and auto-remediation",
+      orchestration_type: :maintenance,
+      icon: "hero-wrench-screwdriver",
+      phases: [
+        %{id: "check", label: "Health Check", color: "#6366f1"},
+        %{id: "triage", label: "Triage", color: "#f59e0b"},
+        %{id: "remediate", label: "Remediate", color: "#10b981"}
+      ],
+      steps: [
+        %{id: "1", label: "Health Scan", description: "Scan all active sessions for stale or missing heartbeats.", phase: "check", x: 200, y: 60},
+        %{id: "2", label: "Expired?", description: "Identify sessions that have exceeded the TTL threshold.", phase: "triage", x: 200, y: 160},
+        %{id: "3", label: "Evict Sessions", description: "Remove expired sessions from ETS and log to audit.", phase: "remediate", x: 200, y: 260},
+        %{id: "4", label: "Notify APM", description: "Emit cleanup telemetry event to APM dashboard.", phase: "remediate", x: 200, y: 360}
+      ],
+      edges: [
+        %{source: "1", target: "2", label: nil},
+        %{source: "2", target: "3", label: "expired"},
+        %{source: "2", target: "4", label: "clean"},
+        %{source: "3", target: "4", label: nil}
+      ]
     }
   }
 
+  # ---------------------------------------------------------------------------
+  # Public API
+  # ---------------------------------------------------------------------------
+
+  @spec start_link(keyword()) :: GenServer.on_start()
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
+
   @spec list_workflows() :: [map()]
-  def list_workflows, do: Map.values(@workflows)
+  def list_workflows do
+    runtime = runtime_workflows()
+    Map.values(Map.merge(@static_workflows, runtime))
+  end
 
   @spec get_workflow(String.t()) :: map() | nil
-  def get_workflow(id), do: Map.get(@workflows, id)
+  def get_workflow(id) do
+    runtime = runtime_workflows()
+    Map.get(Map.merge(@static_workflows, runtime), id)
+  end
 
   @spec workflow_ids() :: [String.t()]
-  def workflow_ids, do: Map.keys(@workflows)
+  def workflow_ids do
+    runtime = runtime_workflows()
+    Map.keys(Map.merge(@static_workflows, runtime))
+  end
+
+  @doc "Register a workflow at runtime. Stored in ETS if registry is running."
+  @spec register_workflow(String.t(), map()) :: :ok
+  def register_workflow(id, workflow) when is_binary(id) and is_map(workflow) do
+    ensure_table()
+    :ets.insert(@table, {id, workflow})
+    :ok
+  end
+
+  # ---------------------------------------------------------------------------
+  # GenServer callbacks
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def init(_opts) do
+    ensure_table()
+    {:ok, %{}}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private helpers
+  # ---------------------------------------------------------------------------
+
+  defp runtime_workflows do
+    ensure_table()
+    :ets.tab2list(@table) |> Map.new(fn {id, wf} -> {id, wf} end)
+  rescue
+    _ -> %{}
+  end
+
+  defp ensure_table do
+    if :ets.whereis(@table) == :undefined do
+      :ets.new(@table, [:named_table, :public, :set, read_concurrency: true])
+    end
+  rescue
+    _ -> :ok
+  end
 end

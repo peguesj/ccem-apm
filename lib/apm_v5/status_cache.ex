@@ -128,10 +128,14 @@ defmodule ApmV5.StatusCache do
   def handle_cast({:warmup_done, key, value}, state) do
     now = System.monotonic_time(:millisecond)
     expires_at = now + @ttl_ms
+    first_write = :ets.lookup(@table, key) == []
     :ets.insert(@table, {key, value, expires_at})
 
     # Broadcast warmup completion for the first warmup pass only
-    safe_broadcast("apm:boot", {:status_cache_warmup_complete, key, now})
+    if first_write do
+      safe_broadcast("apm:boot", {:status_cache_warmup_complete, key, now})
+    end
+
     {:noreply, state}
   end
 

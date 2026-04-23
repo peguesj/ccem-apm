@@ -29,7 +29,15 @@ defmodule ApmV5Web.Components.SidebarNav do
   attr :integrations, :list, default: []
 
   def sidebar_nav(assigns) do
-    assigns = assign(assigns, :version, version())
+    # Always populate plugins/integrations from registries if not provided
+    plugins = if assigns[:plugins] in [nil, []], do: safe_list_plugins(), else: assigns[:plugins]
+    integrations = if assigns[:integrations] in [nil, []], do: safe_list_integrations(), else: assigns[:integrations]
+
+    assigns =
+      assigns
+      |> assign(:plugins, plugins)
+      |> assign(:integrations, integrations)
+      |> assign(:version, version())
 
     ~H"""
     <aside id="apm-sidebar" class="w-52 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0">
@@ -79,6 +87,8 @@ defmodule ApmV5Web.Components.SidebarNav do
     <.nav_item icon="hero-chat-bubble-left-right" label="Conversations" href="/conversations" current_path={@current_path} />
     <.nav_item icon="hero-clock" label="Timeline" href="/timeline" current_path={@current_path} />
     <.nav_item icon="hero-bell" label="Notifications" href="/notifications" current_path={@current_path} badge={@notification_count} />
+    <.nav_item icon="hero-arrow-path-rounded-square" label="Orchestration" href="/orchestration" current_path={@current_path} />
+    <.nav_item icon="hero-light-bulb" label="Memory" href="/memory" current_path={@current_path} />
     <.nav_item icon="hero-heart" label="Health" href="/health" current_path={@current_path} />
     """
   end
@@ -94,42 +104,66 @@ defmodule ApmV5Web.Components.SidebarNav do
     """
   end
 
-  # ── Section: PLUGINS (dynamic) ───────────────────────────────────────────────
+  # ── Section: PLUGINS (dynamic, collapsible sub-items) ─────────────────────────
   attr :current_path, :string, required: true
   attr :plugins, :list, required: true
 
   defp plugins_nav(assigns) do
+    # Determine if any plugin sub-page is active (to auto-expand)
+    plugins_expanded =
+      String.starts_with?(assigns.current_path || "", "/plugins") or
+        String.starts_with?(assigns.current_path || "", "/library")
+
+    assigns = assign(assigns, :plugins_expanded, plugins_expanded)
+
     ~H"""
     <.section_header label="Plugins" />
-    <.nav_item icon="hero-puzzle-piece" label="Plugins" href="/plugins" current_path={@current_path} />
-    <.nav_item
-      :for={plugin <- @plugins}
-      icon="hero-puzzle-piece"
-      label={humanize_name(plugin[:name] || plugin["name"] || "plugin")}
-      href={plugin_href(plugin)}
-      current_path={@current_path}
-    />
+    <.nav_item icon="hero-puzzle-piece" label="Plugins" href="/plugins" current_path={@current_path}
+      badge={length(@plugins)} />
+    <div :if={@plugins_expanded or length(@plugins) <= 8} class="pl-3 border-l border-base-300 ml-5 space-y-0.5">
+      <%= for plugin <- @plugins do %>
+        <% name = plugin[:name] || plugin["name"] || "plugin" %>
+        <% scope = plugin[:scope] || plugin["scope"] %>
+        <.nav_sub_item
+          icon={plugin_scope_icon(scope)}
+          label={humanize_name(name)}
+          href={plugin_href(plugin)}
+          current_path={@current_path}
+          badge_label={if scope == :apm, do: "APM", else: nil}
+        />
+      <% end %>
+    </div>
     <.nav_item icon="hero-book-open" label="Library" href="/library" current_path={@current_path} />
     """
   end
 
-  # ── Section: INTEGRATIONS (dynamic) ──────────────────────────────────────────
+  # ── Section: INTEGRATIONS (dynamic, collapsible sub-items) ────────────────────
   attr :current_path, :string, required: true
   attr :integrations, :list, required: true
 
   defp integrations_nav(assigns) do
+    integrations_expanded =
+      String.starts_with?(assigns.current_path || "", "/integrations") or
+        String.starts_with?(assigns.current_path || "", "/ag-ui") or
+        String.starts_with?(assigns.current_path || "", "/ralph")
+
+    assigns = assign(assigns, :integrations_expanded, integrations_expanded)
+
     ~H"""
     <.section_header label="Integrations" />
-    <.nav_item icon="hero-circle-stack" label="Integrations" href="/integrations" current_path={@current_path} />
-    <.nav_item icon="hero-cpu-chip" label="AG-UI" href="/ag-ui" current_path={@current_path} />
-    <.nav_item icon="hero-arrow-path" label="Ralph" href="/ralph" current_path={@current_path} />
-    <.nav_item
-      :for={integ <- filtered_integrations(@integrations)}
-      icon="hero-circle-stack"
-      label={humanize_name(integ[:name] || integ["name"] || "integration")}
-      href={integration_href(integ)}
-      current_path={@current_path}
-    />
+    <.nav_item icon="hero-circle-stack" label="Integrations" href="/integrations" current_path={@current_path}
+      badge={length(@integrations)} />
+    <div :if={@integrations_expanded or length(@integrations) <= 8} class="pl-3 border-l border-base-300 ml-5 space-y-0.5">
+      <.nav_sub_item icon="hero-cpu-chip" label="AG-UI" href="/ag-ui" current_path={@current_path} />
+      <.nav_sub_item icon="hero-arrow-path" label="Ralph" href="/ralph" current_path={@current_path} />
+      <.nav_sub_item
+        :for={integ <- filtered_integrations(@integrations)}
+        icon="hero-circle-stack"
+        label={humanize_name(integ[:name] || integ["name"] || "integration")}
+        href={integration_href(integ)}
+        current_path={@current_path}
+      />
+    </div>
     """
   end
 
@@ -168,6 +202,7 @@ defmodule ApmV5Web.Components.SidebarNav do
   attr :href, :string, required: true
   attr :current_path, :string, required: true
   attr :badge, :integer, default: 0
+  attr :badge_label, :string, default: nil
 
   defp nav_item(assigns) do
     active =
@@ -177,8 +212,8 @@ defmodule ApmV5Web.Components.SidebarNav do
     assigns = assign(assigns, :active, active)
 
     ~H"""
-    <a
-      href={@href}
+    <.link
+      navigate={@href}
       class={[
         "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
         @active && "bg-primary/10 text-primary font-medium",
@@ -188,7 +223,38 @@ defmodule ApmV5Web.Components.SidebarNav do
       <.icon name={@icon} class="size-4 flex-shrink-0" />
       <span class="sidebar-label">{@label}</span>
       <span :if={@badge > 0} class="badge badge-xs badge-primary ml-auto sidebar-badge">{@badge}</span>
-    </a>
+      <span :if={@badge_label} class="badge badge-xs badge-accent ml-auto sidebar-badge">{@badge_label}</span>
+    </.link>
+    """
+  end
+
+  # ── Sub-item nav (indented, smaller, for plugin/integration children) ────────
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+  attr :href, :string, required: true
+  attr :current_path, :string, required: true
+  attr :badge_label, :string, default: nil
+
+  defp nav_sub_item(assigns) do
+    active =
+      assigns.current_path == assigns.href ||
+        (assigns.href != "/" && String.starts_with?(assigns.current_path || "", assigns.href))
+
+    assigns = assign(assigns, :active, active)
+
+    ~H"""
+    <.link
+      navigate={@href}
+      class={[
+        "flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors",
+        @active && "bg-primary/10 text-primary font-medium",
+        !@active && "text-base-content/50 hover:text-base-content/80 hover:bg-base-300/50"
+      ]}
+    >
+      <.icon name={@icon} class="size-3 flex-shrink-0" />
+      <span class="sidebar-label truncate">{@label}</span>
+      <span :if={@badge_label} class="badge badge-xs badge-accent ml-auto sidebar-badge">{@badge_label}</span>
+    </.link>
     """
   end
 
@@ -246,17 +312,31 @@ defmodule ApmV5Web.Components.SidebarNav do
     end)
   end
 
-  defp plugin_href(plugin) do
-    name = plugin[:name] || plugin["name"] || ""
-    slug = name |> to_string() |> String.downcase() |> String.replace(" ", "-")
-    "/plugins/#{slug}"
+  defp plugin_scope_icon(:apm), do: "hero-chart-bar"
+  defp plugin_scope_icon(:ccem), do: "hero-cog-6-tooth"
+  defp plugin_scope_icon(:claude_code), do: "hero-command-line"
+  defp plugin_scope_icon(:security), do: "hero-shield-check"
+  defp plugin_scope_icon(:memory), do: "hero-light-bulb"
+  defp plugin_scope_icon(:orchestration), do: "hero-arrow-path-rounded-square"
+  defp plugin_scope_icon(_), do: "hero-puzzle-piece"
+
+  defp plugin_slug(plugin) do
+    (plugin[:name] || plugin["name"] || "")
+    |> to_string()
+    |> String.downcase()
+    |> String.replace(" ", "-")
   end
 
-  defp integration_href(integ) do
-    name = integ[:name] || integ["name"] || ""
-    slug = name |> to_string() |> String.downcase() |> String.replace(" ", "-")
-    "/integrations/#{slug}"
+  defp plugin_href(plugin), do: "/plugins/#{plugin_slug(plugin)}"
+
+  defp integration_slug(integ) do
+    (integ[:name] || integ["name"] || "")
+    |> to_string()
+    |> String.downcase()
+    |> String.replace(" ", "-")
   end
+
+  defp integration_href(integ), do: "/integrations/#{integration_slug(integ)}"
 
   defp humanize_name(name) do
     name
@@ -266,6 +346,6 @@ defmodule ApmV5Web.Components.SidebarNav do
     |> Enum.map_join(" ", &String.capitalize/1)
   end
 
-  @app_version "9.0.0"
+  @app_version "9.1.1"
   defp version, do: @app_version
 end

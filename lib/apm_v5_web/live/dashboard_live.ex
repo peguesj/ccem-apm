@@ -21,6 +21,9 @@ defmodule ApmV5Web.DashboardLive do
   alias ApmV5.PortManager
   alias ApmV5.GraphBuilder
   alias ApmV5.ChatStore
+  alias ApmV5.LayoutStore
+  alias ApmV5.WidgetConfigStore
+  alias ApmV5.DashboardScopeEngine
 
   import ApmV5Web.Components.GettingStartedShowcase
 
@@ -45,6 +48,11 @@ defmodule ApmV5Web.DashboardLive do
       ApmV5.AgUi.EventBus.subscribe("state:*")
       ApmV5.AgUi.EventBus.subscribe("activity:*")
       ApmV5.AgUi.EventBus.subscribe("special:custom")
+
+      # Widgetization Engine: subscribe to scope and session events (US-360)
+      session_id = socket.id
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "dashboard:scope:#{session_id}")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "dashboard:session:#{session_id}")
     end
 
     config = safe_get_config()
@@ -75,6 +83,8 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:show_other_projects, false)
       |> assign(:agents, agents)
       |> assign(:notifications, notifications)
+      |> assign(:notification_channel_filter, nil)
+      |> assign(:notification_source_filter, nil)
       |> assign(:uptime, uptime)
       |> assign(:agent_count, length(agents))
       |> assign(:active_count, Enum.count(agents, &(&1.status == "active")))
@@ -112,7 +122,16 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:filter_namespace, nil)
       |> assign(:filter_agent_type, nil)
       |> assign(:filter_query, "")
+      # Widgetization Engine assigns (US-360, US-367)
+      |> assign(:widget_scope_type, :global)
+      |> assign(:widget_scope_value, nil)
+      |> assign(:widget_pinned_id, nil)
+      |> assign(:widget_edit_panel_id, nil)
+      |> assign(:widget_session_configs, load_widget_session_configs(socket))
+      |> assign(:widget_layout_placements, load_widget_layout(socket))
+      |> assign(:inspector_collapsed, false)
       |> push_graph_data(agents)
+      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
 
     {:ok, socket}
   end
@@ -146,6 +165,29 @@ defmodule ApmV5Web.DashboardLive do
 
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
+  # ── Widgetization Engine helpers (US-367) ────────────────────────────────────
+
+  defp load_widget_session_configs(socket) do
+    try do
+      WidgetConfigStore.get_all_configs(socket.id)
+    rescue
+      _ -> %{}
+    end
+  end
+
+  defp load_widget_layout(socket) do
+    try do
+      case LayoutStore.get_user_layout(socket.id) do
+        %{placements: placements} -> placements
+        _ ->
+          preset = LayoutStore.get_preset("default")
+          if preset, do: preset.placements, else: []
+      end
+    rescue
+      _ -> []
+    end
+  end
+
   defp filter_by_status(agents, nil), do: agents
   defp filter_by_status(agents, ""), do: agents
   defp filter_by_status(agents, status), do: Enum.filter(agents, &(&1.status == status))
@@ -173,7 +215,7 @@ defmodule ApmV5Web.DashboardLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/" notification_count={length(@notifications)} skill_count={@active_skill_count} />
+      <.sidebar_nav current_path="/" notification_count={length(@notifications)} skill_count={@active_skill_count} plugins={@plugins} integrations={@integrations} />
 
       <%!-- Main content --%>
       <div id="main-content" class="flex-1 flex flex-col overflow-hidden">
@@ -322,11 +364,37 @@ defmodule ApmV5Web.DashboardLive do
                         </button>
                       </div>
                     </div>
+                    <%!-- Channel / Source filters --%>
+                    <div
+                      :if={Enum.any?(@notifications, &(&1[:channel] || &1[:source]))}
+                      class="flex gap-2 px-3 py-2 border-b border-base-300"
+                    >
+                      <select
+                        class="select select-xs select-bordered flex-1 text-xs"
+                        phx-change="filter_notifications_by_channel"
+                        name="channel"
+                      >
+                        <option value="">All channels</option>
+                        <%= for ch <- @notifications |> Enum.map(& &1[:channel]) |> Enum.reject(&is_nil/1) |> Enum.uniq() |> Enum.sort() do %>
+                          <option value={ch} selected={@notification_channel_filter == ch}>{ch}</option>
+                        <% end %>
+                      </select>
+                      <select
+                        class="select select-xs select-bordered flex-1 text-xs"
+                        phx-change="filter_notifications_by_source"
+                        name="source"
+                      >
+                        <option value="">All sources</option>
+                        <%= for src <- @notifications |> Enum.map(& &1[:source]) |> Enum.reject(&is_nil/1) |> Enum.uniq() |> Enum.sort() do %>
+                          <option value={src} selected={@notification_source_filter == src}>{src}</option>
+                        <% end %>
+                      </select>
+                    </div>
                     <%!-- Notification list --%>
                     <.live_region id="notification-list" politeness="polite">
                       <div class="space-y-0 max-h-96 overflow-y-auto divide-y divide-base-300">
                         <div
-                          :for={notif <- Enum.take(@notifications, 15)}
+                          :for={notif <- @notifications |> filtered_notifications(@notification_channel_filter, @notification_source_filter) |> Enum.take(15)}
                           class={["p-3 text-xs transition-colors hover:bg-base-300/50", if(!notif.read, do: "bg-base-300/30 border-l-2 border-primary", else: "")]}
                         >
                           <div class="flex items-start gap-2">
@@ -334,7 +402,15 @@ defmodule ApmV5Web.DashboardLive do
                               {notif[:type] || notif[:level] || "info"}
                             </span>
                             <div class="flex-1 min-w-0">
-                              <div class="font-semibold truncate">{notif[:title]}</div>
+                              <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="font-semibold truncate">{notif[:title]}</span>
+                                <span
+                                  :if={notif[:channel]}
+                                  class="badge badge-sm badge-outline flex-shrink-0 text-[10px] font-normal"
+                                >
+                                  {notif[:channel]}
+                                </span>
+                              </div>
                               <p class="text-base-content/60 mt-0.5 leading-snug">{notif[:message]}</p>
                               <%!-- Contextual metadata --%>
                               <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[10px] text-base-content/40">
@@ -381,8 +457,11 @@ defmodule ApmV5Web.DashboardLive do
                             </div>
                           </div>
                         </div>
-                        <p :if={@notifications == []} class="text-center text-base-content/40 py-6 text-xs">
-                          No notifications
+                        <p
+                          :if={filtered_notifications(@notifications, @notification_channel_filter, @notification_source_filter) == []}
+                          class="text-center text-base-content/40 py-6 text-xs"
+                        >
+                          {if @notifications == [], do: "No notifications", else: "No notifications match filters"}
                         </p>
                       </div>
                     </.live_region>
@@ -460,7 +539,7 @@ defmodule ApmV5Web.DashboardLive do
         </div>
 
         <%!-- Dashboard body --%>
-        <div class="flex-1 flex overflow-hidden">
+        <div class="flex-1 flex overflow-hidden relative">
           <%!-- Left panel: stats + agents --%>
           <div class="flex-1 overflow-y-auto p-4 space-y-4">
             <%!-- Stats grid --%>
@@ -705,13 +784,74 @@ defmodule ApmV5Web.DashboardLive do
               filter_agent_type={@filter_agent_type}
               filter_query={@filter_query}
             />
+
+            <%!-- Widgetization Engine (CP-93–CP-106) --%>
+            <div class="border-t border-base-300 pt-4">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-base-content/50">Widgets</h2>
+              </div>
+              <.live_component
+                module={ApmV5Web.Live.DashboardGridComponent}
+                id="dashboard-grid"
+                placements={@widget_layout_placements}
+                widget_pinned_id={@widget_pinned_id}
+                widget_edit_panel_id={@widget_edit_panel_id}
+                widget_scope_type={@widget_scope_type}
+                widget_scope_value={@widget_scope_value}
+                session_configs={@widget_session_configs}
+              >
+                <:widget :let={slot_assigns}>
+                  <.live_component
+                    module={ApmV5Web.Live.WidgetContainerComponent}
+                    id={"widget-container-#{slot_assigns.widget.id}"}
+                    widget={slot_assigns.widget}
+                    current_config={slot_assigns.config}
+                    is_pinned={slot_assigns.is_pinned}
+                    is_edit_open={slot_assigns.is_edit_open}
+                    scope_type={@widget_scope_type}
+                    scope_value={@widget_scope_value}
+                  >
+                    <:body></:body>
+                  </.live_component>
+                </:widget>
+              </.live_component>
+
+              <%!-- Widget Edit Panel (slides in when editing) --%>
+              <%= if @widget_edit_panel_id do %>
+                <% edit_widget = ApmV5.WidgetRegistry.get_widget(@widget_edit_panel_id) %>
+                <.live_component
+                  :if={edit_widget}
+                  module={ApmV5Web.Live.WidgetEditPanelComponent}
+                  id={"edit-panel-#{@widget_edit_panel_id}"}
+                  widget={edit_widget}
+                  current_config={Map.get(@widget_session_configs, @widget_edit_panel_id, %{})}
+                  is_open={true}
+                />
+              <% end %>
+            </div>
           </div>
 
+          <%!-- Inspector toggle button — visible at the boundary --%>
+          <button
+            phx-click="toggle_inspector"
+            class="absolute right-0 top-1/2 -translate-y-1/2 z-10 btn btn-ghost btn-xs border border-base-300 rounded-l-md rounded-r-none bg-base-200"
+            title={if @inspector_collapsed, do: "Show inspector", else: "Hide inspector"}
+          >
+            <%= if @inspector_collapsed do %>
+              <.icon name="hero-chevron-left" class="size-3" />
+            <% else %>
+              <.icon name="hero-chevron-right" class="size-3" />
+            <% end %>
+          </button>
+
           <%!-- Right panel: tabs --%>
-          <div class="w-80 border-l border-base-300 bg-base-200 flex flex-col flex-shrink-0">
+          <div class={[
+            "border-l border-base-300 bg-base-200 flex flex-col flex-shrink-0 transition-all duration-200",
+            if(@inspector_collapsed, do: "w-0 overflow-hidden opacity-0 p-0", else: "w-80")
+          ]}>
             <div role="tablist" class="tabs tabs-border bg-base-300">
               <button
-                :for={tab <- [:inspector, :ralph, :upm, :ports, :commands, :todos]}
+                :for={tab <- [:inspector, :ralph, :upm, :commands]}
                 role="tab"
                 class={["tab tab-sm", @active_tab == tab && "tab-active"]}
                 phx-click="switch_tab"
@@ -900,15 +1040,6 @@ defmodule ApmV5Web.DashboardLive do
                 </div>
               </div>
 
-              <%!-- Ports tab — extracted to PortPanel component (US-R14) --%>
-              <div :if={@active_tab == :ports}>
-                <ApmV5Web.Components.PortPanel.port_manager
-                  port_clashes={@port_clashes}
-                  port_remediation={@port_remediation}
-                  project_configs={@project_configs}
-                />
-              </div>
-
               <%!-- Commands tab --%>
               <div :if={@active_tab == :commands} class="space-y-2">
                 <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
@@ -923,23 +1054,6 @@ defmodule ApmV5Web.DashboardLive do
                 </div>
               </div>
 
-              <%!-- TODOs tab --%>
-              <div :if={@active_tab == :todos} class="space-y-2">
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                  Active Tasks
-                </h3>
-                <div :if={@tasks == []} class="text-xs text-base-content/40">
-                  No tasks synced. POST to /api/tasks/sync to add.
-                </div>
-                <div :for={task <- @tasks} class="p-2 rounded bg-base-300 text-xs">
-                  <div class="flex items-center gap-2">
-                    <span class={["badge badge-xs", task_status_class(task["status"] || task[:status])]}>
-                      {task["status"] || task[:status] || "pending"}
-                    </span>
-                    <span class="font-medium">{task["subject"] || task[:subject] || task["title"] || "Task"}</span>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -956,6 +1070,10 @@ defmodule ApmV5Web.DashboardLive do
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, String.to_existing_atom(tab))}
+  end
+
+  def handle_event("toggle_inspector", _params, socket) do
+    {:noreply, assign(socket, :inspector_collapsed, !socket.assigns.inspector_collapsed)}
   end
 
   # Chat events
@@ -987,6 +1105,65 @@ defmodule ApmV5Web.DashboardLive do
 
     messages = ChatStore.list_messages(scope, 50)
     {:noreply, socket |> assign(:chat_scope, scope) |> assign(:chat_messages, messages)}
+  end
+
+  # ── Widgetization Engine — widget edit, pin, config, and layout events (US-367) ──
+
+  def handle_event("widget_edit_open", %{"widget_id" => widget_id}, socket) do
+    {:noreply, assign(socket, :widget_edit_panel_id, widget_id)}
+  end
+
+  def handle_event("widget_edit_close", _params, socket) do
+    {:noreply, assign(socket, :widget_edit_panel_id, nil)}
+  end
+
+  def handle_event("widget_config_saved", %{"widget_id" => widget_id, "config" => config}, socket)
+      when is_binary(widget_id) and is_map(config) do
+    session_id = socket.id
+    WidgetConfigStore.put_config(session_id, widget_id, config)
+    updated_configs = WidgetConfigStore.get_all_configs(session_id)
+    {:noreply,
+     socket
+     |> assign(:widget_edit_panel_id, nil)
+     |> assign(:widget_session_configs, updated_configs)}
+  end
+
+  def handle_event("widget_pin_toggle", %{"widget_id" => widget_id}, socket) do
+    session_id = socket.id
+    current_pinned = socket.assigns.widget_pinned_id
+
+    if current_pinned == widget_id do
+      DashboardScopeEngine.unpin(session_id)
+    else
+      DashboardScopeEngine.pin_scope_source(session_id, widget_id)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("widget_scope_select", %{"scope_type" => scope_type_str, "scope_value" => scope_value}, socket) do
+    session_id = socket.id
+    scope_type = String.to_existing_atom(scope_type_str)
+    DashboardScopeEngine.broadcast_scope(session_id, scope_type, scope_value)
+    {:noreply, socket}
+  rescue
+    ArgumentError -> {:noreply, socket}
+  end
+
+  def handle_event("layout_reorder", %{"order" => widget_order}, socket) when is_list(widget_order) do
+    session_id = socket.id
+    current_layout = LayoutStore.get_user_layout(session_id) || %{}
+    LayoutStore.save_user_layout(session_id, Map.put(current_layout, :widget_order, widget_order))
+    {:noreply, socket}
+  end
+
+  def handle_event("layout_preset_select", %{"preset_id" => preset_id}, socket) do
+    case LayoutStore.get_preset(preset_id) do
+      nil ->
+        {:noreply, socket}
+      preset ->
+        {:noreply, assign(socket, :widget_layout_placements, preset.placements)}
+    end
   end
 
   # Agent control events — call registry directly (same server)
@@ -1173,6 +1350,16 @@ defmodule ApmV5Web.DashboardLive do
     AgentRegistry.dismiss_notification(id)
     notifications = Enum.reject(socket.assigns.notifications, &(&1[:id] == id))
     {:noreply, assign(socket, :notifications, notifications)}
+  end
+
+  def handle_event("filter_notifications_by_channel", %{"channel" => channel}, socket) do
+    filter = if channel == "", do: nil, else: channel
+    {:noreply, assign(socket, :notification_channel_filter, filter)}
+  end
+
+  def handle_event("filter_notifications_by_source", %{"source" => source}, socket) do
+    filter = if source == "", do: nil, else: source
+    {:noreply, assign(socket, :notification_source_filter, filter)}
   end
 
   def handle_event("select_agent", %{"agent_id" => agent_id}, socket) do
@@ -1507,6 +1694,24 @@ defmodule ApmV5Web.DashboardLive do
 
   def handle_info({:token_consumed, _}, socket), do: {:noreply, socket}
 
+  # ── Widgetization Engine — Scope PubSub handlers (US-360) ────────────────────
+
+  def handle_info({:scope_changed, scope_type, scope_value}, socket) do
+    {:noreply,
+     socket
+     |> assign(:widget_scope_type, scope_type)
+     |> assign(:widget_scope_value, scope_value)}
+  end
+
+  def handle_info({:pinned_widget_changed, widget_id}, socket) do
+    {:noreply, assign(socket, :widget_pinned_id, widget_id)}
+  end
+
+  def handle_info({:widget_config_updated, _widget_id, _config}, socket) do
+    # Config stored in WidgetConfigStore; re-render will pick it up via assigns
+    {:noreply, socket}
+  end
+
   def handle_info(_msg, socket) do
     {:noreply, socket}
   end
@@ -1654,16 +1859,18 @@ defmodule ApmV5Web.DashboardLive do
   defp agent_type_badge_class("orchestrator"), do: "badge-accent"
   defp agent_type_badge_class(_), do: "badge-ghost"
 
+  defp filtered_notifications(notifications, channel_filter, source_filter) do
+    Enum.filter(notifications, fn n ->
+      (is_nil(channel_filter) or n[:channel] == channel_filter) and
+        (is_nil(source_filter) or n[:source] == source_filter)
+    end)
+  end
+
   defp notif_badge_class("error"), do: "badge-error"
   defp notif_badge_class("warning"), do: "badge-warning"
   defp notif_badge_class("success"), do: "badge-success"
   defp notif_badge_class("info"), do: "badge-info"
   defp notif_badge_class(_), do: "badge-ghost"
-
-  defp task_status_class("completed"), do: "badge-success"
-  defp task_status_class("in_progress"), do: "badge-info"
-  defp task_status_class("pending"), do: "badge-ghost"
-  defp task_status_class(_), do: "badge-ghost"
 
   defp tab_label(:inspector), do: "Inspector"
   defp tab_label(:ralph), do: "Ralph"

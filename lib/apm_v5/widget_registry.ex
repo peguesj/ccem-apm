@@ -17,8 +17,13 @@ defmodule ApmV5.WidgetRegistry do
         min_width: integer(),         # grid columns (1-12)
         min_height: integer(),        # grid rows
         config_schema: map(),         # configurable options with types
+        default_config: map(),        # default values matching config_schema keys
         plugin: String.t() | nil,     # plugin_name if plugin-provided
-        version: String.t()
+        version: String.t(),
+        editable: boolean(),          # whether users can edit widget config inline
+        pinnable: boolean(),          # whether this widget can be pinned as a scope source
+        supported_scopes: [String.t()], # scopes this widget supports: "global","project","formation","agent"
+        display_order: integer()      # default display order in palette (lower = earlier)
       }
 
   ## Usage
@@ -27,6 +32,7 @@ defmodule ApmV5.WidgetRegistry do
       ApmV5.WidgetRegistry.list_by_category(:monitoring)
       ApmV5.WidgetRegistry.get_widget("agent_fleet")
       ApmV5.WidgetRegistry.register_widget(%{id: "my_widget", ...})
+      ApmV5.WidgetRegistry.update_widget_config("agent_fleet", %{show_sparkline: false})
   """
 
   use GenServer
@@ -45,8 +51,13 @@ defmodule ApmV5.WidgetRegistry do
           min_width: integer(),
           min_height: integer(),
           config_schema: map(),
+          default_config: map(),
           plugin: String.t() | nil,
-          version: String.t()
+          version: String.t(),
+          editable: boolean(),
+          pinnable: boolean(),
+          supported_scopes: [String.t()],
+          display_order: integer()
         }
 
   @builtin_widgets [
@@ -60,8 +71,13 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 3,
       min_height: 2,
       config_schema: %{show_sparkline: "boolean", show_formations: "boolean"},
+      default_config: %{show_sparkline: true, show_formations: true},
       plugin: nil,
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global", "project"],
+      display_order: 1
     },
     %{
       id: "formation_graph",
@@ -73,8 +89,13 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 6,
       min_height: 4,
       config_schema: %{layout: "enum:graph_td,graph_lr,hierarchical,card_grid", max_depth: "integer"},
+      default_config: %{layout: "graph_td", max_depth: 5},
       plugin: nil,
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global", "project", "formation"],
+      display_order: 2
     },
     %{
       id: "pending_decisions",
@@ -86,8 +107,13 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 4,
       min_height: 3,
       config_schema: %{auto_expand: "boolean"},
+      default_config: %{auto_expand: true},
       plugin: nil,
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global", "project"],
+      display_order: 3
     },
     %{
       id: "usage_summary",
@@ -99,8 +125,13 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 3,
       min_height: 2,
       config_schema: %{show_breakdown: "boolean", time_window: "enum:1h,24h,7d"},
+      default_config: %{show_breakdown: true, time_window: "24h"},
       plugin: nil,
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global", "project"],
+      display_order: 4
     },
     %{
       id: "background_tasks",
@@ -112,8 +143,13 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 4,
       min_height: 3,
       config_schema: %{show_completed: "boolean", max_rows: "integer"},
+      default_config: %{show_completed: false, max_rows: 10},
       plugin: nil,
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global", "project"],
+      display_order: 5
     },
     %{
       id: "plane_board",
@@ -125,8 +161,13 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 4,
       min_height: 3,
       config_schema: %{project_id: "string", show_cancelled: "boolean"},
+      default_config: %{project_id: "", show_cancelled: false},
       plugin: "plane",
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global", "project"],
+      display_order: 6
     },
     %{
       id: "notifications",
@@ -138,8 +179,13 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 3,
       min_height: 3,
       config_schema: %{max_items: "integer", category_filter: "string"},
+      default_config: %{max_items: 20, category_filter: ""},
       plugin: nil,
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global", "project"],
+      display_order: 7
     },
     %{
       id: "upm_workflow",
@@ -151,8 +197,13 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 4,
       min_height: 3,
       config_schema: %{show_stories: "boolean", compact: "boolean"},
+      default_config: %{show_stories: true, compact: false},
       plugin: nil,
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global", "project"],
+      display_order: 8
     },
     %{
       id: "port_status",
@@ -164,8 +215,13 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 3,
       min_height: 2,
       config_schema: %{show_conflicts_only: "boolean"},
+      default_config: %{show_conflicts_only: false},
       plugin: nil,
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global"],
+      display_order: 9
     },
     %{
       id: "session_overview",
@@ -177,8 +233,13 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 3,
       min_height: 2,
       config_schema: %{show_inactive: "boolean"},
+      default_config: %{show_inactive: false},
       plugin: nil,
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global", "project"],
+      display_order: 10
     },
     %{
       id: "auth_audit",
@@ -190,8 +251,13 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 5,
       min_height: 3,
       config_schema: %{max_entries: "integer", show_granted: "boolean", show_denied: "boolean"},
+      default_config: %{max_entries: 50, show_granted: true, show_denied: true},
       plugin: nil,
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global", "project"],
+      display_order: 11
     },
     %{
       id: "skills_health",
@@ -203,8 +269,31 @@ defmodule ApmV5.WidgetRegistry do
       min_width: 3,
       min_height: 2,
       config_schema: %{show_unhealthy_only: "boolean"},
+      default_config: %{show_unhealthy_only: false},
       plugin: nil,
-      version: "1.0.0"
+      version: "1.0.0",
+      editable: true,
+      pinnable: false,
+      supported_scopes: ["global"],
+      display_order: 12
+    },
+    %{
+      id: "projects",
+      name: "Projects",
+      description: "Active projects list with session/agent counts — pin to scope all widgets to a project",
+      category: :monitoring,
+      source_module: ApmV5.ProjectStore,
+      refresh_interval: nil,
+      min_width: 3,
+      min_height: 3,
+      config_schema: %{show_inactive: "boolean", compact: "boolean"},
+      default_config: %{show_inactive: false, compact: false},
+      plugin: nil,
+      version: "1.0.0",
+      editable: true,
+      pinnable: true,
+      supported_scopes: ["global", "project"],
+      display_order: 0
     }
   ]
 
@@ -248,6 +337,40 @@ defmodule ApmV5.WidgetRegistry do
     list_widgets() |> Enum.map(& &1.category) |> Enum.uniq() |> Enum.sort()
   end
 
+  @doc "List widgets that support a given scope string."
+  @spec list_by_scope(String.t()) :: [widget_definition()]
+  def list_by_scope(scope) when is_binary(scope) do
+    list_widgets() |> Enum.filter(&(scope in &1.supported_scopes))
+  end
+
+  @doc "List widgets that can be pinned as scope sources."
+  @spec list_pinnable() :: [widget_definition()]
+  def list_pinnable do
+    list_widgets() |> Enum.filter(& &1.pinnable)
+  end
+
+  @doc """
+  Merge config overrides into a widget's default_config.
+  Returns the merged config map (does not persist to ETS — use WidgetConfigStore for persistence).
+  """
+  @spec resolve_config(String.t(), map()) :: map()
+  def resolve_config(widget_id, overrides \\ %{}) when is_binary(widget_id) and is_map(overrides) do
+    case get_widget(widget_id) do
+      nil -> overrides
+      widget -> Map.merge(widget.default_config, overrides)
+    end
+  end
+
+  @doc """
+  Update a widget definition's default_config in ETS.
+  Useful for plugins to set their own defaults after registration.
+  """
+  @spec update_widget_config(String.t(), map()) :: :ok | {:error, :not_found}
+  def update_widget_config(widget_id, config_overrides)
+      when is_binary(widget_id) and is_map(config_overrides) do
+    GenServer.call(__MODULE__, {:update_widget_config, widget_id, config_overrides})
+  end
+
   # ── GenServer Callbacks ───────────────────────────────────────────────────────
 
   @impl true
@@ -260,18 +383,42 @@ defmodule ApmV5.WidgetRegistry do
 
   @impl true
   def handle_call({:register_widget, widget}, _from, state) do
-    :ets.insert(state.table, {widget.id, widget})
+    widget_with_defaults = ensure_new_fields(widget)
+    :ets.insert(state.table, {widget_with_defaults.id, widget_with_defaults})
     {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_call({:update_widget_config, widget_id, config_overrides}, _from, state) do
+    case :ets.lookup(state.table, widget_id) do
+      [{^widget_id, widget}] ->
+        updated = Map.update(widget, :default_config, config_overrides, &Map.merge(&1, config_overrides))
+        :ets.insert(state.table, {widget_id, updated})
+        {:reply, :ok, state}
+
+      [] ->
+        {:reply, {:error, :not_found}, state}
+    end
   end
 
   # ── Private Helpers ───────────────────────────────────────────────────────────
 
   defp register_builtins(table) do
     for widget <- @builtin_widgets do
-      :ets.insert(table, {widget.id, widget})
+      :ets.insert(table, {widget.id, ensure_new_fields(widget)})
     end
 
     Logger.debug("[WidgetRegistry] Registered #{length(@builtin_widgets)} built-in widgets")
+  end
+
+  # Ensures any widget (including legacy plugin widgets) has all v2 fields with safe defaults.
+  defp ensure_new_fields(widget) do
+    widget
+    |> Map.put_new(:editable, true)
+    |> Map.put_new(:pinnable, false)
+    |> Map.put_new(:supported_scopes, ["global"])
+    |> Map.put_new(:default_config, %{})
+    |> Map.put_new(:display_order, 99)
   end
 
   defp load_plugin_widgets do

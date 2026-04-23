@@ -48,7 +48,7 @@ defmodule ApmV5Web.NotificationLive do
       |> assign(:confirmation_dialog, nil)
       |> assign(:auto_approve_minutes, nil)
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

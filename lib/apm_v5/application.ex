@@ -55,56 +55,51 @@ defmodule ApmV5.Application do
       ApmV5.AnalyticsStore,
       ApmV5.HealthCheckRunner,
       ApmV5.ConversationWatcher,
+      ApmV5.ConversationReader,
       ApmV5.PluginScanner,
       ApmV5.BackfillStore,
       ApmV5.SkillsRegistryStore,
       ApmV5.ShowcaseDataStore,
-      # Skill dependency analyzer -- scans ~/.claude/skills/ and ./commands/ (Phase 1: v1.0.0)
-      ApmV5.Skills.SkillAnalyzer,
-      # Skill health scorer -- 5-dimension health assessment (Phase 2: v1.0.0)
-      ApmV5.Skills.SkillHealthScorer,
-      # Showcase Manager -- discover/manage project showcases, integrate with UPM/Plane/Auth
-      ApmV5.Showcases.ShowcaseManager,
-      # Sub-supervisor: AG-UI protocol layer
+      # --- APM-001 Phase 1: Safe re-enables (pure ETS/supervisor init, no I/O) ---
       ApmV5.Supervisors.AgUiSupervisorGroup,
-      # Claude usage tracking (US-042)
       ApmV5.ClaudeUsageStore,
-      # Session Manager -- polls session JSON files, enriches with agents/ports/plugins
-      ApmV5.SessionManager,
-      # Namespace Resolver -- human-readable labels for agents/sessions/gates (v8.5.0)
       ApmV5.NamespaceResolver,
-      # CC plugin bridge + repository store -- before PluginSupervisor/Registry
+      ApmV5.Plugins.PluginSupervisor,
+      ApmV5.Integrations.IntegrationSupervisor,
+      ApmV5.AgUi.AgentContextStore,
+      ApmV5.Upm.DecisionGate,
+      ApmV5.Supervisors.AuthSupervisor,
+      ApmV5.WorktreeStore,
+      ApmV5.Architectures.ArchitectureStore,
+      ApmV5.HookRegistry,
+      ApmV5.Proxy.Supervisor,
+      # --- APM-001 Phase 2: Deferred I/O (filesystem scans, module loading) ---
+      ApmV5.Skills.SkillAnalyzer,
+      ApmV5.Skills.SkillHealthScorer,
+      ApmV5.Showcases.ShowcaseManager,
       ApmV5.Plugins.ClaudeCodePluginBridge,
       ApmV5.Plugins.PluginRepositoryStore,
-      # Plugin Engine (v8.0.0) -- supervisor before registry
-      ApmV5.Plugins.PluginSupervisor,
+      ApmV5.Plugins.PluginConfigStore,
       ApmV5.Plugins.PluginRegistry,
-      # Integration Engine (v8.0.0) -- supervisor before registry
-      ApmV5.Integrations.IntegrationSupervisor,
       ApmV5.Integrations.IntegrationRegistry,
-      # Agent context store -- real-time AG-UI context per agent (v8.4.0)
-      ApmV5.AgUi.AgentContextStore,
-      # UPM decision gate -- blocking human-in-the-loop approval (v8.4.0)
-      ApmV5.Upm.DecisionGate,
-      # Sub-supervisor: AgentLock authorization layer (v7.0.0)
-      ApmV5.Supervisors.AuthSupervisor,
-      # Persistent Plane-PM alignment agent -- polls Plane every 5min, broadcasts plane:sync (US-018)
-      ApmV5.PlanePmAlign,
-      # Library catalog -- scans skills/agents/commands/MCP/hooks/patterns/learnings (v8.10.1)
-      ApmV5.LibraryStore,
-      # Worktree lifecycle tracking (v8.12.0) -- ETS-backed registry for git worktrees
-      ApmV5.WorktreeStore,
-      # Dashboard widget system -- WidgetRegistry + LayoutStore (widget-system)
       ApmV5.WidgetRegistry,
       ApmV5.LayoutStore,
-      # Architecture store -- Diligent fleet hierarchy (v9.0.0)
-      ApmV5.Architectures.ArchitectureStore,
-      # Hook registry -- hookable points catalog (v9.1.0)
-      ApmV5.HookRegistry,
-      # Proxy layer -- Cache + RateLimiter (v9.3.0)
-      ApmV5.Proxy.Supervisor,
+      ApmV5.WidgetConfigStore,
+      ApmV5.DashboardScopeEngine,
+      # --- APM-001: Still disabled (boot-blocking or heavy external I/O) ---
+      ApmV5.SessionManager,        # Re-enabled: deferred poll + exit-safe enrichment (APM-001)
+      # ApmV5.PlanePmAlign,        # Blocking Plane API HTTP calls on init
+      # ApmV5.LibraryStore,        # CPU/I/O intensive full-ecosystem scan
+      # --- End APM-001 ---
       # Outbound relay tunnel -- dials Azure relay when TUNNEL_RELAY_URL is set (v8.5.0)
       ApmV5.Tunnel.Supervisor,
+      # Orchestration system (v9.1.1)
+      ApmV5.WorkflowRegistry,
+      ApmV5.Orchestration.OrchestrationManager,
+      ApmV5.Orchestration.OrchestrationRunStore,
+      # Memory plugin workers (claude-mem integration)
+      ApmV5.Plugins.Memory.MemoryClientBridge,
+      ApmV5.Plugins.Memory.ObservationCache,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]

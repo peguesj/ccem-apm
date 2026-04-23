@@ -65,72 +65,91 @@ defmodule ApmV5Web.Router do
 
     # Scalar API Reference (interactive OpenAPI docs)
     get "/api/docs", PageController, :api_docs
-
-    # Core monitoring views
-    live "/", DashboardLive, :index
-    live "/apm-all", AllProjectsLive, :index
-    live "/ralph", RalphFlowchartLive, :index
-    live "/workflow/:type", WorkflowLive, :show
-    live "/skills", SkillsLive, :index
-    live "/timeline", SessionTimelineLive, :index
-    live "/docs", DocsLive, :index
     get "/docs/upm/status", PageController, :redirect_to_showcase
-    live "/docs/*path", DocsLive, :show
-    live "/formation", FormationLive, :index
-    live "/notifications", NotificationLive, :index
-    live "/ports", PortsLive, :index
-    live "/tasks", TasksLive, :index
-    live "/scanner", ScannerLive, :index
-    live "/actions", ActionsLive, :index
-    live "/actions/alignment", AlignmentLive, :index
-    live "/architecture", ArchitectureLive, :index
-    live "/analytics", AnalyticsLive, :index
-    live "/health", HealthCheckLive, :index
-    live "/conversations", ConversationMonitorLive, :index
-    live "/backfill", BackfillLive, :index
-    live "/drtw", DrtwLive, :index
-    live "/intake", IntakeLive, :index
-    live "/uat", UatLive, :index
-    live "/tool-calls", ToolCallLive, :index
-    live "/a2a", A2ALive, :index
-    live "/sessions", SessionManagerLive, :index
-    live "/sessions/:id", SessionManagerLive, :show
-
-    # Extension: ag_ui
-    live "/ag-ui", AgUiLive, :index
-    live "/generative-ui", GenerativeUILive, :index
-
-    # Extension: showcase
-    live "/showcase", ShowcaseLive, :index
-    live "/showcase/:project", ShowcaseLive, :project
-    live "/ccem", CcemOverviewLive, :index
-
-    # Extension: agentlock
-    live "/authorization", AuthorizationLive, :index
-    live "/routing", RoutingLive, :index
-
-    # Extension: usage
-    live "/usage", UsageLive, :index
-
-    # Extension: coalesce
-    live "/coalesce", CoalesceLive, :index
-
-    # Extension: plugins
-    live "/plugins", PluginDashboardLive, :index
-    live "/plugins/ralph", RalphPluginLive, :index
-    live "/plugins/ag_ui", AgUiPluginLive, :index
-    live "/plugins/claude-code", ClaudeCodeDiscoveryLive, :index
-    live "/integrations", PluginDashboardLive, :integrations_tab
-    live "/integrations/lvm", LvmStatusLive, :index
-
-    # Extension: library
-    live "/library", LibraryLive, :index
-
-    # Extension: upm
-    live "/upm/module", UpmLive, :index
-    live "/upm/module/:project_id", UpmLive, :project
-    live "/upm/module/:project_id/board", UpmLive, :board
     get "/upm", PageController, :upm_redirect
+
+    # All LiveViews share a single live_session so the LiveSocket can perform
+    # client-side navigation between pages without a full-page reload. Without
+    # this wrapper each `live` macro creates its own implicit session, and the
+    # LiveSocket intercepts anchor clicks then fails to negotiate the session
+    # change, resulting in 404 errors when navigating between pages.
+    live_session :main_app do
+      # Core monitoring views
+      live "/", DashboardLive, :index
+      live "/apm-all", AllProjectsLive, :index
+      live "/ralph", RalphFlowchartLive, :index
+      live "/workflow/:type", WorkflowLive, :show
+      live "/skills", SkillsLive, :index
+      live "/timeline", SessionTimelineLive, :index
+      live "/docs", DocsLive, :index
+      live "/docs/*path", DocsLive, :show
+      live "/formation", FormationLive, :index
+      live "/notifications", NotificationLive, :index
+      live "/ports", PortsLive, :index
+      live "/tasks", TasksLive, :index
+      live "/scanner", ScannerLive, :index
+      live "/actions", ActionsLive, :index
+      live "/actions/alignment", AlignmentLive, :index
+      live "/architecture", ArchitectureLive, :index
+      live "/analytics", AnalyticsLive, :index
+      live "/health", HealthCheckLive, :index
+      live "/conversations", ConversationMonitorLive, :index
+      live "/backfill", BackfillLive, :index
+      live "/drtw", DrtwLive, :index
+      live "/intake", IntakeLive, :index
+      live "/uat", UatLive, :index
+      live "/tool-calls", ToolCallLive, :index
+      live "/a2a", A2ALive, :index
+      live "/sessions", SessionManagerLive, :index
+      live "/sessions/:id", SessionManagerLive, :show
+
+      # Extension: ag_ui
+      live "/ag-ui", AgUiLive, :index
+      live "/generative-ui", GenerativeUILive, :index
+
+      # Extension: showcase
+      live "/showcase", ShowcaseLive, :index
+      live "/showcase/:project", ShowcaseLive, :project
+      live "/ccem", CcemOverviewLive, :index
+
+      # Extension: agentlock
+      live "/authorization", AuthorizationLive, :index
+      live "/approvals-history", ApprovalHistoryLive, :index
+      live "/routing", RoutingLive, :index
+
+      # Extension: usage
+      live "/usage", UsageLive, :index
+
+      # Extension: coalesce
+      live "/coalesce", CoalesceLive, :index
+
+      # Extension: plugins
+      live "/plugins", PluginDashboardLive, :index
+      live "/plugins/ralph", RalphPluginLive, :index
+      live "/plugins/ag_ui", AgUiPluginLive, :index
+      live "/plugins/claude-code", ClaudeCodeDiscoveryLive, :index
+      live "/plugins/:slug", PluginDashboardLive, :plugin_show
+      live "/integrations", PluginDashboardLive, :integrations_tab
+      live "/integrations/lvm", LvmStatusLive, :index
+      live "/integrations/:slug", PluginDashboardLive, :integration_show
+
+      # Extension: skill drift detector
+      live "/skill-drift", SkillDriftLive, :index
+
+      # Extension: orchestration
+      live "/orchestration", OrchestrationLive, :index
+
+      # Extension: memory
+      live "/memory", MemoryLive, :index
+
+      # Extension: library
+      live "/library", LibraryLive, :index
+
+      # Extension: upm
+      live "/upm/module", UpmLive, :index
+      live "/upm/module/:project_id", UpmLive, :project
+      live "/upm/module/:project_id/board", UpmLive, :board
+    end
   end
 
   # ── CORE APM — REST API (v1) ───────────────────────────────────────────────
@@ -288,6 +307,7 @@ defmodule ApmV5Web.Router do
     get "/formations/:id", FormationApiController, :get_formation
     patch "/formations/:id", FormationApiController, :update_formation
     get "/formations/:id/agents", FormationApiController, :get_formation_agents
+    get "/formations/:id/dot", FormationApiController, :dot
 
     # ── EXTENSION: showcase (v1) ──────────────────────────────────────────
     get "/showcase", ShowcaseApiController, :index
@@ -442,6 +462,10 @@ defmodule ApmV5Web.Router do
     post "/auth/api-keys", AuthController, :create_api_key
     delete "/auth/api-keys/:id", AuthController, :revoke_api_key
 
+    # Approval audit history (US-326)
+    post "/approvals/log", AuthController, :log_approval
+    get "/approvals/history", AuthController, :list_approval_history
+
     get "/auth/policy/rules", AuthController, :list_policy_rules
     post "/auth/policy/rules", AuthController, :add_policy_rule
     delete "/auth/policy/rules/:tool_name", AuthController, :remove_policy_rule
@@ -481,6 +505,9 @@ defmodule ApmV5Web.Router do
     post "/plugins/:name/action", PluginController, :invoke_action
     get "/plugins/:name/board", PluginController, :board
     get "/plugins/:name/issues", PluginController, :issues
+    get "/plugins/:name/config", PluginController, :get_config
+    patch "/plugins/:name/config", PluginController, :update_config
+    delete "/plugins/:name/config", PluginController, :reset_config
 
     # ── EXTENSION: integrations ───────────────────────────────────────────
     get "/integrations", IntegrationController, :index
@@ -488,6 +515,9 @@ defmodule ApmV5Web.Router do
     get "/integrations/:name", IntegrationController, :show
     post "/integrations/:name/action", IntegrationController, :invoke_action
     get "/integrations/:name/status", IntegrationController, :status
+    get "/integrations/:name/config", IntegrationController, :get_config
+    patch "/integrations/:name/config", IntegrationController, :update_config
+    delete "/integrations/:name/config", IntegrationController, :reset_config
 
     # ── EXTENSION: coalesce ───────────────────────────────────────────────
     post "/coalesce/start", CoalesceController, :start
@@ -502,6 +532,35 @@ defmodule ApmV5Web.Router do
     # ── EXTENSION: plane (upm companion) ──────────────────────────────────
     get "/plane/sync-status", PlaneController, :sync_status
     post "/plane/sync", PlaneController, :sync
+
+    # ── EXTENSION: widgetization engine ──────────────────────────────────
+    get "/widgets", WidgetController, :index
+    get "/widgets/:id", WidgetController, :show
+    patch "/widgets/:id/config", WidgetController, :update_config
+    get "/dashboard/layout", WidgetController, :get_layout
+    post "/dashboard/layout", WidgetController, :save_layout
+    post "/dashboard/pin", WidgetController, :pin_widget
+
+    # ── EXTENSION: skill drift detector ──────────────────────────────────
+    get "/skill-drift/scan", SkillDriftController, :scan
+    get "/skill-drift/report", SkillDriftController, :report
+    post "/skill-drift/fix", SkillDriftController, :fix
+
+    # ── EXTENSION: orchestration ─────────────────────────────────────────
+    get "/orchestrations", OrchestrationController, :index
+    post "/orchestrations", OrchestrationController, :create
+    get "/orchestrations/history", OrchestrationController, :history
+    get "/orchestrations/:id", OrchestrationController, :show
+    delete "/orchestrations/:id", OrchestrationController, :delete
+    post "/orchestrations/:id/steps/:step_id/advance", OrchestrationController, :advance_step
+    post "/orchestrations/:id/replay", OrchestrationController, :replay
+
+    # ── EXTENSION: memory ─────────────────────────────────────────────────
+    get "/memory/observations", MemoryController, :list_observations
+    get "/memory/observations/:id", MemoryController, :get_observation
+    get "/memory/search", MemoryController, :search
+    get "/memory/timeline", MemoryController, :timeline
+    get "/memory/health", MemoryController, :health
 
     # ── EXTENSION: library ────────────────────────────────────────────────
     get "/library", LibraryController, :index

@@ -316,6 +316,8 @@ defmodule ApmV5.AgentRegistry do
         trace: build_trace(notification),
         metadata: atomize_metadata(get_any(notification, [:metadata, "metadata"]) || %{}),
         actions: normalize_actions(get_any(notification, [:actions, "actions"]) || []),
+        channel: get_any(notification, [:channel, "channel"]),
+        source: get_any(notification, [:source, "source"]),
         timestamp: now,
         read: false
       }
@@ -460,6 +462,7 @@ defmodule ApmV5.AgentRegistry do
   defp maybe_put(map, fields, string_key, atom_key) do
     case Map.get(fields, string_key, Map.get(fields, atom_key)) do
       nil -> map
+      "" -> map
       value -> Map.put(map, atom_key, value)
     end
   end

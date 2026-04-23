@@ -51,7 +51,9 @@ defmodule ApmV5.SessionManager do
   @impl true
   def init(_opts) do
     :ets.new(:session_manager_cache, [:named_table, :public, read_concurrency: true])
-    send(self(), :poll)
+    :ets.insert(:session_manager_cache, {:sessions, []})
+    # Defer first poll to avoid PortManager timeout during boot (APM-001)
+    Process.send_after(self(), :poll, 5_000)
     {:ok, %{last_hash: nil}}
   end
 
@@ -181,7 +183,7 @@ defmodule ApmV5.SessionManager do
     session_id = to_string(session[:session_id] || "")
     project_root = to_string(session[:project_root] || "")
 
-    # Agents registered under this session
+    # Agents registered under this session (catch exits from GenServer timeouts)
     agents =
       try do
         AgentRegistry.list_agents()
@@ -191,9 +193,11 @@ defmodule ApmV5.SessionManager do
         end)
       rescue
         _ -> []
+      catch
+        :exit, _ -> []
       end
 
-    # Ports bound to this project root
+    # Ports bound to this project root (catch exits from GenServer timeouts)
     ports =
       try do
         PortManager.get_port_map()
@@ -204,6 +208,8 @@ defmodule ApmV5.SessionManager do
         |> Enum.map(fn {port, info} -> Map.put(info, :port, port) end)
       rescue
         _ -> []
+      catch
+        :exit, _ -> []
       end
 
     # Claude config directory counts (fast filesystem scan)

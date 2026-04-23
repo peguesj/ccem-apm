@@ -162,6 +162,93 @@ defmodule ApmV5.UpmStore do
     |> Enum.sort_by(& &1.timestamp, {:asc, DateTime})
   end
 
+  @doc "Built-in testmaxxing formation template with 20 agents, 5 squadrons, 17 channels."
+  @spec testmaxxing_template(String.t() | nil) :: map()
+  def testmaxxing_template(date \\ nil) do
+    date = date || Date.utc_today() |> Date.to_iso8601() |> String.replace("-", "")
+    fmt_id = "fmt-#{date}-live-integration-testing"
+
+    %{
+      "id" => fmt_id,
+      "name" => "Testmaxxing Formation",
+      "template" => "testmaxxing",
+      "sizing" => "MAX",
+      "status" => "staged",
+      "total_waves" => 2,
+      "squadrons" => [
+        %{
+          "name" => "alpha", "wave" => 1, "role" => "Public Pages",
+          "agents" => [
+            %{"id" => "#{fmt_id}-alpha-w1", "name" => "nextjs-developer", "role" => "Route verification", "publishes" => ["alpha.w1.results"]},
+            %{"id" => "#{fmt_id}-alpha-w2", "name" => "accessibility-tester", "role" => "A11y audit", "publishes" => ["alpha.w2.results"]},
+            %{"id" => "#{fmt_id}-alpha-w3", "name" => "performance-optimizer", "role" => "Core Web Vitals", "publishes" => ["alpha.w3.results"]}
+          ],
+          "lead" => %{"id" => "#{fmt_id}-alpha-lead", "subscribes" => ["alpha.w1.results", "alpha.w2.results", "alpha.w3.results"], "publishes" => ["alpha.results"]}
+        },
+        %{
+          "name" => "bravo", "wave" => 1, "role" => "Auth & RBAC",
+          "agents" => [
+            %{"id" => "#{fmt_id}-bravo-w4", "name" => "security-auditor", "publishes" => ["bravo.w4.results"]},
+            %{"id" => "#{fmt_id}-bravo-w5", "name" => "penetration-tester", "publishes" => ["bravo.w5.results"]},
+            %{"id" => "#{fmt_id}-bravo-w6", "name" => "qa-expert", "publishes" => ["bravo.w6.results"]}
+          ],
+          "lead" => %{"id" => "#{fmt_id}-bravo-lead", "subscribes" => ["bravo.w4.results", "bravo.w5.results", "bravo.w6.results"], "publishes" => ["bravo.results"], "exports" => ["auth_session_cookie"]}
+        },
+        %{
+          "name" => "echo", "wave" => 1, "role" => "Infrastructure",
+          "agents" => [
+            %{"id" => "#{fmt_id}-echo-w13", "name" => "sre-engineer", "publishes" => ["echo.w13.results"]},
+            %{"id" => "#{fmt_id}-echo-w14", "name" => "error-detective", "publishes" => ["echo.w14.results"]}
+          ],
+          "lead" => %{"id" => "#{fmt_id}-echo-lead", "subscribes" => ["echo.w13.results", "echo.w14.results"], "publishes" => ["echo.results"]}
+        },
+        %{
+          "name" => "charlie", "wave" => 2, "role" => "Core Features", "depends_on" => ["bravo"],
+          "agents" => [
+            %{"id" => "#{fmt_id}-charlie-w7", "name" => "frontend-developer", "publishes" => ["charlie.w7.results"]},
+            %{"id" => "#{fmt_id}-charlie-w8", "name" => "fullstack-developer", "publishes" => ["charlie.w8.results"]},
+            %{"id" => "#{fmt_id}-charlie-w9", "name" => "ui-designer", "publishes" => ["charlie.w9.results"]}
+          ],
+          "lead" => %{"id" => "#{fmt_id}-charlie-lead", "subscribes" => ["charlie.w7.results", "charlie.w8.results", "charlie.w9.results"], "publishes" => ["charlie.results"], "imports" => ["auth_session_cookie"]}
+        },
+        %{
+          "name" => "delta", "wave" => 2, "role" => "Admin & Org Portals", "depends_on" => ["bravo"],
+          "agents" => [
+            %{"id" => "#{fmt_id}-delta-w10", "name" => "code-reviewer", "publishes" => ["delta.w10.results"]},
+            %{"id" => "#{fmt_id}-delta-w11", "name" => "qa-expert", "publishes" => ["delta.w11.results"]},
+            %{"id" => "#{fmt_id}-delta-w12", "name" => "database-optimizer", "publishes" => ["delta.w12.results"]}
+          ],
+          "lead" => %{"id" => "#{fmt_id}-delta-lead", "subscribes" => ["delta.w10.results", "delta.w11.results", "delta.w12.results"], "publishes" => ["delta.results"], "imports" => ["auth_session_cookie"]}
+        }
+      ],
+      "orchestrator" => %{
+        "id" => "#{fmt_id}-orch",
+        "subscribes" => ["alpha.results", "bravo.results", "charlie.results", "delta.results", "echo.results"],
+        "publishes" => ["formation.complete"]
+      },
+      "exports" => %{"bravo" => %{"keys" => ["auth_session_cookie"], "targets" => ["charlie", "delta"]}},
+      "channels" => [
+        "alpha.w1.results", "alpha.w2.results", "alpha.w3.results", "alpha.results",
+        "bravo.w4.results", "bravo.w5.results", "bravo.w6.results", "bravo.results",
+        "echo.w13.results", "echo.w14.results", "echo.results",
+        "charlie.w7.results", "charlie.w8.results", "charlie.w9.results", "charlie.results",
+        "delta.w10.results", "delta.w11.results", "delta.w12.results", "delta.results",
+        "formation.complete"
+      ]
+    }
+  end
+
+  @doc "Create a formation from a named built-in template."
+  @spec create_from_template(String.t(), map()) :: {:ok, String.t()} | {:error, :unknown_template}
+  def create_from_template(template_name, opts \\ %{})
+
+  def create_from_template("testmaxxing", opts) do
+    template = testmaxxing_template(opts[:date])
+    register_formation(template)
+  end
+
+  def create_from_template(_unknown, _opts), do: {:error, :unknown_template}
+
   # --- GenServer Callbacks ---
 
   @impl true

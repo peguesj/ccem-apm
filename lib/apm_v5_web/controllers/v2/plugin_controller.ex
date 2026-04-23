@@ -13,6 +13,7 @@ defmodule ApmV5Web.V2.PluginController do
   use ApmV5Web, :controller
 
   alias ApmV5.Plugins.PluginRegistry
+  alias ApmV5.Plugins.PluginConfigStore
   alias ApmV5.Plugins.ClaudeCodePluginBridge
 
   @pubsub ApmV5.PubSub
@@ -141,6 +142,57 @@ defmodule ApmV5Web.V2.PluginController do
   @doc "GET /api/v2/plugins/cc/summary — Claude Code plugin ecosystem summary"
   def cc_summary(conn, _params) do
     json(conn, %{data: ClaudeCodePluginBridge.get_summary()})
+  end
+
+  @doc "GET /api/v2/plugins/:name/config — get resolved config (defaults + overrides)"
+  def get_config(conn, %{"name" => name}) do
+    case PluginRegistry.get_plugin(name) do
+      {:ok, _} ->
+        config = PluginConfigStore.get_config(:plugin, name)
+        schema = PluginConfigStore.get_schema(:plugin, name)
+        json(conn, %{data: config, schema: schema, plugin: name})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Plugin not found", name: name})
+    end
+  end
+
+  @doc "PATCH /api/v2/plugins/:name/config — update plugin config overrides"
+  def update_config(conn, %{"name" => name} = params) do
+    config = Map.get(params, "config", %{})
+
+    case PluginRegistry.get_plugin(name) do
+      {:ok, _} ->
+        case PluginConfigStore.put_config(:plugin, name, config) do
+          {:ok, resolved} ->
+            json(conn, %{data: resolved, plugin: name})
+
+          {:error, reasons} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{error: "Validation failed", reasons: format_errors(reasons), plugin: name})
+        end
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Plugin not found", name: name})
+    end
+  end
+
+  @doc "DELETE /api/v2/plugins/:name/config — reset plugin config to defaults"
+  def reset_config(conn, %{"name" => name}) do
+    case PluginRegistry.get_plugin(name) do
+      {:ok, _} ->
+        :ok = PluginConfigStore.reset_config(:plugin, name)
+        defaults = PluginConfigStore.get_config(:plugin, name)
+        json(conn, %{data: defaults, plugin: name, reset: true})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Plugin not found", name: name})
+    end
+  end
+
+  defp format_errors(reasons) when is_list(reasons) do
+    Enum.map(reasons, fn {field, msg} -> %{field: field, message: msg} end)
   end
 
   defp drop_nils(map), do: Enum.reject(map, fn {_k, v} -> is_nil(v) end) |> Map.new()

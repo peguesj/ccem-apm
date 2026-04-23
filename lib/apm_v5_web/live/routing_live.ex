@@ -30,7 +30,7 @@ defmodule ApmV5Web.RoutingLive do
       |> assign(audit_trail: [])
       |> push_routing_data()
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

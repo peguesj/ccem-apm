@@ -10,6 +10,17 @@ defmodule ApmV5Web.CoalesceLive do
   - Diff viewer — side-by-side current vs. proposed skill content
   - Formation plan display — squadron topology
   - Run history list
+
+  ## Known Coalesce Scopes
+
+  | Scope atom | Module(s) affected |
+  |:-----------|:-------------------|
+  | `:security` | `ApmV5.Plugins.Security.SecurityGuidancePlugin` |
+  | `:orchestration` | `ApmV5.Orchestration.OrchestrationManager`, `OrchestrationRunStore` |
+  | `:memory` | `ApmV5.Plugins.Memory.MemoryPlugin`, `MemoryClientBridge`, `ObservationCache`, `ConversationMemoryCorrelator` |
+  | `:skills` | `ApmV5.SkillTracker`, `SkillsRegistryStore` |
+  | `:upm` | `ApmV5.UpmStore` |
+  | `:formation` | `ApmV5.FormationSupervisor` and its children |
   """
 
   use ApmV5Web, :live_view
@@ -28,16 +39,19 @@ defmodule ApmV5Web.CoalesceLive do
     active_run = if run_id, do: CoalesceOrchestrator.get_run(run_id), else: List.first(runs)
     pending_gates = DecisionGateStore.list_pending()
 
-    {:ok, assign(socket,
-      runs: runs,
-      active_run: active_run,
-      active_run_gates: _gates_for(active_run),
-      pending_gates: pending_gates,
-      selected_diff: nil,
-      selected_gate: nil,
-      flash_message: nil,
-      page_title: "Coalesce — Skill Logic Engine"
-    )}
+    {:ok,
+     socket
+     |> assign(
+       runs: runs,
+       active_run: active_run,
+       active_run_gates: _gates_for(active_run),
+       pending_gates: pending_gates,
+       selected_diff: nil,
+       selected_gate: nil,
+       flash_message: nil,
+       page_title: "Coalesce — Skill Logic Engine"
+     )
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

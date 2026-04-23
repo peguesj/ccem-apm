@@ -145,7 +145,13 @@ function makeCheckmark(cx, cy, size, color, delay = 0) {
 }
 
 function lottieBase(layers, w = 360, h = 280) {
-  return { v: "5.5.7", fr: 30, ip: 0, op: 120, w, h, nm: "anim", ddd: 0, assets: [], layers };
+  // lottie-web requires unique `ind` values per layer. All `make*` helpers hardcode
+  // `ind: 0`, which silently breaks rendering in lottie-web >= 5.10 — the player
+  // parses the JSON, wipes the container, then fails to draw anything, leaving a
+  // blank canvas after the SVG fallback is cleared. Reassign here so each layer
+  // gets a stable, unique index.
+  const fixedLayers = layers.map((layer, i) => ({ ...layer, ind: i + 1 }));
+  return { v: "5.5.7", fr: 30, ip: 0, op: 120, w, h, nm: "anim", ddd: 0, assets: [], layers: fixedLayers };
 }
 
 // Slide 1: /upm — Orchestration network (connected nodes)
@@ -517,19 +523,43 @@ const GettingStartedShowcase = {
     const container = this.el.querySelector(`[data-lottie-target="${slideIdx}"]`);
     if (!container) return;
 
-    // Clear previous
-    container.innerHTML = "";
+    // Lottie mounts into a dedicated sibling, not the container itself. This
+    // preserves the SVG fallback as a visual safety net: if lottie-web fails to
+    // parse/render (malformed JSON, CDN blocked, etc.), the fallback stays on
+    // screen instead of being wiped. On successful render (`DOMLoaded`) we fade
+    // the fallback out. Before this change, clearing the container unconditionally
+    // meant the user saw a "glimpse then blank".
+    const mount = container.querySelector("[data-lottie-mount]");
+    const fallback = container.querySelector("[data-lottie-fallback]");
+    if (!mount) return;
+
+    // Tear down any previous instance for this slide
+    if (this.lottieInstances[slideIdx]) {
+      try { this.lottieInstances[slideIdx].destroy(); } catch (_) {}
+      this.lottieInstances[slideIdx] = null;
+    }
+    mount.replaceChildren();
 
     try {
       const inst = window.lottie.loadAnimation({
-        container,
+        container: mount,
         renderer: "svg",
         loop: true,
         autoplay: !this.prefersReduced,
         animationData: ANIMATIONS[slideIdx]
       });
+      inst.addEventListener("DOMLoaded", () => {
+        if (fallback) fallback.style.opacity = "0";
+      });
+      inst.addEventListener("data_failed", () => {
+        if (fallback) fallback.style.opacity = "1";
+        reportToAPM("lottie_data_failed", { slide: slideIdx });
+      });
       this.lottieInstances[slideIdx] = inst;
-    } catch (_) {}
+    } catch (err) {
+      reportToAPM("lottie_exception", { slide: slideIdx, err: String(err) });
+      if (fallback) fallback.style.opacity = "1";
+    }
   },
 
   renderSlide(idx) {
@@ -539,10 +569,15 @@ const GettingStartedShowcase = {
 
     slidesContainer.innerHTML = `
       <div class="flex gap-6 h-full" role="group" aria-label="Slide ${idx + 1} of ${this.total}: ${slide.title}">
-        <!-- Left: illustration (SVG fallback shown immediately; replaced by Lottie once CDN loads) -->
+        <!-- Left: illustration. Fallback SVG and Lottie mount are siblings in an
+             absolutely-positioned stack so lottie rendering never clobbers the
+             fallback. Fallback fades out on lottie DOMLoaded; stays visible on failure. -->
         <div class="w-[360px] flex-shrink-0 flex items-center justify-center rounded-xl bg-base-300/50 border border-base-300">
-          <div data-lottie-target="${idx}" class="w-full h-[280px] flex items-center justify-center"
-               role="img" aria-label="${slide.title} illustration">${SVG_FALLBACKS[idx] || ""}</div>
+          <div data-lottie-target="${idx}" class="relative w-full h-[280px]"
+               role="img" aria-label="${slide.title} illustration">
+            <div data-lottie-fallback class="absolute inset-0 flex items-center justify-center transition-opacity duration-300" style="opacity:1;">${SVG_FALLBACKS[idx] || ""}</div>
+            <div data-lottie-mount class="absolute inset-0 flex items-center justify-center"></div>
+          </div>
         </div>
         <!-- Right: Content -->
         <div class="flex-1 flex flex-col justify-center min-w-0">

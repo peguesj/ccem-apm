@@ -521,6 +521,18 @@ Broadcasts:
   - {:usage_updated, all_usage_map} to "apm:usage"
 ```
 
+### MemoryClientBridge (v9.2.0)
+
+HTTP client GenServer that polls the external `claude-mem` worker and writes results to `ObservationCache`. Falls back to local SQLite when the worker is unreachable. Exposes `list_observations/0`, `search_observations/1`, and `get_observation/1` client functions.
+
+### ObservationCache (v9.2.0)
+
+ETS-backed GenServer (`ApmV5.Plugins.Memory.ObservationCache`) storing `claude-mem` observations with per-entry TTL and LRU eviction. Broadcasts `{:memory_updated, observations}` on `"apm:memory"` after each write. ETS table: `:memory_observations`.
+
+### ConversationMemoryCorrelator (v9.2.0)
+
+Links `claude-mem` observation IDs to CCEM APM session IDs. Used by `MemoryLive` and `ConversationMonitorLive` to cross-reference memory entries with agent sessions.
+
 ### Additional GenServers
 
 - **ApiKeyStore** -- API authentication and key management
@@ -545,6 +557,7 @@ Fast in-memory storage for frequently accessed data.
 | `:skills_registry` | skill_name | Skill health scores (SkillsRegistryStore, v4.2.0) |
 | `:showcase_data` | project_name | Per-project showcase JSON data (ShowcaseDataStore, v6.0.0) |
 | `:claude_usage` | {project, model} | Claude token/tool-call counters (ClaudeUsageStore, v6.4.0) |
+| `:memory_observations` | observation_id | claude-mem observations with TTL/LRU (ObservationCache, v9.2.0) |
 
 > **Pattern:** ETS tables are created in `ConfigLoader.init/1` and cleared on reload. Use `:ets.lookup/2` for O(1) reads and `:ets.insert/2` for writes.
 
@@ -713,6 +726,18 @@ Showcase data reload events (added in v6.0.0).
 # data shape: %{"features" => [...], "narratives" => %{}, "design_system" => %{},
 #               "redaction_rules" => %{}, "speaker_notes" => %{}, "slides" => %{},
 #               "version" => String.t(), "path" => String.t()}
+```
+
+### apm:memory
+
+claude-mem observation cache events (added in v9.2.0).
+
+```elixir
+{:memory_updated, observations}
+# observations: list of ApmV5.Plugins.Memory.Observation structs
+
+{:memory_health_changed, status}
+# status shape: %{reachable: boolean(), fallback: boolean(), worker_url: String.t()}
 ```
 
 ## Error Handling

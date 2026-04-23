@@ -70,7 +70,7 @@ defmodule ApmV5Web.SkillsLive do
       |> assign(:fix_progress, [])
       |> assign(:fix_current, nil)
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

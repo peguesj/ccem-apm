@@ -2,18 +2,25 @@ defmodule ApmV5Web.AuthorizationLive do
   @moduledoc """
   AgentLock Authorization dashboard LiveView.
 
-  4-tab dashboard: Overview, Sessions, Audit Log, Policies.
-  Subscribes to agentlock:* PubSub topics for live updates.
+  5-tab dashboard: Overview, Sessions, Audit Log, Policies, Pending, Live Feed.
+  Subscribes to agentlock:* and apm:sessions PubSub topics for live updates.
+
+  Features:
+  - Real-time pending authorization approvals with 20s countdown
+  - Session monitoring with live sync from SessionManager
+  - Persistent audit log of all authorization decisions
+  - Configurable policies and auto-approval rules
+  - Settings modal for risk evaluation, thresholds, timeouts, and redaction modes
   """
 
   use ApmV5Web, :live_view
 
-  alias ApmV5.Auth.{AuthorizationGate, SessionStore, PendingDecisions, PolicyRulesStore}
+  alias ApmV5.Auth.{AuthorizationGate, PendingDecisions, PolicyRulesStore, SessionStore}
   alias ApmV5.NamespaceResolver
 
   @refresh_ms 5_000
-
   @max_decisions 20
+  @pubsub_sessions_topic "apm:sessions"
 
   @impl true
   def mount(_params, _session, socket) do
@@ -23,23 +30,31 @@ defmodule ApmV5Web.AuthorizationLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "agentlock:trust")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:agentlock")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "agentlock:pending")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_sessions_topic)
       Process.send_after(self(), :refresh, @refresh_ms)
     end
 
     {:ok,
-     assign(
-       socket,
+     socket
+     |> assign(
        load_data()
        |> Map.merge(%{
          active_tab: "overview",
          page_title: "Authorization",
-         decisions: [],
+         decisions: load_recent_decisions(),
          pending: safe_list_pending(),
          policy_rules: safe_list_rules(),
          modal_minimized: true,
-         auth_dismissed: false
+         auth_dismissed: false,
+         selected_ids: MapSet.new(),
+         show_settings_modal: false,
+         risk_eval_mode: :automatic,
+         risk_threshold: 50,
+         timeout_seconds: 20,
+         redaction_mode: :auto
        })
-     )}
+     )
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
@@ -150,6 +165,10 @@ defmodule ApmV5Web.AuthorizationLive do
     {:noreply, assign(socket, pending: PendingDecisions.list_pending(), auth_dismissed: false)}
   end
 
+  def handle_info({:approval_batch, _entries}, socket) do
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending(), auth_dismissed: false)}
+  end
+
   def handle_info({:pending_decision_resolved, _entry}, socket) do
     {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
   end
@@ -160,6 +179,10 @@ defmodule ApmV5Web.AuthorizationLive do
 
   def handle_info({:policy_rule_removed, _rule}, socket) do
     {:noreply, assign(socket, policy_rules: PolicyRulesStore.list_rules())}
+  end
+
+  def handle_info({:sessions_updated, sessions}, socket) do
+    {:noreply, assign(socket, :sessions, sessions)}
   end
 
   def handle_info(_, socket), do: {:noreply, socket}
@@ -359,6 +382,78 @@ defmodule ApmV5Web.AuthorizationLive do
     {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
   end
 
+  @impl true
+  def handle_event("toggle_select", %{"id" => id}, socket) do
+    selected = socket.assigns.selected_ids
+
+    selected =
+      if MapSet.member?(selected, id),
+        do: MapSet.delete(selected, id),
+        else: MapSet.put(selected, id)
+
+    {:noreply, assign(socket, selected_ids: selected)}
+  end
+
+  @impl true
+  def handle_event("select_all", _params, socket) do
+    all_ids = socket.assigns.pending |> Enum.map(& &1.request_id) |> MapSet.new()
+    {:noreply, assign(socket, selected_ids: all_ids)}
+  end
+
+  @impl true
+  def handle_event("select_none", _params, socket) do
+    {:noreply, assign(socket, selected_ids: MapSet.new())}
+  end
+
+  @impl true
+  def handle_event("approve_selected", _params, socket) do
+    Enum.each(socket.assigns.selected_ids, fn id ->
+      PendingDecisions.decide(id, :approve)
+    end)
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending(), selected_ids: MapSet.new())}
+  end
+
+  @impl true
+  def handle_event("deny_selected", _params, socket) do
+    Enum.each(socket.assigns.selected_ids, fn id ->
+      PendingDecisions.decide(id, :deny)
+    end)
+
+    {:noreply, assign(socket, pending: PendingDecisions.list_pending(), selected_ids: MapSet.new())}
+  end
+
+  @impl true
+  def handle_event("toggle_settings_modal", _params, socket) do
+    {:noreply, assign(socket, show_settings_modal: !socket.assigns.show_settings_modal)}
+  end
+
+  @impl true
+  def handle_event("update_setting", params, socket) do
+    socket =
+      cond do
+        Map.has_key?(params, "risk_eval_mode") ->
+          assign(socket, :risk_eval_mode, String.to_atom(params["risk_eval_mode"]))
+
+        Map.has_key?(params, "risk_threshold") ->
+          assign(socket, :risk_threshold, String.to_integer(params["risk_threshold"]))
+
+        Map.has_key?(params, "timeout_seconds") ->
+          assign(socket, :timeout_seconds, String.to_integer(params["timeout_seconds"]))
+
+        Map.has_key?(params, "redaction_mode") ->
+          assign(socket, :redaction_mode, String.to_atom(params["redaction_mode"]))
+
+        true ->
+          socket
+      end
+
+    # Persist settings to APM config (fire-and-forget)
+    Task.start_link(fn -> persist_settings(socket.assigns) end)
+
+    {:noreply, socket}
+  end
+
   # ── Keyboard shortcut handlers ──────────────────────────────────────────────
   # Enter → approve first pending (only when panel visible)
   # Escape → minimize panel (dismiss, not deny)
@@ -384,13 +479,15 @@ defmodule ApmV5Web.AuthorizationLive do
 
   def handle_event("auth_keydown", %{"key" => "Escape"}, socket) do
     if socket.assigns.pending != [] and not socket.assigns.auth_dismissed do
-      {:noreply, assign(socket, modal_minimized: true)}
+      [top | _] = socket.assigns.pending
+      PendingDecisions.decide(top.request_id, :deny)
+      {:noreply, assign(socket, pending: PendingDecisions.list_pending())}
     else
       {:noreply, socket}
     end
   end
 
-  def handle_event("auth_keydown", %{"key" => "d", "ctrlKey" => true}, socket) do
+  def handle_event("auth_keydown", %{"key" => key}, socket) when key in ["d", "D"] do
     if socket.assigns.pending != [] and not socket.assigns.auth_dismissed do
       [top | _] = socket.assigns.pending
       PendingDecisions.decide(top.request_id, :deny)
@@ -411,7 +508,10 @@ defmodule ApmV5Web.AuthorizationLive do
       <div class="flex-1 flex flex-col overflow-hidden">
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
           <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">AgentLock Authorization</h2>
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm font-semibold text-base-content">Authorization</h2>
+              <span class="text-xs font-light text-base-content/50">AgentLock</span>
+            </div>
             <div class="badge badge-sm badge-ghost">{@summary.registered_tools} tools</div>
             <%= if length(@pending) > 0 do %>
               <button phx-click="reshow_auth" class="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors">
@@ -422,32 +522,56 @@ defmodule ApmV5Web.AuthorizationLive do
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xs text-base-content/40">Auto-refresh 5s</span>
+            <button
+              phx-click="toggle_settings_modal"
+              class="btn btn-ghost btn-xs btn-square"
+              title="AgentLock Settings"
+            >
+              <.icon name="hero-cog-6-tooth" class="h-4 w-4" />
+            </button>
           </div>
         </header>
 
         <%!-- Authorization Notification Panel — inline above main content --%>
         <%= if @pending != [] && !@modal_minimized && !@auth_dismissed do %>
           <div class="border-b border-amber-500/30 bg-gradient-to-b from-amber-950/30 to-base-300 relative z-20" role="alert" aria-live="assertive">
-            <div class="px-4 py-3 space-y-2 max-h-[50vh] overflow-y-auto">
-              <%!-- Panel header with count and dismiss controls --%>
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <.icon name="hero-shield-exclamation" class="h-5 w-5 text-amber-400" />
-                  <h3 class="text-sm font-bold text-amber-300">Authorization Required</h3>
-                  <span class="badge badge-sm badge-warning"><%= length(@pending) %></span>
-                </div>
-                <div class="flex items-center gap-1">
-                  <button phx-click="dismiss_all_pending" class="btn btn-ghost btn-xs text-zinc-500 hover:text-red-400" title="Deny all">
-                    Deny All
-                  </button>
-                  <button phx-click="toggle_modal_minimize" class="btn btn-ghost btn-xs btn-square" title="Minimize (Esc)">
-                    <.icon name="hero-minus" class="h-3.5 w-3.5" />
-                  </button>
-                  <button phx-click="dismiss_auth" class="btn btn-ghost btn-xs btn-square" title="Dismiss (stays in Pending tab)">
-                    <.icon name="hero-x-mark" class="h-3.5 w-3.5" />
-                  </button>
-                </div>
+            <%!-- Titlebar --%>
+            <div class="px-4 py-2 flex items-center justify-between border-b border-amber-500/20">
+              <div class="flex items-center gap-2">
+                <.icon name="hero-shield-exclamation" class="h-5 w-5 text-amber-400" />
+                <h3 class="text-sm font-bold text-amber-300">Authorization</h3>
+                <span class="text-xs text-base-content/40 font-mono">&lt;AgentLock&gt;</span>
+                <span class="badge badge-sm badge-warning"><%= length(@pending) %></span>
               </div>
+              <div class="flex items-center gap-1.5">
+                <span class="badge badge-warning badge-sm">Approval Required</span>
+                <button phx-click="select_all" class="btn btn-ghost btn-xs text-zinc-400" title="Select all">
+                  Select All
+                </button>
+                <button phx-click="select_none" class="btn btn-ghost btn-xs text-zinc-400" title="Clear selection">
+                  None
+                </button>
+                <%= if MapSet.size(@selected_ids) > 0 do %>
+                  <button phx-click="approve_selected" class="btn btn-success btn-xs gap-1" title="Approve selected">
+                    <.icon name="hero-check" class="h-3 w-3" /> Approve (<%= MapSet.size(@selected_ids) %>)
+                  </button>
+                  <button phx-click="deny_selected" class="btn btn-error btn-xs gap-1" title="Deny selected">
+                    <.icon name="hero-x-mark" class="h-3 w-3" /> Deny (<%= MapSet.size(@selected_ids) %>)
+                  </button>
+                <% end %>
+                <span class="text-base-content/20">|</span>
+                <button phx-click="dismiss_all_pending" class="btn btn-ghost btn-xs text-zinc-500 hover:text-red-400" title="Deny all">
+                  Deny All
+                </button>
+                <button phx-click="toggle_modal_minimize" class="btn btn-ghost btn-xs btn-square" title="Minimize">
+                  <.icon name="hero-minus" class="h-3.5 w-3.5" />
+                </button>
+                <button phx-click="dismiss_auth" class="btn btn-ghost btn-xs btn-square" title="Dismiss (stays in Pending tab)">
+                  <.icon name="hero-x-mark" class="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+            <div class="px-4 py-3 space-y-2 max-h-[50vh] overflow-y-auto">
 
               <%!-- Grouped authorization cards — combined by agent for simultaneous requests --%>
               <% grouped = group_pending_by_agent(@pending) %>
@@ -494,6 +618,15 @@ defmodule ApmV5Web.AuthorizationLive do
                       <% human_desc = describe_tool_action(gate.tool_name, gate.params) %>
                       <div class="px-3 py-2 space-y-1.5" id={"auth-card-#{gate.request_id}"}>
                         <div class="flex items-start justify-between gap-2">
+                          <label class="flex items-center shrink-0 mt-0.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              class="checkbox checkbox-xs checkbox-warning"
+                              checked={MapSet.member?(@selected_ids, gate.request_id)}
+                              phx-click="toggle_select"
+                              phx-value-id={gate.request_id}
+                            />
+                          </label>
                           <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-1.5 flex-wrap">
                               <span class={"text-[10px] font-bold px-1 py-0.5 rounded #{action_type_class(gate[:action_type])}"}><%= action_type_label %></span>
@@ -531,8 +664,8 @@ defmodule ApmV5Web.AuthorizationLive do
                             <button phx-click="approve_gate" phx-value-id={gate.request_id} class="btn btn-success btn-xs gap-1" title="Approve (Enter)">
                               <.icon name="hero-check" class="h-3 w-3" /> <kbd class="kbd kbd-xs ml-0.5 opacity-60">↵</kbd>
                             </button>
-                            <button phx-click="deny_gate" phx-value-id={gate.request_id} class="btn btn-error btn-xs gap-1" title="Deny (Ctrl+D)">
-                              <.icon name="hero-x-mark" class="h-3 w-3" /> <kbd class="kbd kbd-xs ml-0.5 opacity-60">ctrl+d</kbd>
+                            <button phx-click="deny_gate" phx-value-id={gate.request_id} class="btn btn-error btn-xs gap-1" title="Deny (Esc/D)">
+                              <.icon name="hero-x-mark" class="h-3 w-3" /> <kbd class="kbd kbd-xs ml-0.5 opacity-60">Esc/D</kbd>
                             </button>
                           </div>
                         </div>
@@ -554,6 +687,14 @@ defmodule ApmV5Web.AuthorizationLive do
                   <% end %>
                 </div>
               <% end %>
+            </div>
+            <%!-- Keyboard shortcut footer --%>
+            <div class="px-4 py-1.5 border-t border-base-content/10 flex items-center justify-between text-[10px] text-base-content/40">
+              <div class="flex items-center gap-3">
+                <span><kbd class="kbd kbd-xs">↵</kbd> Approve</span>
+                <span><kbd class="kbd kbd-xs">Esc</kbd> / <kbd class="kbd kbd-xs">D</kbd> Deny</span>
+              </div>
+              <span><%= length(@pending) %> pending</span>
             </div>
           </div>
         <% end %>
@@ -588,7 +729,7 @@ defmodule ApmV5Web.AuthorizationLive do
               </div>
               <div class="flex items-center gap-1.5 shrink-0 ml-2">
                 <kbd class="kbd kbd-xs opacity-40">↵ approve</kbd>
-                <kbd class="kbd kbd-xs opacity-40">esc dismiss</kbd>
+                <kbd class="kbd kbd-xs opacity-40">Esc/D deny</kbd>
                 <button phx-click="approve_gate" phx-value-id={top.request_id} class="btn btn-success btn-xs">Approve</button>
                 <button phx-click="deny_gate" phx-value-id={top.request_id} class="btn btn-error btn-xs">Deny</button>
                 <%= if length(@pending) > 1 do %>
@@ -614,6 +755,111 @@ defmodule ApmV5Web.AuthorizationLive do
               </div>
             </div>
           </div>
+        <% end %>
+
+        <%!-- AgentLock Settings Modal --%>
+        <%= if @show_settings_modal do %>
+          <div class="fixed inset-0 bg-black/50 z-40 flex items-center justify-center" phx-click="toggle_settings_modal">
+            <div class="bg-base-100 rounded-lg shadow-xl w-full max-w-md max-h-96 overflow-y-auto" phx-click.stop="">
+              <div class="sticky top-0 px-6 py-4 bg-base-200 border-b border-base-300 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-base-content">AgentLock Settings</h3>
+                <button
+                  phx-click="toggle_settings_modal"
+                  class="btn btn-ghost btn-sm btn-square"
+                  title="Close (Escape)"
+                >
+                  <.icon name="hero-x-mark" class="h-5 w-5" />
+                </button>
+              </div>
+
+              <div class="p-6 space-y-6">
+                <%!-- Risk Evaluation Mode --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-semibold">Risk Evaluation Mode</span>
+                  </label>
+                  <select
+                    name="risk_eval_mode"
+                    class="select select-bordered select-sm w-full"
+                    phx-change="update_setting"
+                  >
+                    <option value="automatic" selected={@risk_eval_mode == :automatic}>Automatic</option>
+                    <option value="manual" selected={@risk_eval_mode == :manual}>Manual</option>
+                  </select>
+                  <label class="label">
+                    <span class="label-text-alt">Automatic: system evaluates risk. Manual: all operations require approval.</span>
+                  </label>
+                </div>
+
+                <%!-- Risk Threshold Slider --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-semibold">Risk Threshold</span>
+                    <span class="badge badge-sm badge-primary">{@risk_threshold}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    name="risk_threshold"
+                    min="0"
+                    max="100"
+                    value={@risk_threshold}
+                    class="range range-sm range-primary"
+                    phx-change="update_setting"
+                  />
+                  <label class="label">
+                    <span class="label-text-alt">Operations above this score require approval</span>
+                  </label>
+                </div>
+
+                <%!-- Timeout Settings --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-semibold">Approval Timeout</span>
+                  </label>
+                  <select
+                    name="timeout_seconds"
+                    class="select select-bordered select-sm w-full"
+                    phx-change="update_setting"
+                  >
+                    <option value="10" selected={@timeout_seconds == 10}>10 seconds</option>
+                    <option value="20" selected={@timeout_seconds == 20}>20 seconds (default)</option>
+                    <option value="30" selected={@timeout_seconds == 30}>30 seconds</option>
+                    <option value="60" selected={@timeout_seconds == 60}>1 minute</option>
+                    <option value="120" selected={@timeout_seconds == 120}>2 minutes</option>
+                  </select>
+                  <label class="label">
+                    <span class="label-text-alt">Pending approvals expire after this duration</span>
+                  </label>
+                </div>
+
+                <%!-- Redaction Mode --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-semibold">Redaction Mode</span>
+                  </label>
+                  <select
+                    name="redaction_mode"
+                    class="select select-bordered select-sm w-full"
+                    phx-change="update_setting"
+                  >
+                    <option value="auto" selected={@redaction_mode == :auto}>Auto</option>
+                    <option value="manual" selected={@redaction_mode == :manual}>Manual</option>
+                    <option value="none" selected={@redaction_mode == :none}>None</option>
+                  </select>
+                  <label class="label">
+                    <span class="label-text-alt">Auto: sensitive data hidden. Manual: prompt per request. None: show all.</span>
+                  </label>
+                </div>
+
+                <%!-- Auto-Approval Policies Link --%>
+                <div class="divider my-4"></div>
+                <a href="/authorization?tab=policies" class="link link-primary text-sm font-semibold">
+                  Manage Auto-Approval Policies →
+                </a>
+              </div>
+            </div>
+          </div>
+
         <% end %>
 
         <main class="flex-1 overflow-y-auto p-4 space-y-4">
@@ -958,7 +1204,10 @@ defmodule ApmV5Web.AuthorizationLive do
     tools = try do AuthorizationGate.list_tools() rescue _ -> [] end
     audit_entries = try do
       ApmV5.AuditLog.tail(30)
-      |> Enum.filter(fn e -> String.starts_with?(Map.get(e, :event_type, ""), "auth:") end)
+      |> Enum.filter(fn e ->
+        et = Map.get(e, :event_type, "")
+        is_binary(et) and String.starts_with?(et, "auth:")
+      end)
     rescue _ -> [] end
 
     %{
@@ -968,6 +1217,52 @@ defmodule ApmV5Web.AuthorizationLive do
       audit_entries: audit_entries
     }
   end
+
+  defp load_recent_decisions do
+    try do
+      ApmV5.AuditLog.tail(@max_decisions)
+      |> Enum.filter(fn e ->
+        et = Map.get(e, :event_type, "")
+        is_binary(et) and et in [
+          "auth:authorization_granted",
+          "auth:authorization_denied",
+          "auth:authorization_escalated",
+          "auth:auto_approval_granted",
+          "auth:rate_limited"
+        ]
+      end)
+      |> Enum.map(fn e ->
+        status = case Map.get(e, :event_type, "") do
+          "auth:authorization_granted" -> :granted
+          "auth:auto_approval_granted" -> :granted
+          "auth:authorization_denied" -> :denied
+          "auth:authorization_escalated" -> :escalated
+          "auth:rate_limited" -> :rate_limited
+          _ -> :unknown
+        end
+
+        details = Map.get(e, :details, %{})
+
+        %{
+          tool: Map.get(e, :resource, "unknown"),
+          status: status,
+          risk_level: normalize_risk_level(Map.get(details, :risk_level, "none")),
+          session_id: Map.get(details, :session_id, ""),
+          timestamp: Map.get(e, :timestamp, DateTime.utc_now() |> DateTime.to_iso8601())
+        }
+      end)
+    rescue
+      _ -> []
+    end
+  end
+
+  defp normalize_risk_level(level) when is_atom(level), do: level
+  defp normalize_risk_level("none"), do: :none
+  defp normalize_risk_level("low"), do: :low
+  defp normalize_risk_level("medium"), do: :medium
+  defp normalize_risk_level("high"), do: :high
+  defp normalize_risk_level("critical"), do: :critical
+  defp normalize_risk_level(_), do: :none
 
   defp safe_list_pending do
     try do PendingDecisions.list_pending() rescue _ -> [] end
@@ -1140,6 +1435,31 @@ defmodule ApmV5Web.AuthorizationLive do
         end
       _ ->
         ""
+    end
+  end
+
+  defp persist_settings(assigns) do
+    settings = %{
+      risk_eval_mode: assigns.risk_eval_mode,
+      risk_threshold: assigns.risk_threshold,
+      timeout_seconds: assigns.timeout_seconds,
+      redaction_mode: assigns.redaction_mode
+    }
+
+    # Attempt to save to APM config (non-blocking)
+    try do
+      config_path = Path.expand("~/Developer/ccem/apm/apm_config.json")
+      case File.read(config_path) do
+        {:ok, content} ->
+          config = Jason.decode!(content)
+          updated_config = Map.put(config, "agentlock_settings", settings)
+          File.write!(config_path, Jason.encode!(updated_config, pretty: true))
+          Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:settings", {:settings_updated, settings})
+        _ ->
+          :ok
+      end
+    rescue
+      _ -> :ok
     end
   end
 end

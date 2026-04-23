@@ -18,6 +18,7 @@
 // To load it, simply add a second `<link>` to your `root.html.heex` file.
 
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
+import "./sidebar"
 import "phoenix_html"
 // Establish Phoenix Socket and LiveView configuration.
 import {Socket} from "phoenix"
@@ -48,6 +49,10 @@ import MermaidHook from "./hooks/mermaid_hook"
 import LibraryGraph from "./hooks/library_graph"
 import RoutingGraph from "./hooks/routing_graph"
 import ArchitectureGraph from "./hooks/architecture_graph"
+import SessionDiagram from "./hooks/session_diagram"
+import DashboardGrid from "./hooks/dashboard_grid"
+import ScrollBottom from "./hooks/scroll_bottom"
+import DrawerResize from "./hooks/drawer_resize"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -104,7 +109,11 @@ const Hooks = {
   MermaidHook,
   LibraryGraph,
   RoutingGraph,
-  ArchitectureGraph
+  ArchitectureGraph,
+  SessionDiagram,
+  DashboardGrid,
+  ScrollBottom,
+  DrawerResize
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

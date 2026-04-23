@@ -173,6 +173,36 @@ defmodule ApmV5.Plugins.Upm.UpmPlugin do
   def handle_action(action, _params, _opts),
     do: {:error, {:unknown_action, action}}
 
+  @impl ApmV5.Plugins.PluginBehaviour
+  @spec orchestration_topology() :: map()
+  def orchestration_topology do
+    %{
+      steps: [
+        %{id: "plan", name: "/upm plan", type: :action, config: %{}},
+        %{id: "create_issues", name: "Create Issues", type: :action, config: %{}},
+        %{id: "build_formation", name: "Build Formation", type: :action, config: %{}},
+        %{id: "wave_execute", name: "Wave Execute", type: :action, config: %{}},
+        %{id: "gate", name: "Compile Gate", type: :gate, config: %{gate_type: :compile}},
+        %{id: "verify", name: "/upm verify", type: :action, config: %{}},
+        %{id: "ship", name: "/upm ship", type: :action, config: %{}}
+      ],
+      edges: [
+        %{from: "plan", to: "create_issues", condition: nil},
+        %{from: "create_issues", to: "build_formation", condition: nil},
+        %{from: "build_formation", to: "wave_execute", condition: nil},
+        %{from: "wave_execute", to: "gate", condition: nil},
+        %{from: "gate", to: "wave_execute", condition: "more_waves"},
+        %{from: "gate", to: "verify", condition: "last_wave"},
+        %{from: "verify", to: "ship", condition: "pass"},
+        %{from: "verify", to: "verify", condition: "fix_retry"}
+      ],
+      gates: [
+        %{after_step: "gate", type: :compile_gate},
+        %{after_step: "verify", type: :test_gate}
+      ]
+    }
+  end
+
   # ── Private helpers ─────────────────────────────────────────────────────────
 
   defp default_prd_path, do: Path.join(File.cwd!(), "prd.json")

@@ -31,6 +31,22 @@ defmodule ApmV5.Plugins.Ralph.RalphPlugin do
   def plugin_version, do: "1.0.0"
 
   @impl true
+  def config_schema do
+    %{
+      prd_path: "string",
+      max_iterations: "integer",
+      backpressure_threshold: "integer",
+      auto_commit: "boolean",
+      log_level: "enum:debug,info,warn,error"
+    }
+  end
+
+  @impl true
+  def default_config do
+    %{prd_path: ".claude/ralph/prd.json", max_iterations: 50, backpressure_threshold: 10, auto_commit: true, log_level: "info"}
+  end
+
+  @impl true
   @spec list_endpoints() :: [map()]
   def list_endpoints do
     [
@@ -135,5 +151,34 @@ defmodule ApmV5.Plugins.Ralph.RalphPlugin do
     end
   rescue
     _ -> []
+  end
+
+  @impl true
+  @spec orchestration_topology() :: map()
+  def orchestration_topology do
+    %{
+      steps: [
+        %{id: "write_prd", name: "Write PRD", type: :action, config: %{}},
+        %{id: "pick_story", name: "Pick Story", type: :action, config: %{}},
+        %{id: "implement", name: "Implement", type: :action, config: %{}},
+        %{id: "quality_check", name: "Quality Check", type: :gate, config: %{gate_type: :compile}},
+        %{id: "commit", name: "Commit", type: :action, config: %{}},
+        %{id: "update_prd", name: "Update PRD", type: :action, config: %{}},
+        %{id: "more_stories", name: "More Stories?", type: :decision, config: %{}}
+      ],
+      edges: [
+        %{from: "write_prd", to: "pick_story", condition: nil},
+        %{from: "pick_story", to: "implement", condition: nil},
+        %{from: "implement", to: "quality_check", condition: nil},
+        %{from: "quality_check", to: "commit", condition: "pass"},
+        %{from: "commit", to: "update_prd", condition: nil},
+        %{from: "update_prd", to: "more_stories", condition: nil},
+        %{from: "more_stories", to: "pick_story", condition: "yes"},
+        %{from: "more_stories", to: nil, condition: "no"}
+      ],
+      gates: [
+        %{after_step: "quality_check", type: :compile_gate}
+      ]
+    }
   end
 end

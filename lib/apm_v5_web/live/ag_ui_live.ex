@@ -38,7 +38,7 @@ defmodule ApmV5Web.AgUiLive do
       |> assign(:event_types, @event_types)
       |> assign(:paused, false)
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

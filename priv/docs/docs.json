@@ -239,6 +239,15 @@
           "icon": "hero-signal",
           "order": 10,
           "tags": ["ports", "portmanager", "conflicts", "namespacing", "liveview"]
+        },
+        {
+          "slug": "developer/memory-plugin",
+          "title": "Memory Plugin — Claude-Mem Integration",
+          "file": "developer/memory-plugin.md",
+          "description": "Memory plugin (:memory scope): MemoryClientBridge HTTP+SQLite GenServer, ObservationCache ETS store with TTL/LRU, ConversationMemoryCorrelator, MemoryLive /memory Browse/Search/Timeline, dashboard widget memory_observations, REST API /api/v2/memory/*, PubSub apm:memory",
+          "icon": "hero-circle-stack",
+          "order": 11,
+          "tags": ["memory", "claude-mem", "observations", "plugin", "genserver", "ets", "liveview", "api"]
         }
       ]
     },

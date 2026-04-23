@@ -549,20 +549,29 @@ const DependencyGraph = {
     this._collapsedProjects = new Set()
     this._autoCollapseApplied = false
 
+    // Guard flag: once hierarchy_data is received from LiveView, REST-fetch and
+    // agents_updated events must NOT overwrite it.  hierarchy_data carries the
+    // richer GraphBuilder tree; agents_updated and the REST fetch are only
+    // fallbacks for the initial empty state.
+    this._hierarchyDataReceived = false
+
     // Add mode toggle button
     this._addModeToggle()
 
     // Fetch initial data from APM
     this._fetchInitialData()
 
-    // LiveView sends structured tree
+    // LiveView sends structured tree — authoritative source, always wins
     this.handleEvent("hierarchy_data", (data) => {
+      this._hierarchyDataReceived = true
       this._treeData = data.tree || data
       if (this._mode === "hierarchy") this._render()
     })
 
-    // LiveView sends flat agent list — build tree client-side
+    // LiveView sends flat agent list — only used as a fallback when no
+    // hierarchy_data has been received yet (avoids overwriting the better tree)
     this.handleEvent("agents_updated", (data) => {
+      if (this._hierarchyDataReceived) return
       const agents = data.agents || []
       this._treeData = buildHierarchyFromAgents(agents) || this._treeData
       if (this._mode === "hierarchy") this._render()
@@ -649,10 +658,12 @@ const DependencyGraph = {
       }
 
       const tree = buildHierarchyFromFormations(formations, agents)
-      if (tree) {
+      // Do not overwrite a hierarchy_data tree that arrived via LiveView push
+      // while the REST fetch was in-flight.
+      if (tree && !this._hierarchyDataReceived) {
         this._treeData = tree
         this._render()
-      } else {
+      } else if (!tree && !this._hierarchyDataReceived && !this._treeData) {
         this._renderEmpty()
       }
     } catch (e) {

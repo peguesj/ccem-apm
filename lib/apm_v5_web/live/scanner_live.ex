@@ -39,7 +39,8 @@ defmodule ApmV5Web.ScannerLive do
      |> assign(:base_path, "~/Developer")
      |> assign(:scanning, false)
      |> assign(:scanner_status, status)
-     |> assign(:results, results)}
+     |> assign(:results, results
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
   end
 
   @impl true

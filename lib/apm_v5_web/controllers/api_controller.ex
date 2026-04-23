@@ -308,7 +308,12 @@ defmodule ApmV5Web.ApiController do
         wave_number: params["wave_number"],
         wave_total: params["wave_total"],
         work_item_title: params["work_item_title"],
-        upm_session_id: params["upm_session_id"]
+        upm_session_id: params["upm_session_id"],
+        # Pub/sub topology fields (for formation tree edge generation)
+        publishes: params["publishes"] || [],
+        subscribes: params["subscribes"] || [],
+        exports: params["exports"] || [],
+        imports: params["imports"] || []
       }
 
       :ok = AgentRegistry.register_agent(agent_id, metadata, project_name)
@@ -438,7 +443,9 @@ defmodule ApmV5Web.ApiController do
         wave_total: params["wave_total"],
         upm_context: upm_context,
         actions: actions,
-        metadata: params["metadata"]
+        metadata: params["metadata"],
+        channel: params["channel"],
+        source: params["source"]
       }
 
     id = AgentRegistry.add_notification(notification)
