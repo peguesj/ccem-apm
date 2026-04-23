@@ -56,11 +56,12 @@ defmodule ApmV5.Plugins.Memory.ObservationCache do
   If the table is at capacity the oldest entry is evicted first.
   Broadcasts `{:observations_updated, count}` on `"apm:memory"` after insert.
   """
-  @spec put(String.t(), map()) :: :ok
-  def put(id, observation) when is_binary(id) and is_map(observation) do
+  @spec put(String.t() | integer(), map()) :: :ok
+  def put(id, observation) when is_map(observation) do
+    str_id = to_string(id)
     now = System.monotonic_time(:millisecond)
     maybe_evict_oldest()
-    :ets.insert(@table, {id, observation, now})
+    :ets.insert(@table, {str_id, observation, now})
     broadcast_update()
     :ok
   end
@@ -68,17 +69,17 @@ defmodule ApmV5.Plugins.Memory.ObservationCache do
   @doc """
   Fetch an observation by `id`. Returns `nil` if not found or expired.
   """
-  @spec get(String.t()) :: map() | nil
-  def get(id) when is_binary(id) do
+  @spec get(String.t() | integer()) :: map() | nil
+  def get(id) do
+    str_id = to_string(id)
     now = System.monotonic_time(:millisecond)
 
-    case :ets.lookup(@table, id) do
-      [{^id, observation, inserted_at}] when now - inserted_at <= @ttl_ms ->
+    case :ets.lookup(@table, str_id) do
+      [{^str_id, observation, inserted_at}] when now - inserted_at <= @ttl_ms ->
         observation
 
-      [{^id, _observation, _inserted_at}] ->
-        # Expired — lazily delete
-        :ets.delete(@table, id)
+      [{^str_id, _observation, _inserted_at}] ->
+        :ets.delete(@table, str_id)
         nil
 
       [] ->
@@ -136,9 +137,10 @@ defmodule ApmV5.Plugins.Memory.ObservationCache do
     Enum.each(observations, fn obs ->
       id = Map.get(obs, "id") || Map.get(obs, :id)
 
-      if is_binary(id) do
+      if id != nil do
+        str_id = to_string(id)
         maybe_evict_oldest()
-        :ets.insert(@table, {id, obs, now})
+        :ets.insert(@table, {str_id, obs, now})
       else
         Logger.warning("[ObservationCache] Skipping observation without id: #{inspect(obs)}")
       end

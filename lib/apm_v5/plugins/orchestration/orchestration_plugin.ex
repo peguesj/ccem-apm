@@ -1,66 +1,24 @@
 defmodule ApmV5.Plugins.Orchestration.OrchestrationPlugin do
   @moduledoc """
-  APM Plugin for the orchestration system.
+  APM Plugin for the Orchestration System.
 
-  Exposes actions for listing orchestration runs, starting new runs,
-  querying the WorkflowRegistry, and enumerating supported orchestration
-  types with their semantic constraints.
+  Exposes orchestration actions via the PluginBehaviour interface and
+  registers a dashboard widget for orchestration summary.
 
-  ## Scope
-  `:orchestration` — registered in the orchestration category.
-
-  ## Actions
-  - `list_runs`    — List all active runs from OrchestrationManager
-  - `get_run`      — Get a single run by id
-  - `list_types`   — Enumerate all 6 orchestration types with metadata
-  - `list_workflows` — List all registered workflow templates
+  Actions:
+    - "start_run"     — start a new orchestration run
+    - "get_status"    — get a run's current status
+    - "replay_run"    — replay a historical run
+    - "dry_run"       — preview execution plan for a workflow
+    - "list_history"  — list completed runs
   """
 
   @behaviour ApmV5.Plugins.PluginBehaviour
 
   alias ApmV5.Orchestration.OrchestrationManager
-  alias ApmV5.WorkflowRegistry
+  alias ApmV5.Orchestration.OrchestrationRunStore
 
-  require Logger
-
-  @plugin_version "1.0.0"
-
-  @orchestration_types [
-    %{
-      type: :pipeline,
-      description: "Linear sequence with no loops; strict ordering (CI/CD style).",
-      required_params: []
-    },
-    %{
-      type: :workflow,
-      description: "DAG with conditional branches and gates (default type).",
-      required_params: []
-    },
-    %{
-      type: :maintenance,
-      description: "Scheduled/recurring health-check driven with auto-remediation.",
-      required_params: [:schedule]
-    },
-    %{
-      type: :sync,
-      description: "Bidirectional state reconciliation between two sources.",
-      required_params: [:source, :target]
-    },
-    %{
-      type: :formation,
-      description: "Multi-wave agent deployment following the formation pattern.",
-      required_params: []
-    },
-    %{
-      type: :autonomous,
-      description: "Self-directing orchestration with decision loops (Ralph pattern).",
-      required_params: []
-    }
-  ]
-
-  # ---------------------------------------------------------------------------
-  # PluginBehaviour
-  # ---------------------------------------------------------------------------
+  # ── PluginBehaviour ──────────────────────────────────────────────────────────
 
   @impl true
   @spec plugin_name() :: String.t()
@@ -69,11 +27,11 @@ defmodule ApmV5.Plugins.Orchestration.OrchestrationPlugin do
   @impl true
   @spec plugin_description() :: String.t()
   def plugin_description,
-    do: "Orchestration engine — typed DAG runs, workflow templates, and type registry"
+    do: "DAG-based workflow orchestration engine — start runs, advance steps, replay history"
 
   @impl true
   @spec plugin_version() :: String.t()
-  def plugin_version, do: @plugin_version
+  def plugin_version, do: "1.0.0"
 
   @impl true
   @spec plugin_scope() :: :orchestration
@@ -84,49 +42,109 @@ defmodule ApmV5.Plugins.Orchestration.OrchestrationPlugin do
   def list_endpoints do
     [
       %{
-        action: "list_runs",
-        description: "List all active orchestration runs",
-        params: %{}
+        action: "start_run",
+        description: "Start a new orchestration run for a workflow",
+        params: %{workflow_id: "string (required)", dry_run: "boolean (optional)"}
       },
       %{
-        action: "get_run",
-        description: "Get a single run by id",
-        params: %{id: "string (required)"}
+        action: "get_status",
+        description: "Get the current status of an orchestration run",
+        params: %{run_id: "string (required)"}
       },
       %{
-        action: "list_types",
-        description: "Enumerate all supported orchestration types with semantics and required params",
-        params: %{}
+        action: "replay_run",
+        description: "Replay a historical run with optional parameter overrides",
+        params: %{run_id: "string (required)", params: "map (optional)"}
       },
       %{
-        action: "list_workflows",
-        description: "List all registered workflow templates from WorkflowRegistry",
-        params: %{}
+        action: "dry_run",
+        description: "Preview the execution plan for a workflow without executing",
+        params: %{workflow_id: "string (required)"}
+      },
+      %{
+        action: "list_history",
+        description: "List historical orchestration runs",
+        params: %{workflow_id: "string (optional)", limit: "integer (optional)"}
       }
     ]
   end
 
   @impl true
   @spec handle_action(String.t(), map(), keyword()) :: {:ok, map()} | {:error, term()}
-  def handle_action("list_runs", _params, _opts) do
-    runs = OrchestrationManager.list_runs()
-    {:ok, %{runs: runs, count: length(runs)}}
-  end
+  def handle_action("start_run", %{"workflow_id" => wid} = params, _opts) do
+    run_params = Map.drop(params, ["workflow_id"])
 
-  def handle_action("get_run", %{"id" => id}, _opts) do
-    case OrchestrationManager.get_run(id) do
-      {:ok, run} -> {:ok, %{run: run}}
-      {:error, :not_found} -> {:error, {:not_found, "run #{id} not found"}}
+    case OrchestrationManager.start_run(wid, run_params) do
+      {:ok, run} -> {:ok, %{run_id: run.id, status: run.status, workflow_id: wid}}
+      {:error, reason} -> {:error, reason}
     end
   end
 
-  def handle_action("list_types", _params, _opts) do
-    {:ok, %{types: @orchestration_types}}
+  def handle_action("start_run", _params, _opts),
+    do: {:error, {:missing_param, "workflow_id is required"}}
+
+  def handle_action("get_status", %{"run_id" => run_id}, _opts) do
+    case OrchestrationManager.get_run(run_id) do
+      nil ->
+        case OrchestrationRunStore.get_run(run_id) do
+          nil -> {:error, {:not_found, run_id}}
+          run -> {:ok, %{run_id: run.id, status: run.status, archived: true}}
+        end
+
+      run ->
+        next = OrchestrationManager.next_steps(run_id)
+        total = map_size(run.steps)
+        done = Enum.count(run.steps, fn {_id, s} -> s.status in [:completed, :skipped] end)
+
+        {:ok,
+         %{
+           run_id: run.id,
+           status: run.status,
+           progress: "#{done}/#{total}",
+           next_steps: next,
+           workflow_id: run.workflow_id
+         }}
+    end
   end
 
-  def handle_action("list_workflows", _params, _opts) do
-    workflows = WorkflowRegistry.list_workflows()
-    {:ok, %{workflows: workflows, count: length(workflows)}}
+  def handle_action("get_status", _params, _opts),
+    do: {:error, {:missing_param, "run_id is required"}}
+
+  def handle_action("replay_run", %{"run_id" => run_id} = params, _opts) do
+    extra = Map.get(params, "params", %{})
+
+    case OrchestrationRunStore.replay_run(run_id, extra) do
+      {:ok, new_run} -> {:ok, %{new_run_id: new_run.id, replayed_from: run_id}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def handle_action("replay_run", _params, _opts),
+    do: {:error, {:missing_param, "run_id is required"}}
+
+  def handle_action("dry_run", %{"workflow_id" => wid}, _opts) do
+    case OrchestrationManager.start_run(wid, %{dry_run: true}) do
+      {:ok, result} -> {:ok, %{workflow_id: wid, execution_order: result[:execution_order]}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def handle_action("dry_run", _params, _opts),
+    do: {:error, {:missing_param, "workflow_id is required"}}
+
+  def handle_action("list_history", params, _opts) do
+    opts =
+      []
+      |> maybe_opt(:workflow_id, Map.get(params, "workflow_id"))
+      |> maybe_opt(:limit, parse_limit(Map.get(params, "limit")))
+
+    runs = OrchestrationRunStore.list_runs(opts)
+
+    {:ok,
+     %{
+       runs: Enum.map(runs, fn r -> %{id: r.id, workflow_id: r.workflow_id, status: r.status} end),
+       count: length(runs)
+     }}
   end
 
   def handle_action(action, _params, _opts) do
@@ -134,37 +152,71 @@ defmodule ApmV5.Plugins.Orchestration.OrchestrationPlugin do
   end
 
   @impl true
-  def supervisor_children do
-    [
-      ApmV5.Orchestration.OrchestrationRunStore,
-      ApmV5.Orchestration.OrchestrationManager
-    ]
-  end
-
-  @impl true
+  @spec nav_items() :: [{String.t(), String.t(), String.t() | nil}]
   def nav_items do
-    [{"Orchestration", "/orchestration", "hero-cpu-chip"}]
+    [{"Orchestration", "/orchestration", "hero-arrow-path-rounded-square"}]
   end
 
   @impl true
-  def plugin_live_module, do: ApmV5Web.OrchestrationLive
+  @spec supervisor_children() :: [Supervisor.child_spec()]
+  def supervisor_children, do: []
 
   @impl true
+  @spec default_enabled?() :: boolean()
+  def default_enabled?, do: true
+
+  @impl true
+  @spec dashboard_widgets() :: [map()]
   def dashboard_widgets do
     [
       %{
         id: "orchestration_summary",
-        name: "Orchestration Runs",
-        category: :plugin,
-        source_module: __MODULE__,
-        refresh_interval: 10_000,
-        min_width: 4,
+        name: "Orchestration",
+        description: "Active run count, last run status, total runs today",
+        category: :workflow,
+        source_module: ApmV5.Orchestration.OrchestrationManager,
+        refresh_interval: 5_000,
+        min_width: 3,
         min_height: 2,
         config_schema: %{},
         plugin: "orchestration",
-        version: @plugin_version,
-        description: "Active orchestration run summary with type breakdown"
+        version: "1.0.0",
+        pinnable: true,
+        editable: false
       }
     ]
   end
+
+  @impl true
+  @spec orchestration_topology() :: map()
+  def orchestration_topology do
+    %{
+      steps: [
+        %{id: "parse_request", name: "Parse Request", type: :action, config: %{}},
+        %{id: "decompose", name: "Decompose", type: :action, config: %{}},
+        %{id: "assign_squadrons", name: "Assign Squadrons", type: :action, config: %{}},
+        %{id: "monitor", name: "Monitor Execution", type: :action, config: %{}},
+        %{id: "aggregate", name: "Aggregate Results", type: :action, config: %{}},
+        %{id: "report", name: "Report", type: :terminal, config: %{}}
+      ],
+      edges: [
+        %{from: "parse_request", to: "decompose", condition: nil},
+        %{from: "decompose", to: "assign_squadrons", condition: nil},
+        %{from: "assign_squadrons", to: "monitor", condition: nil},
+        %{from: "monitor", to: "aggregate", condition: nil},
+        %{from: "aggregate", to: "report", condition: nil}
+      ],
+      gates: []
+    }
+  end
+
+  # ── Private ────────────────────────────────────────────────────────────────
+
+  defp maybe_opt(opts, _key, nil), do: opts
+  defp maybe_opt(opts, key, val), do: [{key, val} | opts]
+
+  defp parse_limit(nil), do: nil
+  defp parse_limit(n) when is_integer(n), do: n
+  defp parse_limit(s) when is_binary(s), do: String.to_integer(s)
+  defp parse_limit(_), do: nil
 end

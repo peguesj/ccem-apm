@@ -105,7 +105,8 @@ defmodule ApmV5.Plugins.PluginRegistry do
     ApmV5.Plugins.Mirofish.MirofishPlugin,
     ApmV5.Plugins.SkillDrift.SkillDriftPlugin,
     ApmV5.Plugins.Orchestration.OrchestrationPlugin,
-    ApmV5.Plugins.Memory.MemoryPlugin
+    ApmV5.Plugins.Memory.MemoryPlugin,
+    ApmV5.Plugins.Worktree.WorktreePlugin
   ]
 
   @impl true

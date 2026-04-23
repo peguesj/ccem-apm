@@ -105,8 +105,13 @@ defmodule ApmV5Web.Components.GettingStartedShowcase do
           </div>
         </div>
 
-        <%!-- Slide content area — managed by JS hook --%>
-        <div data-showcase-slides class="px-6 py-6 min-h-[340px]">
+        <%!-- Slide content area — managed by JS hook.
+             phx-update="ignore" prevents LiveView DOM patching from destroying
+             the Lottie SVG content rendered by the JS hook. Without this, any
+             PubSub-triggered re-render (agent heartbeat, notification, etc.)
+             would replace the JS-managed slides with the server template's
+             loading spinner, causing the "appears then disappears" bug. --%>
+        <div id="showcase-slides" data-showcase-slides phx-update="ignore" class="px-6 py-6 min-h-[340px]">
           <%!-- Initial loading state; replaced by JS --%>
           <div class="flex items-center justify-center h-[280px]">
             <span class="loading loading-spinner loading-md text-primary"></span>

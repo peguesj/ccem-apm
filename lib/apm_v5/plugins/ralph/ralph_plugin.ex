@@ -136,4 +136,33 @@ defmodule ApmV5.Plugins.Ralph.RalphPlugin do
   rescue
     _ -> []
   end
+
+  @impl true
+  @spec orchestration_topology() :: map()
+  def orchestration_topology do
+    %{
+      steps: [
+        %{id: "write_prd", name: "Write PRD", type: :action, config: %{}},
+        %{id: "pick_story", name: "Pick Story", type: :action, config: %{}},
+        %{id: "implement", name: "Implement", type: :action, config: %{}},
+        %{id: "quality_check", name: "Quality Check", type: :gate, config: %{gate_type: :compile}},
+        %{id: "commit", name: "Commit", type: :action, config: %{}},
+        %{id: "update_prd", name: "Update PRD", type: :action, config: %{}},
+        %{id: "more_stories", name: "More Stories?", type: :decision, config: %{}}
+      ],
+      edges: [
+        %{from: "write_prd", to: "pick_story", condition: nil},
+        %{from: "pick_story", to: "implement", condition: nil},
+        %{from: "implement", to: "quality_check", condition: nil},
+        %{from: "quality_check", to: "commit", condition: "pass"},
+        %{from: "commit", to: "update_prd", condition: nil},
+        %{from: "update_prd", to: "more_stories", condition: nil},
+        %{from: "more_stories", to: "pick_story", condition: "yes"},
+        %{from: "more_stories", to: nil, condition: "no"}
+      ],
+      gates: [
+        %{after_step: "quality_check", type: :compile_gate}
+      ]
+    }
+  end
 end

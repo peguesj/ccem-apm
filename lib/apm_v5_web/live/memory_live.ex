@@ -32,6 +32,7 @@ defmodule ApmV5Web.MemoryLive do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic)
       send(self(), :load_related_sessions)
+      send(self(), :hydrate_cache)
     end
 
     observations = ObservationCache.list(limit: @per_page, offset: 0)
@@ -596,6 +597,29 @@ defmodule ApmV5Web.MemoryLive do
       end
 
     {:noreply, socket}
+  end
+
+  def handle_info(:hydrate_cache, socket) do
+    cached = ObservationCache.list(limit: 1)
+
+    if cached == [] do
+      case MemoryClientBridge.timeline() do
+        {:ok, observations} when observations != [] ->
+          ObservationCache.refresh(observations)
+          page_obs = Enum.take(observations, socket.assigns.per_page)
+          stats = ObservationCache.stats()
+
+          {:noreply,
+           socket
+           |> assign(:observations, page_obs)
+           |> assign(:total_count, stats[:count] || length(observations))}
+
+        _ ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_info(:load_related_sessions, socket) do

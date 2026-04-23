@@ -79,10 +79,21 @@ defmodule ApmV5.ConversationWatcher do
     projects_dir = Path.expand("~/.claude/projects")
 
     case File.ls(projects_dir) do
-      {:ok, files} ->
-        files
-        |> Enum.filter(&String.ends_with?(&1, ".jsonl"))
-        |> Enum.map(&build_conversation(Path.join(projects_dir, &1), &1))
+      {:ok, project_dirs} ->
+        project_dirs
+        |> Enum.flat_map(fn dir_name ->
+          dir_path = Path.join(projects_dir, dir_name)
+
+          case File.dir?(dir_path) && File.ls(dir_path) do
+            {:ok, files} ->
+              files
+              |> Enum.filter(&String.ends_with?(&1, ".jsonl"))
+              |> Enum.map(&build_conversation(Path.join(dir_path, &1), &1, dir_name))
+
+            _ ->
+              []
+          end
+        end)
         |> Enum.reject(&is_nil/1)
         |> Enum.sort_by(& &1.last_modified, {:desc, NaiveDateTime})
 
@@ -91,7 +102,7 @@ defmodule ApmV5.ConversationWatcher do
     end
   end
 
-  defp build_conversation(path, filename) do
+  defp build_conversation(path, filename, project_dir_name) do
     case File.stat(path) do
       {:ok, %{size: size, mtime: mtime}} when size > 0 ->
         naive_mtime = NaiveDateTime.from_erl!(mtime)
@@ -99,7 +110,7 @@ defmodule ApmV5.ConversationWatcher do
         active = diff_minutes < @active_threshold_minutes
 
         session_id = Path.rootname(filename)
-        project = guess_project_name(session_id)
+        project = guess_project_name(project_dir_name)
 
         %{
           session_id: session_id,

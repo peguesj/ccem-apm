@@ -53,6 +53,20 @@ defmodule ApmV5Web.UsageLive do
     {:noreply, socket}
   end
 
+  # Broadcast from ClaudeUsageStore when a new usage event is recorded.
+  # Refresh both summary and raw usage data.
+  def handle_info({:usage_recorded, _event}, socket) do
+    summary = ClaudeUsageStore.get_summary()
+    usage_data = ClaudeUsageStore.get_all_usage()
+
+    socket =
+      socket
+      |> assign(:summary, summary)
+      |> assign(:usage_data, usage_data)
+
+    {:noreply, socket}
+  end
+
   def handle_info(:refresh, socket) do
     summary = ClaudeUsageStore.get_summary()
     usage_data = ClaudeUsageStore.get_all_usage()

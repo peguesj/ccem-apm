@@ -1,261 +1,409 @@
 defmodule ApmV5.Orchestration.OrchestrationManager do
   @moduledoc """
-  GenServer managing the DAG-based orchestration engine.
+  GenServer managing active orchestration runs.
 
-  Handles run lifecycle: start, advance, complete, cancel. Validates
-  type-specific constraints and broadcasts run events via PubSub.
+  Each run represents a DAG-based workflow execution. Steps are advanced
+  based on dependency resolution — a step can only run when all of its
+  upstream dependencies have completed.
 
-  ## Orchestration types
-  - `:pipeline`    — linear sequence, no cycles allowed
-  - `:workflow`    — DAG with conditional branches (default)
-  - `:maintenance` — scheduled/recurring; requires `schedule` param
-  - `:sync`        — bidirectional reconciliation; requires `source` and `target`
-  - `:formation`   — multi-wave agent deployment
-  - `:autonomous`  — self-directing decision loops (Ralph pattern)
+  ## ETS Table
 
-  ## ETS table
-  - `:orchestration_runs` — keyed by run id
+  - Name: `:orchestration_runs`
+  - Key: run_id (String.t)
+  - Value: run map
+
+  ## PubSub
+
+  Broadcasts on `"apm:orchestration"` for all state mutations.
   """
 
   use GenServer
   require Logger
 
-  alias ApmV5.Orchestration.OrchestrationRunStore
+  @table :orchestration_runs
+  @pubsub_topic "apm:orchestration"
 
-  @type orchestration_type :: :pipeline | :workflow | :maintenance | :sync | :formation | :autonomous
+  # ── Types ──────────────────────────────────────────────────────────────────
+
+  @type step_status :: :pending | :running | :completed | :failed | :skipped
 
   @type step :: %{
           id: String.t(),
-          label: String.t(),
-          type: :action | :gate | :decision | :terminal
+          status: step_status(),
+          started_at: DateTime.t() | nil,
+          completed_at: DateTime.t() | nil,
+          payload: map(),
+          result: map() | nil
         }
-
-  @type edge :: %{source: String.t(), target: String.t()}
 
   @type run :: %{
           id: String.t(),
-          orchestration_type: orchestration_type(),
+          workflow_id: String.t(),
           status: :pending | :running | :completed | :failed | :cancelled,
-          steps: [step()],
-          edges: [edge()],
-          current_step: String.t() | nil,
-          metadata: map(),
-          started_at: DateTime.t(),
-          completed_at: DateTime.t() | nil
+          steps: %{String.t() => step()},
+          edges: [%{source: String.t(), target: String.t()}],
+          current_wave: non_neg_integer(),
+          params: map(),
+          dry_run: boolean(),
+          created_at: DateTime.t(),
+          updated_at: DateTime.t()
         }
 
-  @table :orchestration_runs
-
-  # ---------------------------------------------------------------------------
-  # Public API
-  # ---------------------------------------------------------------------------
+  # ── Public API ─────────────────────────────────────────────────────────────
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @doc """
-  Start a new orchestration run from a params map.
-
-  Required keys: `:steps`, `:edges`.
-  Optional keys: `:orchestration_type` (default `:workflow`), `:schedule`,
-                 `:source`, `:target`, and any metadata.
-
-  Returns `{:ok, run}` or `{:error, reason}`.
-  """
-  @spec start_run(map(), keyword()) :: {:ok, run()} | {:error, term()}
-  def start_run(params, opts \\ []) do
-    GenServer.call(__MODULE__, {:start_run, params, opts})
+  @doc "Start a new orchestration run for a workflow."
+  @spec start_run(String.t(), map()) :: {:ok, run()} | {:error, term()}
+  def start_run(workflow_id, params \\ %{}) do
+    GenServer.call(__MODULE__, {:start_run, workflow_id, params})
   end
 
-  @doc "Advance a run to the next step."
-  @spec advance_step(String.t(), String.t()) :: {:ok, run()} | {:error, term()}
-  def advance_step(run_id, step_id) do
-    GenServer.call(__MODULE__, {:advance_step, run_id, step_id})
+  @doc "Advance a step in a run with the given result."
+  @spec advance_step(String.t(), String.t(), map()) :: {:ok, run()} | {:error, term()}
+  def advance_step(run_id, step_id, result \\ %{}) do
+    GenServer.call(__MODULE__, {:advance_step, run_id, step_id, result})
   end
 
-  @doc "Cancel a running orchestration."
-  @spec cancel_run(String.t()) :: :ok | {:error, :not_found}
+  @doc "Mark a step as failed."
+  @spec fail_step(String.t(), String.t(), term()) :: {:ok, run()} | {:error, term()}
+  def fail_step(run_id, step_id, reason \\ "unknown") do
+    GenServer.call(__MODULE__, {:fail_step, run_id, step_id, reason})
+  end
+
+  @doc "Skip a step."
+  @spec skip_step(String.t(), String.t()) :: {:ok, run()} | {:error, term()}
+  def skip_step(run_id, step_id) do
+    GenServer.call(__MODULE__, {:skip_step, run_id, step_id})
+  end
+
+  @doc "Cancel a run."
+  @spec cancel_run(String.t()) :: {:ok, run()} | {:error, term()}
   def cancel_run(run_id) do
     GenServer.call(__MODULE__, {:cancel_run, run_id})
   end
 
-  @doc "Get a run by id."
-  @spec get_run(String.t()) :: {:ok, run()} | {:error, :not_found}
+  @doc "Get a run by ID."
+  @spec get_run(String.t()) :: run() | nil
   def get_run(run_id) do
     case :ets.lookup(@table, run_id) do
-      [{^run_id, run}] -> {:ok, run}
-      [] -> {:error, :not_found}
+      [{^run_id, run}] -> run
+      [] -> nil
     end
   end
 
-  @doc "List all active (non-terminal) runs."
-  @spec list_runs() :: [run()]
-  def list_runs do
-    :ets.tab2list(@table) |> Enum.map(&elem(&1, 1))
+  @doc "List all active runs."
+  @spec list_active_runs() :: [run()]
+  def list_active_runs do
+    :ets.tab2list(@table)
+    |> Enum.map(fn {_id, run} -> run end)
+    |> Enum.filter(&(&1.status in [:pending, :running]))
+    |> Enum.sort_by(& &1.created_at, {:desc, DateTime})
+  end
+
+  @doc "List all runs (active and completed)."
+  @spec list_all_runs() :: [run()]
+  def list_all_runs do
+    :ets.tab2list(@table)
+    |> Enum.map(fn {_id, run} -> run end)
+    |> Enum.sort_by(& &1.created_at, {:desc, DateTime})
   end
 
   @doc """
-  Map a run's metadata to OpenTelemetry gen_ai semantic convention attribute names.
-
-  Returns a flat string-keyed map aligned with the `gen_ai.*` attribute namespace.
+  Determine which steps can execute next for a run.
+  A step is ready when all its upstream dependencies are completed.
   """
-  @spec otel_attributes(run()) :: %{String.t() => String.t()}
-  def otel_attributes(%{id: id, orchestration_type: type} = _run) do
-    %{
-      "gen_ai.operation.name" => Atom.to_string(type),
-      "gen_ai.system" => "ccem_apm",
-      "gen_ai.request.id" => id
-    }
+  @spec next_steps(String.t()) :: [String.t()]
+  def next_steps(run_id) do
+    case get_run(run_id) do
+      nil -> []
+      run -> compute_next_steps(run)
+    end
   end
 
-  # ---------------------------------------------------------------------------
-  # GenServer callbacks
-  # ---------------------------------------------------------------------------
+  @doc "Returns the PubSub topic for orchestration events."
+  @spec pubsub_topic() :: String.t()
+  def pubsub_topic, do: @pubsub_topic
+
+  # ── GenServer Callbacks ────────────────────────────────────────────────────
 
   @impl true
   def init(_opts) do
-    :ets.new(@table, [:named_table, :public, :set, read_concurrency: true])
-    {:ok, %{}}
+    table = :ets.new(@table, [:named_table, :public, read_concurrency: true])
+    {:ok, %{table: table}}
   end
 
   @impl true
-  def handle_call({:start_run, params, _opts}, _from, state) do
-    with :ok <- validate_type(params),
-         run <- build_run(params) do
-      :ets.insert(@table, {run.id, run})
-      OrchestrationRunStore.put(run)
-      broadcast_run_event(:run_started, run)
-      {:reply, {:ok, run}, state}
-    else
-      {:error, _} = err -> {:reply, err, state}
+  def handle_call({:start_run, workflow_id, params}, _from, state) do
+    case resolve_workflow(workflow_id) do
+      nil ->
+        {:reply, {:error, {:workflow_not_found, workflow_id}}, state}
+
+      workflow ->
+        dry_run = Map.get(params, :dry_run, false) || Map.get(params, "dry_run", false)
+        run = build_run(workflow_id, workflow, params, dry_run)
+
+        if dry_run do
+          # Dry run: return planned execution order without persisting
+          execution_order = compute_execution_order(run)
+          dry_result = Map.put(run, :execution_order, execution_order)
+          {:reply, {:ok, dry_result}, state}
+        else
+          :ets.insert(@table, {run.id, run})
+          broadcast(:run_started, run)
+          Logger.info("[OrchestrationManager] Started run #{run.id} for workflow #{workflow_id}")
+          {:reply, {:ok, run}, state}
+        end
     end
   end
 
-  def handle_call({:advance_step, run_id, step_id}, _from, state) do
-    case :ets.lookup(@table, run_id) do
-      [{^run_id, run}] ->
-        updated = %{run | current_step: step_id}
-        :ets.insert(@table, {run_id, updated})
-        OrchestrationRunStore.put(updated)
-        broadcast_run_event(:run_advanced, updated)
-        {:reply, {:ok, updated}, state}
+  @impl true
+  def handle_call({:advance_step, run_id, step_id, result}, _from, state) do
+    case get_run(run_id) do
+      nil ->
+        {:reply, {:error, {:run_not_found, run_id}}, state}
 
-      [] ->
-        {:reply, {:error, :not_found}, state}
+      run ->
+        case Map.get(run.steps, step_id) do
+          nil ->
+            {:reply, {:error, {:step_not_found, step_id}}, state}
+
+          step when step.status in [:pending, :running] ->
+            now = DateTime.utc_now()
+
+            updated_step = %{
+              step
+              | status: :completed,
+                started_at: step.started_at || now,
+                completed_at: now,
+                result: result
+            }
+
+            updated_run =
+              run
+              |> put_in([Access.key(:steps), step_id], updated_step)
+              |> Map.put(:updated_at, now)
+              |> maybe_complete_run()
+
+            :ets.insert(@table, {run_id, updated_run})
+            broadcast(:step_completed, %{run: updated_run, step_id: step_id})
+            {:reply, {:ok, updated_run}, state}
+
+          step ->
+            {:reply, {:error, {:invalid_transition, step.status, :completed}}, state}
+        end
     end
   end
 
+  @impl true
+  def handle_call({:fail_step, run_id, step_id, reason}, _from, state) do
+    case get_run(run_id) do
+      nil ->
+        {:reply, {:error, {:run_not_found, run_id}}, state}
+
+      run ->
+        case Map.get(run.steps, step_id) do
+          nil ->
+            {:reply, {:error, {:step_not_found, step_id}}, state}
+
+          step when step.status in [:pending, :running] ->
+            now = DateTime.utc_now()
+
+            updated_step = %{
+              step
+              | status: :failed,
+                started_at: step.started_at || now,
+                completed_at: now,
+                result: %{error: reason}
+            }
+
+            updated_run =
+              run
+              |> put_in([Access.key(:steps), step_id], updated_step)
+              |> Map.put(:updated_at, now)
+              |> Map.put(:status, :failed)
+
+            :ets.insert(@table, {run_id, updated_run})
+            broadcast(:step_failed, %{run: updated_run, step_id: step_id, reason: reason})
+            {:reply, {:ok, updated_run}, state}
+
+          step ->
+            {:reply, {:error, {:invalid_transition, step.status, :failed}}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:skip_step, run_id, step_id}, _from, state) do
+    case get_run(run_id) do
+      nil ->
+        {:reply, {:error, {:run_not_found, run_id}}, state}
+
+      run ->
+        case Map.get(run.steps, step_id) do
+          nil ->
+            {:reply, {:error, {:step_not_found, step_id}}, state}
+
+          step when step.status == :pending ->
+            now = DateTime.utc_now()
+
+            updated_step = %{step | status: :skipped, completed_at: now}
+
+            updated_run =
+              run
+              |> put_in([Access.key(:steps), step_id], updated_step)
+              |> Map.put(:updated_at, now)
+              |> maybe_complete_run()
+
+            :ets.insert(@table, {run_id, updated_run})
+            broadcast(:step_skipped, %{run: updated_run, step_id: step_id})
+            {:reply, {:ok, updated_run}, state}
+
+          step ->
+            {:reply, {:error, {:invalid_transition, step.status, :skipped}}, state}
+        end
+    end
+  end
+
+  @impl true
   def handle_call({:cancel_run, run_id}, _from, state) do
-    case :ets.lookup(@table, run_id) do
-      [{^run_id, run}] ->
-        updated = %{run | status: :cancelled, completed_at: DateTime.utc_now()}
-        :ets.insert(@table, {run_id, updated})
-        OrchestrationRunStore.put(updated)
-        broadcast_run_event(:run_cancelled, updated)
-        {:reply, :ok, state}
+    case get_run(run_id) do
+      nil ->
+        {:reply, {:error, {:run_not_found, run_id}}, state}
 
-      [] ->
-        {:reply, {:error, :not_found}, state}
+      run when run.status in [:pending, :running] ->
+        now = DateTime.utc_now()
+        updated_run = %{run | status: :cancelled, updated_at: now}
+        :ets.insert(@table, {run_id, updated_run})
+        broadcast(:run_cancelled, updated_run)
+        {:reply, {:ok, updated_run}, state}
+
+      run ->
+        {:reply, {:error, {:invalid_transition, run.status, :cancelled}}, state}
     end
   end
 
-  # ---------------------------------------------------------------------------
-  # Private helpers
-  # ---------------------------------------------------------------------------
+  # ── Private ────────────────────────────────────────────────────────────────
 
-  defp validate_type(%{orchestration_type: :pipeline} = params) do
-    case detect_cycle(Map.get(params, :edges, [])) do
-      true -> {:error, {:cycle_detected, "pipeline type does not permit cycles"}}
-      false -> :ok
-    end
+  defp resolve_workflow(workflow_id) do
+    ApmV5.WorkflowRegistry.get_workflow(workflow_id)
   end
 
-  defp validate_type(%{orchestration_type: :maintenance} = params) do
-    case Map.get(params, :schedule) do
-      nil -> {:error, {:missing_required_param, :schedule}}
-      _ -> :ok
-    end
-  end
+  defp build_run(workflow_id, workflow, params, dry_run) do
+    now = DateTime.utc_now()
+    run_id = "run-#{workflow_id}-#{:erlang.unique_integer([:positive])}"
 
-  defp validate_type(%{orchestration_type: :sync} = params) do
-    cond do
-      is_nil(Map.get(params, :source)) -> {:error, {:missing_required_param, :source}}
-      is_nil(Map.get(params, :target)) -> {:error, {:missing_required_param, :target}}
-      true -> :ok
-    end
-  end
+    steps =
+      (workflow[:steps] || workflow["steps"] || [])
+      |> Enum.map(fn step ->
+        step_id = step[:id] || step["id"]
 
-  defp validate_type(_params), do: :ok
+        {step_id,
+         %{
+           id: step_id,
+           status: :pending,
+           started_at: nil,
+           completed_at: nil,
+           payload: Map.drop(step, [:id, :status, "id", "status"]),
+           result: nil
+         }}
+      end)
+      |> Map.new()
 
-  @spec detect_cycle([edge()]) :: boolean()
-  defp detect_cycle(edges) do
-    # Build adjacency list then do DFS cycle detection
-    graph =
-      Enum.reduce(edges, %{}, fn %{source: s, target: t}, acc ->
-        Map.update(acc, s, [t], &[t | &1])
+    edges =
+      (workflow[:edges] || workflow["edges"] || [])
+      |> Enum.map(fn edge ->
+        %{
+          source: edge[:source] || edge["source"] || edge[:from] || edge["from"],
+          target: edge[:target] || edge["target"] || edge[:to] || edge["to"],
+          label: edge[:label] || edge["label"] || edge[:condition] || edge["condition"]
+        }
       end)
 
-    nodes = Map.keys(graph)
-
-    Enum.any?(nodes, fn node ->
-      has_cycle_from?(node, graph, MapSet.new(), MapSet.new())
-    end)
-  end
-
-  defp has_cycle_from?(node, graph, visited, in_stack) do
-    if MapSet.member?(in_stack, node) do
-      true
-    else
-      if MapSet.member?(visited, node) do
-        false
-      else
-        new_visited = MapSet.put(visited, node)
-        new_in_stack = MapSet.put(in_stack, node)
-        neighbors = Map.get(graph, node, [])
-
-        Enum.any?(neighbors, fn neighbor ->
-          has_cycle_from?(neighbor, graph, new_visited, new_in_stack)
-        end)
-      end
-    end
-  end
-
-  defp build_run(params) do
-    type = Map.get(params, :orchestration_type, :workflow)
-    metadata = build_metadata(params)
-
     %{
-      id: generate_id(),
-      orchestration_type: type,
-      status: :running,
-      steps: Map.get(params, :steps, []),
-      edges: Map.get(params, :edges, []),
-      current_step: nil,
-      metadata: metadata,
-      started_at: DateTime.utc_now(),
-      completed_at: nil
+      id: run_id,
+      workflow_id: workflow_id,
+      status: :pending,
+      steps: steps,
+      edges: edges,
+      current_wave: 0,
+      params: Map.drop(params, [:dry_run, "dry_run"]),
+      dry_run: dry_run,
+      created_at: now,
+      updated_at: now
     }
   end
 
-  defp build_metadata(params) do
-    base = Map.get(params, :metadata, %{})
+  defp compute_next_steps(run) do
+    completed_ids =
+      run.steps
+      |> Enum.filter(fn {_id, s} -> s.status in [:completed, :skipped] end)
+      |> Enum.map(fn {id, _s} -> id end)
+      |> MapSet.new()
 
-    base
-    |> maybe_put(:schedule, Map.get(params, :schedule))
-    |> maybe_put(:source, Map.get(params, :source))
-    |> maybe_put(:target, Map.get(params, :target))
+    run.steps
+    |> Enum.filter(fn {_id, s} -> s.status == :pending end)
+    |> Enum.filter(fn {step_id, _s} ->
+      # All upstream dependencies must be satisfied
+      upstream =
+        run.edges
+        |> Enum.filter(fn e -> e.target == step_id end)
+        |> Enum.map(fn e -> e.source end)
+
+      Enum.all?(upstream, &MapSet.member?(completed_ids, &1))
+    end)
+    |> Enum.map(fn {id, _s} -> id end)
   end
 
-  defp maybe_put(map, _key, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
-
-  defp generate_id do
-    :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
+  defp compute_execution_order(run) do
+    do_compute_order(run, [], MapSet.new())
   end
 
-  defp broadcast_run_event(event, run) do
-    Phoenix.PubSub.broadcast(ApmV5.PubSub, "orchestration:runs", {event, run})
+  defp do_compute_order(run, acc, completed) do
+    next =
+      run.steps
+      |> Enum.filter(fn {_id, s} -> s.status == :pending end)
+      |> Enum.filter(fn {step_id, _s} ->
+        not MapSet.member?(completed, step_id) and
+          run.edges
+          |> Enum.filter(fn e -> e.target == step_id end)
+          |> Enum.all?(fn e -> MapSet.member?(completed, e.source) end)
+      end)
+      |> Enum.map(fn {id, _s} -> id end)
+
+    case next do
+      [] ->
+        Enum.reverse(acc)
+
+      step_ids ->
+        wave = %{wave: length(acc) + 1, steps: step_ids}
+        new_completed = Enum.reduce(step_ids, completed, &MapSet.put(&2, &1))
+        do_compute_order(run, [wave | acc], new_completed)
+    end
+  end
+
+  defp maybe_complete_run(run) do
+    all_done =
+      Enum.all?(run.steps, fn {_id, s} ->
+        s.status in [:completed, :skipped, :failed]
+      end)
+
+    if all_done do
+      has_failures = Enum.any?(run.steps, fn {_id, s} -> s.status == :failed end)
+      new_status = if has_failures, do: :failed, else: :completed
+      broadcast(:run_completed, %{run_id: run.id, status: new_status})
+      %{run | status: new_status}
+    else
+      %{run | status: :running}
+    end
+  end
+
+  defp broadcast(event, payload) do
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, @pubsub_topic, {event, payload})
+  rescue
+    _ -> :ok
   end
 end

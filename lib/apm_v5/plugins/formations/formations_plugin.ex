@@ -118,4 +118,28 @@ defmodule ApmV5.Plugins.Formations.FormationsPlugin do
   @impl true
   @spec default_enabled?() :: boolean()
   def default_enabled?, do: true
+
+  @impl true
+  @spec orchestration_topology() :: map()
+  def orchestration_topology do
+    %{
+      steps: [
+        %{id: "deploy", name: "Deploy Formation", type: :action, config: %{}},
+        %{id: "register_agents", name: "Register Agents", type: :action, config: %{}},
+        %{id: "wave_gate", name: "Wave Gate", type: :gate, config: %{gate_type: :compile}},
+        %{id: "next_wave", name: "Next Wave", type: :action, config: %{}},
+        %{id: "complete", name: "Complete", type: :terminal, config: %{}}
+      ],
+      edges: [
+        %{from: "deploy", to: "register_agents", condition: nil},
+        %{from: "register_agents", to: "wave_gate", condition: nil},
+        %{from: "wave_gate", to: "next_wave", condition: "pass"},
+        %{from: "wave_gate", to: "complete", condition: "last_wave"},
+        %{from: "next_wave", to: "wave_gate", condition: nil}
+      ],
+      gates: [
+        %{after_step: "wave_gate", type: :compile_gate}
+      ]
+    }
+  end
 end

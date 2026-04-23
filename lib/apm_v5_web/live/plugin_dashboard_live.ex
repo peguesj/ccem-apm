@@ -47,6 +47,12 @@ defmodule ApmV5Web.PluginDashboardLive do
   defp status_class(:initializing), do: "badge-info"
   defp status_class(_), do: "badge-ghost"
 
+  defp safe_status(val) when is_atom(val), do: val
+  defp safe_status(val) when is_binary(val), do: val
+  defp safe_status(%{status: s}), do: safe_status(s)
+  defp safe_status(%{"status" => s}), do: safe_status(s)
+  defp safe_status(_), do: :unknown
+
   # ── Empty state component ──────────────────────────────────────────────────
 
   attr :icon, :string, default: "hero-cube-transparent"
@@ -120,17 +126,41 @@ defmodule ApmV5Web.PluginDashboardLive do
        cc_plugins: [],
        cc_plugins_summary: %{},
        # Plugin repositories
-       plugin_repos: []
+       plugin_repos: [],
+       # Slug-based detail views
+       selected_plugin_slug: nil,
+       selected_integration_slug: nil
      )}
   end
 
   @impl true
+  def handle_params(%{"slug" => slug}, _uri, %{assigns: %{live_action: :plugin_show}} = socket) do
+    {:noreply,
+     socket
+     |> assign(active_tab: "mcp", current_path: "/plugins/#{slug}", page_title: "Plugin: #{humanize(slug)}")
+     |> assign(selected_plugin_slug: slug)}
+  end
+
+  def handle_params(%{"slug" => slug}, _uri, %{assigns: %{live_action: :integration_show}} = socket) do
+    {:noreply,
+     socket
+     |> assign(active_tab: "integrations", current_path: "/integrations/#{slug}", page_title: "Integration: #{humanize(slug)}")
+     |> assign(selected_integration_slug: slug)}
+  end
+
   def handle_params(_params, _uri, %{assigns: %{live_action: :integrations_tab}} = socket) do
     {:noreply, assign(socket, active_tab: "integrations", current_path: "/integrations")}
   end
 
   def handle_params(_params, _uri, socket) do
     {:noreply, assign(socket, current_path: "/plugins")}
+  end
+
+  defp humanize(slug) do
+    slug
+    |> String.replace(["-", "_"], " ")
+    |> String.split(" ", trim: true)
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 
   # ── Tab / navigation events ──────────────────────────────────────────────────
@@ -810,8 +840,8 @@ defmodule ApmV5Web.PluginDashboardLive do
                         <span class={"badge badge-xs #{protocol_class(integration.protocol)}"}>
                           {integration.protocol}
                         </span>
-                        <span class={"badge badge-xs #{status_class(Map.get(@integration_status_results, integration.name, integration.status))}"}>
-                          {Map.get(@integration_status_results, integration.name, integration.status)}
+                        <span class={"badge badge-xs #{status_class(safe_status(Map.get(@integration_status_results, integration.name, integration.status)))}"}>
+                          {safe_status(Map.get(@integration_status_results, integration.name, integration.status))}
                         </span>
                         <span class="badge badge-xs">v{integration.version}</span>
                       </div>

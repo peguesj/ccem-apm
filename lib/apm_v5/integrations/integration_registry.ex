@@ -30,7 +30,8 @@ defmodule ApmV5.Integrations.IntegrationRegistry do
     ApmV5.Integrations.ClaudeFlow.ClaudeFlowIntegration,
     ApmV5.Integrations.ClaudeExpertise.ClaudeExpertiseIntegration,
     ApmV5.Integrations.Uat.UatIntegration,
-    ApmV5.Integrations.RalphIntegration
+    ApmV5.Integrations.RalphIntegration,
+    ApmV5.Integrations.Worktree.WorktreeIntegration
   ]
 
   # ── Public API ──────────────────────────────────────────────────────────────

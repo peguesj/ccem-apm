@@ -248,17 +248,23 @@ defmodule ApmV5Web.Components.SidebarNav do
     end)
   end
 
-  defp plugin_href(plugin) do
-    name = plugin[:name] || plugin["name"] || ""
-    slug = name |> to_string() |> String.downcase() |> String.replace(" ", "-")
-    "/plugins/#{slug}"
+  defp plugin_slug(plugin) do
+    (plugin[:name] || plugin["name"] || "")
+    |> to_string()
+    |> String.downcase()
+    |> String.replace(" ", "-")
   end
 
-  defp integration_href(integ) do
-    name = integ[:name] || integ["name"] || ""
-    slug = name |> to_string() |> String.downcase() |> String.replace(" ", "-")
-    "/integrations/#{slug}"
+  defp plugin_href(plugin), do: "/plugins/#{plugin_slug(plugin)}"
+
+  defp integration_slug(integ) do
+    (integ[:name] || integ["name"] || "")
+    |> to_string()
+    |> String.downcase()
+    |> String.replace(" ", "-")
   end
+
+  defp integration_href(integ), do: "/integrations/#{integration_slug(integ)}"
 
   defp humanize_name(name) do
     name

@@ -428,31 +428,29 @@ defmodule ApmV5Web.AuthorizationLive do
   end
 
   @impl true
-  def handle_event("update_setting", %{"field" => field, "value" => value}, socket) do
-    updated_assigns =
-      case field do
-        "risk_eval_mode" ->
-          Map.put(socket.assigns, :risk_eval_mode, String.to_atom(value))
+  def handle_event("update_setting", params, socket) do
+    socket =
+      cond do
+        Map.has_key?(params, "risk_eval_mode") ->
+          assign(socket, :risk_eval_mode, String.to_atom(params["risk_eval_mode"]))
 
-        "risk_threshold" ->
-          threshold = String.to_integer(value)
-          Map.put(socket.assigns, :risk_threshold, threshold)
+        Map.has_key?(params, "risk_threshold") ->
+          assign(socket, :risk_threshold, String.to_integer(params["risk_threshold"]))
 
-        "timeout_seconds" ->
-          timeout = String.to_integer(value)
-          Map.put(socket.assigns, :timeout_seconds, timeout)
+        Map.has_key?(params, "timeout_seconds") ->
+          assign(socket, :timeout_seconds, String.to_integer(params["timeout_seconds"]))
 
-        "redaction_mode" ->
-          Map.put(socket.assigns, :redaction_mode, String.to_atom(value))
+        Map.has_key?(params, "redaction_mode") ->
+          assign(socket, :redaction_mode, String.to_atom(params["redaction_mode"]))
 
-        _ ->
-          socket.assigns
+        true ->
+          socket
       end
 
     # Persist settings to APM config (fire-and-forget)
-    Task.start_link(fn -> persist_settings(updated_assigns) end)
+    Task.start_link(fn -> persist_settings(socket.assigns) end)
 
-    {:noreply, assign(socket, updated_assigns)}
+    {:noreply, socket}
   end
 
   # ── Keyboard shortcut handlers ──────────────────────────────────────────────
@@ -780,9 +778,9 @@ defmodule ApmV5Web.AuthorizationLive do
                     <span class="label-text font-semibold">Risk Evaluation Mode</span>
                   </label>
                   <select
+                    name="risk_eval_mode"
                     class="select select-bordered select-sm w-full"
                     phx-change="update_setting"
-                    phx-value-field="risk_eval_mode"
                   >
                     <option value="automatic" selected={@risk_eval_mode == :automatic}>Automatic</option>
                     <option value="manual" selected={@risk_eval_mode == :manual}>Manual</option>
@@ -800,12 +798,12 @@ defmodule ApmV5Web.AuthorizationLive do
                   </label>
                   <input
                     type="range"
+                    name="risk_threshold"
                     min="0"
                     max="100"
                     value={@risk_threshold}
                     class="range range-sm range-primary"
                     phx-change="update_setting"
-                    phx-value-field="risk_threshold"
                   />
                   <label class="label">
                     <span class="label-text-alt">Operations above this score require approval</span>
@@ -818,9 +816,9 @@ defmodule ApmV5Web.AuthorizationLive do
                     <span class="label-text font-semibold">Approval Timeout</span>
                   </label>
                   <select
+                    name="timeout_seconds"
                     class="select select-bordered select-sm w-full"
                     phx-change="update_setting"
-                    phx-value-field="timeout_seconds"
                   >
                     <option value="10" selected={@timeout_seconds == 10}>10 seconds</option>
                     <option value="20" selected={@timeout_seconds == 20}>20 seconds (default)</option>
@@ -839,9 +837,9 @@ defmodule ApmV5Web.AuthorizationLive do
                     <span class="label-text font-semibold">Redaction Mode</span>
                   </label>
                   <select
+                    name="redaction_mode"
                     class="select select-bordered select-sm w-full"
                     phx-change="update_setting"
-                    phx-value-field="redaction_mode"
                   >
                     <option value="auto" selected={@redaction_mode == :auto}>Auto</option>
                     <option value="manual" selected={@redaction_mode == :manual}>Manual</option>
@@ -861,8 +859,6 @@ defmodule ApmV5Web.AuthorizationLive do
             </div>
           </div>
 
-          <%!-- Modal backdrop click handler --%>
-          <div class="fixed inset-0 z-30" phx-click="toggle_settings_modal"></div>
         <% end %>
 
         <main class="flex-1 overflow-y-auto p-4 space-y-4">

@@ -11,6 +11,7 @@ defmodule ApmV5Web.ConversationMonitorLive do
   use ApmV5Web, :live_view
 
   import ApmV5Web.Components.GettingStartedWizard
+  import ApmV5Web.Components.ConversationDrawer
 
   require Logger
 
@@ -32,6 +33,7 @@ defmodule ApmV5Web.ConversationMonitorLive do
       |> assign(
         tray_open: false,
         tray_tab: "live",
+        drawer_height: :collapsed,
         selected_conversations: MapSet.new(),
         conversation_messages: [],
         live_offsets: %{},
@@ -49,14 +51,46 @@ defmodule ApmV5Web.ConversationMonitorLive do
 
   @impl true
   def handle_event("toggle_tray", _params, socket) do
-    {:noreply, assign(socket, tray_open: !socket.assigns.tray_open)}
+    new_height =
+      case socket.assigns.drawer_height do
+        :collapsed -> :expanded
+        _ -> :collapsed
+      end
+
+    {:noreply, assign(socket, drawer_height: new_height, tray_open: new_height != :collapsed)}
+  end
+
+  @impl true
+  def handle_event("drawer_resized", %{"height" => raw_height}, socket) do
+    px = raw_height |> to_string() |> Integer.parse() |> elem(0)
+    clamped = ApmV5Web.Components.ConversationDrawer.clamp_height(px)
+
+    new_height = if clamped <= 60, do: :collapsed, else: clamped
+
+    {:noreply,
+     assign(socket, drawer_height: new_height, tray_open: new_height != :collapsed)}
+  end
+
+  @impl true
+  def handle_event("drawer_collapse", _params, socket) do
+    {:noreply, assign(socket, drawer_height: :collapsed, tray_open: false)}
+  end
+
+  @impl true
+  def handle_event("drawer_toggle", _params, socket) do
+    handle_event("toggle_tray", %{}, socket)
+  end
+
+  @impl true
+  def handle_event("drawer_fullscreen", _params, socket) do
+    {:noreply, assign(socket, drawer_height: :fullscreen, tray_open: true)}
   end
 
   @impl true
   def handle_event("select_tray_tab", %{"tab" => tab}, socket) do
     socket =
       socket
-      |> assign(tray_tab: tab, tray_open: true)
+      |> assign(tray_tab: tab, tray_open: true, drawer_height: expand_if_collapsed(socket.assigns.drawer_height))
       |> maybe_start_live_poll(tab)
 
     {:noreply, socket}
@@ -350,7 +384,8 @@ defmodule ApmV5Web.ConversationMonitorLive do
         <div class={[
           "flex-1 overflow-y-auto p-4 transition-all duration-300",
           @tray_open && "pb-[42vh]" || "pb-16"
-        ]}>
+        ]}
+        >
           <div :if={@conversations == []} class="text-center py-8 text-base-content/40 text-sm">
             No sessions found in ~/.claude/projects/
           </div>
@@ -393,62 +428,16 @@ defmodule ApmV5Web.ConversationMonitorLive do
           </div>
         </div>
 
-        <%!-- Sticky bottom tray — full width of main container --%>
-        <div class={[
-          "absolute bottom-0 left-0 right-0 bg-base-200 border-t border-base-300 z-30",
-          "transition-all duration-300 ease-in-out",
-          @tray_open && "h-[40vh]" || "h-14"
-        ]}>
-          <%!-- Handle bar with title and caret --%>
-          <div
-            class="flex items-center justify-between cursor-pointer group h-8 border-b border-base-300/50 px-4"
-            phx-click="toggle_tray"
-          >
-            <span class="text-xs font-semibold text-base-content/60">Conversation Inspector</span>
-            <div class="flex items-center gap-2">
-              <%!-- Related sessions badge --%>
-              <span
-                :if={@show_related and not @tray_open}
-                class="badge badge-xs badge-info"
-              >
-                {length(@related_sessions)} related
-              </span>
-              <%!-- Caret icon --%>
-              <span class="text-base-content/40 group-hover:text-base-content/70 transition-colors">
-                <.icon :if={@tray_open} name="hero-chevron-down" class="size-4" />
-                <.icon :if={!@tray_open} name="hero-chevron-up" class="size-4" />
-              </span>
-            </div>
-          </div>
-
-          <%!-- Tab bar --%>
-          <div class="flex items-center gap-1 px-3 h-6">
-            <button
-              :for={tab <- tray_tabs(assigns)}
-              phx-click="select_tray_tab"
-              phx-value-tab={tab.id}
-              class={[
-                "btn btn-xs rounded-full px-3 transition-colors",
-                @tray_tab == tab.id && "btn-primary" || "btn-ghost text-base-content/60"
-              ]}
-            >
-              {tab.label}
-            </button>
-            <%!-- Related sessions badge in tab bar --%>
-            <button
-              :if={@show_related}
-              phx-click="include_related"
-              class="btn btn-xs btn-ghost text-info ml-auto"
-            >
-              + {length(@related_sessions)} related sessions
-            </button>
-          </div>
-
-          <%!-- Tab content (only rendered when open) --%>
-          <div :if={@tray_open} class="overflow-y-auto p-3" style="height: calc(40vh - 3.5rem);">
-            {render_tray_tab(assigns)}
-          </div>
-        </div>
+        <%!-- Conversation Inspector drawer --%>
+        <.conversation_drawer
+          drawer_height={@drawer_height}
+          tray_tab={@tray_tab}
+          tray_tabs={tray_tabs(assigns)}
+          show_related={@show_related}
+          related_sessions={@related_sessions}
+        >
+          {render_tray_tab(assigns)}
+        </.conversation_drawer>
       </div>
     </div>
     <.wizard page="agents" dom_id="ccem-wizard-agents-convmon" />
@@ -456,19 +445,27 @@ defmodule ApmV5Web.ConversationMonitorLive do
   end
 
   defp tray_tabs(assigns) do
+    live_count = length(assigns.live_messages)
+    log_count = length(assigns.conversation_messages)
+    actions_count = assigns.conversation_messages |> extract_tool_entries() |> length()
+    memory_count = length(assigns.memory_observations)
+
     base = [
-      %{id: "live", label: "Live"},
-      %{id: "log", label: "Log"},
-      %{id: "actions", label: "Actions"},
-      %{id: "execution", label: "Execution"},
-      %{id: "memory", label: "Memory"}
+      %{id: "live", label: "Live", count: live_count},
+      %{id: "log", label: "Log", count: log_count},
+      %{id: "actions", label: "Actions", count: actions_count},
+      %{id: "execution", label: "Execution", count: 0},
+      %{id: "memory", label: "Memory", count: memory_count}
     ]
 
-    upm = if assigns.has_upm, do: [%{id: "upm", label: "UPM"}], else: []
-    formation = if assigns.has_formation, do: [%{id: "formation", label: "Formation"}], else: []
+    upm = if assigns.has_upm, do: [%{id: "upm", label: "UPM", count: length(assigns.tray_upm_agents)}], else: []
+    formation = if assigns.has_formation, do: [%{id: "formation", label: "Formation", count: length(assigns.tray_formation_agents)}], else: []
 
     base ++ upm ++ formation
   end
+
+  defp expand_if_collapsed(:collapsed), do: :expanded
+  defp expand_if_collapsed(height), do: height
 
   # ── Live tab ────────────────────────────────────────────────────────
 
@@ -526,20 +523,22 @@ defmodule ApmV5Web.ConversationMonitorLive do
       </div>
       <div
         :for={msg <- @conversation_messages}
+        title={format_ts(msg.timestamp)}
         class={[
-          "flex items-start gap-2 text-xs font-mono rounded px-2 py-1",
+          "flex items-center gap-2 text-xs font-mono rounded px-2 py-0.5 cursor-default",
+          "hover:bg-base-300/80 transition-colors",
           msg.type == "user" && "bg-primary/10",
           msg.type == "assistant" && "bg-base-300/50",
           msg.type == "system" && "bg-warning/10"
         ]}
       >
         <span class={[
-          "badge badge-xs shrink-0 mt-0.5",
+          "badge badge-xs shrink-0",
           msg.type == "user" && "badge-primary",
           msg.type == "assistant" && "badge-success",
           msg.type == "system" && "badge-warning"
         ]}>{msg.type}</span>
-        <span class="text-base-content/30 shrink-0 w-16">{format_ts(msg.timestamp)}</span>
+        <span class="text-base-content/30 shrink-0 w-14">{relative_ts(msg.timestamp)}</span>
         <span class="text-base-content/70 flex-1 truncate">
           {truncate(msg.content || "(no text content)", 200)}
         </span>
@@ -795,4 +794,26 @@ defmodule ApmV5Web.ConversationMonitorLive do
   end
 
   defp format_ts(_), do: "?"
+
+  # Relative timestamp — "Xm ago", "Xs ago", or falls back to absolute.
+  defp relative_ts(nil), do: "?"
+
+  defp relative_ts(ts) when is_binary(ts) do
+    case DateTime.from_iso8601(ts) do
+      {:ok, dt, _} ->
+        diff = DateTime.diff(DateTime.utc_now(), dt, :second)
+
+        cond do
+          diff < 60 -> "#{diff}s ago"
+          diff < 3600 -> "#{div(diff, 60)}m ago"
+          diff < 86_400 -> "#{div(diff, 3600)}h ago"
+          true -> Calendar.strftime(dt, "%m/%d")
+        end
+
+      _ ->
+        format_ts(ts)
+    end
+  end
+
+  defp relative_ts(_), do: "?"
 end

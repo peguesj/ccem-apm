@@ -162,60 +162,92 @@ defmodule ApmV5.Plugins.Memory.MemoryClientBridge do
 
   @spec do_search(mode(), String.t()) :: {:ok, list(map())} | {:error, term()}
   defp do_search(:http, query) do
-    http_post("/search", %{query: query})
+    # claude-mem worker: GET /api/search?query=...
+    # Returns MCP-style {content: [{type: "text", text: "..."}]} — not structured data.
+    # Fall through to observations with search as a filter for now.
+    case http_get("/api/observations?limit=200") do
+      {:ok, %{"items" => items}} when is_list(items) ->
+        q = String.downcase(query)
+
+        filtered =
+          Enum.filter(items, fn obs ->
+            searchable =
+              [obs["title"], obs["subtitle"], obs["narrative"], obs["text"]]
+              |> Enum.reject(&is_nil/1)
+              |> Enum.join(" ")
+              |> String.downcase()
+
+            String.contains?(searchable, q)
+          end)
+
+        {:ok, filtered}
+
+      {:ok, _other} ->
+        {:ok, []}
+
+      error ->
+        error
+    end
   end
 
-  defp do_search(:sqlite, query) do
-    sqlite_search(query)
-  end
-
+  defp do_search(:sqlite, query), do: sqlite_search(query)
   defp do_search(:unavailable, _query), do: {:error, :unreachable}
 
   @spec do_get_observations(mode(), [String.t()]) :: {:ok, list(map())} | {:error, term()}
   defp do_get_observations(:http, ids) do
-    http_post("/get_observations", %{ids: ids})
+    # claude-mem worker: GET /api/observations — fetch all then filter by ID
+    case http_get("/api/observations?limit=500") do
+      {:ok, %{"items" => items}} when is_list(items) ->
+        id_set = MapSet.new(ids, &to_string/1)
+        matched = Enum.filter(items, fn obs -> to_string(obs["id"]) in id_set end)
+        {:ok, matched}
+
+      {:ok, _other} ->
+        {:ok, []}
+
+      error ->
+        error
+    end
   end
 
-  defp do_get_observations(:sqlite, ids) do
-    sqlite_get_observations(ids)
-  end
-
+  defp do_get_observations(:sqlite, ids), do: sqlite_get_observations(ids)
   defp do_get_observations(:unavailable, _ids), do: {:error, :unreachable}
 
   @spec do_timeline(mode(), keyword()) :: {:ok, list(map())} | {:error, term()}
-  defp do_timeline(:http, opts) do
-    body =
-      %{}
-      |> maybe_put_datetime(:from, Keyword.get(opts, :from))
-      |> maybe_put_datetime(:to, Keyword.get(opts, :to))
+  defp do_timeline(:http, _opts) do
+    # claude-mem worker: GET /api/observations — sorted by created_at
+    case http_get("/api/observations?limit=500") do
+      {:ok, %{"items" => items}} when is_list(items) ->
+        sorted = Enum.sort_by(items, & &1["created_at"], :asc)
+        {:ok, sorted}
 
-    http_post("/timeline", body)
+      {:ok, _other} ->
+        {:ok, []}
+
+      error ->
+        error
+    end
   end
 
-  defp do_timeline(:sqlite, opts) do
-    sqlite_timeline(opts)
-  end
-
+  defp do_timeline(:sqlite, opts), do: sqlite_timeline(opts)
   defp do_timeline(:unavailable, _opts), do: {:error, :unreachable}
 
-  @spec http_post(String.t(), map()) :: {:ok, list(map())} | {:error, term()}
-  defp http_post(path, body) do
+  @spec http_get(String.t()) :: {:ok, map() | list()} | {:error, term()}
+  defp http_get(path) do
     url = ~c"#{@worker_base_url}#{path}"
 
-    with {:ok, json} <- Jason.encode(body),
-         request = {url, [{"content-type", "application/json"}], ~c"application/json", json},
-         {:ok, {{_vsn, status, _reason}, _headers, resp_body}} <-
-           :httpc.request(:post, request, [{:timeout, 5_000}], []) do
-      if status in 200..299 do
+    case :httpc.request(:get, {url, []}, [{:timeout, 5_000}], []) do
+      {:ok, {{_vsn, status, _reason}, _headers, resp_body}} when status in 200..299 ->
         case Jason.decode(resp_body) do
           {:ok, decoded} -> {:ok, decoded}
           {:error, reason} -> {:error, {:json_decode, reason}}
         end
-      else
+
+      {:ok, {{_vsn, status, _reason}, _headers, _body}} ->
         {:error, {:http_status, status}}
-      end
-    else
-      {:error, reason} -> {:error, {:http_error, reason}}
+
+      {:error, reason} ->
+        {:error, {:http_error, reason}}
     end
   end
 
@@ -323,10 +355,6 @@ defmodule ApmV5.Plugins.Memory.MemoryClientBridge do
   defp schedule_health_check do
     Process.send_after(self(), :health_check, @health_interval_ms)
   end
-
-  @spec maybe_put_datetime(map(), atom(), DateTime.t() | nil) :: map()
-  defp maybe_put_datetime(map, _key, nil), do: map
-  defp maybe_put_datetime(map, key, %DateTime{} = dt), do: Map.put(map, key, DateTime.to_iso8601(dt))
 
   @spec add_condition(list(), term(), String.t(), term()) :: list()
   defp add_condition(acc, nil, _clause, _binding), do: acc

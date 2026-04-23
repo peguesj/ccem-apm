@@ -74,8 +74,22 @@ defmodule ApmV5.Plugins.Memory.MemoryPlugin do
       |> maybe_put_opt(:limit, Map.get(params, "limit") || Map.get(params, :limit))
       |> maybe_put_opt(:offset, Map.get(params, "offset") || Map.get(params, :offset))
 
-    observations = ObservationCache.list(opts)
-    {:ok, %{observations: observations, count: length(observations)}}
+    cached = ObservationCache.list(opts)
+
+    if cached == [] do
+      # Cache empty — fetch from bridge and populate cache
+      case MemoryClientBridge.timeline() do
+        {:ok, observations} when observations != [] ->
+          ObservationCache.refresh(observations)
+          limited = apply_list_opts(observations, opts)
+          {:ok, %{observations: limited, count: length(limited), source: :bridge}}
+
+        _ ->
+          {:ok, %{observations: [], count: 0, source: :cache}}
+      end
+    else
+      {:ok, %{observations: cached, count: length(cached), source: :cache}}
+    end
   end
 
   def handle_action("search_observations", params, _opts) do
@@ -201,5 +215,14 @@ defmodule ApmV5.Plugins.Memory.MemoryPlugin do
         Logger.warning("[MemoryPlugin] Invalid datetime string for #{key}: #{inspect(reason)}")
         opts
     end
+  end
+
+  defp apply_list_opts(observations, opts) do
+    offset = Keyword.get(opts, :offset, 0)
+    limit = Keyword.get(opts, :limit, 50)
+
+    observations
+    |> Enum.drop(offset)
+    |> Enum.take(limit)
   end
 end
