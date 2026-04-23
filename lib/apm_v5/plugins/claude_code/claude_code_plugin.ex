@@ -41,6 +41,20 @@ defmodule ApmV5.Plugins.ClaudeCode.ClaudeCodePlugin do
   def plugin_version, do: "1.0.0"
 
   @impl true
+  def config_schema do
+    %{
+      plugin_scan_enabled: "boolean",
+      scan_interval_ms: "integer",
+      bridge_mode: "enum:auto,manual,disabled"
+    }
+  end
+
+  @impl true
+  def default_config do
+    %{plugin_scan_enabled: true, scan_interval_ms: 120_000, bridge_mode: "auto"}
+  end
+
+  @impl true
   @spec list_endpoints() :: [map()]
   def list_endpoints do
     [

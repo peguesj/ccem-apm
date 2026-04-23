@@ -31,6 +31,22 @@ defmodule ApmV5.Plugins.Ralph.RalphPlugin do
   def plugin_version, do: "1.0.0"
 
   @impl true
+  def config_schema do
+    %{
+      prd_path: "string",
+      max_iterations: "integer",
+      backpressure_threshold: "integer",
+      auto_commit: "boolean",
+      log_level: "enum:debug,info,warn,error"
+    }
+  end
+
+  @impl true
+  def default_config do
+    %{prd_path: ".claude/ralph/prd.json", max_iterations: 50, backpressure_threshold: 10, auto_commit: true, log_level: "info"}
+  end
+
+  @impl true
   @spec list_endpoints() :: [map()]
   def list_endpoints do
     [

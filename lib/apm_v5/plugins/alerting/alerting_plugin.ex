@@ -36,6 +36,21 @@ defmodule ApmV5.Plugins.Alerting.AlertingPlugin do
   def plugin_version, do: "1.0.0"
 
   @impl true
+  def config_schema do
+    %{
+      enabled: "boolean",
+      cooldown_ms: "integer",
+      max_notifications_per_minute: "integer",
+      default_channel: "enum:system,agentlock,session,formation"
+    }
+  end
+
+  @impl true
+  def default_config do
+    %{enabled: true, cooldown_ms: 5_000, max_notifications_per_minute: 30, default_channel: "system"}
+  end
+
+  @impl true
   @spec list_endpoints() :: [map()]
   def list_endpoints do
     [

@@ -34,6 +34,21 @@ defmodule ApmV5.Plugins.Memory.MemoryPlugin do
   def plugin_scope, do: :memory
 
   @impl true
+  def config_schema do
+    %{
+      observation_ttl_ms: "integer",
+      max_cache_size: "integer",
+      auto_correlate: "boolean",
+      sqlite_fallback: "boolean"
+    }
+  end
+
+  @impl true
+  def default_config do
+    %{observation_ttl_ms: 300_000, max_cache_size: 1000, auto_correlate: true, sqlite_fallback: true}
+  end
+
+  @impl true
   @spec list_endpoints() :: [map()]
   def list_endpoints do
     [

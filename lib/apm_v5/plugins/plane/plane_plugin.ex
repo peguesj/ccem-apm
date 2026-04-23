@@ -66,6 +66,23 @@ defmodule ApmV5.Plugins.Plane.PlanePlugin do
   @impl ApmV5.Plugins.PluginBehaviour
   def plugin_version, do: "1.1.0"
 
+  @impl true
+  def config_schema do
+    %{
+      project_id: "string",
+      workspace_slug: "string",
+      api_key: "secret",
+      base_url: "string",
+      sync_interval_ms: "integer",
+      auto_sync: "boolean"
+    }
+  end
+
+  @impl true
+  def default_config do
+    %{project_id: "", workspace_slug: "", api_key: "", base_url: "https://plane.lgtm.build", sync_interval_ms: 60_000, auto_sync: true}
+  end
+
   @impl ApmV5.Plugins.PluginBehaviour
   def list_endpoints do
     [

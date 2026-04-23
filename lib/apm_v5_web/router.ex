@@ -505,6 +505,9 @@ defmodule ApmV5Web.Router do
     post "/plugins/:name/action", PluginController, :invoke_action
     get "/plugins/:name/board", PluginController, :board
     get "/plugins/:name/issues", PluginController, :issues
+    get "/plugins/:name/config", PluginController, :get_config
+    patch "/plugins/:name/config", PluginController, :update_config
+    delete "/plugins/:name/config", PluginController, :reset_config
 
     # ── EXTENSION: integrations ───────────────────────────────────────────
     get "/integrations", IntegrationController, :index
@@ -512,6 +515,9 @@ defmodule ApmV5Web.Router do
     get "/integrations/:name", IntegrationController, :show
     post "/integrations/:name/action", IntegrationController, :invoke_action
     get "/integrations/:name/status", IntegrationController, :status
+    get "/integrations/:name/config", IntegrationController, :get_config
+    patch "/integrations/:name/config", IntegrationController, :update_config
+    delete "/integrations/:name/config", IntegrationController, :reset_config
 
     # ── EXTENSION: coalesce ───────────────────────────────────────────────
     post "/coalesce/start", CoalesceController, :start

@@ -79,6 +79,7 @@ defmodule ApmV5.Application do
       ApmV5.Showcases.ShowcaseManager,
       ApmV5.Plugins.ClaudeCodePluginBridge,
       ApmV5.Plugins.PluginRepositoryStore,
+      ApmV5.Plugins.PluginConfigStore,
       ApmV5.Plugins.PluginRegistry,
       ApmV5.Integrations.IntegrationRegistry,
       ApmV5.WidgetRegistry,

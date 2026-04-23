@@ -153,6 +153,12 @@ defmodule ApmV5.Integrations.IntegrationRegistry do
          true <- function_exported?(module, :supervisor_children, 0) do
       name = module.integration_name()
 
+      config_schema =
+        if function_exported?(module, :config_schema, 0), do: module.config_schema(), else: %{}
+
+      default_config =
+        if function_exported?(module, :default_config, 0), do: module.default_config(), else: %{}
+
       meta = %{
         name: name,
         description: module.integration_description(),
@@ -163,6 +169,8 @@ defmodule ApmV5.Integrations.IntegrationRegistry do
         module: module,
         required_plugin: safe_optional(module, :required_plugin, 0, nil),
         target_native_feature: safe_optional(module, :target_native_feature, 0, nil),
+        config_schema: config_schema,
+        default_config: default_config,
         registered_at: DateTime.utc_now() |> DateTime.to_iso8601()
       }
 

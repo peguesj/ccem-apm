@@ -63,11 +63,9 @@ defmodule ApmV5Web.Live.DashboardGridComponent do
 
     {:ok,
      socket
+     |> assign(assigns)
      |> assign(:hydrated_placements, hydrated)
-     |> assign(:widget_pinned_id, assigns[:widget_pinned_id])
-     |> assign(:widget_edit_panel_id, assigns[:widget_edit_panel_id])
-     |> assign(:widget_scope_type, assigns[:widget_scope_type] || :global)
-     |> assign(:widget_scope_value, assigns[:widget_scope_value])}
+     |> assign(:widget_scope_type, assigns[:widget_scope_type] || :global)}
   end
 
   slot :widget, required: true

@@ -194,6 +194,12 @@ defmodule ApmV5.Plugins.PluginRegistry do
       scope =
         if function_exported?(module, :plugin_scope, 0), do: module.plugin_scope(), else: :apm
 
+      config_schema =
+        if function_exported?(module, :config_schema, 0), do: module.config_schema(), else: %{}
+
+      default_config =
+        if function_exported?(module, :default_config, 0), do: module.default_config(), else: %{}
+
       meta = %{
         name: name,
         description: module.plugin_description(),
@@ -201,6 +207,8 @@ defmodule ApmV5.Plugins.PluginRegistry do
         endpoints: module.list_endpoints(),
         integration_modules: integrations,
         scope: scope,
+        config_schema: config_schema,
+        default_config: default_config,
         module: module,
         registered_at: DateTime.utc_now() |> DateTime.to_iso8601()
       }

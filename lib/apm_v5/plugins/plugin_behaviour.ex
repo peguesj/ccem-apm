@@ -178,6 +178,55 @@ defmodule ApmV5.Plugins.PluginBehaviour do
   """
   @callback orchestration_topology() :: map() | nil
 
+  @doc """
+  Optional. Returns the plugin-level configuration schema.
+
+  Each key is a setting name (atom or string), and each value is a type hint
+  string using the same format as `WidgetRegistry`:
+
+    - `"boolean"` — true/false toggle
+    - `"integer"` — numeric value
+    - `"string"` — free-form text
+    - `"secret"` — sensitive string (masked in UI, excluded from API responses)
+    - `"enum:val1,val2,val3"` — enumerated values
+
+  Example:
+
+      def config_schema do
+        %{
+          project_id: "string",
+          max_retries: "integer",
+          auto_sync: "boolean",
+          log_level: "enum:debug,info,warn,error"
+        }
+      end
+
+  Return `%{}` if the plugin has no configurable settings.
+  """
+  @callback config_schema() :: map()
+
+  @doc """
+  Optional. Returns default values for each key in `config_schema/0`.
+
+  Example:
+
+      def default_config do
+        %{project_id: "", max_retries: 3, auto_sync: true, log_level: "info"}
+      end
+  """
+  @callback default_config() :: map()
+
+  @doc """
+  Optional. Validates a proposed config map. Called before persisting changes.
+
+  Return `{:ok, sanitized_config}` or `{:error, reasons}` where reasons is
+  a list of `{field, message}` tuples.
+
+  Default implementation accepts any config that only contains keys from
+  `config_schema/0`.
+  """
+  @callback validate_config(config :: map()) :: {:ok, map()} | {:error, [{atom(), String.t()}]}
+
   @optional_callbacks [
     inspector_section: 1,
     supervisor_children: 0,
@@ -191,6 +240,9 @@ defmodule ApmV5.Plugins.PluginBehaviour do
     plugin_integrations: 0,
     dashboard_widgets: 0,
     plugin_scope: 0,
-    orchestration_topology: 0
+    orchestration_topology: 0,
+    config_schema: 0,
+    default_config: 0,
+    validate_config: 1
   ]
 end

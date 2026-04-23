@@ -36,6 +36,20 @@ defmodule ApmV5.Plugins.Devops.DevopsPlugin do
   def plugin_version, do: "1.0.0"
 
   @impl true
+  def config_schema do
+    %{
+      health_check_interval_ms: "integer",
+      port_scan_enabled: "boolean",
+      log_tail_lines: "integer"
+    }
+  end
+
+  @impl true
+  def default_config do
+    %{health_check_interval_ms: 30_000, port_scan_enabled: true, log_tail_lines: 100}
+  end
+
+  @impl true
   @spec list_endpoints() :: [map()]
   def list_endpoints do
     [

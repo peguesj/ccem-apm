@@ -31,6 +31,21 @@ defmodule ApmV5.Plugins.Formations.FormationsPlugin do
   def plugin_version, do: "1.0.0"
 
   @impl true
+  def config_schema do
+    %{
+      auto_refresh: "boolean",
+      refresh_interval_ms: "integer",
+      show_ghost_agents: "boolean",
+      graph_layout: "enum:tree,radial,force"
+    }
+  end
+
+  @impl true
+  def default_config do
+    %{auto_refresh: true, refresh_interval_ms: 5_000, show_ghost_agents: false, graph_layout: "tree"}
+  end
+
+  @impl true
   @spec list_endpoints() :: [map()]
   def list_endpoints do
     [

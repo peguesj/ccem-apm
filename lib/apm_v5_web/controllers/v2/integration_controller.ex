@@ -15,6 +15,7 @@ defmodule ApmV5Web.V2.IntegrationController do
   use ApmV5Web, :controller
 
   alias ApmV5.Integrations.IntegrationRegistry
+  alias ApmV5.Plugins.PluginConfigStore
 
   @pubsub ApmV5.PubSub
   @topic "apm:integrations"
@@ -122,5 +123,56 @@ defmodule ApmV5Web.V2.IntegrationController do
     }})
 
     json(conn, %{reloaded: results, integrations: integrations, count: length(integrations)})
+  end
+
+  @doc "GET /api/v2/integrations/:name/config — get resolved config"
+  def get_config(conn, %{"name" => name}) do
+    case IntegrationRegistry.get_integration(name) do
+      {:ok, _} ->
+        config = PluginConfigStore.get_config(:integration, name)
+        schema = PluginConfigStore.get_schema(:integration, name)
+        json(conn, %{data: config, schema: schema, integration: name})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Integration not found", name: name})
+    end
+  end
+
+  @doc "PATCH /api/v2/integrations/:name/config — update integration config"
+  def update_config(conn, %{"name" => name} = params) do
+    config = Map.get(params, "config", %{})
+
+    case IntegrationRegistry.get_integration(name) do
+      {:ok, _} ->
+        case PluginConfigStore.put_config(:integration, name, config) do
+          {:ok, resolved} ->
+            json(conn, %{data: resolved, integration: name})
+
+          {:error, reasons} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{error: "Validation failed", reasons: format_errors(reasons), integration: name})
+        end
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Integration not found", name: name})
+    end
+  end
+
+  @doc "DELETE /api/v2/integrations/:name/config — reset integration config to defaults"
+  def reset_config(conn, %{"name" => name}) do
+    case IntegrationRegistry.get_integration(name) do
+      {:ok, _} ->
+        :ok = PluginConfigStore.reset_config(:integration, name)
+        defaults = PluginConfigStore.get_config(:integration, name)
+        json(conn, %{data: defaults, integration: name, reset: true})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Integration not found", name: name})
+    end
+  end
+
+  defp format_errors(reasons) when is_list(reasons) do
+    Enum.map(reasons, fn {field, msg} -> %{field: field, message: msg} end)
   end
 end

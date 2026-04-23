@@ -711,7 +711,11 @@ defmodule ApmV5Web.PluginDashboardLive do
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
           <div class="flex items-center gap-3">
             <h2 class="text-sm font-semibold text-base-content">
-              {if @current_path == "/integrations", do: "Integrations", else: "Plugins & MCP Servers"}
+              {cond do
+                @active_tab == "plugin_detail" and @detail_plugin -> @detail_plugin.name
+                @current_path == "/integrations" -> "Integrations"
+                true -> "Plugins & MCP Servers"
+              end}
             </h2>
             <div class="badge badge-sm badge-ghost">
               {if @current_path == "/integrations",

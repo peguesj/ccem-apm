@@ -52,7 +52,7 @@ defmodule ApmV5Web.Live.WidgetContainerComponent do
 
     {:ok,
      socket
-     |> assign(:widget, widget)
+     |> assign(assigns)
      |> assign(:current_config, current_config)
      |> assign(:merged_config, merged_config)
      |> assign(:is_pinned, assigns[:is_pinned] || false)
