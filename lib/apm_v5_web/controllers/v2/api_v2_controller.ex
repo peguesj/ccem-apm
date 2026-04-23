@@ -263,7 +263,8 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         %{"name" => "Integrations", "description" => "[extension:plugins] Integration Engine — symbiosis between plugins and native features", "x-extension" => true},
         %{"name" => "Usage", "description" => "[extension:usage] Claude usage tracking — token/model/cost per project and session", "x-extension" => true},
         %{"name" => "Plane", "description" => "[extension:plane] Plane PM alignment agent — sync status and manual sync trigger", "x-extension" => true},
-        %{"name" => "Approvals", "description" => "[extension:agentlock] Grouped approval workflow with execution context, audit logging, and keyboard shortcuts", "x-extension" => true}
+        %{"name" => "Approvals", "description" => "[extension:agentlock] Grouped approval workflow with execution context, audit logging, and keyboard shortcuts", "x-extension" => true},
+        %{"name" => "Memory", "description" => "[extension:memory] Claude-Mem integration — observation browsing, semantic search, timeline queries, and health checks", "x-extension" => true}
       ],
       "paths" => build_paths(),
       "components" => %{
@@ -1193,6 +1194,109 @@ defmodule ApmV5Web.V2.ApiV2Controller do
           }
         }
       },
+      # Memory Plugin — claude-mem observation API (CP-145 / US-420)
+      "/api/v2/memory/observations" => %{
+        "get" => %{
+          "operationId" => "memoryListObservations",
+          "summary" => "List cached observations",
+          "description" => "Returns observations from the ObservationCache ETS store with optional pagination. Source is the in-process cache; use the timeline endpoint for date-range queries via the claude-mem worker.",
+          "tags" => ["Memory"],
+          "parameters" => [
+            %{"name" => "limit", "in" => "query", "required" => false, "schema" => %{"type" => "integer", "default" => 50, "maximum" => 500}, "description" => "Maximum number of observations to return"},
+            %{"name" => "offset", "in" => "query", "required" => false, "schema" => %{"type" => "integer", "default" => 0}, "description" => "Number of observations to skip"}
+          ],
+          "responses" => %{
+            "200" => %{"description" => "Observation list with count",
+              "content" => %{"application/json" => %{"schema" => %{
+                "type" => "object",
+                "properties" => %{
+                  "observations" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Observation"}},
+                  "count" => %{"type" => "integer"}
+                }}}}}
+          }
+        }
+      },
+      "/api/v2/memory/observations/{id}" => %{
+        "get" => %{
+          "operationId" => "memoryGetObservation",
+          "summary" => "Get a single observation by ID",
+          "description" => "Fetches an observation by ID — checks ObservationCache first, then falls back to the claude-mem worker via MemoryClientBridge.",
+          "tags" => ["Memory"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Observation ID"}],
+          "responses" => %{
+            "200" => %{"description" => "Observation with source indicator",
+              "content" => %{"application/json" => %{"schema" => %{
+                "type" => "object",
+                "properties" => %{
+                  "observation" => %{"$ref" => "#/components/schemas/Observation"},
+                  "source" => %{"type" => "string", "enum" => ["cache", "bridge"], "description" => "Whether the observation was served from ETS cache or the claude-mem worker"}
+                }}}}},
+            "404" => %{"description" => "Observation not found"}
+          }
+        }
+      },
+      "/api/v2/memory/search" => %{
+        "get" => %{
+          "operationId" => "memorySearchObservations",
+          "summary" => "Semantic search across observations",
+          "description" => "Delegates to the claude-mem worker for semantic vector search. Falls back to ObservationCache ETS substring match when the worker is unreachable.",
+          "tags" => ["Memory"],
+          "parameters" => [
+            %{"name" => "query", "in" => "query", "required" => true, "schema" => %{"type" => "string"}, "description" => "Search query string"}
+          ],
+          "responses" => %{
+            "200" => %{"description" => "Search results with result count and source indicator",
+              "content" => %{"application/json" => %{"schema" => %{
+                "type" => "object",
+                "properties" => %{
+                  "results" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Observation"}},
+                  "count" => %{"type" => "integer"},
+                  "source" => %{"type" => "string", "enum" => ["bridge", "cache"], "description" => "bridge = semantic search via claude-mem worker; cache = ETS substring fallback"}
+                }}}}},
+            "400" => %{"description" => "query parameter missing or empty"}
+          }
+        }
+      },
+      "/api/v2/memory/timeline" => %{
+        "get" => %{
+          "operationId" => "memoryTimeline",
+          "summary" => "Observations in a date range",
+          "description" => "Queries the claude-mem worker for observations within the given ISO 8601 datetime range. Both parameters are optional; omitting them returns all observations known to the worker.",
+          "tags" => ["Memory"],
+          "parameters" => [
+            %{"name" => "from", "in" => "query", "required" => false, "schema" => %{"type" => "string", "format" => "date-time"}, "description" => "Start of range (ISO 8601)"},
+            %{"name" => "to", "in" => "query", "required" => false, "schema" => %{"type" => "string", "format" => "date-time"}, "description" => "End of range (ISO 8601)"}
+          ],
+          "responses" => %{
+            "200" => %{"description" => "Observations in range with count",
+              "content" => %{"application/json" => %{"schema" => %{
+                "type" => "object",
+                "properties" => %{
+                  "observations" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Observation"}},
+                  "count" => %{"type" => "integer"}
+                }}}}},
+            "502" => %{"description" => "claude-mem worker unreachable"}
+          }
+        }
+      },
+      "/api/v2/memory/health" => %{
+        "get" => %{
+          "operationId" => "memoryHealth",
+          "summary" => "Memory plugin health check",
+          "description" => "Probes the claude-mem worker via MemoryClientBridge and reports reachability status.",
+          "tags" => ["Memory"],
+          "responses" => %{
+            "200" => %{"description" => "Health status",
+              "content" => %{"application/json" => %{"schema" => %{
+                "type" => "object",
+                "properties" => %{
+                  "status" => %{"type" => "string", "enum" => ["ok", "unavailable"]},
+                  "reachable" => %{"type" => "boolean"}
+                }}}}}
+          }
+        }
+      },
+
       "/api/v2/approvals/history" => %{
         "get" => %{
           "operationId" => "getApprovalHistory",
@@ -1375,7 +1479,16 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         "reason" => %{"type" => "string", "nullable" => true},
         "method" => %{"type" => "string", "description" => "How the decision was made", "enum" => ["keyboard_shortcut", "button_click", "api", "auto_approval", "timeout"]},
         "session_id" => %{"type" => "string"},
-        "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]}}}
+        "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]}}},
+      "Observation" => %{"type" => "object", "description" => "A claude-mem observation from the ObservationCache or claude-mem worker", "properties" => %{
+        "id" => %{"type" => "string", "description" => "Unique observation ID"},
+        "content" => %{"type" => "string", "description" => "Observation text content"},
+        "session_id" => %{"type" => "string", "nullable" => true, "description" => "Associated session ID"},
+        "agent_id" => %{"type" => "string", "nullable" => true, "description" => "Agent that produced this observation"},
+        "tags" => %{"type" => "array", "items" => %{"type" => "string"}, "description" => "Classification tags"},
+        "metadata" => %{"type" => "object", "additionalProperties" => true, "description" => "Arbitrary observation metadata"},
+        "inserted_at" => %{"type" => "string", "format" => "date-time", "description" => "When the observation was recorded"},
+        "updated_at" => %{"type" => "string", "format" => "date-time", "nullable" => true, "description" => "Last update timestamp"}}}
     }
   end
 

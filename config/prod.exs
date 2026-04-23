@@ -14,7 +14,7 @@ config :apm_v5, ApmV5Web.Endpoint,
   force_ssl: [rewrite_on: [:x_forwarded_proto]],
   exclude: [
     # paths: ["/health"],
-    hosts: ["localhost", "127.0.0.1"]
+    hosts: ["localhost", "127.0.0.1", "[::1]"]
   ]
 
 # Do not print debug messages in production

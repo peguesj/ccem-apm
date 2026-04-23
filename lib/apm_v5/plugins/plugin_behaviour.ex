@@ -164,7 +164,19 @@ defmodule ApmV5.Plugins.PluginBehaviour do
 
   Defaults to `:apm` when not implemented.
   """
-  @callback plugin_scope() :: :apm | :ccem | :claude_code | :security
+  @callback plugin_scope() :: :apm | :ccem | :claude_code | :memory | :orchestration | :security
+
+  @doc """
+  Optional. Declare the skill's execution topology as a DAG.
+
+  Returns a map with:
+    - `:steps` — list of `%{id: String.t(), name: String.t(), type: atom()}`
+    - `:edges` — list of `%{from: String.t(), to: String.t()}`
+    - `:gates` — list of `%{after_step: String.t(), type: atom()}`
+
+  Returns `nil` if the plugin has no orchestration topology.
+  """
+  @callback orchestration_topology() :: map() | nil
 
   @optional_callbacks [
     inspector_section: 1,
@@ -178,6 +190,7 @@ defmodule ApmV5.Plugins.PluginBehaviour do
     plugin_live_module: 0,
     plugin_integrations: 0,
     dashboard_widgets: 0,
-    plugin_scope: 0
+    plugin_scope: 0,
+    orchestration_topology: 0
   ]
 end

@@ -1,0 +1,205 @@
+defmodule ApmV5.Plugins.Memory.MemoryPlugin do
+  @moduledoc """
+  APM Plugin adapter for the claude-mem memory system.
+
+  Bridges the MemoryClientBridge HTTP/SQLite worker and the ObservationCache
+  ETS layer into the APM plugin framework, exposing five actions for
+  observation browsing, semantic search, timeline queries, and health checks.
+  """
+
+  @behaviour ApmV5.Plugins.PluginBehaviour
+
+  alias ApmV5.Plugins.Memory.MemoryClientBridge
+  alias ApmV5.Plugins.Memory.ObservationCache
+
+  require Logger
+
+  @plugin_version "1.0.0"
+
+  @impl true
+  @spec plugin_name() :: String.t()
+  def plugin_name, do: "memory"
+
+  @impl true
+  @spec plugin_description() :: String.t()
+  def plugin_description,
+    do: "Claude-Mem integration — observation browsing, semantic search, timeline, and conversation correlation"
+
+  @impl true
+  @spec plugin_version() :: String.t()
+  def plugin_version, do: @plugin_version
+
+  @impl true
+  @spec plugin_scope() :: :memory
+  def plugin_scope, do: :memory
+
+  @impl true
+  @spec list_endpoints() :: [map()]
+  def list_endpoints do
+    [
+      %{
+        action: "list_observations",
+        description: "List cached observations with optional filters",
+        params: %{limit: "integer (optional)", offset: "integer (optional)"}
+      },
+      %{
+        action: "search_observations",
+        description: "Semantic search across observations; falls back to ETS substring match",
+        params: %{query: "string (required)"}
+      },
+      %{
+        action: "get_observation",
+        description: "Get single observation by ID",
+        params: %{id: "string (required)"}
+      },
+      %{
+        action: "timeline",
+        description: "Observations in date range via claude-mem worker",
+        params: %{from: "ISO8601 datetime string (optional)", to: "ISO8601 datetime string (optional)"}
+      },
+      %{
+        action: "health_check",
+        description: "Claude-mem worker reachability status",
+        params: %{}
+      }
+    ]
+  end
+
+  @impl true
+  @spec handle_action(String.t(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+
+  def handle_action("list_observations", params, _opts) do
+    opts =
+      []
+      |> maybe_put_opt(:limit, Map.get(params, "limit") || Map.get(params, :limit))
+      |> maybe_put_opt(:offset, Map.get(params, "offset") || Map.get(params, :offset))
+
+    observations = ObservationCache.list(opts)
+    {:ok, %{observations: observations, count: length(observations)}}
+  end
+
+  def handle_action("search_observations", params, _opts) do
+    query = Map.get(params, "query") || Map.get(params, :query)
+
+    if is_binary(query) and byte_size(query) > 0 do
+      case MemoryClientBridge.search(query) do
+        {:ok, results} ->
+          {:ok, %{results: results, count: length(results), source: :bridge}}
+
+        {:error, _reason} ->
+          results = ObservationCache.search(query)
+          {:ok, %{results: results, count: length(results), source: :cache}}
+      end
+    else
+      {:error, {:invalid_params, "query must be a non-empty string"}}
+    end
+  end
+
+  def handle_action("get_observation", params, _opts) do
+    id = Map.get(params, "id") || Map.get(params, :id)
+
+    if is_binary(id) do
+      case ObservationCache.get(id) do
+        nil ->
+          case MemoryClientBridge.get_observations([id]) do
+            {:ok, [obs | _]} -> {:ok, %{observation: obs, source: :bridge}}
+            {:ok, []} -> {:error, {:not_found, id}}
+            {:error, reason} -> {:error, reason}
+          end
+
+        observation ->
+          {:ok, %{observation: observation, source: :cache}}
+      end
+    else
+      {:error, {:invalid_params, "id must be a string"}}
+    end
+  end
+
+  def handle_action("timeline", params, _opts) do
+    opts =
+      []
+      |> maybe_put_datetime_opt(:from, Map.get(params, "from") || Map.get(params, :from))
+      |> maybe_put_datetime_opt(:to, Map.get(params, "to") || Map.get(params, :to))
+
+    case MemoryClientBridge.timeline(opts) do
+      {:ok, observations} ->
+        {:ok, %{observations: observations, count: length(observations)}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def handle_action("health_check", _params, _opts) do
+    case MemoryClientBridge.health_check() do
+      :ok ->
+        {:ok, %{status: :ok, reachable: true}}
+
+      {:error, :unreachable} ->
+        {:ok, %{status: :unavailable, reachable: false}}
+    end
+  end
+
+  def handle_action(action, _params, _opts) do
+    {:error, {:unknown_action, action}}
+  end
+
+  # Optional callbacks
+
+  @impl true
+  @spec supervisor_children() :: [Supervisor.child_spec()]
+  def supervisor_children do
+    [
+      ApmV5.Plugins.Memory.MemoryClientBridge,
+      ApmV5.Plugins.Memory.ObservationCache
+    ]
+  end
+
+  @impl true
+  @spec nav_items() :: [{String.t(), String.t(), String.t() | nil}]
+  def nav_items do
+    [{"Memory", "/memory", "hero-light-bulb"}]
+  end
+
+  @impl true
+  @spec dashboard_widgets() :: [map()]
+  def dashboard_widgets do
+    [
+      %{
+        id: "memory_observations",
+        name: "Memory Observations",
+        category: :plugin,
+        source_module: __MODULE__,
+        refresh_interval: 60_000,
+        min_width: 4,
+        min_height: 3,
+        config_schema: %{},
+        plugin: "memory",
+        version: @plugin_version,
+        description: "Recent observations from claude-mem"
+      }
+    ]
+  end
+
+  @impl true
+  @spec default_enabled?() :: boolean()
+  def default_enabled?, do: true
+
+  # Private helpers
+
+  defp maybe_put_opt(opts, _key, nil), do: opts
+  defp maybe_put_opt(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp maybe_put_datetime_opt(opts, _key, nil), do: opts
+
+  defp maybe_put_datetime_opt(opts, key, iso_string) when is_binary(iso_string) do
+    case DateTime.from_iso8601(iso_string) do
+      {:ok, dt, _offset} ->
+        Keyword.put(opts, key, dt)
+
+      {:error, reason} ->
+        Logger.warning("[MemoryPlugin] Invalid datetime string for #{key}: #{inspect(reason)}")
+        opts
+    end
+  end
+end

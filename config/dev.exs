@@ -7,9 +7,8 @@ import Config
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
 config :apm_v5, ApmV5Web.Endpoint,
-  # Binding to loopback ipv4 address prevents access from other machines.
-  # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}, port: 3032],
+  # Bind all interfaces (IPv4 + IPv6) for dev. Accepts 127.0.0.1, [::1], and localhost.
+  http: [ip: {0, 0, 0, 0, 0, 0, 0, 0}, port: 3032],
   check_origin: false,
   code_reloader: System.get_env("APM_NO_CODE_RELOAD") != "1",
   debug_errors: true,

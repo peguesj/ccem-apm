@@ -52,6 +52,19 @@ defmodule ApmV5.Plugins.PluginRegistry do
     end
   end
 
+  @doc "Check if a plugin declares an orchestration topology."
+  @spec topology_declared?(String.t()) :: boolean()
+  def topology_declared?(plugin_name) do
+    case :ets.lookup(@table, plugin_name) do
+      [{^plugin_name, {mod, _meta}}] ->
+        Code.ensure_loaded(mod)
+        function_exported?(mod, :orchestration_topology, 0) and mod.orchestration_topology() != nil
+
+      _ ->
+        false
+    end
+  end
+
   @doc "Re-register all default plugins. Useful after hot code reload."
   @spec reload_defaults() :: [:ok | {:error, term()}]
   def reload_defaults do
@@ -90,7 +103,9 @@ defmodule ApmV5.Plugins.PluginRegistry do
     ApmV5.Plugins.ClaudeCode.ClaudeCodePlugin,
     ApmV5.Plugins.Lvm.ClaudePlatformLvmPlugin,
     ApmV5.Plugins.Mirofish.MirofishPlugin,
-    ApmV5.Plugins.SkillDrift.SkillDriftPlugin
+    ApmV5.Plugins.SkillDrift.SkillDriftPlugin,
+    ApmV5.Plugins.Orchestration.OrchestrationPlugin,
+    ApmV5.Plugins.Memory.MemoryPlugin
   ]
 
   @impl true

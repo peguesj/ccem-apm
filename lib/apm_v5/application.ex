@@ -55,6 +55,7 @@ defmodule ApmV5.Application do
       ApmV5.AnalyticsStore,
       ApmV5.HealthCheckRunner,
       ApmV5.ConversationWatcher,
+      ApmV5.ConversationReader,
       ApmV5.PluginScanner,
       ApmV5.BackfillStore,
       ApmV5.SkillsRegistryStore,
@@ -85,12 +86,18 @@ defmodule ApmV5.Application do
       ApmV5.WidgetConfigStore,
       ApmV5.DashboardScopeEngine,
       # --- APM-001: Still disabled (boot-blocking or heavy external I/O) ---
-      # ApmV5.SessionManager,      # BUG-1 root cause: PortManager timeout during enrich
+      ApmV5.SessionManager,        # Re-enabled: deferred poll + exit-safe enrichment (APM-001)
       # ApmV5.PlanePmAlign,        # Blocking Plane API HTTP calls on init
       # ApmV5.LibraryStore,        # CPU/I/O intensive full-ecosystem scan
       # --- End APM-001 ---
       # Outbound relay tunnel -- dials Azure relay when TUNNEL_RELAY_URL is set (v8.5.0)
       ApmV5.Tunnel.Supervisor,
+      # Orchestration system (v9.1.1)
+      ApmV5.Orchestration.OrchestrationManager,
+      ApmV5.Orchestration.OrchestrationRunStore,
+      # Memory plugin workers (claude-mem integration)
+      ApmV5.Plugins.Memory.MemoryClientBridge,
+      ApmV5.Plugins.Memory.ObservationCache,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]

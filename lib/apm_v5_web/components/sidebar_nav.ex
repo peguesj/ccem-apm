@@ -79,6 +79,8 @@ defmodule ApmV5Web.Components.SidebarNav do
     <.nav_item icon="hero-chat-bubble-left-right" label="Conversations" href="/conversations" current_path={@current_path} />
     <.nav_item icon="hero-clock" label="Timeline" href="/timeline" current_path={@current_path} />
     <.nav_item icon="hero-bell" label="Notifications" href="/notifications" current_path={@current_path} badge={@notification_count} />
+    <.nav_item icon="hero-arrow-path-rounded-square" label="Orchestration" href="/orchestration" current_path={@current_path} />
+    <.nav_item icon="hero-light-bulb" label="Memory" href="/memory" current_path={@current_path} />
     <.nav_item icon="hero-heart" label="Health" href="/health" current_path={@current_path} />
     """
   end
@@ -177,8 +179,8 @@ defmodule ApmV5Web.Components.SidebarNav do
     assigns = assign(assigns, :active, active)
 
     ~H"""
-    <a
-      href={@href}
+    <.link
+      navigate={@href}
       class={[
         "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
         @active && "bg-primary/10 text-primary font-medium",
@@ -188,7 +190,7 @@ defmodule ApmV5Web.Components.SidebarNav do
       <.icon name={@icon} class="size-4 flex-shrink-0" />
       <span class="sidebar-label">{@label}</span>
       <span :if={@badge > 0} class="badge badge-xs badge-primary ml-auto sidebar-badge">{@badge}</span>
-    </a>
+    </.link>
     """
   end
 
@@ -266,6 +268,6 @@ defmodule ApmV5Web.Components.SidebarNav do
     |> Enum.map_join(" ", &String.capitalize/1)
   end
 
-  @app_version "9.0.0"
+  @app_version "9.1.1"
   defp version, do: @app_version
 end

@@ -1,71 +1,70 @@
 defmodule ApmV5.Integrations.ClaudeMem.ClaudeMemIntegration do
-  @moduledoc "Claude Memory integration — reads project memory files from ~/.claude/projects/*/memory/"
+  @moduledoc """
+  Claude Memory integration — delegates to `ApmV5.Plugins.Memory.MemoryPlugin`.
+
+  This module satisfies `ApmV5.Integrations.IntegrationBehaviour` and keeps its
+  original public surface intact for backward compatibility.  All substantive
+  logic is now handled by the MemoryPlugin; the three legacy events are mapped
+  to their plugin counterparts:
+
+  | Legacy event       | Plugin action        |
+  |--------------------|----------------------|
+  | `list_memories`    | `list_observations`  |
+  | `search_memories`  | `search_observations`|
+  | `get_memory`       | `get_observation`    |
+
+  > #### Deprecated {: .warning}
+  > Callers should migrate to `ApmV5.Plugins.Memory.MemoryPlugin.handle_action/3`
+  > directly.  This integration shim will be removed in a future major version.
+  """
 
   @behaviour ApmV5.Integrations.IntegrationBehaviour
 
-  @memory_base Path.expand("~/.claude/projects")
+  alias ApmV5.Plugins.Memory.MemoryPlugin
 
   @impl true
   def integration_name, do: "claude_mem"
   @impl true
-  def integration_description, do: "Claude Memory — project memory file access and search"
+  def integration_description, do: "Claude Memory — project memory file access and search (delegates to MemoryPlugin)"
   @impl true
-  def integration_version, do: "1.0.0"
+  def integration_version, do: "2.0.0"
   @impl true
   def protocol, do: :rest
   @impl true
-  def required_plugin, do: nil
+  def required_plugin, do: :memory
   @impl true
   def target_native_feature, do: :memory_system
 
   @impl true
-  def connect(_config), do: {:ok, %{memory_base: @memory_base}}
+  def connect(_config), do: {:ok, %{delegated_to: MemoryPlugin}}
   @impl true
   def disconnect, do: :ok
   @impl true
-  def status, do: if(File.dir?(@memory_base), do: :connected, else: :disconnected)
+  def status, do: :connected
 
   @impl true
   def list_endpoints do
     [
-      %{action: "list_memories", description: "List all project memory files"},
-      %{action: "search_memories", description: "Search memory files by keyword"},
-      %{action: "get_memory", description: "Read a specific memory file"}
+      %{action: "list_memories", description: "List observations — delegates to MemoryPlugin list_observations (deprecated)"},
+      %{action: "search_memories", description: "Search observations — delegates to MemoryPlugin search_observations (deprecated)"},
+      %{action: "get_memory", description: "Get observation by id — delegates to MemoryPlugin get_observation (deprecated)"}
     ]
   end
 
+  @doc deprecated: "Use ApmV5.Plugins.Memory.MemoryPlugin.handle_action/3 with action \"list_observations\" instead."
   @impl true
-  def handle_event("list_memories", _payload, _opts) do
-    memories =
-      Path.wildcard(Path.join(@memory_base, "*/memory/*.md"))
-      |> Enum.map(fn path ->
-        %{path: path, project: path |> Path.dirname() |> Path.dirname() |> Path.basename(), name: Path.basename(path)}
-      end)
-
-    {:ok, %{memories: memories, count: length(memories)}}
+  def handle_event("list_memories", params, opts) do
+    MemoryPlugin.handle_action("list_observations", params, opts)
   end
 
-  def handle_event("search_memories", %{"query" => query}, _opts) do
-    results =
-      Path.wildcard(Path.join(@memory_base, "*/memory/*.md"))
-      |> Enum.filter(fn path ->
-        case File.read(path) do
-          {:ok, content} -> String.contains?(String.downcase(content), String.downcase(query))
-          _ -> false
-        end
-      end)
-      |> Enum.map(fn path ->
-        %{path: path, project: path |> Path.dirname() |> Path.dirname() |> Path.basename(), name: Path.basename(path)}
-      end)
-
-    {:ok, %{results: results, count: length(results)}}
+  @doc deprecated: "Use ApmV5.Plugins.Memory.MemoryPlugin.handle_action/3 with action \"search_observations\" instead."
+  def handle_event("search_memories", %{"query" => query} = _payload, opts) do
+    MemoryPlugin.handle_action("search_observations", %{"query" => query}, opts)
   end
 
-  def handle_event("get_memory", %{"path" => path}, _opts) do
-    case File.read(path) do
-      {:ok, content} -> {:ok, %{path: path, content: content}}
-      {:error, reason} -> {:error, "Failed to read #{path}: #{inspect(reason)}"}
-    end
+  @doc deprecated: "Use ApmV5.Plugins.Memory.MemoryPlugin.handle_action/3 with action \"get_observation\" instead."
+  def handle_event("get_memory", %{"path" => id} = _payload, opts) do
+    MemoryPlugin.handle_action("get_observation", %{"id" => id}, opts)
   end
 
   def handle_event(event, _payload, _opts), do: {:error, {:unknown_event, event}}

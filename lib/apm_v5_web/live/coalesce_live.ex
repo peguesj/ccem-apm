@@ -10,6 +10,17 @@ defmodule ApmV5Web.CoalesceLive do
   - Diff viewer — side-by-side current vs. proposed skill content
   - Formation plan display — squadron topology
   - Run history list
+
+  ## Known Coalesce Scopes
+
+  | Scope atom | Module(s) affected |
+  |:-----------|:-------------------|
+  | `:security` | `ApmV5.Plugins.Security.SecurityGuidancePlugin` |
+  | `:orchestration` | `ApmV5.Orchestration.OrchestrationManager`, `OrchestrationRunStore` |
+  | `:memory` | `ApmV5.Plugins.Memory.MemoryPlugin`, `MemoryClientBridge`, `ObservationCache`, `ConversationMemoryCorrelator` |
+  | `:skills` | `ApmV5.SkillTracker`, `SkillsRegistryStore` |
+  | `:upm` | `ApmV5.UpmStore` |
+  | `:formation` | `ApmV5.FormationSupervisor` and its children |
   """
 
   use ApmV5Web, :live_view
