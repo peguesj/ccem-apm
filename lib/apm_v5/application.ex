@@ -93,6 +93,7 @@ defmodule ApmV5.Application do
       # Outbound relay tunnel -- dials Azure relay when TUNNEL_RELAY_URL is set (v8.5.0)
       ApmV5.Tunnel.Supervisor,
       # Orchestration system (v9.1.1)
+      ApmV5.WorkflowRegistry,
       ApmV5.Orchestration.OrchestrationManager,
       ApmV5.Orchestration.OrchestrationRunStore,
       # Memory plugin workers (claude-mem integration)
