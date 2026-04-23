@@ -129,6 +129,7 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:widget_edit_panel_id, nil)
       |> assign(:widget_session_configs, load_widget_session_configs(socket))
       |> assign(:widget_layout_placements, load_widget_layout(socket))
+      |> assign(:inspector_collapsed, false)
       |> push_graph_data(agents)
       |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
 
@@ -538,7 +539,7 @@ defmodule ApmV5Web.DashboardLive do
         </div>
 
         <%!-- Dashboard body --%>
-        <div class="flex-1 flex overflow-hidden">
+        <div class="flex-1 flex overflow-hidden relative">
           <%!-- Left panel: stats + agents --%>
           <div class="flex-1 overflow-y-auto p-4 space-y-4">
             <%!-- Stats grid --%>
@@ -783,13 +784,74 @@ defmodule ApmV5Web.DashboardLive do
               filter_agent_type={@filter_agent_type}
               filter_query={@filter_query}
             />
+
+            <%!-- Widgetization Engine (CP-93–CP-106) --%>
+            <div class="border-t border-base-300 pt-4">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-base-content/50">Widgets</h2>
+              </div>
+              <.live_component
+                module={ApmV5Web.Live.DashboardGridComponent}
+                id="dashboard-grid"
+                placements={@widget_layout_placements}
+                widget_pinned_id={@widget_pinned_id}
+                widget_edit_panel_id={@widget_edit_panel_id}
+                widget_scope_type={@widget_scope_type}
+                widget_scope_value={@widget_scope_value}
+                session_configs={@widget_session_configs}
+              >
+                <:widget :let={slot_assigns}>
+                  <.live_component
+                    module={ApmV5Web.Live.WidgetContainerComponent}
+                    id={"widget-container-#{slot_assigns.widget.id}"}
+                    widget={slot_assigns.widget}
+                    current_config={slot_assigns.config}
+                    is_pinned={slot_assigns.is_pinned}
+                    is_edit_open={slot_assigns.is_edit_open}
+                    scope_type={@widget_scope_type}
+                    scope_value={@widget_scope_value}
+                  >
+                    <:body></:body>
+                  </.live_component>
+                </:widget>
+              </.live_component>
+
+              <%!-- Widget Edit Panel (slides in when editing) --%>
+              <%= if @widget_edit_panel_id do %>
+                <% edit_widget = ApmV5.WidgetRegistry.get_widget(@widget_edit_panel_id) %>
+                <.live_component
+                  :if={edit_widget}
+                  module={ApmV5Web.Live.WidgetEditPanelComponent}
+                  id={"edit-panel-#{@widget_edit_panel_id}"}
+                  widget={edit_widget}
+                  current_config={Map.get(@widget_session_configs, @widget_edit_panel_id, %{})}
+                  is_open={true}
+                />
+              <% end %>
+            </div>
           </div>
 
+          <%!-- Inspector toggle button — visible at the boundary --%>
+          <button
+            phx-click="toggle_inspector"
+            class="absolute right-0 top-1/2 -translate-y-1/2 z-10 btn btn-ghost btn-xs border border-base-300 rounded-l-md rounded-r-none bg-base-200"
+            title={if @inspector_collapsed, do: "Show inspector", else: "Hide inspector"}
+          >
+            <%= if @inspector_collapsed do %>
+              <.icon name="hero-chevron-left" class="size-3" />
+            <% else %>
+              <.icon name="hero-chevron-right" class="size-3" />
+            <% end %>
+          </button>
+
           <%!-- Right panel: tabs --%>
-          <div class="w-80 border-l border-base-300 bg-base-200 flex flex-col flex-shrink-0">
+          <div class={[
+            "border-l border-base-300 bg-base-200 flex flex-col flex-shrink-0 transition-all duration-200",
+            if(@inspector_collapsed, do: "w-0 overflow-hidden opacity-0 p-0", else: "w-80")
+          ]}>
             <div role="tablist" class="tabs tabs-border bg-base-300">
               <button
-                :for={tab <- [:inspector, :ralph, :upm, :ports, :commands, :todos]}
+                :for={tab <- [:inspector, :ralph, :upm, :commands]}
                 role="tab"
                 class={["tab tab-sm", @active_tab == tab && "tab-active"]}
                 phx-click="switch_tab"
@@ -978,15 +1040,6 @@ defmodule ApmV5Web.DashboardLive do
                 </div>
               </div>
 
-              <%!-- Ports tab — extracted to PortPanel component (US-R14) --%>
-              <div :if={@active_tab == :ports}>
-                <ApmV5Web.Components.PortPanel.port_manager
-                  port_clashes={@port_clashes}
-                  port_remediation={@port_remediation}
-                  project_configs={@project_configs}
-                />
-              </div>
-
               <%!-- Commands tab --%>
               <div :if={@active_tab == :commands} class="space-y-2">
                 <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
@@ -1001,23 +1054,6 @@ defmodule ApmV5Web.DashboardLive do
                 </div>
               </div>
 
-              <%!-- TODOs tab --%>
-              <div :if={@active_tab == :todos} class="space-y-2">
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                  Active Tasks
-                </h3>
-                <div :if={@tasks == []} class="text-xs text-base-content/40">
-                  No tasks synced. POST to /api/tasks/sync to add.
-                </div>
-                <div :for={task <- @tasks} class="p-2 rounded bg-base-300 text-xs">
-                  <div class="flex items-center gap-2">
-                    <span class={["badge badge-xs", task_status_class(task["status"] || task[:status])]}>
-                      {task["status"] || task[:status] || "pending"}
-                    </span>
-                    <span class="font-medium">{task["subject"] || task[:subject] || task["title"] || "Task"}</span>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -1034,6 +1070,10 @@ defmodule ApmV5Web.DashboardLive do
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, String.to_existing_atom(tab))}
+  end
+
+  def handle_event("toggle_inspector", _params, socket) do
+    {:noreply, assign(socket, :inspector_collapsed, !socket.assigns.inspector_collapsed)}
   end
 
   # Chat events
@@ -1831,11 +1871,6 @@ defmodule ApmV5Web.DashboardLive do
   defp notif_badge_class("success"), do: "badge-success"
   defp notif_badge_class("info"), do: "badge-info"
   defp notif_badge_class(_), do: "badge-ghost"
-
-  defp task_status_class("completed"), do: "badge-success"
-  defp task_status_class("in_progress"), do: "badge-info"
-  defp task_status_class("pending"), do: "badge-ghost"
-  defp task_status_class(_), do: "badge-ghost"
 
   defp tab_label(:inspector), do: "Inspector"
   defp tab_label(:ralph), do: "Ralph"
