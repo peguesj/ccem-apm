@@ -97,6 +97,7 @@ defmodule ApmV5Web.PluginDashboardLive do
     {:ok,
      socket
      |> assign_data()
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
      |> assign(
        active_tab: "mcp",
        current_path: "/plugins",
@@ -561,6 +562,10 @@ defmodule ApmV5Web.PluginDashboardLive do
     assign(socket, plugin_repos: ApmV5.Plugins.PluginRepositoryStore.list_repos())
   end
 
+  defp safe_status(status) when is_atom(status), do: status
+  defp safe_status(%{status: s}) when is_atom(s), do: s
+  defp safe_status(_), do: :disconnected
+
   defp marketplace_badge_class(marketplace) when is_binary(marketplace) do
     cond do
       String.contains?(marketplace, "anthropic") -> "badge-primary"
@@ -619,7 +624,7 @@ defmodule ApmV5Web.PluginDashboardLive do
 
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path={@current_path} />
+      <.sidebar_nav current_path={@current_path} plugins={@plugins} integrations={@integrations} />
 
       <div class="flex-1 flex flex-col overflow-hidden min-w-0">
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
@@ -772,7 +777,10 @@ defmodule ApmV5Web.PluginDashboardLive do
                   <div class="card-body">
                     <div class="flex items-center justify-between">
                       <h3 class="font-semibold text-sm">{plugin.name}</h3>
-                      <span class="badge badge-xs badge-primary">v{plugin.version}</span>
+                      <div class="flex gap-1 items-center">
+                        <span :if={plugin.scope == :apm} class="badge badge-xs badge-accent">APM</span>
+                        <span class="badge badge-xs badge-primary">v{plugin.version}</span>
+                      </div>
                     </div>
                     <p class="text-xs text-base-content/60 line-clamp-2">{plugin.description}</p>
                     <div class="flex flex-wrap gap-1 mt-1">
@@ -810,8 +818,8 @@ defmodule ApmV5Web.PluginDashboardLive do
                         <span class={"badge badge-xs #{protocol_class(integration.protocol)}"}>
                           {integration.protocol}
                         </span>
-                        <span class={"badge badge-xs #{status_class(Map.get(@integration_status_results, integration.name, integration.status))}"}>
-                          {Map.get(@integration_status_results, integration.name, integration.status)}
+                        <span class={"badge badge-xs #{status_class(safe_status(Map.get(@integration_status_results, integration.name, integration.status)))}"}>
+                          {safe_status(Map.get(@integration_status_results, integration.name, integration.status))}
                         </span>
                         <span class="badge badge-xs">v{integration.version}</span>
                       </div>
@@ -1014,7 +1022,10 @@ defmodule ApmV5Web.PluginDashboardLive do
           <div :if={@active_tab == "registered" && @selected_plugin} class="w-80 xl:w-96 border-l border-base-300 bg-base-100 flex flex-col flex-shrink-0 overflow-hidden">
             <div class="flex items-center justify-between p-3 border-b border-base-300">
               <div>
-                <p class="font-semibold text-sm">{@selected_plugin.name}</p>
+                <div class="flex items-center gap-2">
+                  <p class="font-semibold text-sm">{@selected_plugin.name}</p>
+                  <span :if={@selected_plugin.scope == :apm} class="badge badge-xs badge-accent">APM</span>
+                </div>
                 <p class="text-xs text-base-content/50">v{@selected_plugin.version}</p>
               </div>
               <button phx-click="close_plugin_panel" class="btn btn-ghost btn-xs btn-circle">
@@ -1091,8 +1102,8 @@ defmodule ApmV5Web.PluginDashboardLive do
                   <span class={"badge badge-xs #{protocol_class(@selected_integration.protocol)}"}>
                     {@selected_integration.protocol}
                   </span>
-                  <span class={"badge badge-xs #{status_class(Map.get(@integration_status_results, @selected_integration.name, @selected_integration.status))}"}>
-                    {Map.get(@integration_status_results, @selected_integration.name, @selected_integration.status)}
+                  <span class={"badge badge-xs #{status_class(safe_status(Map.get(@integration_status_results, @selected_integration.name, @selected_integration.status)))}"}>
+                    {safe_status(Map.get(@integration_status_results, @selected_integration.name, @selected_integration.status))}
                   </span>
                 </div>
               </div>

@@ -20,7 +20,7 @@ defmodule ApmV5Web.AnalyticsLive do
       ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
       ApmV5.AgUi.EventBus.subscribe("tool:*")
     end
-    {:ok, assign_data(socket)}
+    {:ok, socket |> assign_data() |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

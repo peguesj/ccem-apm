@@ -19,7 +19,7 @@ defmodule ApmV5Web.HealthCheckLive do
       # US-021: EventBus subscription for AG-UI health events
       ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
     end
-    {:ok, assign_data(socket)}
+    {:ok, socket |> assign_data() |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

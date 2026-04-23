@@ -48,7 +48,7 @@ defmodule ApmV5Web.FormationLive do
       |> assign(:dot_executable, System.find_executable("dot"))
       |> push_formation_graph(formations)
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

@@ -110,6 +110,7 @@ defmodule ApmV5Web.Components.SidebarNav do
       label={humanize_name(plugin[:name] || plugin["name"] || "plugin")}
       href={plugin_href(plugin)}
       current_path={@current_path}
+      badge_label={if (plugin[:scope] || plugin["scope"]) == :apm, do: "APM", else: nil}
     />
     <.nav_item icon="hero-book-open" label="Library" href="/library" current_path={@current_path} />
     """
@@ -170,6 +171,7 @@ defmodule ApmV5Web.Components.SidebarNav do
   attr :href, :string, required: true
   attr :current_path, :string, required: true
   attr :badge, :integer, default: 0
+  attr :badge_label, :string, default: nil
 
   defp nav_item(assigns) do
     active =
@@ -190,6 +192,7 @@ defmodule ApmV5Web.Components.SidebarNav do
       <.icon name={@icon} class="size-4 flex-shrink-0" />
       <span class="sidebar-label">{@label}</span>
       <span :if={@badge > 0} class="badge badge-xs badge-primary ml-auto sidebar-badge">{@badge}</span>
+      <span :if={@badge_label} class="badge badge-xs badge-accent ml-auto sidebar-badge">{@badge_label}</span>
     </.link>
     """
   end

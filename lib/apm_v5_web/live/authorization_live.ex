@@ -35,8 +35,8 @@ defmodule ApmV5Web.AuthorizationLive do
     end
 
     {:ok,
-     assign(
-       socket,
+     socket
+     |> assign(
        load_data()
        |> Map.merge(%{
          active_tab: "overview",
@@ -53,7 +53,8 @@ defmodule ApmV5Web.AuthorizationLive do
          timeout_seconds: 20,
          redaction_mode: :auto
        })
-     )}
+     )
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

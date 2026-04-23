@@ -65,7 +65,7 @@ defmodule ApmV5Web.AllProjectsLive do
       |> assign(:upm_status, %{})
       |> assign(:inspector_tab, :ralph)
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

@@ -28,7 +28,8 @@ defmodule ApmV5Web.UatLive do
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
-     assign(socket,
+     socket
+     |> assign(
        page_title: "UAT",
        tests: initial_tests(),
        running: false,
@@ -36,7 +37,8 @@ defmodule ApmV5Web.UatLive do
        last_run_at: nil,
        selected_test: nil,
        test_log: []
-     )}
+     )
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

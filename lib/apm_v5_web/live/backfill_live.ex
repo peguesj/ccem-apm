@@ -17,7 +17,7 @@ defmodule ApmV5Web.BackfillLive do
     if connected?(socket) do
       :timer.send_interval(10_000, self(), :refresh)
     end
-    {:ok, assign_data(socket)}
+    {:ok, socket |> assign_data() |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

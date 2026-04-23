@@ -27,7 +27,8 @@ defmodule ApmV5Web.IntakeLive do
      |> assign(:events, events)
      |> assign(:watchers, watchers)
      |> assign(:filter_source, "all")
-     |> assign(:filter_type, "all")}
+     |> assign(:filter_type, "all"
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
   end
 
   @impl true

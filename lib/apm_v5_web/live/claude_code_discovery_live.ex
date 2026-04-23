@@ -22,7 +22,7 @@ defmodule ApmV5Web.ClaudeCodeDiscoveryLive do
       |> assign(:active_skill_count, skill_count())
       |> load_discovery_data()
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

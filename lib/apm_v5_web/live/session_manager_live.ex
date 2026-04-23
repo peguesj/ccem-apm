@@ -33,7 +33,8 @@ defmodule ApmV5Web.SessionManagerLive do
       end
 
     {:ok,
-     assign(socket,
+     socket
+     |> assign(
        page_title: "Sessions",
        sessions: sessions,
        selected: selected,
@@ -46,7 +47,8 @@ defmodule ApmV5Web.SessionManagerLive do
        group_by: "none",
        hidden_sessions: MapSet.new(),
        show_hidden: false
-     )}
+     )
+     |> assign_sidebar_nav_data()}
   end
 
   @impl true

@@ -61,7 +61,7 @@ defmodule ApmV5Web.RalphFlowchartLive do
       |> assign(:selected_step, nil)
       |> push_flowchart_data(steps, edges, length(steps))
 
-    {:ok, socket}
+    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true

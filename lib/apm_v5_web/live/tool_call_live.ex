@@ -33,7 +33,8 @@ defmodule ApmV5Web.ToolCallLive do
      |> assign(:page_title, "Tool Calls")
      |> assign(:active_calls, active)
      |> assign(:stats, stats)
-     |> assign(:agent_filter, nil)}
+     |> assign(:agent_filter, nil
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
   end
 
   @impl true

@@ -130,6 +130,7 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:widget_session_configs, load_widget_session_configs(socket))
       |> assign(:widget_layout_placements, load_widget_layout(socket))
       |> push_graph_data(agents)
+      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
 
     {:ok, socket}
   end
@@ -213,7 +214,7 @@ defmodule ApmV5Web.DashboardLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/" notification_count={length(@notifications)} skill_count={@active_skill_count} />
+      <.sidebar_nav current_path="/" notification_count={length(@notifications)} skill_count={@active_skill_count} plugins={@plugins} integrations={@integrations} />
 
       <%!-- Main content --%>
       <div id="main-content" class="flex-1 flex flex-col overflow-hidden">
