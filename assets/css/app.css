@@ -28,6 +28,17 @@
 
 /* This file is for your main application CSS */
 
+/* === Sidebar collapse === */
+#apm-sidebar { transition: width 0.2s ease; }
+#apm-sidebar.sidebar-collapsed { width: 3rem; min-width: 3rem; }
+#apm-sidebar.sidebar-collapsed .sidebar-label,
+#apm-sidebar.sidebar-collapsed .sidebar-badge { display: none; }
+#apm-sidebar.sidebar-collapsed .sidebar-arrow-collapse { display: none; }
+#apm-sidebar:not(.sidebar-collapsed) .sidebar-arrow-expand { display: none; }
+#apm-sidebar.sidebar-collapsed nav a,
+#apm-sidebar.sidebar-collapsed nav button { justify-content: center; }
+#apm-sidebar.sidebar-collapsed .sidebar-version { display: none; }
+
 /* === WCAG 2.2 AA Contrast Overrides === */
 /* Override daisyUI badge colors that fail WCAG 1.4.3 (4.5:1 minimum) */
 .badge-success {
