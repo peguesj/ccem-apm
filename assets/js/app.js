@@ -53,6 +53,7 @@ import SessionDiagram from "./hooks/session_diagram"
 import DashboardGrid from "./hooks/dashboard_grid"
 import ScrollBottom from "./hooks/scroll_bottom"
 import DrawerResize from "./hooks/drawer_resize"
+import { CommandBarHook } from "./hooks/command_bar"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -113,7 +114,8 @@ const Hooks = {
   SessionDiagram,
   DashboardGrid,
   ScrollBottom,
-  DrawerResize
+  DrawerResize,
+  CommandBar: CommandBarHook
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

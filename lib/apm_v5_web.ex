@@ -88,6 +88,8 @@ defmodule ApmV5Web do
       import ApmV5Web.CoreComponents
       import ApmV5Web.Components.SidebarNav
       import ApmV5Web.Components.GettingStartedWizard
+      import ApmV5Web.Components.DesignSystem
+      import ApmV5Web.Components.AiComponents
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS

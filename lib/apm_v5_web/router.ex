@@ -275,6 +275,8 @@ defmodule ApmV5Web.Router do
     post "/upm/agent", UpmApiController, :upm_agent
     post "/upm/event", UpmApiController, :upm_event
     get "/upm/status", UpmApiController, :upm_status
+    # Design handoff intake — create UPM session from design handoff README
+    post "/upm/sessions/from_design_handoff", UpmApiController, :from_design_handoff
 
     # UPM module CRUD
     get "/upm/projects", UpmController, :list_projects

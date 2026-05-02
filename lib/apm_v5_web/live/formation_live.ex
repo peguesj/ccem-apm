@@ -972,7 +972,59 @@ defmodule ApmV5Web.FormationLive do
         }
       end)
 
-    (live_formations ++ upm_trees)
+    # Derive formations from notification records when no live agents or UPM record exists.
+    # Covers the case where formation agents sent notifications but never called /api/register.
+    all_known_ids = MapSet.union(live_ids, MapSet.new(upm_only, & &1.id))
+
+    notif_trees =
+      AgentRegistry.get_notifications()
+      |> Enum.filter(&(Map.get(&1, :formation_id) not in [nil, ""]))
+      |> Enum.group_by(&Map.get(&1, :formation_id))
+      |> Enum.reject(fn {fid, _} -> MapSet.member?(all_known_ids, fid) end)
+      |> Enum.map(fn {formation_id, notifs} ->
+        # Derive squadron names from notification titles (e.g. "Alpha: Squadron Complete")
+        sq_names =
+          notifs
+          |> Enum.map(&Map.get(&1, :title, ""))
+          |> Enum.flat_map(fn title ->
+            case Regex.run(~r/^([A-Za-z]+):\s/, title) do
+              [_, name] -> [name]
+              _ -> []
+            end
+          end)
+          |> Enum.uniq()
+
+        squadrons =
+          case sq_names do
+            [] -> []
+            names ->
+              Enum.map(names, fn name ->
+                sq_notifs = Enum.filter(notifs, &String.starts_with?(Map.get(&1, :title, ""), name <> ":"))
+                status = if Enum.any?(sq_notifs, &(&1.type in ["success", "ok"])), do: "complete", else: "active"
+                %{name: name, status: status, swarms: [], agents: []}
+              end)
+          end
+
+        last_notif = List.first(notifs)
+        status =
+          cond do
+            Enum.any?(notifs, &String.contains?(Map.get(&1, :title, ""), "Complete")) -> "complete"
+            Enum.any?(notifs, &(&1.type == "error")) -> "error"
+            true -> "active"
+          end
+
+        %{
+          id: formation_id,
+          name: formation_id,
+          agent_count: 0,
+          squadrons: squadrons,
+          status: status,
+          registered_at: Map.get(last_notif || %{}, :timestamp),
+          source: :notifications
+        }
+      end)
+
+    (live_formations ++ upm_trees ++ notif_trees)
     |> Enum.sort_by(& &1.name)
   end
 

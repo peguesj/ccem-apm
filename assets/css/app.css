@@ -28,6 +28,142 @@
 
 /* This file is for your main application CSS */
 
+/* ============================================================
+   CCEM Design System Tokens
+   oklch color space · Geist typography · 4pt grid
+   ============================================================ */
+
+/* ── Font Faces ── */
+@font-face { font-family: 'Geist'; src: url('/fonts/geist-regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Geist'; src: url('/fonts/geist-medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Geist'; src: url('/fonts/geist-semibold.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('/fonts/geist-mono-regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('/fonts/geist-mono-medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+
+:root {
+  /* ── Canvas / Surface ── */
+  --ccem-bg-0:         oklch(0.145 0.012 255);
+  --ccem-bg-1:         oklch(0.175 0.014 255);
+  --ccem-bg-2:         oklch(0.205 0.016 255);
+  --ccem-bg-3:         oklch(0.235 0.017 255);
+  --ccem-bg-inverse:   oklch(0.98  0.004 255);
+
+  /* ── Borders / Hairlines ── */
+  --ccem-line-subtle:  oklch(0.26 0.015 255 / 0.5);
+  --ccem-line:         oklch(0.30 0.018 255 / 0.8);
+  --ccem-line-strong:  oklch(0.36 0.02  255);
+  --ccem-line-accent:  oklch(0.86 0.18 140 / 0.35);
+
+  /* ── Text ── */
+  --ccem-fg:           oklch(0.97 0.005 255);
+  --ccem-fg-muted:     oklch(0.78 0.012 255);
+  --ccem-fg-dim:       oklch(0.58 0.013 255);
+  --ccem-fg-faint:     oklch(0.44 0.012 255);
+  --ccem-fg-inverse:   oklch(0.17 0.015 255);
+
+  /* ── Accent (signature lime — life signals only) ── */
+  --ccem-accent:       oklch(0.86 0.18 140);
+  --ccem-accent-dim:   oklch(0.72 0.15 140);
+  --ccem-accent-soft:  oklch(0.86 0.18 140 / 0.12);
+  --ccem-accent-glow:  oklch(0.86 0.18 140 / 0.35);
+
+  /* ── Iris (selection, focus) ── */
+  --ccem-iris:         oklch(0.68 0.19 280);
+  --ccem-iris-soft:    oklch(0.68 0.19 280 / 0.16);
+
+  /* ── Semantic ── */
+  --ccem-ok:           oklch(0.82 0.18 150);
+  --ccem-ok-soft:      oklch(0.82 0.18 150 / 0.14);
+  --ccem-warn:         oklch(0.82 0.16 85);
+  --ccem-warn-soft:    oklch(0.82 0.16 85  / 0.14);
+  --ccem-err:          oklch(0.70 0.22 25);
+  --ccem-err-soft:     oklch(0.70 0.22 25  / 0.14);
+  --ccem-info:         oklch(0.78 0.14 230);
+  --ccem-info-soft:    oklch(0.78 0.14 230 / 0.14);
+
+  /* ── Live / pulse ── */
+  --ccem-live:         oklch(0.86 0.18 140);
+  --ccem-live-glow:    oklch(0.86 0.22 140 / 0.6);
+
+  /* ── Typography ── */
+  --ccem-font-sans:    'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  --ccem-font-mono:    'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ccem-t-2xs: 10px; --ccem-t-xs: 11px; --ccem-t-sm: 12px; --ccem-t-base: 13px;
+  --ccem-t-md: 14px; --ccem-t-lg: 16px; --ccem-t-xl: 20px; --ccem-t-2xl: 28px;
+  --ccem-t-3xl: 36px; --ccem-t-4xl: 48px; --ccem-t-5xl: 64px;
+
+  /* ── Spacing (4pt) ── */
+  --ccem-s-1: 4px; --ccem-s-2: 8px; --ccem-s-3: 12px; --ccem-s-4: 16px;
+  --ccem-s-5: 20px; --ccem-s-6: 24px; --ccem-s-8: 32px; --ccem-s-12: 48px; --ccem-s-16: 64px;
+
+  /* ── Radius ── */
+  --ccem-r-xs: 3px; --ccem-r-sm: 5px; --ccem-r-md: 7px; --ccem-r-lg: 10px;
+  --ccem-r-xl: 14px; --ccem-r-2xl: 20px; --ccem-r-full: 999px;
+
+  /* ── Shadows ── */
+  --ccem-shadow-xs: 0 1px 0 0 rgba(0,0,0,0.25), inset 0 1px 0 0 rgba(255,255,255,0.02);
+  --ccem-shadow-sm: 0 2px 6px -2px rgba(0,0,0,0.4);
+  --ccem-shadow-md: 0 8px 24px -8px rgba(0,0,0,0.5);
+  --ccem-shadow-lg: 0 24px 64px -16px rgba(0,0,0,0.6);
+  --ccem-shadow-glow: 0 0 0 1px var(--ccem-accent-glow), 0 0 24px -4px var(--ccem-accent-glow);
+
+  /* ── Motion ── */
+  --ccem-ease-out:     cubic-bezier(0.22, 1, 0.36, 1);
+  --ccem-ease-in-out:  cubic-bezier(0.65, 0, 0.35, 1);
+  --ccem-dur-fast:     120ms;
+  --ccem-dur-base:     200ms;
+  --ccem-dur-slow:     400ms;
+}
+
+/* ── CCEM Utility Classes ── */
+.ccem-mono { font-family: var(--ccem-font-mono); font-feature-settings: 'zero', 'ss01'; }
+.ccem-tabular { font-variant-numeric: tabular-nums; }
+.ccem-uppercase { text-transform: uppercase; letter-spacing: 0.08em; }
+
+.ccem-grid-bg {
+  background-color: var(--ccem-bg-0);
+  background-image: radial-gradient(circle at 1px 1px, oklch(0.32 0.02 255 / 0.35) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+.ccem-noise::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.03 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.5; mix-blend-mode: overlay;
+}
+
+@keyframes ccem-scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+.ccem-scanline { position: relative; overflow: hidden; }
+.ccem-scanline::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ccem-accent-glow), transparent);
+  animation: ccem-scan 3.2s linear infinite;
+}
+
+@keyframes ccem-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.95); } }
+.ccem-pulse { animation: ccem-pulse 2.2s var(--ccem-ease-in-out) infinite; }
+
+@keyframes ccem-waveform { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+@keyframes ccem-shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+.ccem-shimmer {
+  background: linear-gradient(90deg, var(--ccem-bg-1) 0%, var(--ccem-bg-2) 30%, oklch(0.28 0.02 255) 50%, var(--ccem-bg-2) 70%, var(--ccem-bg-1) 100%);
+  background-size: 200% 100%; animation: ccem-shimmer 1.8s var(--ccem-ease-in-out) infinite;
+}
+
+@keyframes ccem-caret { 0%, 60% { opacity: 1; } 61%, 100% { opacity: 0; } }
+.ccem-caret {
+  display: inline-block; width: 7px; height: 1em; vertical-align: -2px;
+  background: var(--ccem-accent); margin-left: 3px;
+  animation: ccem-caret 1s steps(2, end) infinite;
+}
+
+.ccem-focus:focus-visible { outline: 2px solid var(--ccem-accent); outline-offset: 2px; }
+
+.ccem-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.ccem-scroll::-webkit-scrollbar-track { background: transparent; }
+.ccem-scroll::-webkit-scrollbar-thumb { background: var(--ccem-line); border-radius: 8px; border: 2px solid var(--ccem-bg-0); }
+.ccem-scroll::-webkit-scrollbar-thumb:hover { background: var(--ccem-line-strong); }
+
 /* === Sidebar collapse === */
 #apm-sidebar { transition: width 0.2s ease; }
 #apm-sidebar.sidebar-collapsed { width: 3rem; min-width: 3rem; }
@@ -524,4 +660,183 @@
 }
 .mermaid-wrapper .mermaid marker {
   fill: color-mix(in oklch, var(--color-primary) 50%, transparent) !important;
+}
+
+/* ── CommandBar (Cmd+K) ─────────────────────────────────────────────────── */
+
+.command-bar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: oklch(0 0 0 / 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: cb-fade-in 120ms ease both;
+}
+
+.command-bar-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  margin: auto;
+  top: 18vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, calc(100vw - 2rem));
+  max-height: 72vh;
+  background: oklch(from var(--ccem-bg-1) l c h / 0.97);
+  border: 1px solid var(--ccem-line);
+  border-radius: 12px;
+  box-shadow: var(--ccem-shadow-lg), 0 0 0 1px var(--ccem-line-subtle);
+  font-family: var(--ccem-font-sans);
+  animation: cb-slide-in 120ms ease both;
+  overflow: hidden;
+}
+
+@keyframes cb-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes cb-slide-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.command-bar-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ccem-line-subtle);
+  flex-shrink: 0;
+}
+
+.command-bar-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--ccem-fg-dim);
+  flex-shrink: 0;
+}
+
+.command-bar-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--ccem-font-sans);
+  font-size: 15px;
+  color: var(--ccem-fg);
+  caret-color: var(--ccem-accent);
+}
+
+.command-bar-input::placeholder {
+  color: var(--ccem-fg-faint);
+}
+
+.command-bar-esc-hint {
+  font-family: var(--ccem-font-mono);
+  font-size: 11px;
+  color: var(--ccem-fg-faint);
+  background: var(--ccem-bg-3);
+  border: 1px solid var(--ccem-line);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+.command-bar-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ccem-line) transparent;
+}
+
+.command-bar-section-header {
+  padding: 6px 16px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ccem-fg-faint);
+  user-select: none;
+}
+
+.command-bar-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 16px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  gap: 12px;
+  transition: background 60ms;
+}
+
+.command-bar-item:hover,
+.command-bar-item--selected {
+  background: var(--ccem-bg-2);
+  border-left-color: var(--ccem-accent);
+}
+
+.command-bar-item-label {
+  font-size: 13px;
+  color: var(--ccem-fg);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.command-bar-item--selected .command-bar-item-label {
+  color: var(--ccem-accent);
+}
+
+.command-bar-item-path {
+  font-family: var(--ccem-font-mono);
+  font-size: 11px;
+  color: var(--ccem-fg-faint);
+  flex-shrink: 0;
+}
+
+.command-bar-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ccem-fg-dim);
+}
+
+.command-bar-footer {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 16px;
+  border-top: 1px solid var(--ccem-line-subtle);
+  flex-shrink: 0;
+}
+
+.command-bar-footer span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ccem-fg-faint);
+}
+
+.command-bar-footer kbd {
+  font-family: var(--ccem-font-mono);
+  font-size: 10px;
+  background: var(--ccem-bg-3);
+  border: 1px solid var(--ccem-line);
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: var(--ccem-fg-dim);
 }

@@ -542,15 +542,15 @@ defmodule ApmV5Web.DashboardLive do
         <div class="flex-1 flex overflow-hidden relative">
           <%!-- Left panel: stats + agents --%>
           <div class="flex-1 overflow-y-auto p-4 space-y-4">
-            <%!-- Stats grid --%>
+            <%!-- 6-up metric strip (design system stat_tile) --%>
             <.live_region id="agent-status-summary" politeness="polite">
               <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                <.stat_card label="Agents" value={@agent_count} color="text-primary" />
-                <.stat_card label="Active" value={@active_count} color="text-success" />
-                <.stat_card label="Idle" value={@idle_count} color="text-base-content/60" />
-                <.stat_card label="Errors" value={@error_count} color="text-error" />
-                <.stat_card label="Sessions" value={@session_count} color="text-info" />
-                <.stat_card label="Notifications" value={length(@notifications)} color="text-warning" />
+                <.stat_tile label="Agents" value={to_string(@agent_count)} delta_direction="flat" />
+                <.stat_tile label="Active" value={to_string(@active_count)} delta={if(@active_count > 0, do: "+#{@active_count}", else: nil)} delta_direction="up" />
+                <.stat_tile label="Idle" value={to_string(@idle_count)} delta_direction="flat" />
+                <.stat_tile label="Errors" value={to_string(@error_count)} delta={if(@error_count > 0, do: "#{@error_count}", else: nil)} delta_direction={if(@error_count > 0, do: "down", else: "flat")} />
+                <.stat_tile label="Sessions" value={to_string(@session_count)} delta_direction="flat" />
+                <.stat_tile label="Notifications" value={to_string(length(@notifications))} delta_direction="flat" />
               </div>
             </.live_region>
 
@@ -786,9 +786,9 @@ defmodule ApmV5Web.DashboardLive do
             />
 
             <%!-- Widgetization Engine (CP-93–CP-106) --%>
-            <div class="border-t border-base-300 pt-4">
+            <div style="border-top: 1px solid var(--ccem-line-subtle); padding-top: var(--ccem-s-4);">
               <div class="flex items-center justify-between mb-3">
-                <h2 class="text-sm font-semibold uppercase tracking-wider text-base-content/50">Widgets</h2>
+                <h2 class="ccem-uppercase" style="font-size: var(--ccem-t-xs); font-weight: 600; color: var(--ccem-fg-faint);">Widgets</h2>
               </div>
               <.live_component
                 module={ApmV5Web.Live.DashboardGridComponent}
@@ -1736,20 +1736,7 @@ defmodule ApmV5Web.DashboardLive do
 
   # --- Helper Components ---
 
-  attr :label, :string, required: true
-  attr :value, :any, required: true
-  attr :color, :string, default: "text-primary"
-
-  defp stat_card(assigns) do
-    ~H"""
-    <div class="card bg-base-200 border border-base-300 min-h-[120px]">
-      <div class="card-body p-3 items-center text-center justify-center">
-        <div class={["text-2xl font-bold tabular-nums", @color]}>{@value}</div>
-        <div class="text-[10px] uppercase tracking-widest text-base-content/40">{@label}</div>
-      </div>
-    </div>
-    """
-  end
+  # stat_card removed — replaced by design_system stat_tile (Wave 5)
 
   # --- Private Helpers ---
 

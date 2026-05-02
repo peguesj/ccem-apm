@@ -72,4 +72,48 @@ defmodule ApmV5Web.UpmApiController do
     status = UpmStore.get_status()
     json(conn, status)
   end
+
+  @doc """
+  POST /api/v2/upm/sessions/from_design_handoff
+
+  Create a UPM session from a design handoff ZIP README.
+
+  Required body params:
+  - `readme_content` — raw README.md string from the design handoff package
+  - `project` — project name
+  - `prd_branch` — feature branch name (e.g. "ralph/design-system-v2")
+
+  Optional:
+  - `plane_project_id` — Plane project UUID for issue tracking
+  """
+  @spec from_design_handoff(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def from_design_handoff(conn, params) do
+    case UpmStore.create_session_from_design_handoff(params) do
+      {:ok, session_id} ->
+        Phoenix.PubSub.broadcast(@pubsub, @topic, {:upm_session_registered, %{
+          session_id: session_id,
+          input_type: "design_handoff",
+          project: params["project"]
+        }})
+
+        conn
+        |> put_status(201)
+        |> json(%{ok: true, upm_session_id: session_id, input_type: "design_handoff"})
+
+      {:error, :missing_readme} ->
+        conn
+        |> put_status(422)
+        |> json(%{error: "readme_content is required"})
+
+      {:error, :no_implementation_order} ->
+        conn
+        |> put_status(422)
+        |> json(%{error: "README must contain an '## Implementation Order' section"})
+
+      {:error, reason} ->
+        conn
+        |> put_status(422)
+        |> json(%{error: to_string(reason)})
+    end
+  end
 end

@@ -4,31 +4,34 @@
  * Single source of truth for all JS hooks (formation_graph.js,
  * dependency_graph.js, showcase-engine.js, etc.).
  *
- * Values mirror the daisyUI dark theme configuration used in app.css
- * and the Tailwind/daisyUI variable set active at data-theme="dark".
- *
- * Canonical daisyUI dark palette:
- *   base-100: #1d232a  base-200: #191e24  base-300: #15191e
- *   success: #36d399   warning: #fbbd23   error: #f87272
- *   info: #3abff8      primary: #6366f1   secondary: #818cf8
+ * Hex approximations of the oklch design system tokens in app.css.
+ * Canvas uses CCEM Design System oklch palette; formation hierarchy
+ * retains semantic indigo/sky/emerald/violet for D3 node differentiation.
  */
 
 export const TOKENS = {
-  // ── Backgrounds ────────────────────────────────────────────────────────────
+  // ── Backgrounds (aligned to --ccem-bg-*) ───────────────────────────────────
   bg: {
-    primary:   "#1d232a",  // base-100  — main surface
-    secondary: "#191e24",  // base-200  — cards, panels
-    tertiary:  "#15191e",  // base-300  — borders, deep wells
-    elevated:  "#212830",  // raised cards / node backgrounds
-    canvas:    "#0f1420",  // dot-grid canvas background
+    primary:   "#1a1d2b",  // --ccem-bg-1 oklch(0.175 0.014 255)
+    secondary: "#151827",  // --ccem-bg-0 oklch(0.145 0.012 255)
+    tertiary:  "#1f2333",  // --ccem-bg-2 oklch(0.205 0.016 255)
+    elevated:  "#252a3a",  // --ccem-bg-3 oklch(0.235 0.017 255)
+    canvas:    "#151827",  // --ccem-bg-0
   },
 
-  // ── Status / semantic ──────────────────────────────────────────────────────
+  // ── Status / semantic (aligned to --ccem-ok/warn/err/info) ─────────────────
   status: {
-    success: "#36d399",
-    warning: "#fbbd23",
-    error:   "#f87272",
-    info:    "#3abff8",
+    success: "#5ee8a0",    // --ccem-ok  oklch(0.82 0.18 150)
+    warning: "#e0b830",    // --ccem-warn oklch(0.82 0.16 85)
+    error:   "#e8503a",    // --ccem-err  oklch(0.70 0.22 25)
+    info:    "#5ab8e8",    // --ccem-info oklch(0.78 0.14 230)
+  },
+
+  // ── Accent (signature lime) ────────────────────────────────────────────────
+  accent: {
+    lime:     "#a3e635",   // --ccem-accent oklch(0.86 0.18 140)
+    limeDim:  "#7cc020",   // --ccem-accent-dim
+    iris:     "#7c5cf6",   // --ccem-iris oklch(0.68 0.19 280)
   },
 
   // ── Formation hierarchy ────────────────────────────────────────────────────
@@ -78,33 +81,36 @@ export const TOKENS = {
     },
   },
 
-  // ── Text ───────────────────────────────────────────────────────────────────
+  // ── Text (aligned to --ccem-fg-*) ───────────────────────────────────────────
   text: {
-    primary:   "#e2e8f0",  // slate-200
-    secondary: "#94a3b8",  // slate-400
-    muted:     "#64748b",  // slate-500
-    code:      "#a5f3fc",  // cyan-200
+    primary:   "#f0f1f4",  // --ccem-fg oklch(0.97 0.005 255)
+    secondary: "#b0b5c0",  // --ccem-fg-muted oklch(0.78 0.012 255)
+    muted:     "#808590",  // --ccem-fg-dim oklch(0.58 0.013 255)
+    faint:     "#606570",  // --ccem-fg-faint oklch(0.44 0.012 255)
+    code:      "#a5f3fc",  // cyan-200 (unchanged — code highlight)
   },
 
-  // ── Borders / lines ────────────────────────────────────────────────────────
+  // ── Borders / lines (aligned to --ccem-line-*) ─────────────────────────────
   border: {
-    default: "#334155",    // slate-700
-    active:  "#6366f1",    // primary
-    success: "#36d399",    // success
-    dim:     "#1e293b",    // slate-800  — subtle separators
+    default: "#363c4d",    // --ccem-line oklch(0.30 0.018 255)
+    strong:  "#464e60",    // --ccem-line-strong oklch(0.36 0.02 255)
+    subtle:  "#2a2f3d",    // --ccem-line-subtle
+    active:  "#7c5cf6",    // --ccem-iris
+    success: "#5ee8a0",    // --ccem-ok
+    dim:     "#2a2f3d",    // subtle separators
   },
 
   // ── Link / edge ────────────────────────────────────────────────────────────
   edge: {
-    default:  "#334155",   // slate-700
-    active:   "#6366f1",   // primary
-    dashed:   "#1e293b",   // dim connector
+    default:  "#363c4d",   // --ccem-line
+    active:   "#a3e635",   // --ccem-accent (lime for live edges)
+    dashed:   "#2a2f3d",   // subtle
   },
 
   // ── Dot grid pattern ───────────────────────────────────────────────────────
   dotGrid: {
-    bg:  "#0f1420",
-    dot: "#1e2a3a",
+    bg:  "#151827",        // --ccem-bg-0
+    dot: "#2a3040",
   },
 }
 

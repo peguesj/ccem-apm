@@ -386,4 +386,142 @@ defmodule ApmV5.UpmStoreTest do
                })
     end
   end
+
+  describe "parse_design_handoff_readme/1" do
+    @sample_readme """
+    # Design Handoff: CCEM APM Dashboard Redesign
+
+    ## Implementation Order
+    1. tokens.css — design tokens
+    2. components-primitives.jsx — base UI primitives
+    3. components-ai.jsx — AI-specific components
+    4. wireframes.jsx — dashboard wireframes
+
+    ## Component Inventory
+    - Button, Card, Badge, Avatar (primitives)
+    - AgentCard, StatusBadge, FormationTree (AI components)
+
+    ## Design Tokens
+    - --color-primary: #1e3a0f
+    - --color-accent: #4a7c2e
+    - --font-base: Space Grotesk
+
+    ## Wireframe Coverage
+    - Dashboard home
+    - Formation tree view
+    - Agent inspector panel
+    """
+
+    test "extracts implementation waves from README" do
+      result = UpmStore.parse_design_handoff_readme(@sample_readme)
+
+      assert {:ok, parsed} = result
+      assert is_list(parsed.waves)
+      assert length(parsed.waves) > 0
+    end
+
+    test "maps implementation order to waves" do
+      {:ok, parsed} = UpmStore.parse_design_handoff_readme(@sample_readme)
+
+      wave_titles = Enum.map(parsed.waves, & &1.title)
+      assert Enum.any?(wave_titles, &String.contains?(&1, "tokens"))
+      assert Enum.any?(wave_titles, &String.contains?(&1, "primitives"))
+    end
+
+    test "extracts component inventory" do
+      {:ok, parsed} = UpmStore.parse_design_handoff_readme(@sample_readme)
+
+      assert is_list(parsed.components)
+      assert length(parsed.components) > 0
+    end
+
+    test "extracts design tokens" do
+      {:ok, parsed} = UpmStore.parse_design_handoff_readme(@sample_readme)
+
+      assert is_list(parsed.tokens)
+      assert Enum.any?(parsed.tokens, &String.contains?(&1, "color-primary"))
+    end
+
+    test "returns {:error, :no_implementation_order} when Implementation Order section missing" do
+      readme = "# Some Design Spec\n\nNo implementation order here."
+      assert {:error, :no_implementation_order} = UpmStore.parse_design_handoff_readme(readme)
+    end
+
+    test "returns {:error, :invalid_readme} for non-string input" do
+      assert {:error, :invalid_readme} = UpmStore.parse_design_handoff_readme(nil)
+      assert {:error, :invalid_readme} = UpmStore.parse_design_handoff_readme(42)
+    end
+  end
+
+  describe "create_session_from_design_handoff/1" do
+    @handoff_params %{
+      "readme_content" => """
+      # Design Handoff: Test Feature
+
+      ## Implementation Order
+      1. tokens.css — base design tokens
+      2. components-primitives.jsx — primitive components
+      3. components-ai.jsx — AI components
+      4. wireframes.jsx — wireframe views
+
+      ## Component Inventory
+      - Button, Input, Card
+
+      ## Design Tokens
+      - --color-bg: #ffffff
+      """,
+      "project" => "ccem-apm",
+      "prd_branch" => "ralph/design-system-v2",
+      "plane_project_id" => "proj-test-123"
+    }
+
+    test "creates a UPM session with input_type: design_handoff" do
+      assert {:ok, session_id} = UpmStore.create_session_from_design_handoff(@handoff_params)
+      assert String.starts_with?(session_id, "upm-")
+
+      session = UpmStore.get_session(session_id)
+      assert session.input_type == :design_handoff
+    end
+
+    test "populates stories from parsed README implementation order" do
+      {:ok, session_id} = UpmStore.create_session_from_design_handoff(@handoff_params)
+      session = UpmStore.get_session(session_id)
+
+      assert length(session.stories) > 0
+      story_titles = Enum.map(session.stories, & &1.title)
+      assert Enum.any?(story_titles, &(is_binary(&1) and String.contains?(&1, "token")))
+    end
+
+    test "sets total_waves based on parsed waves" do
+      {:ok, session_id} = UpmStore.create_session_from_design_handoff(@handoff_params)
+      session = UpmStore.get_session(session_id)
+
+      assert session.total_waves >= 1
+    end
+
+    test "stores handoff_metadata on the session" do
+      {:ok, session_id} = UpmStore.create_session_from_design_handoff(@handoff_params)
+      session = UpmStore.get_session(session_id)
+
+      assert is_map(session.handoff_metadata)
+      assert Map.has_key?(session.handoff_metadata, :components)
+      assert Map.has_key?(session.handoff_metadata, :tokens)
+    end
+
+    test "returns {:error, :no_implementation_order} for README missing implementation order" do
+      params = Map.put(@handoff_params, "readme_content", "# No implementation order here")
+      assert {:error, :no_implementation_order} = UpmStore.create_session_from_design_handoff(params)
+    end
+
+    test "returns {:error, :missing_readme} when readme_content is absent" do
+      params = Map.delete(@handoff_params, "readme_content")
+      assert {:error, :missing_readme} = UpmStore.create_session_from_design_handoff(params)
+    end
+  end
+
+  describe "create_from_template/2 with design_handoff" do
+    test "returns {:error, :unknown_template} for unknown template" do
+      assert {:error, :unknown_template} = UpmStore.create_from_template("nonexistent", %{})
+    end
+  end
 end

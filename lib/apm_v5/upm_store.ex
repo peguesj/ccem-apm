@@ -127,6 +127,69 @@ defmodule ApmV5.UpmStore do
     |> Enum.sort_by(& &1.registered_at, {:desc, DateTime})
   end
 
+  @doc """
+  List all formations from all sources: UpmStore registrations, live agents in
+  AgentRegistry that carry a formation_id, and notification-derived formations
+  (for agents that sent notifications but never called /api/register).
+
+  Returns a flat list of formation maps with a `:source` key indicating origin
+  (`:upm`, `:agents`, or `:notifications`).
+  """
+  @spec list_all_formations() :: [map()]
+  def list_all_formations do
+    upm = list_formations()
+    upm_ids = MapSet.new(upm, & &1.id)
+
+    # Live agents grouped by formation_id — surface formations not in UpmStore
+    agent_only =
+      ApmV5.AgentRegistry.list_agents()
+      |> Enum.filter(&(Map.get(&1, :formation_id) not in [nil, ""]))
+      |> Enum.group_by(&Map.get(&1, :formation_id))
+      |> Enum.reject(fn {fid, _} -> MapSet.member?(upm_ids, fid) end)
+      |> Enum.map(fn {formation_id, agents} ->
+        %{
+          id: formation_id,
+          name: formation_id,
+          agent_count: length(agents),
+          status: "active",
+          registered_at: agents |> Enum.map(&Map.get(&1, :registered_at)) |> Enum.min(fn -> nil end),
+          source: :agents
+        }
+      end)
+
+    agent_ids = MapSet.new(agent_only, & &1.id)
+    all_known = MapSet.union(upm_ids, agent_ids)
+
+    # Notification-derived formations — for agents that only posted notifications
+    notif_only =
+      ApmV5.AgentRegistry.get_notifications()
+      |> Enum.filter(&(Map.get(&1, :formation_id) not in [nil, ""]))
+      |> Enum.group_by(&Map.get(&1, :formation_id))
+      |> Enum.reject(fn {fid, _} -> MapSet.member?(all_known, fid) end)
+      |> Enum.map(fn {formation_id, notifs} ->
+        last_notif = List.first(notifs)
+
+        status =
+          cond do
+            Enum.any?(notifs, &String.contains?(Map.get(&1, :title, ""), "Complete")) -> "complete"
+            Enum.any?(notifs, &(&1.type == "error")) -> "error"
+            true -> "active"
+          end
+
+        %{
+          id: formation_id,
+          name: formation_id,
+          agent_count: 0,
+          status: status,
+          registered_at: Map.get(last_notif || %{}, :timestamp),
+          source: :notifications
+        }
+      end)
+
+    (upm ++ agent_only ++ notif_only)
+    |> Enum.sort_by(& &1.name)
+  end
+
   @doc "Update a formation's fields."
   @spec update_formation(String.t(), map()) :: :ok | {:error, :not_found}
   def update_formation(formation_id, fields) do
@@ -249,6 +312,138 @@ defmodule ApmV5.UpmStore do
 
   def create_from_template(_unknown, _opts), do: {:error, :unknown_template}
 
+  @doc """
+  Parse a design handoff README.md into waves, components, tokens, and wireframe coverage.
+
+  Returns `{:ok, parsed}` where `parsed` contains:
+  - `waves` — list of `%{step: integer, title: string, file: string}` maps from Implementation Order
+  - `components` — list of component name strings from Component Inventory
+  - `tokens` — list of CSS custom property strings from Design Tokens section
+  - `wireframes` — list of wireframe description strings from Wireframe Coverage
+
+  Returns `{:error, :invalid_readme}` when `readme` is not a binary.
+  Returns `{:error, :no_implementation_order}` when the README lacks an Implementation Order section.
+  """
+  @spec parse_design_handoff_readme(term()) ::
+          {:ok, map()} | {:error, :invalid_readme | :no_implementation_order}
+  def parse_design_handoff_readme(readme) when not is_binary(readme),
+    do: {:error, :invalid_readme}
+
+  def parse_design_handoff_readme(readme) do
+    with {:ok, waves} <- extract_implementation_order(readme) do
+      {:ok, %{
+        waves: waves,
+        components: extract_list_section(readme, "Component Inventory"),
+        tokens: extract_list_section(readme, "Design Tokens"),
+        wireframes: extract_list_section(readme, "Wireframe Coverage")
+      }}
+    end
+  end
+
+  @doc """
+  Create a UPM session from a design handoff ZIP README.
+
+  Accepts params map with:
+  - `"readme_content"` (required) — raw README.md string from the design handoff
+  - `"project"` — project name
+  - `"prd_branch"` — git branch
+  - `"plane_project_id"` — Plane project UUID
+
+  The session is created with `input_type: :design_handoff` and stories derived from
+  the Implementation Order in the README (one story per ordered step).
+
+  Returns `{:ok, session_id}` or `{:error, reason}`.
+  """
+  @spec create_session_from_design_handoff(map()) ::
+          {:ok, String.t()} | {:error, :missing_readme | :no_implementation_order}
+  def create_session_from_design_handoff(params) do
+    readme = params["readme_content"]
+
+    cond do
+      is_nil(readme) or not is_binary(readme) ->
+        {:error, :missing_readme}
+
+      true ->
+        case parse_design_handoff_readme(readme) do
+          {:error, reason} ->
+            {:error, reason}
+
+          {:ok, parsed} ->
+            stories =
+              Enum.map(parsed.waves, fn wave ->
+                id = "DH-#{String.pad_leading(to_string(wave.step), 3, "0")}"
+                %{"id" => id, "title" => wave.title}
+              end)
+
+            session_params = %{
+              "stories" => stories,
+              "waves" => length(parsed.waves),
+              "prd_branch" => params["prd_branch"],
+              "plane_project_id" => params["plane_project_id"],
+              "input_type" => "design_handoff",
+              "handoff_metadata" => %{
+                "components" => parsed.components,
+                "tokens" => parsed.tokens,
+                "wireframes" => parsed.wireframes
+              }
+            }
+
+            GenServer.call(__MODULE__, {:register_session_design_handoff, session_params, parsed})
+        end
+    end
+  end
+
+  # --- Private Helpers for Design Handoff Parsing ---
+
+  @spec extract_implementation_order(String.t()) ::
+          {:ok, [map()]} | {:error, :no_implementation_order}
+  defp extract_implementation_order(readme) do
+    # Match the "## Implementation Order" section (up to the next ##)
+    case Regex.run(
+           ~r/##\s+Implementation Order\s*\n((?:(?!##).)+)/si,
+           readme
+         ) do
+      [_, section] ->
+        waves =
+          Regex.scan(~r/^\s*(\d+)\.\s+(.+?)(?:\s+[-—]\s+(.+?))?$/m, section)
+          |> Enum.map(fn
+            [_, step_str, file, desc] ->
+              step = String.to_integer(String.trim(step_str))
+              title = "#{String.trim(file)} — #{String.trim(desc)}"
+              %{step: step, title: title, file: String.trim(file)}
+
+            [_, step_str, file] ->
+              step = String.to_integer(String.trim(step_str))
+              %{step: step, title: String.trim(file), file: String.trim(file)}
+          end)
+          |> Enum.filter(&(map_size(&1) > 0))
+
+        if Enum.empty?(waves) do
+          {:error, :no_implementation_order}
+        else
+          {:ok, waves}
+        end
+
+      nil ->
+        {:error, :no_implementation_order}
+    end
+  end
+
+  @spec extract_list_section(String.t(), String.t()) :: [String.t()]
+  defp extract_list_section(readme, section_name) do
+    case Regex.run(
+           ~r/##\s+#{Regex.escape(section_name)}\s*\n((?:(?!##).)+)/si,
+           readme
+         ) do
+      [_, section] ->
+        Regex.scan(~r/^\s*[-*]\s+(.+?)$/m, section)
+        |> Enum.map(fn [_, item] -> String.trim(item) end)
+
+      nil ->
+        []
+    end
+  end
+
   # --- GenServer Callbacks ---
 
   @impl true
@@ -261,6 +456,43 @@ defmodule ApmV5.UpmStore do
   end
 
   @impl true
+  def handle_call({:register_session_design_handoff, params, parsed}, _from, state) do
+    id = "upm-#{System.unique_integer([:positive, :monotonic])}"
+    now = DateTime.utc_now()
+
+    stories =
+      (params["stories"] || [])
+      |> Enum.map(&normalize_story/1)
+
+    handoff_meta_raw = params["handoff_metadata"] || %{}
+
+    handoff_metadata = %{
+      components: handoff_meta_raw["components"] || parsed.components,
+      tokens: handoff_meta_raw["tokens"] || parsed.tokens,
+      wireframes: handoff_meta_raw["wireframes"] || parsed.wireframes
+    }
+
+    session = %{
+      id: id,
+      stories: stories,
+      total_waves: length(parsed.waves),
+      current_wave: 0,
+      status: "registered",
+      prd_branch: params["prd_branch"],
+      plane_project_id: params["plane_project_id"],
+      input_type: :design_handoff,
+      handoff_metadata: handoff_metadata,
+      started_at: now,
+      updated_at: now
+    }
+
+    :ets.insert(@sessions_table, {id, session})
+
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:upm", {:upm_session_registered, session})
+
+    {:reply, {:ok, id}, state}
+  end
+
   def handle_call({:register_session, params}, _from, state) do
     id = "upm-#{System.unique_integer([:positive, :monotonic])}"
     now = DateTime.utc_now()

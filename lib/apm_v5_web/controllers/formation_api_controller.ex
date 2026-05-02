@@ -21,7 +21,7 @@ defmodule ApmV5Web.FormationApiController do
   @doc "GET /api/formations -- list all formations"
   @spec list_formations(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def list_formations(conn, _params) do
-    formations = UpmStore.list_formations()
+    formations = UpmStore.list_all_formations()
     json(conn, %{formations: formations, count: length(formations)})
   end
 

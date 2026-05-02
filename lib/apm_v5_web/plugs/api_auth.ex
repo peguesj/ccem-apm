@@ -12,11 +12,16 @@ defmodule ApmV5Web.Plugs.ApiAuth do
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    if localhost?(conn) do
+    if localhost?(conn) || allow_all?() do
       conn
     else
       maybe_authenticate(conn)
     end
+  end
+
+  defp allow_all? do
+    config = ApmV5.ConfigLoader.get_config()
+    get_in(config, ["api_auth", "allow_all"]) == true
   end
 
   defp localhost?(%{remote_ip: {127, 0, 0, 1}}), do: true

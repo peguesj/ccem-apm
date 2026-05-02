@@ -37,6 +37,7 @@ defmodule ApmV5Web.Layouts do
     ~H"""
     {render_slot(@inner_block)}
     <.flash_group flash={@flash} />
+    <.live_component module={ApmV5Web.Components.CommandBar} id="command-bar" />
     """
   end
 

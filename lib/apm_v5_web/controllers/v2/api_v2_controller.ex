@@ -420,6 +420,38 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         "get" => %{"operationId" => "upmStatus", "summary" => "Current UPM execution state", "tags" => ["UPM"],
           "responses" => %{"200" => %{"description" => "UPM state"}}}
       },
+      "/api/upm/sessions/from_design_handoff" => %{
+        "post" => %{
+          "operationId" => "upmSessionFromDesignHandoff",
+          "summary" => "Create UPM session from design handoff README",
+          "description" => "Parses a design handoff README.md and creates a UPM session with auto-generated stories from the Implementation Order section.",
+          "tags" => ["UPM"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object",
+            "required" => ["readme_content"],
+            "properties" => %{
+              "readme_content" => %{"type" => "string", "description" => "Raw README.md content from the design handoff"},
+              "project" => %{"type" => "string", "description" => "Project name"},
+              "prd_branch" => %{"type" => "string", "description" => "Git branch for the PRD"},
+              "plane_project_id" => %{"type" => "string", "description" => "Plane PM project ID"}
+            }}}}},
+          "responses" => %{
+            "200" => %{"description" => "UPM session created",
+              "content" => %{"application/json" => %{"schema" => %{
+                "type" => "object",
+                "properties" => %{
+                  "ok" => %{"type" => "boolean"},
+                  "upm_session_id" => %{"type" => "string"},
+                  "input_type" => %{"type" => "string", "enum" => ["design_handoff"]},
+                  "stories_count" => %{"type" => "integer"}
+                }}}}},
+            "422" => %{"description" => "Missing readme_content or no Implementation Order section found",
+              "content" => %{"application/json" => %{"schema" => %{
+                "type" => "object",
+                "properties" => %{"error" => %{"type" => "string"}}}}}}
+          }
+        }
+      },
       "/api/formations" => %{
         "get" => %{"operationId" => "listFormations", "summary" => "List all formations", "tags" => ["UPM"],
           "responses" => %{"200" => %{"description" => "Formation list"}}},
@@ -1297,6 +1329,118 @@ defmodule ApmV5Web.V2.ApiV2Controller do
         }
       },
 
+      # Widgetization Engine — dashboard widget config and layout (CP-105 / US-368)
+      "/api/v2/widgets" => %{
+        "get" => %{
+          "operationId" => "v2ListWidgets",
+          "summary" => "List all registered widgets with config and pin state",
+          "description" => "Returns all widgets from the WidgetRegistry with their current config, pinned state, and display order for the active session.",
+          "tags" => ["UPM"],
+          "responses" => %{
+            "200" => %{"description" => "Widget list",
+              "content" => %{"application/json" => %{"schema" => %{
+                "type" => "object",
+                "properties" => %{
+                  "widgets" => %{"type" => "array", "items" => %{
+                    "type" => "object",
+                    "properties" => %{
+                      "id" => %{"type" => "string"},
+                      "title" => %{"type" => "string"},
+                      "editable" => %{"type" => "boolean"},
+                      "pinnable" => %{"type" => "boolean"},
+                      "pinned" => %{"type" => "boolean"},
+                      "display_order" => %{"type" => "integer"},
+                      "config" => %{"type" => "object", "additionalProperties" => true}
+                    }
+                  }}
+                }}}}}
+          }
+        }
+      },
+      "/api/v2/widgets/{id}/config" => %{
+        "patch" => %{
+          "operationId" => "v2UpdateWidgetConfig",
+          "summary" => "Update widget configuration",
+          "description" => "Persists per-session widget config to WidgetConfigStore and broadcasts via PubSub.",
+          "tags" => ["UPM"],
+          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Widget ID"}],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object",
+            "properties" => %{"config" => %{"type" => "object", "additionalProperties" => true, "description" => "Widget-specific config map"}}}}}},
+          "responses" => %{
+            "200" => %{"description" => "Config updated"},
+            "404" => %{"description" => "Widget not found"}
+          }
+        }
+      },
+      "/api/v2/dashboard/layout" => %{
+        "get" => %{
+          "operationId" => "v2GetDashboardLayout",
+          "summary" => "Get current dashboard grid layout",
+          "description" => "Returns the active session's widget placements from LayoutStore for CSS Grid 12-col rendering.",
+          "tags" => ["UPM"],
+          "responses" => %{
+            "200" => %{"description" => "Dashboard layout placements",
+              "content" => %{"application/json" => %{"schema" => %{
+                "type" => "object",
+                "properties" => %{
+                  "placements" => %{"type" => "array", "items" => %{
+                    "type" => "object",
+                    "properties" => %{
+                      "widget_id" => %{"type" => "string"},
+                      "col_start" => %{"type" => "integer"},
+                      "col_span" => %{"type" => "integer"},
+                      "row" => %{"type" => "integer"}
+                    }
+                  }}
+                }}}}}}
+        },
+        "post" => %{
+          "operationId" => "v2SaveDashboardLayout",
+          "summary" => "Save dashboard grid layout",
+          "description" => "Persists widget placements to LayoutStore. Triggered by the DashboardGrid JS hook after native HTML5 drag-reorder.",
+          "tags" => ["UPM"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object",
+            "properties" => %{
+              "placements" => %{"type" => "array", "items" => %{
+                "type" => "object",
+                "required" => ["widget_id"],
+                "properties" => %{
+                  "widget_id" => %{"type" => "string"},
+                  "col_start" => %{"type" => "integer"},
+                  "col_span" => %{"type" => "integer"},
+                  "row" => %{"type" => "integer"}
+                }
+              }}
+            }}}}},
+          "responses" => %{
+            "200" => %{"description" => "Layout saved"},
+            "422" => %{"description" => "Invalid placement data"}
+          }
+        }
+      },
+      "/api/v2/dashboard/pin" => %{
+        "post" => %{
+          "operationId" => "v2PinWidget",
+          "summary" => "Pin or unpin a widget and set scope source",
+          "description" => "Updates the pinned state via WidgetConfigStore and optionally sets the widget as the active scope source in DashboardScopeEngine.",
+          "tags" => ["UPM"],
+          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
+            "type" => "object",
+            "required" => ["widget_id", "pinned"],
+            "properties" => %{
+              "widget_id" => %{"type" => "string", "description" => "Widget to pin or unpin"},
+              "pinned" => %{"type" => "boolean", "description" => "True to pin, false to unpin"},
+              "set_scope_source" => %{"type" => "boolean", "description" => "If true, sets this widget as the active scope source in DashboardScopeEngine", "default" => false}
+            }}}}},
+          "responses" => %{
+            "200" => %{"description" => "Pin state updated"},
+            "404" => %{"description" => "Widget not found"}
+          }
+        }
+      },
+
       "/api/v2/approvals/history" => %{
         "get" => %{
           "operationId" => "getApprovalHistory",
@@ -1557,7 +1701,7 @@ defmodule ApmV5Web.V2.ApiV2Controller do
 
   @doc "GET /api/v2/formations"
   def list_formations(conn, _params) do
-    json(conn, ApiV2JSON.envelope(UpmStore.list_formations()))
+    json(conn, ApiV2JSON.envelope(UpmStore.list_all_formations()))
   end
 
   @doc "POST /api/v2/formations"
