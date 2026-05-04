@@ -102,6 +102,9 @@ defmodule ApmV5Web.Router do
       live "/a2a", A2ALive, :index
       live "/sessions", SessionManagerLive, :index
       live "/sessions/:id", SessionManagerLive, :show
+      live "/observe/sessions/:session_id", SessionDetailLive, :index
+      # Observe: Fleet LiveView (CP-176 / US-451)
+      live "/fleet", FleetLive, :index
 
       # Extension: ag_ui
       live "/ag-ui", AgUiLive, :index
@@ -114,6 +117,7 @@ defmodule ApmV5Web.Router do
 
       # Extension: agentlock
       live "/authorization", AuthorizationLive, :index
+      live "/govern/authorization", AuthorizationLive, :index
       live "/approvals-history", ApprovalHistoryLive, :index
       live "/routing", RoutingLive, :index
 
@@ -141,6 +145,9 @@ defmodule ApmV5Web.Router do
 
       # Extension: memory
       live "/memory", MemoryLive, :index
+
+      # Extension: harness
+      live "/plugins/harness", HarnessLive, :index
 
       # Extension: library
       live "/library", LibraryLive, :index
@@ -563,6 +570,13 @@ defmodule ApmV5Web.Router do
     get "/memory/search", MemoryController, :search
     get "/memory/timeline", MemoryController, :timeline
     get "/memory/health", MemoryController, :health
+
+    # ── EXTENSION: harness ────────────────────────────────────────────────
+    get "/harness/health", HarnessController, :health
+    get "/harness/hooks", HarnessController, :hooks
+    get "/harness/session", HarnessController, :session
+    get "/harness/plans", HarnessController, :plans
+    get "/harness/settings", HarnessController, :settings
 
     # ── EXTENSION: library ────────────────────────────────────────────────
     get "/library", LibraryController, :index
