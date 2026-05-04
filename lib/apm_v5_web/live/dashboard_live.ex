@@ -130,6 +130,10 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:widget_session_configs, load_widget_session_configs(socket))
       |> assign(:widget_layout_placements, load_widget_layout(socket))
       |> assign(:inspector_collapsed, false)
+      # DS layout shell assigns (CP-175)
+      |> assign(:sidebar_collapsed, false)
+      |> assign(:inspector_open, false)
+      |> assign(:inspector_mode, "copilot")
       |> push_graph_data(agents)
       |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
 
@@ -214,8 +218,393 @@ defmodule ApmV5Web.DashboardLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/" notification_count={length(@notifications)} skill_count={@active_skill_count} plugins={@plugins} integrations={@integrations} />
+    <.page_layout
+      sidebar_collapsed={@sidebar_collapsed}
+      inspector_open={@inspector_open}
+      inspector_mode={@inspector_mode}
+    >
+      <%!-- Sidebar slot --%>
+      <:sidebar>
+        <.sidebar_nav
+          current_path="/"
+          notification_count={length(@notifications)}
+          skill_count={@active_skill_count}
+          plugins={@plugins}
+          integrations={@integrations}
+          collapsed={@sidebar_collapsed}
+          on_toggle="toggle_sidebar"
+        />
+      </:sidebar>
+
+      <%!-- Top bar slot --%>
+      <:topbar>
+        <.top_bar
+          project_name={@active_project || "CCEM APM"}
+          project_list={Enum.map(@projects, fn p -> {p["name"], p["name"]} end)}
+          active_project_id={@active_project}
+          session_count={@session_count}
+          current_user="Jeremiah Pegues"
+          on_project_change="switch_project"
+        />
+      </:topbar>
+
+      <%!-- Main content slot --%>
+      <:main>
+        <%!-- 6-up metric stat tiles --%>
+        <.live_region id="agent-status-summary" politeness="polite">
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-bottom: 16px;">
+            <.card padded={true}>
+              <.stat_tile label="Agents" value={to_string(@agent_count)} delta_direction="flat" />
+            </.card>
+            <.card padded={true}>
+              <.stat_tile
+                label="Active"
+                value={to_string(@active_count)}
+                delta={if @active_count > 0, do: "+#{@active_count}", else: nil}
+                delta_direction="up"
+              />
+            </.card>
+            <.card padded={true}>
+              <.stat_tile label="Idle" value={to_string(@idle_count)} delta_direction="flat" />
+            </.card>
+            <.card padded={true}>
+              <.stat_tile
+                label="Errors"
+                value={to_string(@error_count)}
+                delta={if @error_count > 0, do: to_string(@error_count), else: nil}
+                delta_direction={if @error_count > 0, do: "down", else: "flat"}
+              />
+            </.card>
+            <.card padded={true}>
+              <.stat_tile label="Sessions" value={to_string(@session_count)} delta_direction="flat" />
+            </.card>
+            <.card padded={true}>
+              <.stat_tile
+                label="Notifs"
+                value={to_string(length(@notifications))}
+                delta_direction="flat"
+              />
+            </.card>
+          </div>
+        </.live_region>
+
+        <%!-- AgentLock pending approval banner --%>
+        <%= if @agentlock_pending != [] && !@auth_dismissed do %>
+          <% [top | _rest] = @agentlock_pending %>
+          <% label = NamespaceResolver.gate_label(top.request_id, top.tool_name) %>
+          <% agent_lbl = NamespaceResolver.agent_label(top.agent_id) %>
+          <div
+            id="dashboard-agentlock-toast"
+            style="display: flex; align-items: center; justify-content: space-between; border: 1px solid color-mix(in srgb, var(--ccem-warn) 40%, transparent); background: color-mix(in srgb, var(--ccem-warn) 8%, transparent); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; gap: 8px;"
+            role="alert"
+            aria-live="assertive"
+          >
+            <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+              <.badge tone="warn" dot>Approval Required</.badge>
+              <span style="font-family: var(--ccem-font-mono); color: var(--ccem-warn); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <%= label %>
+              </span>
+              <span style="color: var(--ccem-fg-dim);">&middot;</span>
+              <span style="color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <%= agent_lbl %>
+              </span>
+              <span style="color: var(--ccem-fg-dim);">&middot;</span>
+              <span style="color: var(--ccem-fg-muted);"><%= top.risk_level %> risk</span>
+              <div
+                phx-hook="CountdownTimer"
+                id={"dashboard-toast-cd-#{top.request_id}"}
+                data-seconds="20"
+                style="font-family: var(--ccem-font-mono); font-size: 10px; color: color-mix(in srgb, var(--ccem-warn) 60%, transparent); flex-shrink: 0;"
+              >
+                <span data-countdown-display>20s</span>
+              </div>
+              <%= if length(@agentlock_pending) > 1 do %>
+                <.badge tone="warn" square><%= length(@agentlock_pending) %></.badge>
+              <% end %>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+              <.btn variant="primary" size="xs" phx-click="approve_gate" phx-value-id={top.request_id}>
+                Approve
+              </.btn>
+              <.btn variant="destructive" size="xs" phx-click="deny_gate" phx-value-id={top.request_id}>
+                Deny
+              </.btn>
+              <.link navigate="/authorization">
+                <.btn variant="ghost" size="xs" aria-label="View in Authorization">&#8599;</.btn>
+              </.link>
+              <.btn variant="icon" size="xs" phx-click="dismiss_auth" aria-label="Dismiss">
+                &#x2715;
+              </.btn>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- UPM Execution Panel --%>
+        <div :if={@upm_status.active} style="margin-bottom: 12px;">
+          <.card padded={false}>
+            <div style="padding: 12px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+                  UPM Execution
+                </span>
+                <.badge tone={upm_tone(@upm_status.session.status)}>
+                  {@upm_status.session.status}
+                </.badge>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--ccem-fg-muted);">
+                <span>Wave {@upm_status.session.current_wave}/{@upm_status.session.total_waves}</span>
+                <div style="flex: 1; background: var(--ccem-bg-2); border-radius: 999px; height: 4px; overflow: hidden;">
+                  <div style={"width: #{if @upm_status.session.total_waves > 0, do: trunc(@upm_status.session.current_wave / @upm_status.session.total_waves * 100), else: 0}%; background: var(--ccem-iris); height: 4px; border-radius: 999px; transition: width 300ms ease;"}>
+                  </div>
+                </div>
+                <span style="font-size: 10px; color: var(--ccem-fg-faint);">
+                  {upm_story_summary(@upm_status.session.stories)}
+                </span>
+              </div>
+            </div>
+          </.card>
+        </div>
+
+        <%!-- Formation Dependency Graph --%>
+        <div style="margin-bottom: 12px;">
+          <.card padded={false}>
+            <div style="padding: 12px 12px 0 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+                Formation Graph
+              </span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <.btn variant="ghost" size="xs" phx-click="set_graph_view" phx-value-view="graph">
+                  Graph
+                </.btn>
+                <.btn variant="ghost" size="xs" phx-click="set_graph_view" phx-value-view="list">
+                  List
+                </.btn>
+                <.btn
+                  variant="ghost"
+                  size="xs"
+                  phx-click="toggle_graph"
+                  aria-label={if @graph_expanded, do: "Collapse", else: "Expand"}
+                >
+                  {if @graph_expanded, do: "⤢", else: "⤡"}
+                </.btn>
+              </div>
+            </div>
+            <%= if @graph_view == :graph do %>
+              <div
+                id="dep-graph"
+                style={"width: 100%; border-radius: 0 0 8px 8px; overflow: hidden; background: #151b28; #{if @graph_expanded, do: "height: calc(100vh - 160px);", else: "height: 380px;"}"}
+                phx-hook="DependencyGraph"
+                phx-update="ignore"
+              >
+              </div>
+            <% else %>
+              <div style="padding: 0 12px 12px; overflow-y: auto; max-height: 380px;">
+                <%= if @hierarchy do %>
+                  <.tree_node
+                    node={@hierarchy}
+                    depth={0}
+                    expanded={@list_expanded_nodes}
+                    selected_id={@selected_agent &&
+                      (@selected_agent[:id] || @selected_agent["id"])}
+                  />
+                <% else %>
+                  <div style="text-align: center; font-size: 12px; color: var(--ccem-fg-faint); padding: 48px 0;">
+                    No agents registered. POST to
+                    <code style="font-family: var(--ccem-font-mono);">/api/register</code>
+                    to add agents.
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </.card>
+        </div>
+
+        <%!-- Agent Fleet Table --%>
+        <div style="margin-bottom: 12px;">
+          <.card padded={false}>
+            <div style="padding: 12px 12px 8px 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+                Fleet
+              </span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={@filter_query}
+                  phx-keyup="update_filter_query"
+                  phx-debounce="200"
+                  style="height: 24px; padding: 0 8px; font-size: 11px; background: var(--ccem-bg-2); border: 1px solid var(--ccem-line); border-radius: 4px; color: var(--ccem-fg); min-width: 120px;"
+                />
+                <.badge :if={@filter_status} tone="accent">{@filter_status}</.badge>
+                <.btn
+                  :if={@filter_status || @filter_namespace || @filter_agent_type || @filter_query != ""}
+                  variant="ghost"
+                  size="xs"
+                  phx-click="clear_filters"
+                >
+                  Clear
+                </.btn>
+              </div>
+            </div>
+            <ApmV5Web.Components.AgentPanel.agent_fleet
+              agents={@agents}
+              filter_status={@filter_status}
+              filter_namespace={@filter_namespace}
+              filter_agent_type={@filter_agent_type}
+              filter_query={@filter_query}
+            />
+          </.card>
+        </div>
+
+        <%!-- Widgetization Engine (CP-93–CP-106) --%>
+        <div style="border-top: 1px solid var(--ccem-line-subtle); padding-top: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-faint);">
+              Widgets
+            </span>
+          </div>
+          <.live_component
+            module={ApmV5Web.Live.DashboardGridComponent}
+            id="dashboard-grid"
+            placements={@widget_layout_placements}
+            widget_pinned_id={@widget_pinned_id}
+            widget_edit_panel_id={@widget_edit_panel_id}
+            widget_scope_type={@widget_scope_type}
+            widget_scope_value={@widget_scope_value}
+            session_configs={@widget_session_configs}
+          >
+            <:widget :let={slot_assigns}>
+              <.live_component
+                module={ApmV5Web.Live.WidgetContainerComponent}
+                id={"widget-container-#{slot_assigns.widget.id}"}
+                widget={slot_assigns.widget}
+                current_config={slot_assigns.config}
+                is_pinned={slot_assigns.is_pinned}
+              />
+            </:widget>
+          </.live_component>
+          <%= if @widget_edit_panel_id do %>
+            <% edit_widget = ApmV5.WidgetRegistry.get_widget(@widget_edit_panel_id) %>
+            <.live_component
+              :if={edit_widget}
+              module={ApmV5Web.Live.WidgetEditPanelComponent}
+              id={"edit-panel-#{@widget_edit_panel_id}"}
+              widget={edit_widget}
+              current_config={Map.get(@widget_session_configs, @widget_edit_panel_id, %{})}
+              is_open={true}
+            />
+          <% end %>
+        </div>
+
+        <%!-- Getting Started Showcase --%>
+        <.showcase show={@show_showcase} />
+      </:main>
+
+      <%!-- Inspector slot --%>
+      <:inspector>
+        <.inspector_panel open={@inspector_open} mode={@inspector_mode} on_close="toggle_inspector">
+          <:copilot>
+            <ApmV5Web.Components.ScopeBreadcrumb.breadcrumb scope={@chat_scope} />
+            <ApmV5Web.Components.AgentControlPanel.control_bar
+              selected_agent={@selected_agent}
+              agent_status={if @selected_agent, do: @selected_agent.status, else: "unknown"}
+            />
+            <div
+              :if={is_nil(@selected_agent)}
+              style="text-align: center; color: var(--ccem-fg-faint); padding: 32px 0; font-size: 12px;"
+            >
+              Click an agent or graph node to inspect
+            </div>
+            <div :if={@selected_agent} style="display: flex; flex-direction: column; gap: 12px;">
+              <.card padded={true}>
+                <div style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--ccem-fg-dim);">ID</span>
+                    <span style="font-family: var(--ccem-font-mono); font-size: 11px; color: var(--ccem-fg);">
+                      {@selected_agent.id}
+                    </span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--ccem-fg-dim);">Status</span>
+                    <.badge tone={agent_status_tone(@selected_agent.status)}>
+                      {@selected_agent.status}
+                    </.badge>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--ccem-fg-dim);">Type</span>
+                    <.badge tone="neutral">{@selected_agent[:agent_type] || "individual"}</.badge>
+                  </div>
+                </div>
+              </.card>
+            </div>
+          </:copilot>
+          <:selection>
+            <div
+              :if={is_nil(@selected_agent)}
+              style="text-align: center; color: var(--ccem-fg-faint); padding: 32px 0; font-size: 12px;"
+            >
+              No selection
+            </div>
+            <div :if={@selected_agent} style="display: flex; flex-direction: column; gap: 8px;">
+              <.agent_card
+                agent_id={@selected_agent.id}
+                name={@selected_agent.name || @selected_agent.id}
+                role={@selected_agent[:agent_type] || "individual"}
+                status={@selected_agent.status}
+              />
+              <div style="font-size: 12px; color: var(--ccem-fg-dim);">
+                <div>Namespace: {@selected_agent[:namespace] || "—"}</div>
+                <div>Last seen: {format_last_seen(@selected_agent[:last_seen])}</div>
+              </div>
+            </div>
+          </:selection>
+          <:filters>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim); margin-bottom: 4px;">
+                Status
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <.btn
+                  :for={s <- ["active", "idle", "error", "discovered", "completed"]}
+                  variant={if @filter_status == s, do: "primary", else: "ghost"}
+                  size="xs"
+                  phx-click="set_filter"
+                  phx-value-field="status"
+                  phx-value-value={s}
+                >
+                  {s}
+                </.btn>
+              </div>
+              <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim); margin-top: 8px; margin-bottom: 4px;">
+                Type
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <.btn
+                  :for={t <- ["individual", "squadron", "swarm", "orchestrator"]}
+                  variant={if @filter_agent_type == t, do: "primary", else: "ghost"}
+                  size="xs"
+                  phx-click="set_filter"
+                  phx-value-field="agent_type"
+                  phx-value-value={t}
+                >
+                  {t}
+                </.btn>
+              </div>
+              <.btn
+                :if={@filter_status || @filter_namespace || @filter_agent_type ||
+                  @filter_query != ""}
+                variant="destructive"
+                size="sm"
+                phx-click="clear_filters"
+                style="margin-top: 8px;"
+              >
+                Clear All Filters
+              </.btn>
+            </div>
+          </:filters>
+        </.inspector_panel>
+      </:inspector>
+    </.page_layout>
 
       <%!-- Main content --%>
       <div id="main-content" class="flex-1 flex flex-col overflow-hidden">
@@ -1059,9 +1448,6 @@ defmodule ApmV5Web.DashboardLive do
         </div>
       </div>
 
-      <%!-- Getting Started Showcase --%>
-      <.showcase show={@show_showcase} />
-    </div>
     """
   end
 
@@ -1073,8 +1459,23 @@ defmodule ApmV5Web.DashboardLive do
   end
 
   def handle_event("toggle_inspector", _params, socket) do
-    {:noreply, assign(socket, :inspector_collapsed, !socket.assigns.inspector_collapsed)}
+    {:noreply,
+     socket
+     |> assign(:inspector_collapsed, !socket.assigns.inspector_collapsed)
+     |> assign(:inspector_open, !socket.assigns.inspector_open)}
   end
+
+  # DS layout shell events (CP-175)
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, :sidebar_collapsed, !socket.assigns.sidebar_collapsed)}
+  end
+
+  def handle_event("inspector_mode", %{"mode" => mode}, socket)
+      when mode in ["selection", "copilot", "filters"] do
+    {:noreply, assign(socket, :inspector_mode, mode)}
+  end
+
+  def handle_event("inspector_mode", _params, socket), do: {:noreply, socket}
 
   # Chat events
   def handle_event("chat:send", %{"content" => content}, socket) when content != "" do
@@ -2168,4 +2569,18 @@ defmodule ApmV5Web.DashboardLive do
   defp status_dot_class("warning"), do: "bg-warning"
   defp status_dot_class("completed"), do: "bg-purple-400"
   defp status_dot_class(_), do: "bg-base-content/30"
+
+  defp upm_tone("registered"), do: "neutral"
+  defp upm_tone("running"), do: "info"
+  defp upm_tone("verifying"), do: "warning"
+  defp upm_tone("verified"), do: "success"
+  defp upm_tone("shipped"), do: "accent"
+  defp upm_tone(_), do: "neutral"
+
+  defp agent_status_tone("active"), do: "success"
+  defp agent_status_tone("idle"), do: "neutral"
+  defp agent_status_tone("error"), do: "danger"
+  defp agent_status_tone("discovered"), do: "info"
+  defp agent_status_tone("completed"), do: "accent"
+  defp agent_status_tone(_), do: "neutral"
 end

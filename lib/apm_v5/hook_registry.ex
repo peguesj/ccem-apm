@@ -64,7 +64,10 @@ defmodule ApmV5.HookRegistry do
       %{name: "notification_added", category: :notification, module: ApmV5.NotificationBroadcaster, description: "Notification created"},
       %{name: "auth_decision", category: :authorization, module: ApmV5.Auth.PendingDecisions, description: "Authorization decided"},
       %{name: "settings_changed", category: :custom, module: ApmV5.SettingsStore, description: "Settings updated"},
-      %{name: "error_detected", category: :custom, module: ApmV5.ErrorDaemon, description: "Error captured by daemon"}
+      %{name: "error_detected", category: :custom, module: ApmV5.ErrorDaemon, description: "Error captured by daemon"},
+      %{name: "harness_mem_check", category: :harness, module: :external, description: "Harness memory daemon connectivity check"},
+      %{name: "harness_state_poll", category: :harness, module: :internal, description: "Periodic harness session.json state poll"},
+      %{name: "harness_hook_ingest", category: :harness, module: :internal, description: "Hook telemetry ingestion into HookTelemetryBuffer"}
     ]
     Enum.each(defaults, fn hook -> :ets.insert(@table, {hook.name, hook}) end)
   end
