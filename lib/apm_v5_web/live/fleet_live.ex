@@ -43,6 +43,7 @@ defmodule ApmV5Web.FleetLive do
        agents: agents,
        filter: "",
        status_filter: "All",
+       status_filters: @status_filters,
        view_mode: "Grid",
        sidebar_collapsed: false,
        inspector_open: false,

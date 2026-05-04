@@ -480,7 +480,9 @@ defmodule ApmV5Web.DashboardLive do
                 widget={slot_assigns.widget}
                 current_config={slot_assigns.config}
                 is_pinned={slot_assigns.is_pinned}
-              />
+              >
+                <:body></:body>
+              </.live_component>
             </:widget>
           </.live_component>
           <%= if @widget_edit_panel_id do %>
