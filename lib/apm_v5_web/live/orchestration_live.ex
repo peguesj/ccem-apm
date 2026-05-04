@@ -18,13 +18,13 @@ defmodule ApmV5Web.OrchestrationLive do
 
   @pubsub_topic "orchestration:runs"
 
-  @type_badge_colors %{
-    pipeline: "badge-info",
-    workflow: "badge-primary",
-    maintenance: "badge-warning",
-    sync: "badge-secondary",
-    formation: "badge-accent",
-    autonomous: "badge-error"
+  @type_badge_tones %{
+    pipeline: "info",
+    workflow: "accent",
+    maintenance: "warn",
+    sync: "neutral",
+    formation: "iris",
+    autonomous: "err"
   }
 
   # ── Mount ──────────────────────────────────────────────────────────────────
@@ -44,8 +44,10 @@ defmodule ApmV5Web.OrchestrationLive do
        workflows: workflows,
        filter_type: nil,
        selected_run: nil,
-       type_badge_colors: @type_badge_colors,
-       page_title: "Orchestration"
+       type_badge_tones: @type_badge_tones,
+       page_title: "Orchestration",
+       sidebar_collapsed: false,
+       inspector_open: false
      )
      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -72,11 +74,15 @@ defmodule ApmV5Web.OrchestrationLive do
         _ -> nil
       end
 
-    {:noreply, assign(socket, selected_run: run)}
+    {:noreply, assign(socket, selected_run: run, inspector_open: run != nil)}
   end
 
   def handle_event("close_panel", _params, socket) do
-    {:noreply, assign(socket, selected_run: nil)}
+    {:noreply, assign(socket, selected_run: nil, inspector_open: false)}
+  end
+
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, sidebar_collapsed: !socket.assigns.sidebar_collapsed)}
   end
 
   # ── PubSub ─────────────────────────────────────────────────────────────────
@@ -90,7 +96,6 @@ defmodule ApmV5Web.OrchestrationLive do
         t -> OrchestrationRunStore.list_by_type(t)
       end
 
-    # Update selected_run if it was affected
     selected =
       case socket.assigns.selected_run do
         %{id: id} when id == run.id -> run
@@ -105,85 +110,161 @@ defmodule ApmV5Web.OrchestrationLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-6 space-y-4">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold">Orchestration</h1>
-        <div class="flex gap-2">
-          <select
-            phx-change="filter_type"
-            name="type"
-            class="select select-sm select-bordered"
-          >
-            <option value="">All types</option>
-            <option value="pipeline">Pipeline</option>
-            <option value="workflow">Workflow</option>
-            <option value="maintenance">Maintenance</option>
-            <option value="sync">Sync</option>
-            <option value="formation">Formation</option>
-            <option value="autonomous">Autonomous</option>
-          </select>
-        </div>
-      </div>
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar><.sidebar_nav current_path="/orchestration" /></:sidebar>
+      <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+      <:main>
+        <div style="padding: var(--ccem-space-6); display: flex; flex-direction: column; gap: var(--ccem-space-4);">
 
-      <div class="overflow-x-auto">
-        <table class="table table-sm w-full">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Steps</th>
-              <th>Started</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <%= for run <- @runs do %>
-              <tr class="hover cursor-pointer" phx-click="select_run" phx-value-id={run.id}>
-                <td class="font-mono text-xs"><%= run.id %></td>
-                <td>
-                  <span class={"badge badge-sm #{Map.get(@type_badge_colors, run.orchestration_type, "badge-ghost")}"}>
-                    <%= run.orchestration_type %>
-                  </span>
-                </td>
-                <td><span class="badge badge-sm badge-ghost"><%= run.status %></span></td>
-                <td><%= length(run.steps) %></td>
-                <td class="text-xs"><%= Calendar.strftime(run.started_at, "%H:%M:%S") %></td>
-                <td>
-                  <button class="btn btn-xs btn-ghost" phx-click="select_run" phx-value-id={run.id}>
-                    View
-                  </button>
-                </td>
-              </tr>
-            <% end %>
-            <%= if Enum.empty?(@runs) do %>
-              <tr><td colspan="6" class="text-center text-base-content/50 py-8">No runs</td></tr>
-            <% end %>
-          </tbody>
-        </table>
-      </div>
-
-      <%= if @selected_run do %>
-        <div class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" phx-click="close_panel">
-          <div class="bg-base-100 rounded-t-2xl w-full max-w-2xl p-6 space-y-4" phx-click-stop>
-            <div class="flex justify-between items-center">
-              <h2 class="font-bold text-lg">Run <span class="font-mono text-sm"><%= @selected_run.id %></span></h2>
-              <button phx-click="close_panel" class="btn btn-sm btn-ghost btn-circle">
-                <.icon name="hero-x-mark" class="w-4 h-4" />
-              </button>
+          <%!-- Page header --%>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: var(--ccem-space-3);">
+              <h1 style="font-size: var(--ccem-text-lg); font-weight: 600; color: var(--ccem-fg-primary);">
+                Orchestration
+              </h1>
+              <.badge tone="neutral"><%= length(@runs) %> runs</.badge>
             </div>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-              <div><span class="font-semibold">Type:</span>
-                <span class={"badge badge-sm ml-1 #{Map.get(@type_badge_colors, @selected_run.orchestration_type, "badge-ghost")}"}>
-                  <%= @selected_run.orchestration_type %>
-                </span>
-              </div>
-              <div><span class="font-semibold">Status:</span> <%= @selected_run.status %></div>
+            <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
+              <.ds_input
+                type="text"
+                name="type_filter_display"
+                value=""
+                placeholder="Filter…"
+                phx-change="noop"
+              />
+              <select
+                phx-change="filter_type"
+                name="type"
+                style="background: var(--ccem-surface-2); color: var(--ccem-fg-primary); border: 1px solid var(--ccem-border); border-radius: var(--ccem-radius-sm); padding: 0 var(--ccem-space-2); height: 32px; font-size: var(--ccem-text-sm);"
+              >
+                <option value="">All types</option>
+                <option value="pipeline">Pipeline</option>
+                <option value="workflow">Workflow</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="sync">Sync</option>
+                <option value="formation">Formation</option>
+                <option value="autonomous">Autonomous</option>
+              </select>
             </div>
           </div>
+
+          <%!-- Stats row --%>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--ccem-space-3);">
+            <.stat_tile
+              label="Total Runs"
+              value={to_string(length(@runs))}
+              delta_direction="flat"
+            />
+            <.stat_tile
+              label="Active"
+              value={to_string(Enum.count(@runs, &(&1.status == :running)))}
+              delta_direction="flat"
+            />
+            <.stat_tile
+              label="Completed"
+              value={to_string(Enum.count(@runs, &(&1.status == :completed)))}
+              delta_direction="flat"
+            />
+            <.stat_tile
+              label="Workflows"
+              value={to_string(length(@workflows))}
+              delta_direction="flat"
+            />
+          </div>
+
+          <%!-- Runs table --%>
+          <.card padded={false}>
+            <div style="padding: var(--ccem-space-3) var(--ccem-space-4); border-bottom: 1px solid var(--ccem-border); display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: var(--ccem-text-sm); font-weight: 600; color: var(--ccem-fg-primary);">
+                Orchestration Runs
+              </span>
+              <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                Live — updates in real-time
+              </span>
+            </div>
+            <.data_table id="orchestration-runs" rows={@runs}>
+              <:col :let={run} label="ID">
+                <span style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                  <%= String.slice(run.id, 0, 12) %>…
+                </span>
+              </:col>
+              <:col :let={run} label="Type">
+                <.badge tone={Map.get(@type_badge_tones, run.orchestration_type, "neutral")}>
+                  <%= run.orchestration_type %>
+                </.badge>
+              </:col>
+              <:col :let={run} label="Status">
+                <.badge tone={run_status_tone(run.status)}>
+                  <%= run.status %>
+                </.badge>
+              </:col>
+              <:col :let={run} label="Steps">
+                <span style="font-size: var(--ccem-text-sm); color: var(--ccem-fg-secondary);">
+                  <%= length(run.steps) %>
+                </span>
+              </:col>
+              <:col :let={run} label="Started">
+                <span style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                  <%= Calendar.strftime(run.started_at, "%H:%M:%S") %>
+                </span>
+              </:col>
+              <:col :let={run} label="">
+                <.btn variant="ghost" size="xs" phx-click="select_run" phx-value-id={run.id}>
+                  View
+                </.btn>
+              </:col>
+            </.data_table>
+          </.card>
+
         </div>
-      <% end %>
-    </div>
+      </:main>
+      <:inspector>
+        <%= if @selected_run do %>
+          <div style="padding: var(--ccem-space-4); display: flex; flex-direction: column; gap: var(--ccem-space-4);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: var(--ccem-text-sm); font-weight: 600; color: var(--ccem-fg-primary);">
+                Run Detail
+              </span>
+              <.btn variant="ghost" size="xs" phx-click="close_panel">
+                <.icon name="hero-x-mark" class="w-4 h-4" />
+              </.btn>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: var(--ccem-space-2);">
+              <div style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); word-break: break-all;">
+                <%= @selected_run.id %>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Type:</span>
+                <.badge tone={Map.get(@type_badge_tones, @selected_run.orchestration_type, "neutral")}>
+                  <%= @selected_run.orchestration_type %>
+                </.badge>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Status:</span>
+                <.badge tone={run_status_tone(@selected_run.status)}>
+                  <%= @selected_run.status %>
+                </.badge>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Steps:</span>
+                <span style="font-size: var(--ccem-text-sm); color: var(--ccem-fg-secondary);">
+                  <%= length(@selected_run.steps) %>
+                </span>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </:inspector>
+    </.page_layout>
     """
   end
+
+  # ── Private helpers ────────────────────────────────────────────────────────
+
+  defp run_status_tone(:running), do: "accent"
+  defp run_status_tone(:completed), do: "ok"
+  defp run_status_tone(:failed), do: "err"
+  defp run_status_tone(:cancelled), do: "warn"
+  defp run_status_tone(_), do: "neutral"
 end

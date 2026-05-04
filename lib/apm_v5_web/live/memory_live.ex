@@ -42,6 +42,8 @@ defmodule ApmV5Web.MemoryLive do
       socket
       |> assign(:page_title, "Memory")
       |> assign(:tab, :browse)
+      |> assign(:sidebar_collapsed, false)
+      |> assign(:inspector_open, false)
       # browse tab state
       |> assign(:observations, observations)
       |> assign(:type_filter, "all")
@@ -74,371 +76,275 @@ defmodule ApmV5Web.MemoryLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-100" phx-window-keydown="keydown">
-      <ApmV5Web.Components.SidebarNav.sidebar_nav
-        current_path="/memory"
-        notification_count={@notification_count}
-        skill_count={@skill_count}
-        plugins={@plugins}
-        integrations={@integrations}
-      />
-      <main class="flex-1 overflow-auto p-6">
-        <div class="max-w-7xl mx-auto">
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/memory" />
+      </:sidebar>
+      <:topbar>
+        <.top_bar project_name="CCEM APM" />
+      </:topbar>
+      <:main>
+        <div phx-window-keydown="keydown" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
           <%!-- Header --%>
-          <div class="flex items-center justify-between mb-6">
-            <div>
-              <h1 class="text-2xl font-bold text-base-content">Memory</h1>
-              <p class="text-sm text-base-content/60 mt-1">
-                Observation browser — {@total_count} cached entries
-              </p>
-            </div>
+          <div style="padding:1.5rem 1.5rem 0;">
+            <h1 style="font-size:1.5rem;font-weight:700;color:var(--ccem-text-primary);">Memory</h1>
+            <p style="font-size:0.875rem;color:var(--ccem-text-muted);margin-top:0.25rem;">
+              Observation browser — {@total_count} cached entries
+            </p>
           </div>
 
           <%!-- Tab bar --%>
-          <div class="tabs tabs-bordered mb-4">
-            <a
-              class={"tab #{if @tab == :browse, do: "tab-active"}"}
-              phx-click="switch_tab"
-              phx-value-tab="browse"
-            >
-              Browse
-            </a>
-            <a
-              class={"tab #{if @tab == :search, do: "tab-active"}"}
-              phx-click="switch_tab"
-              phx-value-tab="search"
-            >
-              Search
-            </a>
-            <a
-              class={"tab #{if @tab == :timeline, do: "tab-active"}"}
-              phx-click="switch_tab"
-              phx-value-tab="timeline"
-            >
-              Timeline
-            </a>
-          </div>
-
-          <%!-- Browse tab --%>
-          <div :if={@tab == :browse}>
-            <%!-- Filters --%>
-            <div class="flex items-center gap-3 mb-4">
-              <label class="text-sm text-base-content/60">Type:</label>
-              <select
-                class="select select-sm select-bordered"
-                phx-change="filter_type"
-                name="type_filter"
+          <div style="padding:0 1.5rem;margin-top:1rem;border-bottom:1px solid var(--ccem-border);display:flex;gap:0.25rem;flex-shrink:0;">
+            <%= for {tab_key, tab_label} <- [browse: "Browse", search: "Search", timeline: "Timeline"] do %>
+              <button
+                phx-click="switch_tab"
+                phx-value-tab={tab_key}
+                style={"padding:0.5rem 0.75rem;font-size:0.875rem;font-weight:500;border-bottom:2px solid #{if @tab == tab_key, do: "var(--ccem-accent)", else: "transparent"};color:#{if @tab == tab_key, do: "var(--ccem-accent)", else: "var(--ccem-text-muted)"};background:none;cursor:pointer;white-space:nowrap;"}
               >
-                <option value="all" selected={@type_filter == "all"}>All</option>
-                <option value="agent" selected={@type_filter == "agent"}>agent</option>
-                <option value="tool_call" selected={@type_filter == "tool_call"}>tool_call</option>
-                <option value="session" selected={@type_filter == "session"}>session</option>
-                <option value="error" selected={@type_filter == "error"}>error</option>
-                <option value="security" selected={@type_filter == "security"}>security</option>
-                <option value="memory" selected={@type_filter == "memory"}>memory</option>
-              </select>
-            </div>
-
-            <div :if={@observations == []} class="text-center py-12 text-base-content/40">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-12 w-12 mx-auto mb-3 opacity-30"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.5"
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
-              <p class="font-medium">No observations in cache</p>
-              <p class="text-sm mt-1">Observations will appear as agents run</p>
-            </div>
-
-            <div :if={@observations != []} class="space-y-2">
-              <.observation_card :for={obs <- @observations} obs={obs} />
-            </div>
-
-            <%!-- Pagination --%>
-            <div :if={@observations != []} class="flex items-center justify-between mt-4">
-              <span class="text-sm text-base-content/50">
-                Page {@page}
-              </span>
-              <div class="flex gap-2">
-                <button
-                  class="btn btn-sm btn-ghost"
-                  phx-click="prev_page"
-                  disabled={@page <= 1}
-                >
-                  Previous
-                </button>
-                <button
-                  class="btn btn-sm btn-ghost"
-                  phx-click="next_page"
-                  disabled={length(@observations) < @per_page}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-
-            <%!-- Related Sessions cross-reference --%>
-            <div class="mt-8 border-t border-base-300 pt-4">
-              <div
-                class="flex items-center gap-2 cursor-pointer select-none mb-2"
-                phx-click="toggle_sessions_section"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class={"h-4 w-4 transition-transform #{if @sessions_collapsed, do: "", else: "rotate-90"}"}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-                <h2 class="text-sm font-semibold text-base-content/70">Related Sessions</h2>
-                <span class="badge badge-sm badge-ghost">{length(@related_sessions)}</span>
-              </div>
-
-              <div :if={!@sessions_collapsed}>
-                <div :if={@related_sessions == []} class="text-sm text-base-content/40 py-3 pl-6">
-                  No related sessions found for the current project
-                </div>
-                <div :if={@related_sessions != []} class="space-y-2 pl-6">
-                  <.link
-                    :for={sess <- @related_sessions}
-                    navigate={"/conversations"}
-                    class="flex items-center gap-3 bg-base-200 hover:bg-base-300 rounded-lg px-3 py-2 transition-colors cursor-pointer"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-4 w-4 text-secondary shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="1.5"
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      />
-                    </svg>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm font-mono text-base-content truncate">
-                        {sess.session_id}
-                      </p>
-                      <p class="text-xs text-base-content/40 mt-0.5">
-                        {sess.started_at}
-                      </p>
-                    </div>
-                    <span class="badge badge-sm badge-secondary shrink-0">
-                      {sess.observation_count} obs
-                    </span>
-                  </.link>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <%!-- Search tab --%>
-          <div :if={@tab == :search}>
-            <form phx-submit="do_search" class="flex gap-2 mb-6">
-              <input
-                type="text"
-                name="query"
-                value={@search_query}
-                placeholder="Search observations..."
-                class="input input-bordered flex-1"
-                autofocus
-              />
-              <button type="submit" class="btn btn-primary" disabled={@searching}>
-                <span :if={@searching} class="loading loading-spinner loading-sm"></span>
-                <span :if={!@searching}>Search</span>
+                {tab_label}
               </button>
-            </form>
-
-            <div
-              :if={@search_query == "" && !@searching}
-              class="text-center py-12 text-base-content/40"
-            >
-              <p class="text-sm">Enter a query above to search observations</p>
-            </div>
-
-            <div :if={@searching} class="text-center py-12 text-base-content/40">
-              <span class="loading loading-dots loading-lg"></span>
-              <p class="text-sm mt-2">Searching...</p>
-            </div>
-
-            <div
-              :if={!@searching && @search_query != "" && @search_results == []}
-              class="text-center py-12 text-base-content/40"
-            >
-              <p class="font-medium">No results for "{@search_query}"</p>
-            </div>
-
-            <div :if={!@searching && @search_results != []} class="space-y-2">
-              <p class="text-sm text-base-content/50 mb-2">
-                {length(@search_results)} result(s) for "{@search_query}"
-              </p>
-              <.observation_card :for={obs <- @search_results} obs={obs} />
-            </div>
+            <% end %>
           </div>
 
-          <%!-- Timeline tab --%>
-          <div :if={@tab == :timeline}>
-            <div :if={!@timeline_loaded} class="text-center py-12 text-base-content/40">
-              <span class="loading loading-dots loading-lg"></span>
-              <p class="text-sm mt-2">Loading timeline...</p>
-            </div>
+          <%!-- Tab content --%>
+          <div style="flex:1;overflow-y:auto;padding:1.5rem;">
 
-            <div :if={@timeline_loaded && @timeline_groups == []} class="text-center py-12 text-base-content/40">
-              <p class="font-medium">No timeline data available</p>
-              <p class="text-sm mt-1">Timeline requires the claude-mem worker to be running</p>
-            </div>
-
-            <div :if={@timeline_loaded && @timeline_groups != []} class="space-y-4">
-              <div :for={{date_label, group_obs} <- @timeline_groups}>
-                <%!-- Date header --%>
-                <div
-                  class="flex items-center gap-2 cursor-pointer select-none"
-                  phx-click="toggle_date"
-                  phx-value-date={date_label}
+            <%!-- Browse tab --%>
+            <div :if={@tab == :browse}>
+              <%!-- Filters --%>
+              <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
+                <span style="font-size:0.875rem;color:var(--ccem-text-muted);">Type:</span>
+                <select
+                  style="font-size:0.875rem;padding:0.25rem 0.5rem;border:1px solid var(--ccem-border);border-radius:0.25rem;background:var(--ccem-bg-secondary);color:var(--ccem-text-primary);"
+                  phx-change="filter_type"
+                  name="type_filter"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class={"h-4 w-4 transition-transform #{if MapSet.member?(@collapsed_dates, date_label), do: "", else: "rotate-90"}"}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                  <h2 class="text-base font-semibold text-base-content">{date_label}</h2>
-                  <span class="badge badge-sm badge-ghost">{length(group_obs)}</span>
+                  <option value="all" selected={@type_filter == "all"}>All</option>
+                  <option value="agent" selected={@type_filter == "agent"}>agent</option>
+                  <option value="tool_call" selected={@type_filter == "tool_call"}>tool_call</option>
+                  <option value="session" selected={@type_filter == "session"}>session</option>
+                  <option value="error" selected={@type_filter == "error"}>error</option>
+                  <option value="security" selected={@type_filter == "security"}>security</option>
+                  <option value="memory" selected={@type_filter == "memory"}>memory</option>
+                </select>
+              </div>
+
+              <div :if={@observations == []} style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);">
+                <p style="font-weight:500;">No observations in cache</p>
+                <p style="font-size:0.875rem;margin-top:0.25rem;">Observations will appear as agents run</p>
+              </div>
+
+              <div :if={@observations != []} style="display:flex;flex-direction:column;gap:0.5rem;">
+                <.observation_card :for={obs <- @observations} obs={obs} />
+              </div>
+
+              <%!-- Pagination --%>
+              <div :if={@observations != []} style="display:flex;align-items:center;justify-content:space-between;margin-top:1rem;">
+                <span style="font-size:0.875rem;color:var(--ccem-text-muted);">Page {@page}</span>
+                <div style="display:flex;gap:0.5rem;">
+                  <.btn variant="ghost" size="sm" phx-click="prev_page">Previous</.btn>
+                  <.btn variant="ghost" size="sm" phx-click="next_page">Next</.btn>
+                </div>
+              </div>
+
+              <%!-- Related Sessions cross-reference --%>
+              <div style="margin-top:2rem;border-top:1px solid var(--ccem-border);padding-top:1rem;">
+                <div
+                  style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;user-select:none;margin-bottom:0.5rem;"
+                  phx-click="toggle_sessions_section"
+                >
+                  <span style={"display:inline-block;transition:transform 0.15s;transform:#{if @sessions_collapsed, do: "rotate(0deg)", else: "rotate(90deg)"};font-size:0.75rem;color:var(--ccem-text-muted);"}>&#9654;</span>
+                  <span style="font-size:0.875rem;font-weight:600;color:var(--ccem-text-secondary,var(--ccem-text-muted));">Related Sessions</span>
+                  <.badge tone="neutral">{length(@related_sessions)}</.badge>
                 </div>
 
-                <%!-- Observations under this date --%>
-                <div
-                  :if={!MapSet.member?(@collapsed_dates, date_label)}
-                  class="ml-6 space-y-2"
-                >
-                  <.observation_card :for={obs <- group_obs} obs={obs} />
+                <div :if={!@sessions_collapsed}>
+                  <div :if={@related_sessions == []} style="font-size:0.875rem;color:var(--ccem-text-muted);padding:0.75rem 0 0.75rem 1.5rem;">
+                    No related sessions found for the current project
+                  </div>
+                  <div :if={@related_sessions != []} style="display:flex;flex-direction:column;gap:0.5rem;padding-left:1.5rem;">
+                    <.link
+                      :for={sess <- @related_sessions}
+                      navigate={"/conversations"}
+                      style="display:flex;align-items:center;gap:0.75rem;background:var(--ccem-bg-secondary);border-radius:0.5rem;padding:0.5rem 0.75rem;text-decoration:none;"
+                    >
+                      <div style="flex:1;min-width:0;">
+                        <p style="font-size:0.875rem;font-family:monospace;color:var(--ccem-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                          {sess.session_id}
+                        </p>
+                        <p style="font-size:0.75rem;color:var(--ccem-text-muted);margin-top:0.125rem;">
+                          {sess.started_at}
+                        </p>
+                      </div>
+                      <.badge tone="iris">{sess.observation_count} obs</.badge>
+                    </.link>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </main>
 
-      <%!-- Observation detail slide-out panel --%>
-      <div
-        :if={@selected_observation != nil}
-        class="fixed inset-y-0 right-0 z-50 flex"
-      >
-        <%!-- Backdrop --%>
-        <div
-          class="fixed inset-0 bg-black/40"
-          phx-click="close_detail"
-        ></div>
+            <%!-- Search tab --%>
+            <div :if={@tab == :search}>
+              <form phx-submit="do_search" style="display:flex;gap:0.5rem;margin-bottom:1.5rem;">
+                <div style="flex:1;">
+                  <.ds_input
+                    type="search"
+                    name="query"
+                    value={@search_query}
+                    placeholder="Search observations..."
+                  />
+                </div>
+                <.btn variant="primary" size="md">
+                  <span :if={!@searching}>Search</span>
+                  <span :if={@searching}>Searching...</span>
+                </.btn>
+              </form>
 
-        <%!-- Panel --%>
-        <div class="relative ml-auto w-full max-w-lg bg-base-200 shadow-2xl flex flex-col overflow-hidden">
-          <%!-- Title bar --%>
-          <div class="flex items-center justify-between px-5 py-4 border-b border-base-300">
-            <div class="flex items-center gap-2">
-              <.type_badge type={observation_type(@selected_observation)} />
-              <span class="text-sm font-semibold text-base-content">Observation Detail</span>
-            </div>
-            <button
-              class="btn btn-sm btn-ghost btn-square"
-              phx-click="close_detail"
-              aria-label="Close"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+              <div
+                :if={@search_query == "" && !@searching}
+                style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
+                <p style="font-size:0.875rem;">Enter a query above to search observations</p>
+              </div>
 
-          <%!-- Body --%>
-          <div class="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-            <%!-- ID --%>
-            <div>
-              <p class="text-xs font-medium text-base-content/50 uppercase tracking-wide mb-1">ID</p>
-              <p class="text-sm font-mono text-base-content break-all">
-                {Map.get(@selected_observation, "id") || Map.get(@selected_observation, :id) || "—"}
-              </p>
-            </div>
+              <div :if={@searching} style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);">
+                <p style="font-size:0.875rem;margin-top:0.5rem;">Searching...</p>
+              </div>
 
-            <%!-- Source --%>
-            <div>
-              <p class="text-xs font-medium text-base-content/50 uppercase tracking-wide mb-1">Source</p>
-              <p class="text-sm text-base-content">
-                {to_string(Map.get(@selected_observation, "source") || Map.get(@selected_observation, :source) || "—")}
-              </p>
-            </div>
+              <div
+                :if={!@searching && @search_query != "" && @search_results == []}
+                style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);"
+              >
+                <p style="font-weight:500;">No results for "{@search_query}"</p>
+              </div>
 
-            <%!-- Timestamp --%>
-            <div>
-              <p class="text-xs font-medium text-base-content/50 uppercase tracking-wide mb-1">Timestamp</p>
-              <p class="text-sm text-base-content font-mono">
-                {observation_timestamp(@selected_observation)}
-              </p>
-            </div>
-
-            <%!-- Tags --%>
-            <div>
-              <p class="text-xs font-medium text-base-content/50 uppercase tracking-wide mb-1">Tags</p>
-              <div class="flex flex-wrap gap-1">
-                <%= for tag <- (Map.get(@selected_observation, "tags") || Map.get(@selected_observation, :tags) || []) do %>
-                  <span class="badge badge-sm badge-ghost font-mono">{tag}</span>
-                <% end %>
-                <span
-                  :if={(Map.get(@selected_observation, "tags") || Map.get(@selected_observation, :tags) || []) == []}
-                  class="text-sm text-base-content/40"
-                >
-                  None
-                </span>
+              <div :if={!@searching && @search_results != []} style="display:flex;flex-direction:column;gap:0.5rem;">
+                <p style="font-size:0.875rem;color:var(--ccem-text-muted);margin-bottom:0.5rem;">
+                  {length(@search_results)} result(s) for "{@search_query}"
+                </p>
+                <.observation_card :for={obs <- @search_results} obs={obs} />
               </div>
             </div>
 
-            <%!-- Content / narrative --%>
-            <div>
-              <p class="text-xs font-medium text-base-content/50 uppercase tracking-wide mb-1">Content</p>
-              <pre class="text-sm text-base-content bg-base-300 rounded-lg p-3 whitespace-pre-wrap break-words leading-relaxed max-h-80 overflow-y-auto">
-                {Map.get(@selected_observation, "narrative") || Map.get(@selected_observation, :narrative) || "(no content)"}
-              </pre>
+            <%!-- Timeline tab --%>
+            <div :if={@tab == :timeline}>
+              <div :if={!@timeline_loaded} style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);">
+                <p style="font-size:0.875rem;margin-top:0.5rem;">Loading timeline...</p>
+              </div>
+
+              <div :if={@timeline_loaded && @timeline_groups == []} style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);">
+                <p style="font-weight:500;">No timeline data available</p>
+                <p style="font-size:0.875rem;margin-top:0.25rem;">Timeline requires the claude-mem worker to be running</p>
+              </div>
+
+              <div :if={@timeline_loaded && @timeline_groups != []} style="display:flex;flex-direction:column;gap:1rem;">
+                <div :for={{date_label, group_obs} <- @timeline_groups}>
+                  <%!-- Date header --%>
+                  <div
+                    style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;user-select:none;"
+                    phx-click="toggle_date"
+                    phx-value-date={date_label}
+                  >
+                    <span style={"display:inline-block;transition:transform 0.15s;transform:#{if MapSet.member?(@collapsed_dates, date_label), do: "rotate(0deg)", else: "rotate(90deg)"};font-size:0.75rem;color:var(--ccem-text-muted);"}>&#9654;</span>
+                    <span style="font-size:1rem;font-weight:600;color:var(--ccem-text-primary);">{date_label}</span>
+                    <.badge tone="neutral">{length(group_obs)}</.badge>
+                  </div>
+
+                  <%!-- Observations under this date --%>
+                  <div
+                    :if={!MapSet.member?(@collapsed_dates, date_label)}
+                    style="margin-left:1.5rem;display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem;"
+                  >
+                    <.observation_card :for={obs <- group_obs} obs={obs} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <%!-- Observation detail slide-out panel --%>
+        <div
+          :if={@selected_observation != nil}
+          style="position:fixed;inset:0;z-index:50;display:flex;"
+        >
+          <%!-- Backdrop --%>
+          <div
+            style="position:fixed;inset:0;background:rgba(0,0,0,0.4);"
+            phx-click="close_detail"
+          ></div>
+
+          <%!-- Panel --%>
+          <div style="position:relative;margin-left:auto;width:100%;max-width:32rem;background:var(--ccem-bg-secondary);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <%!-- Title bar --%>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--ccem-border);">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <.type_badge type={observation_type(@selected_observation)} />
+                <span style="font-size:0.875rem;font-weight:600;color:var(--ccem-text-primary);">Observation Detail</span>
+              </div>
+              <.btn variant="ghost" size="sm" phx-click="close_detail">X</.btn>
+            </div>
+
+            <%!-- Body --%>
+            <div style="flex:1;overflow-y:auto;padding:1rem 1.25rem;display:flex;flex-direction:column;gap:1.25rem;">
+              <%!-- ID --%>
+              <div>
+                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">ID</p>
+                <p style="font-size:0.875rem;font-family:monospace;color:var(--ccem-text-primary);word-break:break-all;">
+                  {Map.get(@selected_observation, "id") || Map.get(@selected_observation, :id) || "—"}
+                </p>
+              </div>
+
+              <%!-- Source --%>
+              <div>
+                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Source</p>
+                <p style="font-size:0.875rem;color:var(--ccem-text-primary);">
+                  {to_string(Map.get(@selected_observation, "source") || Map.get(@selected_observation, :source) || "—")}
+                </p>
+              </div>
+
+              <%!-- Timestamp --%>
+              <div>
+                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Timestamp</p>
+                <p style="font-size:0.875rem;font-family:monospace;color:var(--ccem-text-primary);">
+                  {observation_timestamp(@selected_observation)}
+                </p>
+              </div>
+
+              <%!-- Tags --%>
+              <div>
+                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Tags</p>
+                <div style="display:flex;flex-wrap:wrap;gap:0.25rem;">
+                  <%= for tag <- (Map.get(@selected_observation, "tags") || Map.get(@selected_observation, :tags) || []) do %>
+                    <.badge tone="neutral">{tag}</.badge>
+                  <% end %>
+                  <span
+                    :if={(Map.get(@selected_observation, "tags") || Map.get(@selected_observation, :tags) || []) == []}
+                    style="font-size:0.875rem;color:var(--ccem-text-muted);"
+                  >
+                    None
+                  </span>
+                </div>
+              </div>
+
+              <%!-- Content / narrative --%>
+              <div>
+                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Content</p>
+                <pre style="font-size:0.875rem;color:var(--ccem-text-primary);background:var(--ccem-bg-tertiary,var(--ccem-bg-secondary));border-radius:0.5rem;padding:0.75rem;white-space:pre-wrap;word-break:break-words;line-height:1.625;max-height:20rem;overflow-y:auto;">
+                  {Map.get(@selected_observation, "narrative") || Map.get(@selected_observation, :narrative) || "(no content)"}
+                </pre>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </:main>
+      <:inspector>
+        <div style="padding:1rem;color:var(--ccem-text-muted);font-size:0.875rem;">
+          <p>Select an observation to inspect details.</p>
+        </div>
+      </:inspector>
+    </.page_layout>
     """
   end
 
@@ -449,44 +355,44 @@ defmodule ApmV5Web.MemoryLive do
     assigns = assign(assigns, :obs_id, obs_id)
 
     ~H"""
-    <div
-      class="card bg-base-200 shadow-sm cursor-pointer hover:bg-base-300 transition-colors"
-      phx-click="select_observation"
-      phx-value-id={@obs_id}
-    >
-      <div class="card-body p-3">
-        <div class="flex items-start gap-3">
+    <.card padded={true}>
+      <div
+        style="cursor:pointer;"
+        phx-click="select_observation"
+        phx-value-id={@obs_id}
+      >
+        <div style="display:flex;align-items:flex-start;gap:0.75rem;">
           <.type_badge type={observation_type(@obs)} />
-          <div class="flex-1 min-w-0">
-            <p class="text-sm text-base-content truncate">
+          <div style="flex:1;min-width:0;">
+            <p style="font-size:0.875rem;color:var(--ccem-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
               {truncate(observation_narrative(@obs), 120)}
             </p>
-            <p class="text-xs text-base-content/40 mt-0.5">
+            <p style="font-size:0.75rem;color:var(--ccem-text-muted);margin-top:0.125rem;">
               {observation_timestamp(@obs)}
             </p>
           </div>
         </div>
       </div>
-    </div>
+    </.card>
     """
   end
 
   defp type_badge(assigns) do
-    {color, label} = type_style(assigns.type)
-    assigns = assign(assigns, color: color, label: label)
+    {tone, label} = type_style(assigns.type)
+    assigns = assign(assigns, tone: tone, label: label)
 
     ~H"""
-    <span class={"badge badge-sm shrink-0 #{@color}"}>{@label}</span>
+    <.badge tone={@tone}>{@label}</.badge>
     """
   end
 
-  defp type_style("agent"), do: {"badge-primary", "agent"}
-  defp type_style("tool_call"), do: {"badge-info", "tool_call"}
-  defp type_style("session"), do: {"badge-secondary", "session"}
-  defp type_style("error"), do: {"badge-error", "error"}
-  defp type_style("security"), do: {"badge-warning", "security"}
-  defp type_style("memory"), do: {"badge-accent", "memory"}
-  defp type_style(other), do: {"badge-ghost", other || "unknown"}
+  defp type_style("agent"), do: {"accent", "agent"}
+  defp type_style("tool_call"), do: {"info", "tool_call"}
+  defp type_style("session"), do: {"iris", "session"}
+  defp type_style("error"), do: {"err", "error"}
+  defp type_style("security"), do: {"warn", "security"}
+  defp type_style("memory"), do: {"ok", "memory"}
+  defp type_style(other), do: {"neutral", other || "unknown"}
 
   # ── Event Handlers ─────────────────────────────────────────────────────────
 

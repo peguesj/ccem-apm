@@ -34,6 +34,8 @@ defmodule ApmV5Web.LibraryLive do
       |> assign(:tab, :agents)
       |> assign(:search_query, "")
       |> assign(:selected_item, nil)
+      |> assign(:sidebar_collapsed, false)
+      |> assign(:inspector_open, false)
       |> load_all_data()
 
     {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
@@ -98,167 +100,156 @@ defmodule ApmV5Web.LibraryLive do
     assigns = assign(assigns, :filtered, filtered_items(assigns))
 
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden" phx-window-keydown="keydown">
-      <nav aria-label="Main navigation">
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
         <.sidebar_nav current_path="/library" />
-      </nav>
-
-      <main class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">CCEM Libraries</h2>
-            <div class="badge badge-sm badge-ghost">{total_count(assigns)} resources</div>
+      </:sidebar>
+      <:topbar>
+        <.top_bar project_name="CCEM APM" />
+      </:topbar>
+      <:main>
+        <div phx-window-keydown="keydown" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+          <%!-- Header --%>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 1rem;height:3rem;border-bottom:1px solid var(--ccem-border);flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <span style="font-size:0.875rem;font-weight:600;color:var(--ccem-text-primary);">CCEM Libraries</span>
+              <.badge tone="neutral">{total_count(assigns)} resources</.badge>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <.btn variant="ghost" size="xs" phx-click="refresh_library">Refresh</.btn>
+              <span style="font-size:0.75rem;color:var(--ccem-text-muted);">Auto-refresh 30s</span>
+            </div>
           </div>
-          <div class="flex items-center gap-2">
-            <button phx-click="refresh_library" class="btn btn-ghost btn-xs">
-              Refresh
-            </button>
-            <span class="text-xs text-base-content/40">Auto-refresh 30s</span>
+
+          <%!-- Tab bar --%>
+          <div style="border-bottom:1px solid var(--ccem-border);padding:0 1rem;display:flex;align-items:center;gap:0.25rem;overflow-x:auto;flex-shrink:0;">
+            <%= for tab <- @tabs do %>
+              <button
+                phx-click="switch_tab"
+                phx-value-tab={tab}
+                style={"padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:500;border-bottom:2px solid #{if @tab == tab, do: "var(--ccem-accent)", else: "transparent"};color:#{if @tab == tab, do: "var(--ccem-accent)", else: "var(--ccem-text-muted)"};background:none;cursor:pointer;white-space:nowrap;"}
+              >
+                {tab_label(tab)}
+                <.badge tone={if @tab == tab, do: "accent", else: "neutral"} square={true} style="margin-left:0.25rem;">
+                  {tab_count(assigns, tab)}
+                </.badge>
+              </button>
+            <% end %>
           </div>
-        </header>
 
-        <%!-- Tab bar --%>
-        <div class="bg-base-200 border-b border-base-300 px-4 flex items-center gap-1 overflow-x-auto flex-shrink-0">
-          <%= for tab <- @tabs do %>
-            <button
-              phx-click="switch_tab"
-              phx-value-tab={tab}
-              class={[
-                "px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap",
-                @tab == tab && "border-primary text-primary",
-                @tab != tab && "border-transparent text-base-content/50 hover:text-base-content hover:border-base-content/20"
-              ]}
-            >
-              {tab_label(tab)}
-              <span class={[
-                "ml-1 badge badge-xs",
-                @tab == tab && "badge-primary",
-                @tab != tab && "badge-ghost"
-              ]}>
-                {tab_count(assigns, tab)}
-              </span>
-            </button>
-          <% end %>
-        </div>
+          <%!-- Search bar --%>
+          <div style="padding:0.5rem 1rem;flex-shrink:0;background:var(--ccem-surface-subtle,var(--ccem-bg-secondary));">
+            <.ds_input
+              type="search"
+              placeholder={"Search #{tab_label(@tab)}..."}
+              value={@search_query}
+              name="query"
+              phx-change="search"
+            />
+          </div>
 
-        <%!-- Search bar --%>
-        <div class="bg-base-200/50 px-4 py-2 flex-shrink-0">
-          <input
-            type="text"
-            placeholder={"Search #{tab_label(@tab)}..."}
-            value={@search_query}
-            phx-keyup="search"
-            phx-value-query=""
-            name="query"
-            class="input input-sm input-bordered w-full max-w-sm bg-base-100"
-            phx-debounce="300"
-          />
-        </div>
+          <%!-- Content area --%>
+          <div style="flex:1;display:flex;overflow:hidden;">
+            <%!-- Card grid --%>
+            <div style="flex:1;overflow-y:auto;padding:1rem;">
+              <div :if={@filtered == []} style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);">
+                <p style="font-size:1rem;">No {@tab} found</p>
+                <p :if={@search_query != ""} style="font-size:0.875rem;margin-top:0.25rem;">Try adjusting your search</p>
+              </div>
 
-        <%!-- Content area --%>
-        <div class="flex-1 flex overflow-hidden">
-          <%!-- Card grid --%>
-          <div class={[
-            "overflow-y-auto p-4",
-            @selected_item && "flex-1",
-            !@selected_item && "flex-1"
-          ]}>
-            <div :if={@filtered == []} class="text-center py-12 text-base-content/40">
-              <p class="text-lg">No {@tab} found</p>
-              <p :if={@search_query != ""} class="text-sm mt-1">Try adjusting your search</p>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.75rem;">
+                <%= for {item, idx} <- Enum.with_index(@filtered) do %>
+                  <.card padded={true}>
+                    <div
+                      phx-click="select_item"
+                      phx-value-idx={idx}
+                      style={"cursor:pointer;#{if @selected_item == item, do: "outline:2px solid var(--ccem-accent);border-radius:var(--ccem-radius,4px);", else: ""}"}
+                    >
+                      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;">
+                        <span style="font-size:0.875rem;font-weight:600;color:var(--ccem-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                          {display_name(item)}
+                        </span>
+                        {type_badge(assigns, item)}
+                      </div>
+                      <p style="font-size:0.75rem;color:var(--ccem-text-muted);margin-top:0.25rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
+                        {item_description(item)}
+                      </p>
+                      <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;font-size:0.625rem;color:var(--ccem-text-faint,var(--ccem-text-muted));">
+                        <span :if={item[:source]} style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;">{item[:source]}</span>
+                        <span :if={item[:last_modified]} style="white-space:nowrap;">{relative_time(item[:last_modified])}</span>
+                      </div>
+                    </div>
+                  </.card>
+                <% end %>
+              </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              <%= for {item, idx} <- Enum.with_index(@filtered) do %>
-                <div
-                  phx-click="select_item"
-                  phx-value-idx={idx}
-                  class={[
-                    "card bg-base-100 shadow-sm border border-base-300 cursor-pointer transition-all hover:shadow-md hover:border-primary/30",
-                    @selected_item == item && "ring-2 ring-primary border-primary"
-                  ]}
-                >
-                  <div class="card-body p-3">
-                    <div class="flex items-start justify-between gap-2">
-                      <h3 class="text-sm font-semibold text-base-content truncate">
-                        {display_name(item)}
-                      </h3>
-                      {type_badge(assigns, item)}
-                    </div>
-                    <p class="text-xs text-base-content/60 line-clamp-2 mt-1">
-                      {item_description(item)}
-                    </p>
-                    <div class="flex items-center gap-2 mt-2 text-[10px] text-base-content/40">
-                      <span :if={item[:source]} class="truncate max-w-[200px]">{item[:source]}</span>
-                      <span :if={item[:last_modified]} class="whitespace-nowrap">{relative_time(item[:last_modified])}</span>
-                    </div>
+            <%!-- Detail drawer --%>
+            <aside
+              :if={@selected_item}
+              style="width:24rem;border-left:1px solid var(--ccem-border);overflow-y:auto;flex-shrink:0;background:var(--ccem-surface,var(--ccem-bg-primary));"
+            >
+              <div style="padding:1rem;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                  <span style="font-size:1rem;font-weight:700;color:var(--ccem-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                    {display_name(@selected_item)}
+                  </span>
+                  <.btn variant="ghost" size="xs" phx-click="close_drawer">X</.btn>
+                </div>
+
+                {type_badge(assigns, @selected_item)}
+
+                <div style="border-top:1px solid var(--ccem-border);margin:0.5rem 0;"></div>
+
+                <%!-- Description --%>
+                <div style="margin-bottom:1rem;">
+                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">Description</p>
+                  <p style="font-size:0.875rem;color:var(--ccem-text-secondary,var(--ccem-text-primary));">{item_description(@selected_item)}</p>
+                </div>
+
+                <%!-- Properties table --%>
+                <div style="margin-bottom:1rem;">
+                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">Properties</p>
+                  <div style="background:var(--ccem-bg-secondary);border-radius:0.5rem;padding:0.75rem;">
+                    <%= for {key, val} <- detail_properties(@selected_item) do %>
+                      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem;">
+                        <span style="font-size:0.75rem;color:var(--ccem-text-muted);white-space:nowrap;">{key}</span>
+                        <span style="font-size:0.75rem;color:var(--ccem-text-primary);text-align:right;word-break:break-all;">{format_value(val)}</span>
+                      </div>
+                    <% end %>
                   </div>
                 </div>
-              <% end %>
-            </div>
+
+                <%!-- Triggers (skills only) --%>
+                <div :if={@tab == :skills and (@selected_item[:triggers] || []) != []} style="margin-bottom:1rem;">
+                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">Triggers</p>
+                  <div style="display:flex;flex-direction:column;gap:0.25rem;">
+                    <%= for trigger <- @selected_item[:triggers] || [] do %>
+                      <div style="font-size:0.75rem;background:var(--ccem-bg-secondary);border-radius:0.25rem;padding:0.25rem 0.5rem;color:var(--ccem-text-secondary,var(--ccem-text-primary));">{trigger}</div>
+                    <% end %>
+                  </div>
+                </div>
+
+                <%!-- Related skills (patterns only) --%>
+                <div :if={@tab == :patterns and (@selected_item[:related_skills] || []) != []} style="margin-bottom:1rem;">
+                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">Related Skills</p>
+                  <div style="display:flex;flex-wrap:wrap;gap:0.25rem;">
+                    <%= for skill <- @selected_item[:related_skills] || [] do %>
+                      <.badge tone="neutral">{skill}</.badge>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            </aside>
           </div>
-
-          <%!-- Detail drawer --%>
-          <aside
-            :if={@selected_item}
-            class="w-96 bg-base-100 border-l border-base-300 overflow-y-auto flex-shrink-0"
-          >
-            <div class="p-4">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold text-base-content truncate">
-                  {display_name(@selected_item)}
-                </h3>
-                <button phx-click="close_drawer" class="btn btn-ghost btn-xs btn-circle">X</button>
-              </div>
-
-              {type_badge(assigns, @selected_item)}
-
-              <div class="divider my-2"></div>
-
-              <%!-- Description --%>
-              <div class="mb-4">
-                <h4 class="text-xs font-semibold text-base-content/50 uppercase mb-1">Description</h4>
-                <p class="text-sm text-base-content/80">{item_description(@selected_item)}</p>
-              </div>
-
-              <%!-- Properties table --%>
-              <div class="mb-4">
-                <h4 class="text-xs font-semibold text-base-content/50 uppercase mb-1">Properties</h4>
-                <div class="bg-base-200 rounded-lg p-3 space-y-2">
-                  <%= for {key, val} <- detail_properties(@selected_item) do %>
-                    <div class="flex items-start justify-between gap-2">
-                      <span class="text-xs text-base-content/50 whitespace-nowrap">{key}</span>
-                      <span class="text-xs text-base-content text-right break-all">{format_value(val)}</span>
-                    </div>
-                  <% end %>
-                </div>
-              </div>
-
-              <%!-- Triggers (skills only) --%>
-              <div :if={@tab == :skills and (@selected_item[:triggers] || []) != []} class="mb-4">
-                <h4 class="text-xs font-semibold text-base-content/50 uppercase mb-1">Triggers</h4>
-                <div class="space-y-1">
-                  <%= for trigger <- @selected_item[:triggers] || [] do %>
-                    <div class="text-xs bg-base-200 rounded px-2 py-1 text-base-content/70">{trigger}</div>
-                  <% end %>
-                </div>
-              </div>
-
-              <%!-- Related skills (patterns only) --%>
-              <div :if={@tab == :patterns and (@selected_item[:related_skills] || []) != []} class="mb-4">
-                <h4 class="text-xs font-semibold text-base-content/50 uppercase mb-1">Related Skills</h4>
-                <div class="flex flex-wrap gap-1">
-                  <%= for skill <- @selected_item[:related_skills] || [] do %>
-                    <span class="badge badge-sm badge-outline">{skill}</span>
-                  <% end %>
-                </div>
-              </div>
-            </div>
-          </aside>
         </div>
-      </main>
-    </div>
+      </:main>
+      <:inspector>
+        <div style="padding:1rem;color:var(--ccem-text-muted);font-size:0.875rem;">
+          <p>Select an item to inspect details.</p>
+        </div>
+      </:inspector>
+    </.page_layout>
     """
   end
 
@@ -341,31 +332,28 @@ defmodule ApmV5Web.LibraryLive do
       assigns = assign(assigns, :badge_type, type)
 
       ~H"""
-      <span class={[
-        "badge badge-xs whitespace-nowrap",
-        badge_color(@badge_type)
-      ]}>
+      <.badge tone={badge_tone(@badge_type)}>
         {@badge_type}
-      </span>
+      </.badge>
       """
     else
       ~H""
     end
   end
 
-  defp badge_color(type) when is_binary(type) do
+  defp badge_tone(type) when is_binary(type) do
     cond do
-      type in ~w(orchestrator persistent_service) -> "badge-primary"
-      type in ~w(squadron_lead quality_agent) -> "badge-secondary"
-      type in ~w(swarm_agent cluster_agent) -> "badge-accent"
-      type in ~w(agentlock security) -> "badge-error"
-      type in ~w(methodology architecture) -> "badge-info"
-      type in ~w(workflow documentation quality) -> "badge-success"
-      type in ~w(user project enabled) -> "badge-warning"
-      true -> "badge-ghost"
+      type in ~w(orchestrator persistent_service) -> "accent"
+      type in ~w(squadron_lead quality_agent) -> "iris"
+      type in ~w(swarm_agent cluster_agent) -> "info"
+      type in ~w(agentlock security) -> "err"
+      type in ~w(methodology architecture) -> "info"
+      type in ~w(workflow documentation quality) -> "ok"
+      type in ~w(user project enabled) -> "warn"
+      true -> "neutral"
     end
   end
-  defp badge_color(_), do: "badge-ghost"
+  defp badge_tone(_), do: "neutral"
 
   defp detail_properties(item) do
     item
