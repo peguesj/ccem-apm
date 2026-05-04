@@ -1,348 +1,563 @@
 defmodule ApmV5Web.ConversationMonitorLive do
   @moduledoc """
-  LiveView for monitoring active Claude Code conversation sessions at /conversations.
+  Observe — Conversations LiveView (CP-181 / US-456).
 
-  Displays session-level context, token counts, and tool call history
-  sourced from ConversationWatcher. Includes a full-width bottom tray with
-  conversation inspector: live message streaming, log, actions, execution,
-  and UPM/Formation tabs.
+  Redesigned using the CCEM design system components. Displays all Claude Code
+  conversation sessions sourced from `ConversationWatcher` in a two-column layout:
+
+  - Left (40%): filterable `<.data_table>` listing sessions with Session ID,
+    Project, Size, Status, and Last Active columns.
+  - Right (60%): live transcript panel rendering the selected session's messages
+    via `<.streaming_text>` per message, with a `<.skeleton>` shimmer while
+    loading.
+
+  The right inspector panel shows per-message detail for a selected message.
+
+  PubSub: subscribes to `"apm:conversations"` for live conversation list updates.
+  Live polling at 3-second intervals refreshes the transcript of the selected session.
   """
 
   use ApmV5Web, :live_view
 
-  import ApmV5Web.Components.GettingStartedWizard
-  import ApmV5Web.Components.ConversationDrawer
-
   require Logger
-
-  alias ApmV5.Plugins.Memory.ConversationMemoryCorrelator
 
   @pubsub_topic "apm:conversations"
   @live_poll_ms 3_000
+
+  # ---------------------------------------------------------------------------
+  # mount/3
+  # ---------------------------------------------------------------------------
 
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic)
-      ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
     end
 
-    socket =
-      socket
-      |> assign_data()
-      |> assign(
-        tray_open: false,
-        tray_tab: "live",
-        drawer_height: :collapsed,
-        selected_conversations: MapSet.new(),
-        conversation_messages: [],
-        live_offsets: %{},
-        live_messages: [],
-        related_sessions: [],
-        show_related: false,
-        memory_observations: []
-      )
-      |> assign_tray_context()
+    conversations = load_conversations()
 
-    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok,
+     socket
+     |> assign(
+       page_title: "Conversations",
+       view_mode: "Live",
+       sidebar_collapsed: false,
+       inspector_open: false,
+       inspector_mode: "selection",
+       selected_session: nil,
+       filter_query: "",
+       conversations: conversations,
+       messages: [],
+       messages_loading: false,
+       live_offset: 0,
+       selected_message: nil
+     )
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
-  # ── Events ──────────────────────────────────────────────────────────
-
-  @impl true
-  def handle_event("toggle_tray", _params, socket) do
-    new_height =
-      case socket.assigns.drawer_height do
-        :collapsed -> :expanded
-        _ -> :collapsed
-      end
-
-    {:noreply, assign(socket, drawer_height: new_height, tray_open: new_height != :collapsed)}
-  end
-
-  @impl true
-  def handle_event("drawer_resized", %{"height" => raw_height}, socket) do
-    px = raw_height |> to_string() |> Integer.parse() |> elem(0)
-    clamped = ApmV5Web.Components.ConversationDrawer.clamp_height(px)
-
-    new_height = if clamped <= 60, do: :collapsed, else: clamped
-
-    {:noreply,
-     assign(socket, drawer_height: new_height, tray_open: new_height != :collapsed)}
-  end
-
-  @impl true
-  def handle_event("drawer_collapse", _params, socket) do
-    {:noreply, assign(socket, drawer_height: :collapsed, tray_open: false)}
-  end
-
-  @impl true
-  def handle_event("drawer_toggle", _params, socket) do
-    handle_event("toggle_tray", %{}, socket)
-  end
-
-  @impl true
-  def handle_event("drawer_fullscreen", _params, socket) do
-    {:noreply, assign(socket, drawer_height: :fullscreen, tray_open: true)}
-  end
-
-  @impl true
-  def handle_event("select_tray_tab", %{"tab" => tab}, socket) do
-    socket =
-      socket
-      |> assign(tray_tab: tab, tray_open: true, drawer_height: expand_if_collapsed(socket.assigns.drawer_height))
-      |> maybe_start_live_poll(tab)
-
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("toggle_conversation", %{"path" => path}, socket) do
-    selected = socket.assigns.selected_conversations
-
-    selected =
-      if MapSet.member?(selected, path) do
-        MapSet.delete(selected, path)
-      else
-        MapSet.put(selected, path)
-      end
-
-    socket =
-      socket
-      |> assign(selected_conversations: selected)
-      |> load_selected_messages()
-      |> find_related_sessions()
-      |> load_memory_observations()
-      |> maybe_start_live_poll(socket.assigns.tray_tab)
-
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("include_related", _params, socket) do
-    related_paths =
-      socket.assigns.related_sessions
-      |> Enum.map(& &1.path)
-
-    selected =
-      Enum.reduce(related_paths, socket.assigns.selected_conversations, fn p, acc ->
-        MapSet.put(acc, p)
-      end)
-
-    socket =
-      socket
-      |> assign(selected_conversations: selected)
-      |> load_selected_messages()
-      |> maybe_start_live_poll(socket.assigns.tray_tab)
-
-    {:noreply, socket}
-  end
-
-  # ── Info handlers ───────────────────────────────────────────────────
+  # ---------------------------------------------------------------------------
+  # handle_info/2
+  # ---------------------------------------------------------------------------
 
   @impl true
   def handle_info({:conversations_updated, conversations}, socket) do
-    socket =
-      socket
-      |> assign(conversations: conversations, active_count: count_active(conversations))
-      |> assign_tray_context()
-
-    {:noreply, socket}
+    {:noreply, assign(socket, conversations: conversations)}
   end
 
   @impl true
   def handle_info(:refresh, socket) do
-    {:noreply, socket |> assign_data() |> assign_tray_context()}
+    {:noreply, assign(socket, conversations: load_conversations())}
   end
 
   @impl true
   def handle_info(:poll_live, socket) do
-    if socket.assigns.tray_tab == "live" and socket.assigns.tray_open do
-      socket = poll_live_messages(socket)
-      Process.send_after(self(), :poll_live, @live_poll_ms)
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
+    socket =
+      if socket.assigns.selected_session && socket.assigns.view_mode == "Live" do
+        Process.send_after(self(), :poll_live, @live_poll_ms)
+        poll_live_messages(socket)
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
-  # ── Private: data loading ───────────────────────────────────────────
+  @impl true
+  def handle_info(_msg, socket), do: {:noreply, socket}
 
-  defp assign_data(socket) do
-    conversations = ApmV5.ConversationWatcher.get_conversations()
+  # ---------------------------------------------------------------------------
+  # handle_event/3
+  # ---------------------------------------------------------------------------
 
-    assign(socket,
-      conversations: conversations,
-      active_count: count_active(conversations),
-      page_title: "Conversations"
-    )
-  end
+  @impl true
+  def handle_event("select_session", %{"path" => path}, socket) do
+    {messages, offset} = load_messages(path)
 
-  defp count_active(conversations), do: Enum.count(conversations, & &1.active)
-
-  defp assign_tray_context(socket) do
-    agents = ApmV5.AgentRegistry.list_agents()
-
-    formation_agents =
-      Enum.filter(agents, fn a -> Map.get(a, :formation_id) not in [nil, ""] end)
-
-    upm_agents =
-      Enum.filter(agents, fn a -> Map.get(a, :formation_role) not in [nil, ""] end)
-
-    tool_call_entries =
-      socket.assigns.conversations
-      |> Enum.filter(& &1.active)
-
-    assign(socket,
-      tray_agents: agents,
-      tray_formation_agents: formation_agents,
-      tray_upm_agents: upm_agents,
-      tray_tool_entries: tool_call_entries,
-      has_formation: formation_agents != [],
-      has_upm: upm_agents != []
-    )
-  end
-
-  defp load_selected_messages(socket) do
-    selected = socket.assigns.selected_conversations
-
-    if MapSet.size(selected) == 0 do
-      assign(socket, conversation_messages: [])
-    else
-      messages =
-        selected
-        |> MapSet.to_list()
-        |> Enum.flat_map(fn path ->
-          case ApmV5.ConversationReader.read_recent(path, 50) do
-            {:ok, msgs} -> Enum.map(msgs, &Map.put(&1, :source_path, path))
-            _ -> []
-          end
-        end)
-        |> Enum.reject(fn m -> is_nil(m.timestamp) end)
-        |> Enum.sort_by(& &1.timestamp)
-
-      assign(socket, conversation_messages: messages)
-    end
-  end
-
-  defp find_related_sessions(socket) do
-    selected = socket.assigns.selected_conversations
-
-    if MapSet.size(selected) == 0 do
-      assign(socket, related_sessions: [], show_related: false)
-    else
-      related =
-        selected
-        |> MapSet.to_list()
-        |> Enum.flat_map(fn path ->
-          case ApmV5.ConversationReader.find_related(path) do
-            {:ok, rels} -> rels
-            _ -> []
-          end
-        end)
-        |> Enum.reject(fn r -> MapSet.member?(selected, r.path) end)
-        |> Enum.uniq_by(& &1.path)
-
-      assign(socket, related_sessions: related, show_related: related != [])
-    end
-  end
-
-  defp maybe_start_live_poll(socket, "live") do
-    if MapSet.size(socket.assigns.selected_conversations) > 0 do
-      # Initialize offsets for selected files
-      offsets =
-        socket.assigns.selected_conversations
-        |> MapSet.to_list()
-        |> Enum.reduce(socket.assigns.live_offsets, fn path, acc ->
-          if Map.has_key?(acc, path) do
-            acc
-          else
-            case ApmV5.ConversationReader.file_size(path) do
-              {:ok, size} -> Map.put(acc, path, size)
-              _ -> Map.put(acc, path, 0)
-            end
-          end
-        end)
-
-      Process.send_after(self(), :poll_live, @live_poll_ms)
-      assign(socket, live_offsets: offsets, live_messages: [])
-    else
+    socket =
       socket
-    end
+      |> assign(
+        selected_session: path,
+        messages: messages,
+        messages_loading: false,
+        live_offset: offset,
+        selected_message: nil
+      )
+      |> maybe_start_poll()
+
+    {:noreply, socket}
   end
 
-  defp maybe_start_live_poll(socket, _tab), do: socket
+  @impl true
+  def handle_event("filter_conversations", %{"value" => query}, socket) do
+    {:noreply, assign(socket, filter_query: query)}
+  end
 
-  defp load_memory_observations(socket) do
-    selected = socket.assigns.selected_conversations
+  @impl true
+  def handle_event("switch_view_mode", %{"value" => mode}, socket) do
+    socket = assign(socket, view_mode: mode)
 
-    if MapSet.size(selected) == 0 do
-      assign(socket, :memory_observations, [])
-    else
-      observations =
-        selected
-        |> MapSet.to_list()
-        |> Enum.flat_map(fn path ->
-          session_id = extract_session_id_from_path(path)
+    socket =
+      if mode == "Live" && socket.assigns.selected_session do
+        Process.send_after(self(), :poll_live, @live_poll_ms)
+        socket
+      else
+        socket
+      end
 
-          case session_id && ConversationMemoryCorrelator.correlate_session(session_id) do
-            {:ok, obs} -> obs
-            _ -> []
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, sidebar_collapsed: !socket.assigns.sidebar_collapsed)}
+  end
+
+  @impl true
+  def handle_event("toggle_inspector", _params, socket) do
+    {:noreply, assign(socket, inspector_open: !socket.assigns.inspector_open)}
+  end
+
+  @impl true
+  def handle_event("inspector_mode", %{"mode" => mode}, socket) do
+    {:noreply, assign(socket, inspector_mode: mode)}
+  end
+
+  @impl true
+  def handle_event("select_message", %{"index" => raw_index}, socket) do
+    index = raw_index |> to_string() |> Integer.parse() |> elem(0)
+    selected = Enum.at(socket.assigns.messages, index)
+
+    {:noreply,
+     assign(socket,
+       selected_message: selected,
+       inspector_open: true,
+       inspector_mode: "selection"
+     )}
+  end
+
+  # ---------------------------------------------------------------------------
+  # render/1
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def render(assigns) do
+    assigns = assign(assigns, :filtered_conversations, filter_conversations(assigns))
+
+    ~H"""
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/conversations" />
+      </:sidebar>
+
+      <:topbar>
+        <.top_bar project_name="CCEM APM" />
+      </:topbar>
+
+      <:main>
+        <%!-- Page header --%>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div style="display: flex; align-items: baseline; gap: 10px;">
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+              Conversations
+            </h1>
+            <span style="font-size: 12px; color: var(--ccem-fg-dim);">
+              {length(@filtered_conversations)} of {length(@conversations)} sessions
+            </span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <.badge :if={count_active(@conversations) > 0} tone="ok" dot>
+              {count_active(@conversations)} live
+            </.badge>
+            <.badge :if={count_active(@conversations) == 0} tone="neutral">
+              idle
+            </.badge>
+            <button
+              phx-click="toggle_inspector"
+              style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: var(--ccem-bg-2); border: 1px solid var(--ccem-line); border-radius: 5px; cursor: pointer; color: var(--ccem-fg-dim); font-size: 13px;"
+              title="Toggle inspector"
+            >
+              &#9776;
+            </button>
+          </div>
+        </div>
+
+        <%!-- Stat tiles --%>
+        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <.card style="flex: 1; min-width: 110px; padding: 12px 16px;">
+            <.stat_tile label="Total" value={to_string(length(@conversations))} />
+          </.card>
+          <.card style="flex: 1; min-width: 110px; padding: 12px 16px;">
+            <.stat_tile label="Active" value={to_string(count_active(@conversations))} />
+          </.card>
+          <.card style="flex: 1; min-width: 110px; padding: 12px 16px;">
+            <.stat_tile label="Idle" value={to_string(count_idle(@conversations))} />
+          </.card>
+          <.card style="flex: 1; min-width: 110px; padding: 12px 16px;">
+            <.stat_tile
+              label="Selected"
+              value={if @selected_session, do: "1", else: "—"}
+            />
+          </.card>
+        </div>
+
+        <%!-- Filter bar --%>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 180px; max-width: 360px;">
+            <.ds_input
+              type="search"
+              placeholder="Filter conversations..."
+              value={@filter_query}
+              phx-change="filter_conversations"
+              phx-debounce="200"
+              name="value"
+            />
+          </div>
+          <.segmented_control
+            options={["Live", "History"]}
+            active={@view_mode}
+            on_change="switch_view_mode"
+          />
+        </div>
+
+        <%!-- Two-column split: 40% list | 60% transcript --%>
+        <div style="display: grid; grid-template-columns: 40% 1fr; gap: 16px; min-height: 0;">
+
+          <%!-- Left: Conversation list --%>
+          <.card padded={false}>
+            <div style="padding: 10px 12px; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">
+              <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+                Sessions
+              </span>
+            </div>
+            <div :if={@filtered_conversations == []} style="padding: 32px 16px; text-align: center; color: var(--ccem-fg-dim); font-size: 13px;">
+              No sessions found in ~/.claude/projects/
+            </div>
+            <.data_table
+              :if={@filtered_conversations != []}
+              id="conversations-table"
+              rows={@filtered_conversations}
+            >
+              <:col :let={conv} label="Session">
+                <button
+                  phx-click="select_session"
+                  phx-value-path={conversation_path(conv)}
+                  style={
+                    "background: none; border: none; cursor: pointer; text-align: left; " <>
+                      "font-family: var(--ccem-font-mono, monospace); font-size: 11px; " <>
+                      "color: #{if selected_session?(conv, @selected_session), do: "var(--ccem-accent)", else: "var(--ccem-fg)"}; " <>
+                      "padding: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;"
+                  }
+                  title={conv.session_id}
+                >
+                  {truncate(conv.session_id, 14)}
+                </button>
+              </:col>
+              <:col :let={conv} label="Project">
+                <span style="font-size: 12px; color: var(--ccem-fg); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block;" title={conv.project}>
+                  {truncate(conv.project, 16)}
+                </span>
+              </:col>
+              <:col :let={conv} label="Size">
+                <span style="font-size: 11px; font-family: var(--ccem-font-mono, monospace); color: var(--ccem-fg-dim);">
+                  {format_bytes(conv.size_bytes)}
+                </span>
+              </:col>
+              <:col :let={conv} label="Status">
+                <.badge tone={if conv.active, do: "ok", else: "neutral"} dot={conv.active}>
+                  {if conv.active, do: "active", else: "idle #{conv.idle_minutes}m"}
+                </.badge>
+              </:col>
+              <:col :let={conv} label="Last Active">
+                <span style="font-size: 11px; color: var(--ccem-fg-dim); white-space: nowrap;">
+                  {format_dt(conv.last_modified)}
+                </span>
+              </:col>
+            </.data_table>
+          </.card>
+
+          <%!-- Right: Transcript panel --%>
+          <.card padded={false} style="display: flex; flex-direction: column; overflow: hidden; min-height: 320px;">
+            <%!-- Transcript header --%>
+            <div style="padding: 10px 12px; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line)); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
+              <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+                Transcript
+              </span>
+              <span :if={@selected_session} style="font-family: var(--ccem-font-mono, monospace); font-size: 10px; color: var(--ccem-fg-muted);">
+                {Path.basename(@selected_session)}
+              </span>
+            </div>
+
+            <%!-- Transcript body --%>
+            <div
+              id="transcript-scroll"
+              style="flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px;"
+            >
+              <%!-- Empty state --%>
+              <div :if={is_nil(@selected_session)} style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--ccem-fg-dim); text-align: center; padding: 24px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="opacity: 0.3; margin-bottom: 10px;">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <p style="font-size: 13px; font-weight: 500; margin: 0 0 4px;">No session selected</p>
+                <p style="font-size: 12px; margin: 0; opacity: 0.6;">Click a row in the session list to view its transcript.</p>
+              </div>
+
+              <%!-- Loading shimmer --%>
+              <.skeleton :if={@messages_loading} lines={5} />
+
+              <%!-- Messages --%>
+              <%= if !is_nil(@selected_session) && !@messages_loading do %>
+                <div :if={@messages == []} style="color: var(--ccem-fg-dim); font-size: 13px; text-align: center; padding: 24px 0;">
+                  No messages found in this session.
+                </div>
+
+                <div
+                  :for={{msg, idx} <- Enum.with_index(@messages)}
+                  id={"msg-#{idx}"}
+                  phx-click="select_message"
+                  phx-value-index={idx}
+                  style={
+                    "display: flex; flex-direction: column; gap: 4px; " <>
+                      "padding: 8px 10px; border-radius: 6px; cursor: pointer; " <>
+                      "border-left: 3px solid #{msg_border_color(msg.type)}; " <>
+                      "background: #{msg_bg_color(msg.type)}; " <>
+                      "transition: background 120ms;"
+                  }
+                >
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <.badge tone={msg_badge_tone(msg.type)}>
+                      {msg.type}
+                    </.badge>
+                    <span style="font-size: 10px; font-family: var(--ccem-font-mono, monospace); color: var(--ccem-fg-dim);">
+                      {format_ts(msg.timestamp)}
+                    </span>
+                    <span :if={length(msg.tool_calls) > 0} style="font-size: 10px; color: var(--ccem-info, #3b82f6);">
+                      {length(msg.tool_calls)} tool call(s)
+                    </span>
+                  </div>
+                  <.streaming_text
+                    text={truncate(msg.content || "(no text content)", 300)}
+                    streaming={msg.type == "assistant" && @view_mode == "Live"}
+                  />
+                </div>
+              <% end %>
+            </div>
+          </.card>
+
+        </div>
+      </:main>
+
+      <:inspector>
+        <.inspector_panel open={@inspector_open} mode={@inspector_mode} on_close="toggle_inspector">
+          <:selection>
+            {render_message_detail(assigns)}
+          </:selection>
+          <:copilot>
+            <div style="color: var(--ccem-fg-dim); font-size: 13px; padding: 8px 0;">
+              Select a message in the transcript to view its detail here.
+            </div>
+          </:copilot>
+          <:filters>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div>
+                <p style="margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">View Mode</p>
+                <.segmented_control
+                  options={["Live", "History"]}
+                  active={@view_mode}
+                  on_change="switch_view_mode"
+                />
+              </div>
+              <div>
+                <p style="margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">Filter</p>
+                <.ds_input
+                  type="search"
+                  placeholder="Filter conversations..."
+                  value={@filter_query}
+                  phx-change="filter_conversations"
+                  phx-debounce="200"
+                  name="value"
+                />
+              </div>
+            </div>
+          </:filters>
+        </.inspector_panel>
+      </:inspector>
+    </.page_layout>
+    """
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private: render helpers
+  # ---------------------------------------------------------------------------
+
+  defp render_message_detail(%{selected_message: nil} = assigns) do
+    ~H"""
+    <div style="color: var(--ccem-fg-dim); font-size: 13px; padding: 8px 0;">
+      Click a message in the transcript to inspect it here.
+    </div>
+    """
+  end
+
+  defp render_message_detail(%{selected_message: msg} = assigns) do
+    assigns = assign(assigns, :msg, msg)
+
+    ~H"""
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <.badge tone={msg_badge_tone(@msg.type)}>{@msg.type}</.badge>
+        <span style="font-size: 10px; font-family: var(--ccem-font-mono, monospace); color: var(--ccem-fg-dim);">
+          {format_ts(@msg.timestamp)}
+        </span>
+      </div>
+
+      <%!-- Token usage --%>
+      <%= if @msg.usage do %>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <.stat_tile label="Input Tok" value={to_string(@msg.usage.input_tokens)} />
+          <.stat_tile label="Output Tok" value={to_string(@msg.usage.output_tokens)} />
+        </div>
+      <% end %>
+
+      <%!-- Tool calls --%>
+      <%= if length(@msg.tool_calls) > 0 do %>
+        <div>
+          <p style="margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+            Tool Calls
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div
+              :for={tc <- @msg.tool_calls}
+              style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--ccem-bg-2); border-radius: 4px;"
+            >
+              <.badge tone="info">{tc.name}</.badge>
+              <span style="font-size: 11px; color: var(--ccem-fg-dim); font-family: var(--ccem-font-mono, monospace); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                {tc.input_preview || ""}
+              </span>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Full message content --%>
+      <div>
+        <p style="margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+          Content
+        </p>
+        <div style="background: var(--ccem-bg-2); border-radius: 6px; padding: 10px; max-height: 300px; overflow-y: auto;">
+          <.streaming_text text={@msg.content || "(no text content)"} streaming={false} />
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private: data loading
+  # ---------------------------------------------------------------------------
+
+  @spec load_conversations() :: list(map())
+  defp load_conversations do
+    ApmV5.ConversationWatcher.get_conversations()
+  end
+
+  @spec load_messages(String.t()) :: {list(map()), non_neg_integer()}
+  defp load_messages(path) do
+    case ApmV5.ConversationReader.read_recent(path, 100) do
+      {:ok, messages} ->
+        offset =
+          case ApmV5.ConversationReader.file_size(path) do
+            {:ok, size} -> size
+            _ -> 0
           end
-        end)
-        |> Enum.uniq_by(fn o -> o["id"] || o[:id] end)
-        |> Enum.sort_by(fn o -> o["timestamp"] || o[:timestamp] || "" end)
 
-      assign(socket, :memory_observations, observations)
+        {messages, offset}
+
+      _ ->
+        {[], 0}
     end
   end
 
-  defp extract_session_id_from_path(path) when is_binary(path) do
-    path |> Path.basename() |> Path.rootname()
-  end
-
-  defp extract_session_id_from_path(_), do: nil
+  @spec poll_live_messages(Phoenix.LiveView.Socket.t()) :: Phoenix.LiveView.Socket.t()
+  defp poll_live_messages(%{assigns: %{selected_session: nil}} = socket), do: socket
 
   defp poll_live_messages(socket) do
-    selected = socket.assigns.selected_conversations
+    path = socket.assigns.selected_session
+    offset = socket.assigns.live_offset
 
-    if MapSet.size(selected) == 0 do
-      socket
-    else
-      {new_offsets, new_msgs} =
-        selected
-        |> MapSet.to_list()
-        |> Enum.reduce({socket.assigns.live_offsets, []}, fn path, {offsets, msgs} ->
-          offset = Map.get(offsets, path, 0)
+    case ApmV5.ConversationReader.read_from_offset(path, offset) do
+      {:ok, new_messages, new_offset} when new_messages != [] ->
+        existing = socket.assigns.messages
+        # Keep last 200 messages total
+        combined = (existing ++ new_messages) |> Enum.take(-200)
+        assign(socket, messages: combined, live_offset: new_offset)
 
-          case ApmV5.ConversationReader.read_from_offset(path, offset) do
-            {:ok, new_messages, new_offset} ->
-              tagged = Enum.map(new_messages, &Map.put(&1, :source_path, path))
-              {Map.put(offsets, path, new_offset), msgs ++ tagged}
+      {:ok, [], _new_offset} ->
+        socket
 
-            _ ->
-              {offsets, msgs}
-          end
-        end)
-
-      existing = socket.assigns.live_messages
-      # Keep last 200 live messages
-      combined = (existing ++ new_msgs) |> Enum.take(-200)
-
-      assign(socket, live_offsets: new_offsets, live_messages: combined)
+      _ ->
+        socket
     end
   end
 
-  # ── Helpers for conversation file path ──────────────────────────────
+  @spec maybe_start_poll(Phoenix.LiveView.Socket.t()) :: Phoenix.LiveView.Socket.t()
+  defp maybe_start_poll(socket) do
+    if socket.assigns.view_mode == "Live" && socket.assigns.selected_session do
+      Process.send_after(self(), :poll_live, @live_poll_ms)
+    end
 
-  defp conversation_file_path(conv) do
+    socket
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private: filtering
+  # ---------------------------------------------------------------------------
+
+  @spec filter_conversations(map()) :: list(map())
+  defp filter_conversations(%{conversations: convs, filter_query: ""}) do
+    Enum.sort_by(convs, & &1.last_modified, {:desc, NaiveDateTime})
+  end
+
+  defp filter_conversations(%{conversations: convs, filter_query: query}) do
+    q = String.downcase(query)
+
+    convs
+    |> Enum.filter(fn conv ->
+      String.contains?(String.downcase(conv.session_id), q) or
+        String.contains?(String.downcase(conv.project), q)
+    end)
+    |> Enum.sort_by(& &1.last_modified, {:desc, NaiveDateTime})
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private: path resolution
+  # ---------------------------------------------------------------------------
+
+  @spec conversation_path(map()) :: String.t() | nil
+  defp conversation_path(conv) do
     projects_dir = Path.expand("~/.claude/projects")
-    # Reconstruct the path from the conversation data
-    # ConversationWatcher stores project (derived from dir) and file (basename)
-    # We need to find the actual directory
     find_jsonl_path(projects_dir, conv.file)
   end
 
+  @spec find_jsonl_path(String.t(), String.t()) :: String.t() | nil
   defp find_jsonl_path(projects_dir, filename) do
     case File.ls(projects_dir) do
       {:ok, dirs} ->
@@ -356,435 +571,35 @@ defmodule ApmV5Web.ConversationMonitorLive do
     end
   end
 
-  # ── Render ──────────────────────────────────────────────────────────
+  # ---------------------------------------------------------------------------
+  # Private: display helpers
+  # ---------------------------------------------------------------------------
 
-  @impl true
-  def render(assigns) do
-    ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/conversations" />
+  @spec selected_session?(map(), String.t() | nil) :: boolean()
+  defp selected_session?(_conv, nil), do: false
 
-      <div class="flex-1 flex flex-col overflow-hidden relative">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Conversations</h2>
-            <span :if={@active_count > 0} class="badge badge-success badge-sm">
-              {@active_count} active
-            </span>
-            <span :if={@active_count == 0} class="badge badge-ghost badge-sm">idle</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span :if={MapSet.size(@selected_conversations) > 0} class="text-xs text-primary">
-              {MapSet.size(@selected_conversations)} selected
-            </span>
-            <span class="text-xs text-base-content/40">Live via PubSub</span>
-          </div>
-        </header>
-
-        <div class={[
-          "flex-1 overflow-y-auto p-4 transition-all duration-300",
-          @tray_open && "pb-[42vh]" || "pb-16"
-        ]}
-        >
-          <div :if={@conversations == []} class="text-center py-8 text-base-content/40 text-sm">
-            No sessions found in ~/.claude/projects/
-          </div>
-          <div class="space-y-2">
-            <div
-              :for={conv <- @conversations}
-              phx-click="toggle_conversation"
-              phx-value-path={conversation_file_path(conv)}
-              class={[
-                "bg-base-200 rounded-lg p-3 border-l-4 transition-all cursor-pointer hover:bg-base-100",
-                conv.active && "border-success shadow-sm" || "border-base-300 opacity-70",
-                conversation_file_path(conv) && MapSet.member?(@selected_conversations, conversation_file_path(conv)) && "ring-2 ring-primary/50 bg-base-100"
-              ]}
-            >
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    class="checkbox checkbox-xs checkbox-primary"
-                    checked={conversation_file_path(conv) && MapSet.member?(@selected_conversations, conversation_file_path(conv))}
-                    phx-click="toggle_conversation"
-                    phx-value-path={conversation_file_path(conv)}
-                  />
-                  <span :if={conv.active} class="inline-block size-2 rounded-full bg-success animate-pulse" />
-                  <span :if={!conv.active} class="inline-block size-2 rounded-full bg-base-content/20" />
-                  <span class="font-medium text-sm">{conv.project}</span>
-                </div>
-                <span class={["badge badge-xs", conv.active && "badge-success" || "badge-ghost"]}>
-                  {if conv.active, do: "active", else: "idle #{conv.idle_minutes}m"}
-                </span>
-              </div>
-              <div class="mt-1 text-xs text-base-content/50 font-mono truncate">
-                {conv.session_id}
-              </div>
-              <div class="mt-1 text-xs text-base-content/40 flex gap-3">
-                <span>{conv.size_bytes} bytes</span>
-                <span>Modified: {format_dt(conv.last_modified)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <%!-- Conversation Inspector drawer --%>
-        <.conversation_drawer
-          drawer_height={@drawer_height}
-          tray_tab={@tray_tab}
-          tray_tabs={tray_tabs(assigns)}
-          show_related={@show_related}
-          related_sessions={@related_sessions}
-        >
-          {render_tray_tab(assigns)}
-        </.conversation_drawer>
-      </div>
-    </div>
-    <.wizard page="agents" dom_id="ccem-wizard-agents-convmon" />
-    """
+  defp selected_session?(conv, selected) do
+    conversation_path(conv) == selected
   end
 
-  defp tray_tabs(assigns) do
-    live_count = length(assigns.live_messages)
-    log_count = length(assigns.conversation_messages)
-    actions_count = assigns.conversation_messages |> extract_tool_entries() |> length()
-    memory_count = length(assigns.memory_observations)
+  @spec count_active(list(map())) :: non_neg_integer()
+  defp count_active(conversations), do: Enum.count(conversations, & &1.active)
 
-    base = [
-      %{id: "live", label: "Live", count: live_count},
-      %{id: "log", label: "Log", count: log_count},
-      %{id: "actions", label: "Actions", count: actions_count},
-      %{id: "execution", label: "Execution", count: 0},
-      %{id: "memory", label: "Memory", count: memory_count}
-    ]
+  @spec count_idle(list(map())) :: non_neg_integer()
+  defp count_idle(conversations), do: Enum.count(conversations, &(!&1.active))
 
-    upm = if assigns.has_upm, do: [%{id: "upm", label: "UPM", count: length(assigns.tray_upm_agents)}], else: []
-    formation = if assigns.has_formation, do: [%{id: "formation", label: "Formation", count: length(assigns.tray_formation_agents)}], else: []
+  @spec format_bytes(non_neg_integer()) :: String.t()
+  defp format_bytes(b) when b < 1_024, do: "#{b}B"
+  defp format_bytes(b) when b < 1_048_576, do: "#{div(b, 1_024)}KB"
+  defp format_bytes(b), do: "#{Float.round(b / 1_048_576, 1)}MB"
 
-    base ++ upm ++ formation
-  end
+  @spec format_dt(NaiveDateTime.t() | nil) :: String.t()
+  defp format_dt(nil), do: "—"
+  defp format_dt(%NaiveDateTime{} = dt), do: Calendar.strftime(dt, "%m/%d %H:%M")
+  defp format_dt(_), do: "—"
 
-  defp expand_if_collapsed(:collapsed), do: :expanded
-  defp expand_if_collapsed(height), do: height
-
-  # ── Live tab ────────────────────────────────────────────────────────
-
-  defp render_tray_tab(%{tray_tab: "live"} = assigns) do
-    ~H"""
-    <div class="space-y-1" id="live-messages" phx-hook="ScrollBottom">
-      <div :if={MapSet.size(@selected_conversations) == 0} class="text-xs text-base-content/40 py-4 text-center">
-        Select a conversation above to see live messages
-      </div>
-      <div :if={@live_messages == [] and MapSet.size(@selected_conversations) > 0} class="text-xs text-base-content/40 py-4 text-center">
-        Watching for new messages... (polling every 3s)
-      </div>
-      <div
-        :for={msg <- @live_messages}
-        class={[
-          "text-xs font-mono rounded px-2 py-1 animate-fade-in",
-          msg.type == "user" && "bg-primary/10 border-l-2 border-primary",
-          msg.type == "assistant" && "bg-base-300/50 border-l-2 border-success",
-          msg.type == "system" && "bg-warning/10 border-l-2 border-warning"
-        ]}
-      >
-        <div class="flex items-center gap-2 mb-0.5">
-          <span class={[
-            "badge badge-xs",
-            msg.type == "user" && "badge-primary",
-            msg.type == "assistant" && "badge-success",
-            msg.type == "system" && "badge-warning"
-          ]}>{msg.type}</span>
-          <span class="text-base-content/30">{format_ts(msg.timestamp)}</span>
-          <span :if={length(msg.tool_calls) > 0} class="text-info/60">
-            {length(msg.tool_calls)} tool call(s)
-          </span>
-        </div>
-        <div :if={msg.content} class="text-base-content/70 truncate max-w-full">
-          {truncate(msg.content, 200)}
-        </div>
-        <div :for={tc <- msg.tool_calls} class="text-info/70 ml-4">
-          -> {tc.name}
-        </div>
-      </div>
-    </div>
-    """
-  end
-
-  # ── Log tab ─────────────────────────────────────────────────────────
-
-  defp render_tray_tab(%{tray_tab: "log"} = assigns) do
-    ~H"""
-    <div class="space-y-1">
-      <div :if={MapSet.size(@selected_conversations) == 0} class="text-xs text-base-content/40 py-4 text-center">
-        Select a conversation to view message log
-      </div>
-      <div :if={@conversation_messages == [] and MapSet.size(@selected_conversations) > 0} class="text-xs text-base-content/40 py-4 text-center">
-        No messages found in selected conversation(s)
-      </div>
-      <div
-        :for={msg <- @conversation_messages}
-        title={format_ts(msg.timestamp)}
-        class={[
-          "flex items-center gap-2 text-xs font-mono rounded px-2 py-0.5 cursor-default",
-          "hover:bg-base-300/80 transition-colors",
-          msg.type == "user" && "bg-primary/10",
-          msg.type == "assistant" && "bg-base-300/50",
-          msg.type == "system" && "bg-warning/10"
-        ]}
-      >
-        <span class={[
-          "badge badge-xs shrink-0",
-          msg.type == "user" && "badge-primary",
-          msg.type == "assistant" && "badge-success",
-          msg.type == "system" && "badge-warning"
-        ]}>{msg.type}</span>
-        <span class="text-base-content/30 shrink-0 w-14">{relative_ts(msg.timestamp)}</span>
-        <span class="text-base-content/70 flex-1 truncate">
-          {truncate(msg.content || "(no text content)", 200)}
-        </span>
-      </div>
-    </div>
-    """
-  end
-
-  # ── Actions tab ─────────────────────────────────────────────────────
-
-  defp render_tray_tab(%{tray_tab: "actions"} = assigns) do
-    ~H"""
-    <div class="space-y-1">
-      <div :if={MapSet.size(@selected_conversations) == 0} class="text-xs text-base-content/40 py-4 text-center">
-        Select a conversation to view tool actions
-      </div>
-      <%= if MapSet.size(@selected_conversations) > 0 do %>
-        <% tool_entries = extract_tool_entries(@conversation_messages) %>
-        <div :if={tool_entries == []} class="text-xs text-base-content/40 py-4 text-center">
-          No tool calls found in selected conversation(s)
-        </div>
-        <div
-          :for={entry <- tool_entries}
-          class="flex items-center gap-2 text-xs font-mono bg-base-300/50 rounded px-2 py-1"
-        >
-          <span class={[
-            "badge badge-xs",
-            entry.type == "tool_use" && "badge-info",
-            entry.type == "tool_result" && (if entry.is_error, do: "badge-error", else: "badge-success")
-          ]}>
-            {if entry.type == "tool_use", do: "call", else: if(entry.is_error, do: "err", else: "ok")}
-          </span>
-          <span class="text-info/80 w-24 truncate">{entry.name || "-"}</span>
-          <span class="text-base-content/30 w-16">{format_ts(entry.timestamp)}</span>
-          <span class="text-base-content/50 flex-1 truncate">{entry.preview}</span>
-        </div>
-      <% end %>
-    </div>
-    """
-  end
-
-  # ── Execution tab ───────────────────────────────────────────────────
-
-  defp render_tray_tab(%{tray_tab: "execution"} = assigns) do
-    ~H"""
-    <div class="space-y-1">
-      <div :if={MapSet.size(@selected_conversations) == 0} class="text-xs text-base-content/40 py-4 text-center">
-        Select a conversation to view execution timeline
-      </div>
-      <%= if MapSet.size(@selected_conversations) > 0 do %>
-        <% turns = build_execution_timeline(@conversation_messages) %>
-        <div :if={turns == []} class="text-xs text-base-content/40 py-4 text-center">
-          No execution data in selected conversation(s)
-        </div>
-        <div
-          :for={{turn, idx} <- Enum.with_index(turns, 1)}
-          class="flex items-center gap-2 text-xs font-mono bg-base-300/50 rounded px-2 py-1"
-        >
-          <span class="badge badge-xs badge-outline badge-primary w-6 text-center">{idx}</span>
-          <span class={[
-            "badge badge-xs",
-            turn.type == "user" && "badge-primary",
-            turn.type == "assistant" && "badge-success",
-            turn.type == "system" && "badge-warning"
-          ]}>{turn.type}</span>
-          <span class="text-base-content/30 w-16">{format_ts(turn.timestamp)}</span>
-          <span :if={turn.usage} class="text-info/60 w-20 text-right">
-            {turn.usage.input_tokens + turn.usage.output_tokens} tok
-          </span>
-          <span :if={!turn.usage} class="text-base-content/20 w-20 text-right">-</span>
-          <span class="text-base-content/50 w-10 text-right">
-            {length(turn.tool_calls)} tc
-          </span>
-          <span class="text-base-content/60 flex-1 truncate">
-            {truncate(turn.content || "", 120)}
-          </span>
-        </div>
-      <% end %>
-    </div>
-    """
-  end
-
-  # ── UPM tab ─────────────────────────────────────────────────────────
-
-  defp render_tray_tab(%{tray_tab: "upm"} = assigns) do
-    ~H"""
-    <div class="space-y-1">
-      <div :if={@tray_upm_agents == []} class="text-xs text-base-content/40 py-4 text-center">
-        No UPM formation context active
-      </div>
-      <div
-        :for={agent <- @tray_upm_agents}
-        class="flex items-center gap-2 text-xs font-mono bg-base-300/50 rounded px-2 py-1"
-      >
-        <span class="badge badge-xs badge-info">{Map.get(agent, :formation_role, "?")}</span>
-        <span class="text-base-content/70 w-28 truncate">{Map.get(agent, :agent_id, "?")}</span>
-        <span class="text-base-content/50 flex-1 truncate">{Map.get(agent, :task_subject, "-")}</span>
-        <span class="text-base-content/30">wave {Map.get(agent, :wave, "-")}</span>
-      </div>
-    </div>
-    """
-  end
-
-  # ── Formation tab ───────────────────────────────────────────────────
-
-  defp render_tray_tab(%{tray_tab: "formation"} = assigns) do
-    ~H"""
-    <div class="space-y-1">
-      <div :if={@tray_formation_agents == []} class="text-xs text-base-content/40 py-4 text-center">
-        No formation hierarchy active
-      </div>
-      <div
-        :for={agent <- @tray_formation_agents}
-        class="flex items-center gap-2 text-xs font-mono bg-base-300/50 rounded px-2 py-1"
-      >
-        <span class="badge badge-xs badge-warning">{Map.get(agent, :formation_role, "?")}</span>
-        <span class="text-base-content/70 w-28 truncate">{Map.get(agent, :agent_id, "?")}</span>
-        <span class="text-base-content/40 w-24 truncate">fid:{Map.get(agent, :formation_id, "?")}</span>
-        <span class="text-base-content/50 flex-1 truncate">{Map.get(agent, :task_subject, "-")}</span>
-        <span :if={Map.get(agent, :parent_agent_id)} class="text-base-content/30 truncate">
-          parent:{Map.get(agent, :parent_agent_id)}
-        </span>
-      </div>
-    </div>
-    """
-  end
-
-  # ── Memory tab ──────────────────────────────────────────────────────
-
-  defp render_tray_tab(%{tray_tab: "memory"} = assigns) do
-    ~H"""
-    <div class="space-y-1">
-      <div :if={MapSet.size(@selected_conversations) == 0} class="text-xs text-base-content/40 py-4 text-center">
-        Select a conversation to view correlated memory observations
-      </div>
-      <div :if={MapSet.size(@selected_conversations) > 0 && @memory_observations == []} class="text-xs text-base-content/40 py-4 text-center">
-        No memory observations correlated with selected session(s)
-      </div>
-      <div :if={@memory_observations != []} class="space-y-1">
-        <p class="text-xs text-base-content/40 mb-2">
-          {length(@memory_observations)} observation(s) correlated with selected session(s)
-        </p>
-        <.link
-          :for={obs <- @memory_observations}
-          navigate={"/memory"}
-          class="flex items-start gap-2 text-xs font-mono bg-base-300/50 hover:bg-base-300 rounded px-2 py-1.5 transition-colors cursor-pointer"
-        >
-          <span class={[
-            "badge badge-xs shrink-0 mt-0.5",
-            observation_type_color(obs["observation_type"] || obs[:observation_type])
-          ]}>
-            {obs["observation_type"] || obs[:observation_type] || "unknown"}
-          </span>
-          <span class="text-base-content/30 shrink-0 w-16">
-            {format_obs_ts(obs["timestamp"] || obs[:timestamp])}
-          </span>
-          <span class="text-base-content/70 flex-1 truncate">
-            {truncate(obs["narrative"] || obs[:narrative] || "(no content)", 160)}
-          </span>
-        </.link>
-      </div>
-    </div>
-    """
-  end
-
-  defp render_tray_tab(assigns) do
-    ~H"""
-    <div class="text-xs text-base-content/40 py-4 text-center">
-      Unknown tab
-    </div>
-    """
-  end
-
-  # ── Helpers ─────────────────────────────────────────────────────────
-
-  defp extract_tool_entries(messages) do
-    messages
-    |> Enum.flat_map(fn msg ->
-      calls =
-        Enum.map(msg.tool_calls, fn tc ->
-          %{
-            type: "tool_use",
-            name: tc.name,
-            preview: tc.input_preview || "",
-            timestamp: msg.timestamp,
-            is_error: false
-          }
-        end)
-
-      results =
-        Enum.map(msg.tool_results, fn tr ->
-          %{
-            type: "tool_result",
-            name: nil,
-            preview: tr.content_preview || "",
-            timestamp: msg.timestamp,
-            is_error: tr.is_error
-          }
-        end)
-
-      calls ++ results
-    end)
-  end
-
-  defp build_execution_timeline(messages) do
-    messages
-    |> Enum.filter(fn m -> m.type in ["user", "assistant"] end)
-    |> Enum.map(fn m ->
-      %{
-        type: m.type,
-        timestamp: m.timestamp,
-        content: m.content,
-        usage: m.usage,
-        tool_calls: m.tool_calls
-      }
-    end)
-  end
-
-  defp truncate(nil, _max), do: ""
-  defp truncate(text, max) when byte_size(text) <= max, do: text
-  defp truncate(text, max), do: String.slice(text, 0, max) <> "..."
-
-  defp format_dt(nil), do: "?"
-  defp format_dt(%NaiveDateTime{} = dt), do: Calendar.strftime(dt, "%m/%d %H:%M:%S")
-  defp format_dt(_), do: "?"
-
-  defp observation_type_color("agent"), do: "badge-primary"
-  defp observation_type_color("tool_call"), do: "badge-info"
-  defp observation_type_color("session"), do: "badge-secondary"
-  defp observation_type_color("error"), do: "badge-error"
-  defp observation_type_color("security"), do: "badge-warning"
-  defp observation_type_color("memory"), do: "badge-accent"
-  defp observation_type_color(_), do: "badge-ghost"
-
-  defp format_obs_ts(nil), do: "?"
-
-  defp format_obs_ts(ts) when is_binary(ts) do
-    case DateTime.from_iso8601(ts) do
-      {:ok, dt, _} -> Calendar.strftime(dt, "%H:%M:%S")
-      _ -> String.slice(ts, 11, 8)
-    end
-  end
-
-  defp format_obs_ts(_), do: "?"
-
-  defp format_ts(nil), do: "?"
+  @spec format_ts(String.t() | nil) :: String.t()
+  defp format_ts(nil), do: "—"
 
   defp format_ts(ts) when is_binary(ts) do
     case DateTime.from_iso8601(ts) do
@@ -793,27 +608,34 @@ defmodule ApmV5Web.ConversationMonitorLive do
     end
   end
 
-  defp format_ts(_), do: "?"
+  defp format_ts(_), do: "—"
 
-  # Relative timestamp — "Xm ago", "Xs ago", or falls back to absolute.
-  defp relative_ts(nil), do: "?"
+  @spec truncate(String.t() | nil, non_neg_integer()) :: String.t()
+  defp truncate(nil, _max), do: ""
+  defp truncate(text, max) when byte_size(text) <= max, do: text
+  defp truncate(text, max), do: String.slice(text, 0, max) <> "…"
 
-  defp relative_ts(ts) when is_binary(ts) do
-    case DateTime.from_iso8601(ts) do
-      {:ok, dt, _} ->
-        diff = DateTime.diff(DateTime.utc_now(), dt, :second)
+  @spec msg_border_color(String.t()) :: String.t()
+  defp msg_border_color("user"), do: "var(--ccem-iris, #7c6cf8)"
+  defp msg_border_color("assistant"), do: "var(--ccem-ok, #22c55e)"
+  defp msg_border_color("system"), do: "var(--ccem-warn, #f59e0b)"
+  defp msg_border_color(_), do: "var(--ccem-line)"
 
-        cond do
-          diff < 60 -> "#{diff}s ago"
-          diff < 3600 -> "#{div(diff, 60)}m ago"
-          diff < 86_400 -> "#{div(diff, 3600)}h ago"
-          true -> Calendar.strftime(dt, "%m/%d")
-        end
+  @spec msg_bg_color(String.t()) :: String.t()
+  defp msg_bg_color("user"),
+    do: "color-mix(in srgb, var(--ccem-iris, #7c6cf8) 8%, transparent)"
 
-      _ ->
-        format_ts(ts)
-    end
-  end
+  defp msg_bg_color("assistant"),
+    do: "color-mix(in srgb, var(--ccem-ok, #22c55e) 6%, transparent)"
 
-  defp relative_ts(_), do: "?"
+  defp msg_bg_color("system"),
+    do: "color-mix(in srgb, var(--ccem-warn, #f59e0b) 8%, transparent)"
+
+  defp msg_bg_color(_), do: "var(--ccem-bg-2)"
+
+  @spec msg_badge_tone(String.t()) :: String.t()
+  defp msg_badge_tone("user"), do: "iris"
+  defp msg_badge_tone("assistant"), do: "ok"
+  defp msg_badge_tone("system"), do: "warn"
+  defp msg_badge_tone(_), do: "neutral"
 end
