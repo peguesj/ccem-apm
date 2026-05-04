@@ -94,6 +94,8 @@ defmodule ApmV5Web.Router do
       live "/analytics", AnalyticsLive, :index
       live "/health", HealthCheckLive, :index
       live "/conversations", ConversationMonitorLive, :index
+      # Observe: Conversations LiveView (CP-181 / US-456)
+      live "/observe/conversations", ConversationMonitorLive, :index
       live "/backfill", BackfillLive, :index
       live "/drtw", DrtwLive, :index
       live "/intake", IntakeLive, :index
@@ -103,8 +105,12 @@ defmodule ApmV5Web.Router do
       live "/sessions", SessionManagerLive, :index
       live "/sessions/:id", SessionManagerLive, :show
       live "/observe/sessions/:session_id", SessionDetailLive, :index
+      # Observe: Timeline LiveView (CP-180 / US-455)
+      live "/observe/timeline", SessionTimelineLive, :index
       # Observe: Fleet LiveView (CP-176 / US-451)
       live "/fleet", FleetLive, :index
+      # Observe: Formations LiveView redesign (CP-179 / US-454)
+      live "/observe/formations", FormationsLive, :index
 
       # Extension: ag_ui
       live "/ag-ui", AgUiLive, :index
