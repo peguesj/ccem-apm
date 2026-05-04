@@ -418,4 +418,179 @@ defmodule ApmV5Web.Components.DesignSystem do
     >{@key}</kbd>
     """
   end
+
+  # ---------------------------------------------------------------------------
+  # ds_input/1
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Renders a CCEM-styled text/number/search input.
+
+  Uses `--ccem-*` CSS design tokens. Named `ds_input` to avoid conflict with
+  `core_components.ex` `input/1`.
+
+  ## Examples
+
+      <.ds_input type="text" placeholder="Search…" name="q" />
+      <.ds_input type="search" placeholder="⌘K to search" />
+      <.ds_input type="number" value="42" name="count">
+        <:icon>…</:icon>
+        <:suffix>units</:suffix>
+      </.ds_input>
+  """
+  attr :type, :string, default: "text", values: ~w(text number search email password)
+  attr :placeholder, :string, default: nil
+  attr :value, :string, default: nil
+  attr :name, :string, default: nil
+  attr :id, :string, default: nil
+  attr :disabled, :boolean, default: false
+  attr :class, :string, default: nil
+  attr :rest, :global
+
+  slot :icon
+  slot :suffix
+
+  def ds_input(assigns) do
+    ~H"""
+    <div
+      class={["ds-input-wrapper", @class]}
+      style={
+        "position: relative; display: inline-flex; align-items: center; " <>
+          "height: 32px; min-width: 0; width: 100%;"
+      }
+    >
+      <%= if @icon != [] do %>
+        <div
+          class="ds-input-icon"
+          style="position: absolute; left: 8px; display: flex; align-items: center; pointer-events: none; color: var(--ccem-fg-dim);"
+        >
+          <%= render_slot(@icon) %>
+        </div>
+      <% end %>
+      <input
+        type={@type}
+        id={@id}
+        name={@name}
+        value={@value}
+        placeholder={@placeholder}
+        disabled={@disabled}
+        style={
+          "flex: 1; min-width: 0; height: 100%; " <>
+            "padding: 0 #{if @suffix != [], do: "32px", else: "8px"} 0 #{if @icon != [], do: "28px", else: "8px"}; " <>
+            "background: var(--ccem-bg-1); " <>
+            "border: 1px solid var(--ccem-line); border-radius: 6px; " <>
+            "font-family: var(--ccem-font-sans, sans-serif); font-size: var(--ccem-t-sm, 13px); " <>
+            "color: var(--ccem-fg); " <>
+            "outline: none; " <>
+            "transition: border-color 0.1s, outline 0.1s;"
+        }
+        class="ds-input-field"
+        {@rest}
+      />
+      <%= if @suffix != [] do %>
+        <div
+          class="ds-input-suffix"
+          style="position: absolute; right: 8px; display: flex; align-items: center; color: var(--ccem-fg-dim);"
+        >
+          <%= render_slot(@suffix) %>
+        </div>
+      <% else %>
+        <%= if @type == "search" do %>
+          <span
+            class="ds-input-kbd-chip"
+            style={
+              "position: absolute; right: 6px; " <>
+                "display: inline-flex; align-items: center; padding: 1px 5px; " <>
+                "background: var(--ccem-bg-3); border: 1px solid var(--ccem-line-subtle, var(--ccem-line)); " <>
+                "border-radius: 3px; font-family: var(--ccem-font-mono, monospace); " <>
+                "font-size: 11px; color: var(--ccem-fg-dim); white-space: nowrap; pointer-events: none;"
+            }
+          >⌘K</span>
+        <% end %>
+      <% end %>
+    </div>
+    """
+  end
+
+  # ---------------------------------------------------------------------------
+  # data_table/1
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Renders a dense CCEM-styled data table.
+
+  Named `data_table` to avoid conflict with `core_components.ex` `table/1`.
+  Adds `phx-hook="TableKeyNav"` on the `<table>` element for keyboard navigation
+  (the hook is registered in `app.js`).
+
+  ## Examples
+
+      <.data_table id="agents-table" rows={@agents}>
+        <:col :let={row} label="Agent"><%= row.name %></:col>
+        <:col :let={row} label="Status"><%= row.status %></:col>
+      </.data_table>
+  """
+  attr :id, :string, default: nil
+  attr :rows, :list, required: true
+  attr :class, :string, default: nil
+  attr :rest, :global
+
+  slot :col do
+    attr :label, :string
+    attr :class, :string
+  end
+
+  def data_table(assigns) do
+    ~H"""
+    <div
+      class={["ds-data-table-wrapper", @class]}
+      style="overflow-x: auto; width: 100%;"
+    >
+      <table
+        id={@id}
+        phx-hook="TableKeyNav"
+        style="width: 100%; border-collapse: collapse; table-layout: auto;"
+        {@rest}
+      >
+        <thead>
+          <tr>
+            <th
+              :for={col <- @col}
+              class={col[:class]}
+              style={
+                "height: 36px; padding: 0 12px; " <>
+                  "background: var(--ccem-bg-2); " <>
+                  "color: var(--ccem-fg-dim); " <>
+                  "font-family: var(--ccem-font-sans, sans-serif); " <>
+                  "font-size: 11px; font-weight: 600; text-transform: uppercase; " <>
+                  "letter-spacing: 0.06em; text-align: left; white-space: nowrap; " <>
+                  "border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));"
+              }
+            >
+              <%= col[:label] %>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            :for={row <- @rows}
+            style="height: 36px; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));"
+          >
+            <td
+              :for={col <- @col}
+              class={col[:class]}
+              style={
+                "padding: 0 12px; " <>
+                  "font-family: var(--ccem-font-sans, sans-serif); " <>
+                  "font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg);"
+              }
+            >
+              <%= render_slot(col, row) %>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    """
+  end
 end
