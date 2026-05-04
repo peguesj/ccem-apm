@@ -26,6 +26,8 @@ defmodule ApmV5Web.TasksLive do
      |> assign(:page_title, "Background Tasks")
      |> assign(:filter, "all")
      |> assign(:selected_task_id, nil)
+     |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
      |> load_tasks()
      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -56,6 +58,14 @@ defmodule ApmV5Web.TasksLive do
   def handle_event("delete_task", %{"id" => id}, socket) do
     try do BackgroundTasksStore.delete_task(id) catch :exit, _ -> :ok end
     {:noreply, load_tasks(socket)}
+  end
+
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, sidebar_collapsed: !socket.assigns.sidebar_collapsed)}
+  end
+
+  def handle_event("toggle_inspector", _params, socket) do
+    {:noreply, assign(socket, inspector_open: !socket.assigns.inspector_open)}
   end
 
   defp load_tasks(socket) do
@@ -91,11 +101,11 @@ defmodule ApmV5Web.TasksLive do
 
   # --- Helpers ---
 
-  defp status_badge_class("running"), do: "badge badge-blue"
-  defp status_badge_class("completed"), do: "badge badge-green"
-  defp status_badge_class("failed"), do: "badge badge-red"
-  defp status_badge_class("stopped"), do: "badge badge-gray"
-  defp status_badge_class(_), do: "badge badge-gray"
+  defp status_tone("running"), do: "info"
+  defp status_tone("completed"), do: "ok"
+  defp status_tone("failed"), do: "err"
+  defp status_tone("stopped"), do: "neutral"
+  defp status_tone(_), do: "neutral"
 
   defp format_runtime(seconds) when is_integer(seconds) and seconds >= 60 do
     m = div(seconds, 60)
@@ -105,111 +115,76 @@ defmodule ApmV5Web.TasksLive do
   defp format_runtime(seconds) when is_integer(seconds), do: "#{seconds}s"
   defp format_runtime(_), do: "-"
 
+  defp count_by_status(tasks, status), do: Enum.count(tasks, &(&1.status == status))
+
   @impl true
   def render(assigns) do
     assigns = assign(assigns, :selected_task, selected_task(assigns))
 
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/tasks" />
-
-      <%!-- Main content --%>
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Background Tasks</h2>
-            <div class="badge badge-sm badge-ghost"><%= length(@tasks) %> tasks</div>
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar><.sidebar_nav current_path="/tasks" /></:sidebar>
+      <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+      <:main>
+        <%!-- Page header --%>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Background Tasks</h1>
+            <.badge tone="neutral"><%= to_string(length(@tasks)) %> tasks</.badge>
           </div>
-          <div class="flex gap-1">
-            <button :for={status <- ["all", "running", "completed", "failed", "stopped"]}
-              phx-click="filter"
-              phx-value-status={status}
-              class={["btn btn-xs", if(@filter == status, do: "btn-primary", else: "btn-ghost")]}>
-              <%= String.capitalize(status) %>
-            </button>
-          </div>
-        </header>
+          <.segmented_control options={["all", "running", "completed", "failed", "stopped"]} active={@filter} on_change="filter" />
+        </div>
 
-        <%!-- Table --%>
-        <div class="flex-1 overflow-auto p-4">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="text-left text-base-content/50 border-b border-base-300">
-                <th class="pb-3 pr-4">Name</th>
-                <th class="pb-3 pr-4">Definition</th>
-                <th class="pb-3 pr-4">Status</th>
-                <th class="pb-3 pr-4">Runtime</th>
-                <th class="pb-3 pr-4">Project</th>
-                <th class="pb-3 pr-4">Invoked By</th>
-                <th class="pb-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <%= if @tasks == [] do %>
-                <tr>
-                  <td colspan="7" class="py-8 text-center text-base-content/40">No tasks found</td>
-                </tr>
-              <% else %>
-                <%= for task <- @tasks do %>
-                  <tr class="border-b border-base-300/50 hover:bg-base-200/50">
-                    <td class="py-3 pr-4 font-medium text-base-content"><%= task.name %></td>
-                    <td class="py-3 pr-4 text-base-content/60 max-w-xs truncate"><%= task.definition %></td>
-                    <td class="py-3 pr-4">
-                      <span class={status_badge_class(task.status)}><%= task.status %></span>
-                    </td>
-                    <td class="py-3 pr-4 text-base-content/60"><%= format_runtime(task.runtime_seconds) %></td>
-                    <td class="py-3 pr-4 text-base-content/60"><%= task.project %></td>
-                    <td class="py-3 pr-4 text-base-content/60 max-w-xs truncate"><%= task.invoking_process %></td>
-                    <td class="py-3">
-                      <div class="flex gap-2">
-                        <button phx-click="view_logs" phx-value-id={task.id} class="btn btn-ghost btn-xs">
-                          Logs
-                        </button>
-                        <%= if task.status == "running" do %>
-                          <button phx-click="stop_task" phx-value-id={task.id} class="btn btn-error btn-xs">
-                            Stop
-                          </button>
-                        <% end %>
-                        <%= if task.status in ["completed", "failed", "stopped"] do %>
-                          <button phx-click="delete_task" phx-value-id={task.id} class="btn btn-ghost btn-xs">
-                            Delete
-                          </button>
-                        <% end %>
-                      </div>
-                    </td>
-                  </tr>
-                <% end %>
-              <% end %>
-            </tbody>
-          </table>
+        <%!-- Stat tiles --%>
+        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Total" value={to_string(length(@tasks))} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Running" value={to_string(count_by_status(@tasks, "running"))} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Completed" value={to_string(count_by_status(@tasks, "completed"))} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Failed" value={to_string(count_by_status(@tasks, "failed"))} />
+          </.card>
+        </div>
+
+        <%!-- Tasks table --%>
+        <.card padded={false}>
+          <.data_table id="tasks-table" rows={@tasks}>
+            <:col :let={row} label="Name"><%= row[:name] %></:col>
+            <:col :let={row} label="Definition"><span style="font-family: monospace; font-size: 11px; color: var(--ccem-fg-muted);"><%= row[:definition] %></span></:col>
+            <:col :let={row} label="Status"><.badge tone={status_tone(row[:status])}><%= row[:status] %></.badge></:col>
+            <:col :let={row} label="Runtime"><span style="color: var(--ccem-fg-muted);"><%= format_runtime(row[:runtime_seconds]) %></span></:col>
+            <:col :let={row} label="Project"><span style="color: var(--ccem-fg-muted);"><%= row[:project] %></span></:col>
+            <:col :let={row} label="Invoked By"><span style="font-size: 11px; color: var(--ccem-fg-muted);"><%= row[:invoking_process] %></span></:col>
+            <:col :let={row} label="Actions">
+              <div style="display: flex; gap: 6px;">
+                <.btn variant="ghost" size="xs" phx-click="view_logs" phx-value-id={row[:id]}>Logs</.btn>
+                <.btn :if={row[:status] == "running"} variant="destructive" size="xs" phx-click="stop_task" phx-value-id={row[:id]}>Stop</.btn>
+                <.btn :if={row[:status] in ["completed", "failed", "stopped"]} variant="ghost" size="xs" phx-click="delete_task" phx-value-id={row[:id]}>Delete</.btn>
+              </div>
+            </:col>
+          </.data_table>
+        </.card>
+      </:main>
+    </.page_layout>
+
+    <%!-- Logs Modal --%>
+    <div :if={@selected_task} style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50;" phx-click="close_logs">
+      <div style="background: var(--ccem-surface-1); border: 1px solid var(--ccem-border); border-radius: 12px; width: 75%; max-height: 75vh; display: flex; flex-direction: column;" phx-click-stop>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--ccem-border);">
+          <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);"><%= @selected_task.name %> — Logs</span>
+          <.btn variant="ghost" size="xs" phx-click="close_logs">Close</.btn>
+        </div>
+        <div style="padding: 16px; overflow: auto; font-family: monospace; font-size: 11px; color: var(--ccem-ok, #22c55e); background: var(--ccem-surface-2); max-height: 384px;">
+          <div :if={@selected_task.logs == []} style="color: var(--ccem-fg-muted);">No log entries</div>
+          <div :for={line <- @selected_task.logs}><%= line %></div>
         </div>
       </div>
     </div>
-
-    <%!-- Logs Modal --%>
-    <%= if @selected_task do %>
-      <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" phx-click="close_logs">
-        <div class="bg-base-200 rounded-xl border border-base-300 w-3/4 max-h-3/4 flex flex-col" phx-click-stop>
-          <div class="flex items-center justify-between px-4 py-3 border-b border-base-300">
-            <h3 class="text-sm font-semibold text-base-content"><%= @selected_task.name %> — Logs</h3>
-            <button phx-click="close_logs" class="btn btn-ghost btn-xs btn-circle">
-              <.icon name="hero-x-mark" class="size-3" />
-            </button>
-          </div>
-          <div class="p-4 overflow-auto font-mono text-xs text-success bg-base-300/50 max-h-96">
-            <%= if @selected_task.logs == [] do %>
-              <p class="text-base-content/40">No log entries</p>
-            <% else %>
-              <%= for line <- @selected_task.logs do %>
-                <div><%= line %></div>
-              <% end %>
-            <% end %>
-          </div>
-        </div>
-      </div>
-    <% end %>
-    <.wizard page="tasks" />
     """
   end
 end

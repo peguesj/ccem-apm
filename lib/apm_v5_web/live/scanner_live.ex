@@ -39,8 +39,10 @@ defmodule ApmV5Web.ScannerLive do
      |> assign(:base_path, "~/Developer")
      |> assign(:scanning, false)
      |> assign(:scanner_status, status)
-     |> assign(:results, results
-     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
+     |> assign(:results, results)
+     |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
@@ -80,15 +82,28 @@ defmodule ApmV5Web.ScannerLive do
     {:noreply, assign(socket, :base_path, path)}
   end
 
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, sidebar_collapsed: !socket.assigns.sidebar_collapsed)}
+  end
+
+  def handle_event("toggle_inspector", _params, socket) do
+    {:noreply, assign(socket, inspector_open: !socket.assigns.inspector_open)}
+  end
+
   # --- Helpers ---
 
-  defp stack_badge_class("node"), do: "badge-yellow"
-  defp stack_badge_class("elixir"), do: "badge-purple"
-  defp stack_badge_class("python"), do: "badge-blue"
-  defp stack_badge_class("rust"), do: "badge-orange"
-  defp stack_badge_class("go"), do: "badge-cyan"
-  defp stack_badge_class("swift"), do: "badge-pink"
-  defp stack_badge_class(_), do: "badge-gray"
+  defp stack_tone("node"), do: "warn"
+  defp stack_tone("elixir"), do: "accent"
+  defp stack_tone("python"), do: "iris"
+  defp stack_tone("rust"), do: "err"
+  defp stack_tone("go"), do: "info"
+  defp stack_tone("swift"), do: "ok"
+  defp stack_tone(_), do: "neutral"
+
+  defp scanner_status_tone(%{status: :idle}), do: "neutral"
+  defp scanner_status_tone(%{status: :scanning}), do: "info"
+  defp scanner_status_tone(%{status: :done}), do: "ok"
+  defp scanner_status_tone(_), do: "neutral"
 
   defp scanner_status_text(%{status: :idle}), do: "Idle — not yet scanned"
   defp scanner_status_text(%{status: :scanning}), do: "Scanning..."
@@ -114,93 +129,76 @@ defmodule ApmV5Web.ScannerLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/scanner" />
-
-      <%!-- Main content --%>
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Project Scanner</h2>
-            <div class="badge badge-sm badge-ghost"><%= scanner_status_text(@scanner_status) %></div>
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar><.sidebar_nav current_path="/scanner" /></:sidebar>
+      <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+      <:main>
+        <%!-- Page header --%>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Project Scanner</h1>
+            <.badge tone={scanner_status_tone(@scanner_status)}><%= scanner_status_text(@scanner_status) %></.badge>
           </div>
-          <div class="flex items-center gap-2">
-            <form phx-submit="scan" class="flex gap-2">
-              <input
-                type="text"
-                name="base_path"
-                value={@base_path}
-                phx-change="update_path"
-                placeholder="~/Developer"
-                class="input input-bordered input-xs bg-base-100 text-xs w-48"
-              />
-              <button type="submit" disabled={@scanning} class="btn btn-primary btn-xs">
-                <%= if @scanning do %>
-                  <span class="animate-pulse">Scanning...</span>
-                <% else %>
-                  Scan
-                <% end %>
-              </button>
-            </form>
-          </div>
-        </header>
-
-        <%!-- Results --%>
-        <div class="flex-1 overflow-auto p-4">
-          <%= if @results == [] and not @scanning do %>
-            <div class="text-center text-base-content/40 py-12">
-              <p>No results yet. Enter a base path and click Scan.</p>
-            </div>
-          <% else %>
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="text-left text-base-content/50 border-b border-base-300">
-                  <th class="pb-3 pr-4">Name</th>
-                  <th class="pb-3 pr-4">Stack</th>
-                  <th class="pb-3 pr-4">Ports</th>
-                  <th class="pb-3 pr-4">Claude Config</th>
-                  <th class="pb-3 pr-4">Agents</th>
-                  <th class="pb-3 pr-4">Formations</th>
-                  <th class="pb-3">Path</th>
-                </tr>
-              </thead>
-              <tbody>
-                <%= for project <- @results do %>
-                  <tr class="border-b border-base-300/50 hover:bg-base-200/50">
-                    <td class="py-3 pr-4 font-medium text-base-content"><%= project.name %></td>
-                    <td class="py-3 pr-4">
-                      <div class="flex flex-wrap gap-1">
-                        <%= for lang <- project.stack do %>
-                          <span class={"badge #{stack_badge_class(lang)}"}><%= lang %></span>
-                        <% end %>
-                      </div>
-                    </td>
-                    <td class="py-3 pr-4 text-base-content/60">
-                      <%= if project.ports == [] do %>
-                        <span class="text-base-content/30">—</span>
-                      <% else %>
-                        <%= Enum.join(project.ports, ", ") %>
-                      <% end %>
-                    </td>
-                    <td class="py-3 pr-4">
-                      <%= if project.has_claude_config do %>
-                        <span class="text-success">✓</span>
-                      <% else %>
-                        <span class="text-base-content/30">✗</span>
-                      <% end %>
-                    </td>
-                    <td class="py-3 pr-4 text-base-content/60"><%= project.agent_count %></td>
-                    <td class="py-3 pr-4 text-base-content/60"><%= project.formation_count %></td>
-                    <td class="py-3 text-xs text-base-content/40 font-mono truncate max-w-xs"><%= project.path %></td>
-                  </tr>
-                <% end %>
-              </tbody>
-            </table>
-          <% end %>
+          <form phx-submit="scan" style="display: flex; align-items: center; gap: 8px;">
+            <.ds_input type="text" name="base_path" value={@base_path} phx-change="update_path" placeholder="~/Developer" />
+            <.btn variant="primary" size="sm" type="submit" disabled={@scanning}>
+              <%= if @scanning, do: "Scanning...", else: "Run Scan" %>
+            </.btn>
+          </form>
         </div>
-      </div>
-    </div>
-    <.wizard page="scanner" />
+
+        <%!-- Stat tiles --%>
+        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Projects Found" value={to_string(length(@results))} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="With Claude Config" value={to_string(Enum.count(@results, & &1[:has_claude_config]))} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Total Agents" value={to_string(Enum.sum(Enum.map(@results, & (&1[:agent_count] || 0))))} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Formations" value={to_string(Enum.sum(Enum.map(@results, & (&1[:formation_count] || 0))))} />
+          </.card>
+        </div>
+
+        <%!-- Empty state --%>
+        <div :if={@results == [] and not @scanning} style="text-align: center; padding: 48px 0; color: var(--ccem-fg-muted);">
+          No results yet. Enter a base path and click Run Scan.
+        </div>
+
+        <%!-- Scanning indicator --%>
+        <div :if={@scanning and @results == []} style="text-align: center; padding: 48px 0; color: var(--ccem-fg-muted);">
+          <.badge tone="info" dot={true}>Scanning...</.badge>
+        </div>
+
+        <%!-- Results table --%>
+        <.card :if={@results != []} padded={false}>
+          <.data_table id="scanner-results-table" rows={@results}>
+            <:col :let={row} label="Name"><span style="font-weight: 500; color: var(--ccem-fg);"><%= row[:name] %></span></:col>
+            <:col :let={row} label="Stack">
+              <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <.badge :for={lang <- (row[:stack] || [])} tone={stack_tone(lang)} square={true}><%= lang %></.badge>
+              </div>
+            </:col>
+            <:col :let={row} label="Ports">
+              <span style="color: var(--ccem-fg-muted);">
+                <%= if (row[:ports] || []) == [], do: "—", else: Enum.join(row[:ports], ", ") %>
+              </span>
+            </:col>
+            <:col :let={row} label="Claude Config">
+              <.badge tone={if row[:has_claude_config], do: "ok", else: "neutral"}>
+                <%= if row[:has_claude_config], do: "yes", else: "no" %>
+              </.badge>
+            </:col>
+            <:col :let={row} label="Agents"><span style="color: var(--ccem-fg-muted);"><%= row[:agent_count] || 0 %></span></:col>
+            <:col :let={row} label="Formations"><span style="color: var(--ccem-fg-muted);"><%= row[:formation_count] || 0 %></span></:col>
+            <:col :let={row} label="Path"><span style="font-size: 11px; font-family: monospace; color: var(--ccem-fg-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; display: block;"><%= row[:path] %></span></:col>
+          </.data_table>
+        </.card>
+      </:main>
+    </.page_layout>
     """
   end
 end

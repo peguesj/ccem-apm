@@ -8,8 +8,6 @@ defmodule ApmV5Web.AnalyticsLive do
 
   use ApmV5Web, :live_view
 
-  import ApmV5Web.Components.GettingStartedWizard
-
   require Logger
 
   @impl true
@@ -20,7 +18,11 @@ defmodule ApmV5Web.AnalyticsLive do
       ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
       ApmV5.AgUi.EventBus.subscribe("tool:*")
     end
-    {:ok, socket |> assign_data() |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok,
+     socket
+     |> assign(sidebar_collapsed: false, inspector_open: false)
+     |> assign_data()
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
@@ -48,93 +50,99 @@ defmodule ApmV5Web.AnalyticsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/analytics" />
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Analytics</h2>
-          </div>
-          <div class="flex items-center gap-2">
-            <button phx-click="refresh" class="btn btn-xs btn-ghost gap-1">
-              <.icon name="hero-arrow-path" class="size-3.5" /> Refresh
-            </button>
-          </div>
-        </header>
-
-        <div class="flex-1 overflow-y-auto p-4 space-y-4">
-          <%!-- Summary Cards --%>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div class="stat bg-base-200 rounded-lg p-3">
-              <div class="stat-title text-xs">Total Sessions</div>
-              <div class="stat-value text-2xl">{@summary.total_sessions}</div>
-            </div>
-            <div class="stat bg-base-200 rounded-lg p-3">
-              <div class="stat-title text-xs">Active Now</div>
-              <div class="stat-value text-2xl text-success">{@summary.active_sessions}</div>
-            </div>
-            <div class="stat bg-base-200 rounded-lg p-3">
-              <div class="stat-title text-xs">Total Tokens</div>
-              <div class="stat-value text-xl">{format_number(@summary.total_tokens)}</div>
-            </div>
-            <div class="stat bg-base-200 rounded-lg p-3">
-              <div class="stat-title text-xs">Total Messages</div>
-              <div class="stat-value text-2xl">{@summary.total_messages}</div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <%!-- Model Distribution --%>
-            <div class="bg-base-200 rounded-lg p-4">
-              <h2 class="text-sm font-semibold mb-3">Model Distribution</h2>
-              <div :if={@summary.model_distribution == %{}} class="text-xs text-base-content/40">No data yet</div>
-              <div :for={{model, count} <- @summary.model_distribution} class="flex items-center gap-2 mb-1.5">
-                <div class="text-xs font-mono flex-1 truncate">{model}</div>
-                <div class="text-xs text-base-content/60">{count}</div>
-              </div>
-            </div>
-
-            <%!-- Top Tools --%>
-            <div class="bg-base-200 rounded-lg p-4">
-              <h2 class="text-sm font-semibold mb-3">Top Tools</h2>
-              <div :if={@summary.top_tools == %{}} class="text-xs text-base-content/40">No data yet</div>
-              <div :for={{tool, count} <- @summary.top_tools} class="flex items-center gap-2 mb-1.5">
-                <div class="text-xs font-mono flex-1 truncate">{tool}</div>
-                <div class="text-xs text-base-content/60">{count}</div>
-              </div>
-            </div>
-          </div>
-
-          <%!-- Recent Sessions --%>
-          <div class="bg-base-200 rounded-lg p-4">
-            <h2 class="text-sm font-semibold mb-3">Recent Sessions ({length(@sessions)})</h2>
-            <div :if={@sessions == []} class="text-xs text-base-content/40">No sessions found in ~/.claude/projects/</div>
-            <div class="overflow-x-auto">
-              <table class="table table-xs w-full">
-                <thead>
-                  <tr>
-                    <th>Session</th>
-                    <th>Messages</th>
-                    <th>Tokens</th>
-                    <th>Last Modified</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr :for={session <- @sessions}>
-                    <td class="font-mono text-xs max-w-xs truncate">{session.session_id}</td>
-                    <td>{session.total_messages}</td>
-                    <td>{format_number(session.total_tokens)}</td>
-                    <td class="text-base-content/50">{format_mtime(session.last_modified)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar><.sidebar_nav current_path="/analytics" /></:sidebar>
+      <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+      <:main>
+        <%!-- Page header --%>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Analytics</h1>
+          <.btn variant="ghost" size="xs" phx-click="refresh">Refresh</.btn>
         </div>
-      </div>
-    </div>
-    <.wizard page="agents" dom_id="ccem-wizard-agents-analytics" />
+
+        <%!-- Summary stat tiles --%>
+        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Total Sessions" value={to_string(@summary.total_sessions)} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Active Now" value={to_string(@summary.active_sessions)} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Total Tokens" value={format_number(@summary.total_tokens)} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Total Messages" value={to_string(@summary.total_messages)} />
+          </.card>
+        </div>
+
+        <%!-- Model Distribution + Top Tools side-by-side --%>
+        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <.card style="flex: 1; min-width: 200px; padding: 16px;">
+            <div style="font-size: var(--ccem-t-sm, 13px); font-weight: 600; color: var(--ccem-fg); margin-bottom: 12px;">
+              Model Distribution
+            </div>
+            <div :if={@summary.model_distribution == %{}}
+                 style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
+              No data yet
+            </div>
+            <div :for={{model, count} <- @summary.model_distribution}
+                 style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <span style="font-size: var(--ccem-t-sm, 13px); font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ccem-fg);">
+                {model}
+              </span>
+              <.badge tone="neutral">{to_string(count)}</.badge>
+            </div>
+          </.card>
+
+          <.card style="flex: 1; min-width: 200px; padding: 16px;">
+            <div style="font-size: var(--ccem-t-sm, 13px); font-weight: 600; color: var(--ccem-fg); margin-bottom: 12px;">
+              Top Tools
+            </div>
+            <div :if={@summary.top_tools == %{}}
+                 style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
+              No data yet
+            </div>
+            <div :for={{tool, count} <- @summary.top_tools}
+                 style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <span style="font-size: var(--ccem-t-sm, 13px); font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ccem-fg);">
+                {tool}
+              </span>
+              <.badge tone="info">{to_string(count)}</.badge>
+            </div>
+          </.card>
+        </div>
+
+        <%!-- Recent Sessions table --%>
+        <div style="margin-bottom: 4px; font-size: var(--ccem-t-sm, 13px); font-weight: 600; color: var(--ccem-fg);">
+          Recent Sessions ({length(@sessions)})
+        </div>
+        <.card padded={false}>
+          <div :if={@sessions == []}
+               style="padding: 24px; text-align: center; font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
+            No sessions found in ~/.claude/projects/
+          </div>
+          <.data_table :if={@sessions != []} id="analytics-sessions-table" rows={@sessions}>
+            <:col :let={row} label="Session">
+              <span style="font-family: monospace; font-size: var(--ccem-t-sm, 13px);">
+                {row.session_id}
+              </span>
+            </:col>
+            <:col :let={row} label="Messages">
+              {row.total_messages}
+            </:col>
+            <:col :let={row} label="Tokens">
+              {format_number(row.total_tokens)}
+            </:col>
+            <:col :let={row} label="Last Modified">
+              <span style="color: var(--ccem-fg-dim);">
+                {format_mtime(row.last_modified)}
+              </span>
+            </:col>
+          </.data_table>
+        </.card>
+      </:main>
+    </.page_layout>
     """
   end
 

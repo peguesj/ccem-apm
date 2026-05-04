@@ -15,8 +15,6 @@ defmodule ApmV5Web.UatLive do
 
   use ApmV5Web, :live_view
 
-  import ApmV5Web.Components.GettingStartedWizard
-
   require Logger
 
   alias AgUi.Core.Events.EventType
@@ -36,7 +34,9 @@ defmodule ApmV5Web.UatLive do
        run_count: 0,
        last_run_at: nil,
        selected_test: nil,
-       test_log: []
+       test_log: [],
+       sidebar_collapsed: false,
+       inspector_open: false
      )
      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -53,7 +53,7 @@ defmodule ApmV5Web.UatLive do
   end
 
   def handle_event("select_test", %{"id" => test_id}, socket) do
-    {:noreply, assign(socket, selected_test: test_id)}
+    {:noreply, assign(socket, selected_test: test_id, inspector_open: true)}
   end
 
   @impl true
@@ -651,135 +651,131 @@ defmodule ApmV5Web.UatLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/uat" />
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">UAT Integration Testing</h2>
-            <span class={["badge badge-sm", summary_badge(@tests)]}>
-              {test_summary(@tests)}
-            </span>
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar><.sidebar_nav current_path="/uat" /></:sidebar>
+      <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+      <:main>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">UAT Integration Testing</h1>
+            <.badge tone={summary_tone(@tests)}>{test_summary(@tests)}</.badge>
           </div>
-          <div class="flex items-center gap-2">
-            <span :if={@last_run_at} class="text-xs text-base-content/40">
-              Run #{@run_count} at {format_time(@last_run_at)}
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span :if={@last_run_at} style="font-size: 11px; color: var(--ccem-fg-muted);">
+              Run {@run_count} at {format_time(@last_run_at)}
             </span>
-            <button
-              phx-click="run_all"
-              disabled={@running}
-              class="btn btn-xs btn-primary gap-1"
-            >
-              <.icon name="hero-play" class="size-3.5" />
+            <.btn variant="primary" size="sm" phx-click="run_all" disabled={@running}>
               {if @running, do: "Running...", else: "Run All Tests"}
-            </button>
+            </.btn>
           </div>
-        </header>
+        </div>
 
-        <div class="flex-1 flex overflow-hidden">
-          <%!-- Test List --%>
-          <div class="w-80 border-r border-base-300 overflow-y-auto flex-shrink-0">
-            <div :for={category <- categories(@tests)} class="border-b border-base-300">
-              <div class="px-3 py-1.5 bg-base-200/50 text-xs font-semibold text-base-content/50 uppercase tracking-wider">
-                {category}
+        <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+          <.card padded={false} style="flex: 1; padding: 12px 16px;">
+            <.stat_tile label="Passed" value={to_string(count_status(@tests, :pass))} delta_direction="up" />
+          </.card>
+          <.card padded={false} style="flex: 1; padding: 12px 16px;">
+            <.stat_tile label="Failed" value={to_string(count_status(@tests, :fail))} delta_direction="down" />
+          </.card>
+          <.card padded={false} style="flex: 1; padding: 12px 16px;">
+            <.stat_tile label="Errors" value={to_string(count_status(@tests, :error))} />
+          </.card>
+          <.card padded={false} style="flex: 1; padding: 12px 16px;">
+            <.stat_tile label="Pending" value={to_string(count_status(@tests, :pending))} />
+          </.card>
+          <.card padded={false} style="flex: 1; padding: 12px 16px;">
+            <.stat_tile label="Assertions" value={to_string(total_assertions(@tests))} />
+          </.card>
+          <.card padded={false} style="flex: 1; padding: 12px 16px;">
+            <.stat_tile label="Duration" value={"#{total_duration(@tests)}ms"} />
+          </.card>
+        </div>
+
+        <.card padded={false}>
+          <.data_table id="uat-tests-table" rows={@tests}>
+            <:col :let={row} label="Test">
+              <span style="font-size: 13px; color: var(--ccem-fg);">{row[:name]}</span>
+            </:col>
+            <:col :let={row} label="Category">
+              <span style="font-size: 11px; color: var(--ccem-fg-muted); font-family: monospace;">{row[:category]}</span>
+            </:col>
+            <:col :let={row} label="Status">
+              <.badge tone={status_tone(row[:status])}>{to_string(row[:status])}</.badge>
+            </:col>
+            <:col :let={row} label="Assertions">
+              <span :if={row[:assertions] > 0} style="font-size: 12px; color: var(--ccem-fg-muted);">
+                {row[:assertions] - row[:failures]}/{row[:assertions]}
+              </span>
+              <span :if={row[:assertions] == 0} style="font-size: 12px; color: var(--ccem-fg-muted);">—</span>
+            </:col>
+            <:col :let={row} label="Duration">
+              <span :if={row[:duration_ms] > 0} style="font-size: 12px; font-family: monospace; color: var(--ccem-fg-muted);">
+                {row[:duration_ms]}ms
+              </span>
+              <span :if={row[:duration_ms] == 0} style="font-size: 12px; color: var(--ccem-fg-muted);">—</span>
+            </:col>
+            <:col :let={row} label="">
+              <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                <.btn variant="ghost" size="xs" phx-click="select_test" phx-value-id={row[:id]}>
+                  View
+                </.btn>
+                <.btn variant="ghost" size="xs" phx-click="run_test" phx-value-id={row[:id]} disabled={@running}>
+                  Run
+                </.btn>
               </div>
-              <div
-                :for={test <- tests_for_category(@tests, category)}
-                phx-click="select_test"
-                phx-value-id={test.id}
-                class={[
-                  "px-3 py-2 cursor-pointer border-l-3 flex items-center justify-between hover:bg-base-200 transition-colors",
-                  test_row_class(test, @selected_test)
-                ]}
-              >
-                <div class="flex items-center gap-2 min-w-0">
-                  <span class={["w-2 h-2 rounded-full flex-shrink-0", status_dot(test.status)]}></span>
-                  <span class="text-sm truncate">{test.name}</span>
-                </div>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                  <span :if={test.duration_ms > 0} class="text-xs text-base-content/40 font-mono">
-                    {test.duration_ms}ms
+            </:col>
+          </.data_table>
+        </.card>
+      </:main>
+      <:inspector>
+        <div style="padding: 16px;">
+          <div :if={@selected_test}>
+            <% test = Enum.find(@tests, &(&1.id == @selected_test)) %>
+            <div :if={test}>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">{test.name}</span>
+                <.badge tone={status_tone(test.status)}>{to_string(test.status)}</.badge>
+              </div>
+              <div style="margin-bottom: 12px;">
+                <div style="display: flex; gap: 16px; font-size: 11px; color: var(--ccem-fg-muted);">
+                  <span>Category: <strong style="color: var(--ccem-fg);">{test.category}</strong></span>
+                  <span :if={test.assertions > 0}>
+                    Assertions: <strong style="color: var(--ccem-fg);">{test.assertions - test.failures}/{test.assertions}</strong>
                   </span>
-                  <button
-                    phx-click="run_test"
-                    phx-value-id={test.id}
-                    class="btn btn-xs btn-ghost p-0.5"
-                    title="Run this test"
-                  >
-                    <.icon name="hero-play" class="size-3" />
-                  </button>
+                  <span :if={test.duration_ms > 0}>
+                    Duration: <strong style="color: var(--ccem-fg);">{test.duration_ms}ms</strong>
+                  </span>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <%!-- Test Detail / Log --%>
-          <div class="flex-1 flex flex-col overflow-hidden">
-            <div :if={@selected_test} class="flex-1 overflow-y-auto p-4">
-              <% test = Enum.find(@tests, &(&1.id == @selected_test)) %>
-              <div :if={test} class="space-y-3">
-                <div class="flex items-center justify-between">
-                  <h2 class="font-semibold">{test.name}</h2>
-                  <div class="flex items-center gap-2">
-                    <span class={["badge badge-sm", status_badge(test.status)]}>
-                      {test.status}
-                    </span>
-                    <span :if={test.assertions > 0} class="text-xs text-base-content/60">
-                      {test.assertions - test.failures}/{test.assertions} assertions
-                    </span>
-                  </div>
+              <div :if={test.log != []}>
+                <div style="font-size: 11px; font-weight: 600; color: var(--ccem-fg-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+                  Log
                 </div>
-
-                <div :if={test.log != []} class="bg-base-200 rounded-lg p-3 font-mono text-xs space-y-0.5 max-h-96 overflow-y-auto">
-                  <div :for={line <- test.log} class={log_line_class(line)}>
+                <div style="background: var(--ccem-surface-raised); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 11px; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;">
+                  <div :for={line <- test.log} style={"color: #{log_line_color(line)};"}>
                     {line}
                   </div>
                 </div>
-
-                <div :if={test.log == []} class="text-center py-8 text-base-content/40 text-sm">
-                  Test not yet run. Click "Run All Tests" or the play button.
-                </div>
               </div>
-            </div>
-
-            <div :if={!@selected_test} class="flex-1 flex items-center justify-center">
-              <div class="text-center text-base-content/40">
-                <.icon name="hero-beaker" class="size-12 mx-auto mb-2 opacity-30" />
-                <p class="text-sm">Select a test to view details</p>
-                <p class="text-xs mt-1">or click "Run All Tests" to execute the full suite</p>
-              </div>
-            </div>
-
-            <%!-- Summary Bar --%>
-            <div class="border-t border-base-300 bg-base-200 px-4 py-2 flex items-center justify-between flex-shrink-0">
-              <div class="flex items-center gap-4 text-xs">
-                <span class="text-success">{count_status(@tests, :pass)} passed</span>
-                <span class="text-error">{count_status(@tests, :fail)} failed</span>
-                <span class="text-warning">{count_status(@tests, :error)} errors</span>
-                <span class="text-base-content/40">{count_status(@tests, :pending)} pending</span>
-              </div>
-              <div class="text-xs text-base-content/40">
-                {total_assertions(@tests)} assertions | {total_duration(@tests)}ms total
+              <div :if={test.log == []}>
+                <p style="font-size: 12px; color: var(--ccem-fg-muted); text-align: center; padding: 24px 0;">
+                  Test not yet run. Click Run to execute.
+                </p>
               </div>
             </div>
           </div>
+          <div :if={!@selected_test}>
+            <p style="font-size: 12px; color: var(--ccem-fg-muted); text-align: center; padding: 40px 0;">
+              Select a test to view details.
+            </p>
+          </div>
         </div>
-      </div>
-    </div>
-    <.wizard page="welcome" dom_id="ccem-wizard-welcome-uat" />
+      </:inspector>
+    </.page_layout>
     """
   end
 
   # -- View Helpers -----------------------------------------------------------
-
-  defp categories(tests) do
-    tests |> Enum.map(& &1.category) |> Enum.uniq()
-  end
-
-  defp tests_for_category(tests, category) do
-    Enum.filter(tests, &(&1.category == category))
-  end
 
   defp test_summary(tests) do
     pass = count_status(tests, :pass)
@@ -788,12 +784,12 @@ defmodule ApmV5Web.UatLive do
     "#{pass}/#{total} pass#{if fail > 0, do: ", #{fail} fail", else: ""}"
   end
 
-  defp summary_badge(tests) do
+  defp summary_tone(tests) do
     cond do
-      Enum.all?(tests, &(&1.status == :pending)) -> "badge-ghost"
-      Enum.all?(tests, &(&1.status == :pass)) -> "badge-success"
-      Enum.any?(tests, &(&1.status in [:fail, :error])) -> "badge-error"
-      true -> "badge-warning"
+      Enum.all?(tests, &(&1.status == :pending)) -> "neutral"
+      Enum.all?(tests, &(&1.status == :pass)) -> "ok"
+      Enum.any?(tests, &(&1.status in [:fail, :error])) -> "err"
+      true -> "warn"
     end
   end
 
@@ -809,34 +805,18 @@ defmodule ApmV5Web.UatLive do
     Enum.sum(Enum.map(tests, & &1.duration_ms))
   end
 
-  defp status_dot(:pass), do: "bg-success"
-  defp status_dot(:fail), do: "bg-error"
-  defp status_dot(:error), do: "bg-warning"
-  defp status_dot(:skip), do: "bg-info"
-  defp status_dot(:pending), do: "bg-base-content/20"
+  defp status_tone(:pass), do: "ok"
+  defp status_tone(:fail), do: "err"
+  defp status_tone(:error), do: "warn"
+  defp status_tone(:skip), do: "info"
+  defp status_tone(:pending), do: "neutral"
 
-  defp status_badge(:pass), do: "badge-success"
-  defp status_badge(:fail), do: "badge-error"
-  defp status_badge(:error), do: "badge-warning"
-  defp status_badge(:skip), do: "badge-info"
-  defp status_badge(:pending), do: "badge-ghost"
-
-  defp test_row_class(test, selected_test) do
+  defp log_line_color(line) do
     cond do
-      test.id == selected_test -> "bg-primary/10 border-l-primary"
-      test.status == :pass -> "border-l-success/50"
-      test.status == :fail -> "border-l-error/50"
-      test.status == :error -> "border-l-warning/50"
-      true -> "border-l-transparent"
-    end
-  end
-
-  defp log_line_class(line) do
-    cond do
-      String.starts_with?(line, "PASS:") -> "text-success"
-      String.starts_with?(line, "FAIL:") -> "text-error"
-      String.starts_with?(line, "EXCEPTION:") -> "text-error font-bold"
-      true -> "text-base-content/70"
+      String.starts_with?(line, "PASS:") -> "var(--ccem-ok)"
+      String.starts_with?(line, "FAIL:") -> "var(--ccem-err)"
+      String.starts_with?(line, "EXCEPTION:") -> "var(--ccem-err)"
+      true -> "var(--ccem-fg-muted)"
     end
   end
 

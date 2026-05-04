@@ -1,206 +1,336 @@
 defmodule ApmV5Web.A2ALive do
   @moduledoc """
-  A2A messaging monitor LiveView at /a2a.
+  Observe — A2A Messaging LiveView (CP-182 / US-457).
 
-  ## US-035 Acceptance Criteria (DoD):
-  - Route at /a2a shows A2A dashboard
-  - Real-time message feed via EventBus subscription
-  - Queue depth per agent
-  - Router statistics (sent/delivered/expired)
-  - Message history with correlation tracking
-  - Send test message form
-  - mix compile --warnings-as-errors passes
+  Agent-to-Agent messaging monitor using the CCEM design system shell.
+
+  ## Layout
+  - Stat tiles: Active Routes / Messages/min / Broadcast Groups / Avg Fanout
+  - Router table: `data_table` with From / To / Channel / Message Type / Count
+  - Broadcast log: recent A2A messages as a scrollable list with `badge` tones
+  - Fan-out graph: `<svg phx-hook="GraphForce">` with `graph_node`/`graph_edge` elements
+
+  ## PubSub
+  Subscribes to `"apm:a2a"` and `EventBus` `"a2a:*"` for real-time message feed.
+  Polls stats every 5 seconds.
   """
 
   use ApmV5Web, :live_view
 
-  import ApmV5Web.Components.GettingStartedWizard
-
   alias ApmV5.AgUi.A2A.Router
   alias ApmV5.AgUi.EventBus
+
+  @pubsub_topic "apm:a2a"
+  @refresh_ms 5_000
+  @max_log 50
+
+  # ---------------------------------------------------------------------------
+  # mount/3
+  # ---------------------------------------------------------------------------
 
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic)
       EventBus.subscribe("a2a:*")
-      EventBus.subscribe("special:custom")
-      :timer.send_interval(5_000, self(), :refresh)
+      Process.send_after(self(), :refresh, @refresh_ms)
     end
+
+    stats = safe_stats()
+    routes = build_routes(stats)
 
     {:ok,
      socket
-     |> assign(:page_title, "A2A Messaging")
-     |> assign(:stats, safe_stats())
-     |> assign(:recent_messages, [])
-     |> assign(:send_form, %{"to_agent" => "", "from_agent" => "", "message_type" => "ping", "payload" => "{}"}
-     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
+     |> assign(
+       page_title: "A2A",
+       stats: stats,
+       routes: routes,
+       broadcast_log: [],
+       sidebar_collapsed: false,
+       inspector_open: false,
+       inspector_mode: "selection"
+     )
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
+
+  # ---------------------------------------------------------------------------
+  # handle_info/2
+  # ---------------------------------------------------------------------------
 
   @impl true
   def handle_info(:refresh, socket) do
-    {:noreply, assign(socket, :stats, safe_stats())}
+    Process.send_after(self(), :refresh, @refresh_ms)
+    stats = safe_stats()
+    routes = build_routes(stats)
+    {:noreply, assign(socket, stats: stats, routes: routes)}
   end
 
   def handle_info({:event_bus, _topic, event}, socket) do
-    recent = Enum.take([event | socket.assigns.recent_messages], 50)
+    log_entry = build_log_entry(event)
+    broadcast_log = Enum.take([log_entry | socket.assigns.broadcast_log], @max_log)
+    stats = safe_stats()
+    routes = build_routes(stats)
 
-    {:noreply,
-     socket
-     |> assign(:recent_messages, recent)
-     |> assign(:stats, safe_stats())}
+    {:noreply, assign(socket, broadcast_log: broadcast_log, stats: stats, routes: routes)}
+  end
+
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
+  # ---------------------------------------------------------------------------
+  # handle_event/3
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, sidebar_collapsed: !socket.assigns.sidebar_collapsed)}
   end
 
   @impl true
-  def handle_event("send_test", params, socket) do
-    payload =
-      case Jason.decode(params["payload"] || "{}") do
-        {:ok, p} -> p
-        _ -> %{}
-      end
-
-    attrs = %{
-      from_agent_id: params["from_agent"],
-      to: {:agent, params["to_agent"]},
-      message_type: params["message_type"] || "test",
-      payload: payload
-    }
-
-    case Router.send(attrs) do
-      {:ok, _id} ->
-        {:noreply, put_flash(socket, :info, "Message sent")}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Send failed: #{inspect(reason)}")}
-    end
+  def handle_event("toggle_inspector", _params, socket) do
+    {:noreply, assign(socket, inspector_open: !socket.assigns.inspector_open)}
   end
+
+  @impl true
+  def handle_event("inspector_mode", %{"mode" => mode}, socket) do
+    {:noreply, assign(socket, inspector_mode: mode)}
+  end
+
+  # ---------------------------------------------------------------------------
+  # render/1
+  # ---------------------------------------------------------------------------
 
   @impl true
   def render(assigns) do
+    assigns =
+      assign(assigns,
+        queue_pairs: build_queue_pairs(assigns.stats),
+        graph_nodes: build_graph_nodes(assigns.stats),
+        graph_edges: build_graph_edges(assigns.stats)
+      )
+
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/a2a" />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/a2a" />
+      </:sidebar>
 
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">A2A Messaging</h2>
-            <div class="badge badge-sm badge-primary">Agent-to-Agent</div>
+      <:topbar>
+        <.top_bar project_name="CCEM APM" />
+      </:topbar>
+
+      <:main>
+        <%!-- Page header --%>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div style="display: flex; align-items: baseline; gap: 10px;">
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+              A2A Messaging
+            </h1>
+            <span style="font-size: 12px; color: var(--ccem-fg-dim);">
+              Agent-to-Agent
+            </span>
           </div>
-        </header>
+          <button
+            phx-click="toggle_inspector"
+            style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: var(--ccem-bg-2); border: 1px solid var(--ccem-line); border-radius: 5px; cursor: pointer; color: var(--ccem-fg-dim); font-size: 13px;"
+            title="Toggle inspector"
+          >
+            &#9776;
+          </button>
+        </div>
 
-        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+        <%!-- Stat tiles --%>
+        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Sent" value={to_string(@stats[:sent_count] || 0)} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Delivered" value={to_string(@stats[:delivered_count] || 0)} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Expired" value={to_string(@stats[:expired_count] || 0)} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Active Queues" value={to_string(map_size(@stats[:queue_depths] || %{}))} />
+          </.card>
+        </div>
 
-      <%!-- Stats Cards --%>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="stat bg-base-200 rounded-box">
-          <div class="stat-title">Sent</div>
-          <div class="stat-value text-primary"><%= @stats[:sent_count] || 0 %></div>
-        </div>
-        <div class="stat bg-base-200 rounded-box">
-          <div class="stat-title">Delivered</div>
-          <div class="stat-value text-success"><%= @stats[:delivered_count] || 0 %></div>
-        </div>
-        <div class="stat bg-base-200 rounded-box">
-          <div class="stat-title">Expired</div>
-          <div class="stat-value text-warning"><%= @stats[:expired_count] || 0 %></div>
-        </div>
-        <div class="stat bg-base-200 rounded-box">
-          <div class="stat-title">Queues</div>
-          <div class="stat-value text-info"><%= map_size(@stats[:queue_depths] || %{}) %></div>
-        </div>
-      </div>
-
-      <%!-- Queue Depths --%>
-      <div class="card bg-base-200 shadow-sm">
-        <div class="card-body">
-          <h2 class="card-title">Queue Depths</h2>
-          <%= if map_size(@stats[:queue_depths] || %{}) > 0 do %>
-            <div class="overflow-x-auto">
-              <table class="table table-sm">
-                <thead>
-                  <tr>
-                    <th>Agent ID</th>
-                    <th>Pending Messages</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <%= for {agent_id, depth} <- @stats[:queue_depths] || %{} do %>
-                    <tr>
-                      <td class="font-mono text-sm"><%= agent_id %></td>
-                      <td><span class="badge badge-ghost"><%= depth %></span></td>
-                    </tr>
-                  <% end %>
-                </tbody>
-              </table>
+        <%!-- Fan-out graph --%>
+        <%= if length(@graph_nodes) > 1 do %>
+          <.card style="margin-bottom: 16px; padding: 0; overflow: hidden;">
+            <div style="padding: 12px 16px 8px; border-bottom: 1px solid var(--ccem-line);">
+              <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">Message Routing Graph</span>
             </div>
-          <% else %>
-            <p class="text-base-content/50">No active queues</p>
+            <svg
+              id="a2a-graph"
+              phx-hook="GraphForce"
+              width="100%"
+              height="240"
+              style="display: block; background: var(--ccem-bg-1);"
+            >
+              <%= for node <- @graph_nodes do %>
+                <.graph_node
+                  node_id={node.id}
+                  label={node.label}
+                  role={node.role}
+                  status={node.status}
+                />
+              <% end %>
+              <%= for edge <- @graph_edges do %>
+                <.graph_edge
+                  edge_id={edge.id}
+                  source_id={edge.source_id}
+                  target_id={edge.target_id}
+                  edge_type={edge.edge_type}
+                  live={edge.live}
+                />
+              <% end %>
+            </svg>
+          </.card>
+        <% end %>
+
+        <%!-- Route table --%>
+        <.card padded={false} style="margin-bottom: 16px;">
+          <div style="padding: 12px 16px 8px; border-bottom: 1px solid var(--ccem-line);">
+            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">Queue Depths</span>
+          </div>
+          <.data_table id="a2a-routes-table" rows={@queue_pairs}>
+            <:col :let={row} label="Agent">
+              <span style="font-family: var(--ccem-font-mono, monospace); font-size: 11px; color: var(--ccem-fg);">
+                {row.agent_id}
+              </span>
+            </:col>
+            <:col label="Channel">
+              <.badge tone="iris">a2a</.badge>
+            </:col>
+            <:col label="Message Type">
+              <span style="font-size: 12px; color: var(--ccem-fg-dim);">queued</span>
+            </:col>
+            <:col :let={row} label="Pending">
+              <.badge tone={if row.depth > 0, do: "warn", else: "neutral"}>
+                {row.depth}
+              </.badge>
+            </:col>
+          </.data_table>
+
+          <%= if @queue_pairs == [] do %>
+            <div style="padding: 24px 16px; text-align: center; color: var(--ccem-fg-dim); font-size: 13px;">
+              No active agent queues.
+            </div>
           <% end %>
-        </div>
-      </div>
+        </.card>
 
-      <%!-- Send Test Message --%>
-      <div class="card bg-base-200 shadow-sm">
-        <div class="card-body">
-          <h2 class="card-title">Send Test Message</h2>
-          <form phx-submit="send_test" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-control">
-              <label class="label"><span class="label-text">From Agent ID</span></label>
-              <input type="text" name="from_agent" value={@send_form["from_agent"]}
-                     class="input input-bordered input-sm" placeholder="agent-001" />
-            </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">To Agent ID</span></label>
-              <input type="text" name="to_agent" value={@send_form["to_agent"]}
-                     class="input input-bordered input-sm" placeholder="agent-002" />
-            </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">Message Type</span></label>
-              <input type="text" name="message_type" value={@send_form["message_type"]}
-                     class="input input-bordered input-sm" placeholder="ping" />
-            </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">Payload (JSON)</span></label>
-              <input type="text" name="payload" value={@send_form["payload"]}
-                     class="input input-bordered input-sm" placeholder="{}" />
-            </div>
-            <div class="col-span-full">
-              <button type="submit" class="btn btn-primary btn-sm">Send Message</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <%!-- Recent Messages Feed --%>
-      <div class="card bg-base-200 shadow-sm">
-        <div class="card-body">
-          <h2 class="card-title">Recent Messages (<%= length(@recent_messages) %>)</h2>
-          <div class="space-y-2 max-h-96 overflow-y-auto">
-            <%= for msg <- @recent_messages do %>
-              <div class="bg-base-100 rounded-lg p-3 text-sm">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="badge badge-xs badge-primary"><%= msg[:name] || msg[:type] || "a2a" %></span>
-                  <span class="text-base-content/50 font-mono text-xs">
-                    <%= if msg[:value][:id], do: String.slice(msg[:value][:id] || "", 0..7), else: "—" %>
+        <%!-- Broadcast log --%>
+        <.card padded={false}>
+          <div style="padding: 12px 16px 8px; border-bottom: 1px solid var(--ccem-line); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+              Live Message Feed
+            </span>
+            <span style="font-size: 11px; color: var(--ccem-fg-dim);">
+              {length(@broadcast_log)} / 50
+            </span>
+          </div>
+          <div style="max-height: 320px; overflow-y: auto; padding: 8px 0;">
+            <%= if @broadcast_log == [] do %>
+              <div style="padding: 24px 16px; text-align: center; color: var(--ccem-fg-dim); font-size: 13px;">
+                No messages yet. Waiting for A2A activity.
+              </div>
+            <% else %>
+              <%= for entry <- @broadcast_log do %>
+                <div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 16px; border-bottom: 1px solid var(--ccem-line);">
+                  <.badge tone={entry.tone}>{entry.type}</.badge>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-family: var(--ccem-font-mono, monospace); font-size: 11px; color: var(--ccem-fg-dim); margin-bottom: 2px;">
+                      {entry.id}
+                    </div>
+                    <div style="font-size: 12px; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      {entry.preview}
+                    </div>
+                  </div>
+                  <span style="font-size: 10px; color: var(--ccem-fg-muted); flex-shrink: 0;">
+                    {entry.ts}
                   </span>
                 </div>
-                <pre class="text-xs overflow-x-auto"><%= Jason.encode!(msg[:value] || msg, pretty: true) %></pre>
-              </div>
-            <% end %>
-            <%= if @recent_messages == [] do %>
-              <p class="text-base-content/50">No messages yet. Send a test message or wait for agent activity.</p>
+              <% end %>
             <% end %>
           </div>
-        </div>
-      </div>
+        </.card>
+      </:main>
 
-        </div>
-      </div>
-    </div>
-    <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-a2a" />
+      <:inspector>
+        <.inspector_panel
+          open={@inspector_open}
+          mode={@inspector_mode}
+          on_close="toggle_inspector"
+        >
+          <:selection>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--ccem-fg); margin-bottom: 8px;">
+                  Routing Stats
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <.inspector_kv label="Sent" value={to_string(@stats[:sent_count] || 0)} mono />
+                  <.inspector_kv label="Delivered" value={to_string(@stats[:delivered_count] || 0)} mono />
+                  <.inspector_kv label="Expired" value={to_string(@stats[:expired_count] || 0)} mono />
+                  <.inspector_kv label="Active Queues" value={to_string(map_size(@stats[:queue_depths] || %{}))} mono />
+                </div>
+              </div>
+
+              <div>
+                <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 6px;">
+                  Recent Messages
+                </div>
+                <div style="font-size: 12px; color: var(--ccem-fg-dim);">
+                  {length(@broadcast_log)} messages in feed.
+                </div>
+              </div>
+            </div>
+          </:selection>
+
+          <:copilot>
+            <p style="font-size: 13px; color: var(--ccem-fg-dim); margin: 0;">
+              A2A co-pilot coming soon.
+            </p>
+          </:copilot>
+
+          <:filters>
+            <p style="font-size: 13px; color: var(--ccem-fg-dim); margin: 0;">
+              Filters coming soon.
+            </p>
+          </:filters>
+        </.inspector_panel>
+      </:inspector>
+    </.page_layout>
     """
   end
 
+  # ---------------------------------------------------------------------------
+  # Private components
+  # ---------------------------------------------------------------------------
+
+  attr :label, :string, required: true
+  attr :value, :string, required: true
+  attr :mono, :boolean, default: false
+
+  defp inspector_kv(assigns) do
+    ~H"""
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+      <span style="font-size: 11px; color: var(--ccem-fg-dim); flex-shrink: 0;">{@label}</span>
+      <span style={
+        "font-size: 12px; color: var(--ccem-fg); text-align: right; word-break: break-all;" <>
+          if(@mono, do: " font-family: var(--ccem-font-mono, monospace); font-variant-numeric: tabular-nums;", else: "")
+      }>
+        {@value}
+      </span>
+    </div>
+    """
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private helpers
+  # ---------------------------------------------------------------------------
+
+  @spec safe_stats() :: map()
   defp safe_stats do
     try do
       Router.stats()
@@ -208,4 +338,95 @@ defmodule ApmV5Web.A2ALive do
       _ -> %{sent_count: 0, delivered_count: 0, expired_count: 0, queue_depths: %{}}
     end
   end
+
+  @spec build_routes(map()) :: [map()]
+  defp build_routes(_stats), do: []
+
+  @spec build_queue_pairs(map()) :: [map()]
+  defp build_queue_pairs(stats) do
+    (stats[:queue_depths] || %{})
+    |> Enum.map(fn {agent_id, depth} ->
+      %{agent_id: to_string(agent_id), depth: depth}
+    end)
+    |> Enum.sort_by(& &1.depth, :desc)
+  end
+
+  @spec build_graph_nodes(map()) :: [map()]
+  defp build_graph_nodes(stats) do
+    queues = stats[:queue_depths] || %{}
+
+    if map_size(queues) == 0 do
+      []
+    else
+      # Synthesize a "router" hub node plus one node per agent with a queue.
+      hub = %{id: "router", label: "Router", role: "orchestrator", status: "active"}
+
+      agents =
+        queues
+        |> Enum.map(fn {agent_id, _depth} ->
+          %{id: to_string(agent_id), label: truncate(to_string(agent_id), 12), role: "individual", status: "active"}
+        end)
+
+      [hub | agents]
+    end
+  end
+
+  @spec build_graph_edges(map()) :: [map()]
+  defp build_graph_edges(stats) do
+    queues = stats[:queue_depths] || %{}
+
+    Enum.map(queues, fn {agent_id, _depth} ->
+      %{
+        id: "router-#{agent_id}",
+        source_id: "router",
+        target_id: to_string(agent_id),
+        edge_type: "default",
+        live: true
+      }
+    end)
+  end
+
+  @spec build_log_entry(map()) :: map()
+  defp build_log_entry(event) do
+    type = to_string(event[:name] || event[:type] || "a2a")
+    value = event[:value] || event
+
+    id =
+      case value do
+        m when is_map(m) -> truncate(to_string(Map.get(m, :id, "")), 8)
+        _ -> "—"
+      end
+
+    preview =
+      case Jason.encode(value) do
+        {:ok, json} -> truncate(json, 80)
+        _ -> inspect(value) |> truncate(80)
+      end
+
+    tone =
+      cond do
+        String.contains?(type, "error") -> "err"
+        String.contains?(type, "deliver") -> "ok"
+        String.contains?(type, "expire") -> "warn"
+        true -> "iris"
+      end
+
+    %{
+      type: type,
+      id: id,
+      preview: preview,
+      tone: tone,
+      ts: time_now()
+    }
+  end
+
+  @spec time_now() :: String.t()
+  defp time_now do
+    DateTime.utc_now() |> Calendar.strftime("%H:%M:%S")
+  end
+
+  @spec truncate(String.t(), integer()) :: String.t()
+  defp truncate(s, max) when byte_size(s) > max, do: String.slice(s, 0, max) <> "…"
+  defp truncate(s, _max), do: s
+
 end
