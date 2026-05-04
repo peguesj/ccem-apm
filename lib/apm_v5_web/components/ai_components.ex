@@ -536,4 +536,78 @@ defmodule ApmV5Web.Components.AiComponents do
       {row, col, on}
     end
   end
+
+  @doc """
+  Micro bar chart for token distribution or activity histograms.
+
+  Renders an inline SVG bar chart from a list of data points. Each bar's height
+  is proportional to its value relative to the maximum value in the dataset.
+  Supports per-bar color overrides and optional CSS transition animation.
+
+  ## Attributes
+
+    * `:data` - Required. List of maps with keys:
+      * `:value` - numeric bar height value (required per entry)
+      * `:label` - optional string label (unused in SVG, for caller reference)
+      * `:color` - optional CSS color string (e.g. `"var(--ccem-accent)"`); falls back to `var(--ccem-accent)`
+    * `:height` - SVG height in pixels. Defaults to `32`.
+    * `:bar_width` - Width of each bar in pixels. Defaults to `10`.
+    * `:gap` - Gap between bars in pixels. Defaults to `2`.
+    * `:animated` - When `true`, adds `ccem-bars-animated` class for CSS animation. Defaults to `false`.
+    * `:class` - Additional CSS classes. Defaults to `nil`.
+    * `:rest` - Global HTML attributes forwarded to the `<svg>` element.
+
+  ## Examples
+
+      <.bars data={[%{value: 10}, %{value: 40}, %{value: 25}]} />
+
+      <.bars
+        data={[%{value: 80, color: "var(--ccem-success)"}, %{value: 20}]}
+        height={48}
+        bar_width={12}
+        gap={3}
+        animated={true}
+      />
+  """
+  @spec bars(Phoenix.LiveView.Socket.assigns()) :: Phoenix.LiveView.Rendered.t()
+  attr :data, :list, required: true
+  attr :height, :integer, default: 32
+  attr :bar_width, :integer, default: 10
+  attr :gap, :integer, default: 2
+  attr :animated, :boolean, default: false
+  attr :class, :string, default: nil
+  attr :rest, :global
+
+  def bars(assigns) do
+    bar_count = length(assigns.data)
+    total_width = bar_count * (assigns.bar_width + assigns.gap) - assigns.gap
+    max_val = assigns.data |> Enum.map(& &1.value) |> Enum.max(fn -> 1 end)
+
+    assigns =
+      assigns
+      |> assign(:total_width, total_width)
+      |> assign(:max_val, max_val)
+
+    ~H"""
+    <svg
+      viewBox={"0 0 #{@total_width} #{@height}"}
+      width={@total_width}
+      height={@height}
+      class={["ccem-bars", @animated && "ccem-bars-animated", @class]}
+      {@rest}
+    >
+      <%= for {item, idx} <- Enum.with_index(@data) do %>
+        <rect
+          x={idx * (@bar_width + @gap)}
+          y={@height - round(item.value / @max_val * @height)}
+          width={@bar_width}
+          height={round(item.value / @max_val * @height)}
+          rx="2"
+          fill={item[:color] || "var(--ccem-accent)"}
+          style={"transition: height var(--ccem-dur-base) var(--ccem-ease-out), y var(--ccem-dur-base) var(--ccem-ease-out)"}
+        />
+      <% end %>
+    </svg>
+    """
+  end
 end
