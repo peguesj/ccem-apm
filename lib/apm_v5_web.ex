@@ -90,6 +90,8 @@ defmodule ApmV5Web do
       import ApmV5Web.Components.GettingStartedWizard
       import ApmV5Web.Components.DesignSystem
       import ApmV5Web.Components.AiComponents
+      import ApmV5Web.Components.GraphComponents
+      import ApmV5Web.Components.TopBar
       import ApmV5Web.Components.InspectorPanel
 
       # Common modules used in templates
