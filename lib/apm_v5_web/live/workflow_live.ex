@@ -39,8 +39,8 @@ defmodule ApmV5Web.WorkflowLive do
 
   @spec build_current_context() :: map()
   defp build_current_context do
-    upm_status = UpmStore.get_status()
-    config = ConfigLoader.get_config()
+    upm_status = try do UpmStore.get_status() rescue _ -> %{active: false} catch :exit, _ -> %{active: false} end
+    config = try do ConfigLoader.get_config() rescue _ -> %{} catch :exit, _ -> %{} end
 
     project_root = Map.get(config, "project_root", File.cwd!())
 
@@ -54,9 +54,12 @@ defmodule ApmV5Web.WorkflowLive do
     tsc_gate = Map.get(@tsc_gate_map, stack, "mix compile --warnings-as-errors")
 
     formation =
-      case UpmStore.get_active_formation() do
-        nil -> nil
-        f -> f
+      try do
+        UpmStore.get_active_formation()
+      rescue
+        _ -> nil
+      catch
+        :exit, _ -> nil
       end
 
     active_wave =
@@ -93,7 +96,7 @@ defmodule ApmV5Web.WorkflowLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "upm:status")
     end
 
-    case WorkflowRegistry.get_workflow("upm") do
+    case (try do WorkflowRegistry.get_workflow("upm") rescue _ -> nil catch :exit, _ -> nil end) do
       nil ->
         {:ok, push_navigate(socket, to: "/workflow/ralph")}
 
@@ -109,7 +112,7 @@ defmodule ApmV5Web.WorkflowLive do
          socket
          |> assign(:page_title, workflow.title)
          |> assign(:workflow, workflow)
-         |> assign(:all_workflows, WorkflowRegistry.list_workflows())
+         |> assign(:all_workflows, (try do WorkflowRegistry.list_workflows() rescue _ -> [] catch :exit, _ -> [] end))
          |> assign(:steps, steps_with_color)
          |> assign(:edges, workflow.edges)
          |> assign(:selected_step, nil)
@@ -117,12 +120,13 @@ defmodule ApmV5Web.WorkflowLive do
          |> assign(:current_context, build_current_context())
          |> assign(:inspector_open, false)
          |> assign(:selected_story, nil)
+         |> assign(:sidebar_collapsed, false)
          |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
     end
   end
 
   def mount(%{"type" => type}, _session, socket) do
-    case WorkflowRegistry.get_workflow(type) do
+    case (try do WorkflowRegistry.get_workflow(type) rescue _ -> nil catch :exit, _ -> nil end) do
       nil ->
         {:ok, push_navigate(socket, to: "/workflow/ralph")}
 
@@ -138,7 +142,7 @@ defmodule ApmV5Web.WorkflowLive do
          socket
          |> assign(:page_title, workflow.title)
          |> assign(:workflow, workflow)
-         |> assign(:all_workflows, WorkflowRegistry.list_workflows())
+         |> assign(:all_workflows, (try do WorkflowRegistry.list_workflows() rescue _ -> [] catch :exit, _ -> [] end))
          |> assign(:steps, steps_with_color)
          |> assign(:edges, workflow.edges)
          |> assign(:selected_step, nil)
@@ -209,8 +213,11 @@ defmodule ApmV5Web.WorkflowLive do
 
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/workflow" />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/workflow" />
+      </:sidebar>
+      <:main>
 
       <!-- Main content -->
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -356,8 +363,9 @@ defmodule ApmV5Web.WorkflowLive do
           </div>
         <% end %>
       </div>
-    </div>
     <.wizard page="upm" dom_id="ccem-wizard-upm-workflow" />
+      </:main>
+    </.page_layout>
     """
   end
 

@@ -53,14 +53,19 @@ defmodule ApmV5Web.CcemOverviewLive do
       |> assign(:wizard_page, "welcome")
       |> assign(:wizard_visible, false)
 
-    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok, socket |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/ccem" />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/ccem" />
+      </:sidebar>
+      <:main>
       <div class="flex-1 flex flex-col overflow-hidden">
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
           <div class="flex items-center gap-3">
@@ -111,7 +116,6 @@ defmodule ApmV5Web.CcemOverviewLive do
           </div>
         </div>
       </div>
-    </div>
 
     <%!-- Getting Started wizard --%>
     <.wizard page={@wizard_page} dom_id={"ccem-wizard-overview-#{@wizard_page}"} />
@@ -197,6 +201,8 @@ defmodule ApmV5Web.CcemOverviewLive do
         <.icon name={if @chat_open, do: "hero-x-mark", else: "hero-chat-bubble-left-ellipsis"} class="size-5" />
       </button>
     </div>
+      </:main>
+    </.page_layout>
     """
   end
 

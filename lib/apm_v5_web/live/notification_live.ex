@@ -48,14 +48,19 @@ defmodule ApmV5Web.NotificationLive do
       |> assign(:confirmation_dialog, nil)
       |> assign(:auto_approve_minutes, nil)
 
-    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok, socket |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/notifications" notification_count={@tab_counts["all"]} />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/notifications" notification_count={@tab_counts["all"]} />
+      </:sidebar>
+      <:main>
 
       <%!-- Main --%>
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -164,7 +169,8 @@ defmodule ApmV5Web.NotificationLive do
 
       <%!-- Confirmation Dialog Modal --%>
       <.confirmation_dialog confirmation={@confirmation_dialog} />
-    </div>
+      </:main>
+    </.page_layout>
     """
   end
 

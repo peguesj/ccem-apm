@@ -42,6 +42,7 @@ defmodule ApmV5Web.ScannerLive do
      |> assign(:results, results)
      |> assign(:sidebar_collapsed, false)
      |> assign(:inspector_open, false)
+     |> assign(:selected_project, nil)
      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
@@ -88,6 +89,19 @@ defmodule ApmV5Web.ScannerLive do
 
   def handle_event("toggle_inspector", _params, socket) do
     {:noreply, assign(socket, inspector_open: !socket.assigns.inspector_open)}
+  end
+
+  def handle_event("select_project", %{"path" => path}, socket) do
+    selected = Enum.find(socket.assigns.results, fn r -> r[:path] == path end)
+
+    {:noreply,
+     socket
+     |> assign(:selected_project, selected)
+     |> assign(:inspector_open, selected != nil)}
+  end
+
+  def handle_event("close_inspector", _params, socket) do
+    {:noreply, socket |> assign(:inspector_open, false) |> assign(:selected_project, nil)}
   end
 
   # --- Helpers ---
@@ -195,9 +209,33 @@ defmodule ApmV5Web.ScannerLive do
             <:col :let={row} label="Agents"><span style="color: var(--ccem-fg-muted);"><%= row[:agent_count] || 0 %></span></:col>
             <:col :let={row} label="Formations"><span style="color: var(--ccem-fg-muted);"><%= row[:formation_count] || 0 %></span></:col>
             <:col :let={row} label="Path"><span style="font-size: 11px; font-family: monospace; color: var(--ccem-fg-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; display: block;"><%= row[:path] %></span></:col>
+            <:col :let={row} label="">
+              <.btn variant="ghost" size="xs" phx-click="select_project" phx-value-path={row[:path]}>
+                View
+              </.btn>
+            </:col>
           </.data_table>
         </.card>
       </:main>
+      <:inspector>
+        <%= if @selected_project do %>
+          <div style="padding: var(--ccem-space-4); display: flex; flex-direction: column; gap: var(--ccem-space-3);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: var(--ccem-text-sm); font-weight: 600; color: var(--ccem-fg-primary);">Project Detail</span>
+              <.btn variant="ghost" size="xs" phx-click="close_inspector">Close</.btn>
+            </div>
+            <div style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); word-break: break-all;">
+              <div><strong>Name:</strong> <%= @selected_project[:name] %></div>
+              <div><strong>Path:</strong> <%= @selected_project[:path] %></div>
+              <div><strong>Stack:</strong> <%= Enum.join(@selected_project[:stack] || [], ", ") %></div>
+              <div><strong>Ports:</strong> <%= Enum.join(@selected_project[:ports] || [], ", ") %></div>
+              <div><strong>Claude Config:</strong> <%= if @selected_project[:has_claude_config], do: "yes", else: "no" %></div>
+              <div><strong>Agents:</strong> <%= @selected_project[:agent_count] || 0 %></div>
+              <div><strong>Formations:</strong> <%= @selected_project[:formation_count] || 0 %></div>
+            </div>
+          </div>
+        <% end %>
+      </:inspector>
     </.page_layout>
     """
   end

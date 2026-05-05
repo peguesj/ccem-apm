@@ -573,8 +573,17 @@ defmodule ApmV5Web.SessionTimelineLive do
               50.0
             end
 
+          stable_id =
+            Map.get(evt, :id) ||
+              Map.get(evt, "id") ||
+              Map.get(evt, :event_id) ||
+              Map.get(evt, "event_id") ||
+              Map.get(evt, :request_id) ||
+              Map.get(evt, "request_id") ||
+              "evt-#{System.unique_integer([:positive])}"
+
           %{
-            id: to_string(Map.get(evt, :id) || Map.get(evt, "id", "evt-#{:erlang.unique_integer()}")),
+            id: to_string(stable_id),
             timestamp: ts_str,
             event_type: to_string(Map.get(evt, :event_type) || Map.get(evt, "event_type", "")),
             actor: to_string(Map.get(evt, :actor) || Map.get(evt, "actor", "")),

@@ -42,7 +42,9 @@ defmodule ApmV5Web.HarnessLive do
       |> assign(:active_tab, "health")
       |> assign(:notification_count, 0)
       |> assign(:skill_count, 0)
-      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
+      |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
 
     {:ok, socket}
   end
@@ -52,14 +54,17 @@ defmodule ApmV5Web.HarnessLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-100">
-      <ApmV5Web.Components.SidebarNav.sidebar_nav
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <ApmV5Web.Components.SidebarNav.sidebar_nav
         current_path="/plugins/harness"
         notification_count={@notification_count}
         skill_count={@skill_count}
         plugins={@plugins}
         integrations={@integrations}
-      />
+        />
+      </:sidebar>
+      <:main>
       <main class="flex-1 overflow-auto p-6">
         <div class="max-w-7xl mx-auto">
           <%!-- Header --%>
@@ -235,7 +240,8 @@ defmodule ApmV5Web.HarnessLive do
           </div>
         </div>
       </main>
-    </div>
+      </:main>
+    </.page_layout>
     """
   end
 

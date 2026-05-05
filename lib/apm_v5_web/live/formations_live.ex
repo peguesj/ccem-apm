@@ -16,7 +16,7 @@ defmodule ApmV5Web.FormationsLive do
   topics, and receives `AG-UI` EventBus `"lifecycle:*"` events.
 
   ## Route
-  `GET /observe/formations` → `FormationsLive, :index`
+  `GET /observe/formation` → `FormationsLive, :index`
   """
 
   use ApmV5Web, :live_view
@@ -44,6 +44,8 @@ defmodule ApmV5Web.FormationsLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic_upm)
       ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
       Process.send_after(self(), :refresh, @refresh_ms)
+      # Defer the initial push_event until after the JS hook is mounted (150ms grace)
+      Process.send_after(self(), :push_graph, 150)
     end
 
     {formations, graph_nodes, graph_edges} = load_formations()
@@ -62,8 +64,7 @@ defmodule ApmV5Web.FormationsLive do
        graph_nodes: graph_nodes,
        graph_edges: graph_edges
      )
-     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
-     |> push_graph_data(graph_nodes, graph_edges)}
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   # ---------------------------------------------------------------------------
@@ -97,6 +98,11 @@ defmodule ApmV5Web.FormationsLive do
   def handle_info({:upm_agent_registered, _}, socket), do: {:noreply, reload_formations(socket)}
   def handle_info({:formation_registered, _}, socket), do: {:noreply, reload_formations(socket)}
   def handle_info({:formation_updated, _}, socket), do: {:noreply, reload_formations(socket)}
+
+  def handle_info(:push_graph, socket) do
+    {:noreply, push_graph_data(socket, socket.assigns.graph_nodes, socket.assigns.graph_edges)}
+  end
+
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   # ---------------------------------------------------------------------------
@@ -170,7 +176,7 @@ defmodule ApmV5Web.FormationsLive do
     ~H"""
     <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
       <:sidebar>
-        <.sidebar_nav current_path="/observe/formations" />
+        <.sidebar_nav current_path="/observe/formation" />
       </:sidebar>
 
       <:topbar>
@@ -229,7 +235,7 @@ defmodule ApmV5Web.FormationsLive do
             <.empty_state_view />
           <% else %>
             <.card padded={false}>
-              <svg
+              <div
                 id="formations-force-graph"
                 phx-hook="FormationGraph"
                 phx-update="ignore"
@@ -255,7 +261,7 @@ defmodule ApmV5Web.FormationsLive do
                     live={edge[:live] || false}
                   />
                 <% end %>
-              </svg>
+              </div>
             </.card>
 
             <%!-- Edge type legend --%>

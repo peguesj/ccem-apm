@@ -22,6 +22,8 @@ defmodule ApmV5Web.FormationLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:upm")
       # US-018: EventBus subscriptions for AG-UI formation events
       ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
+      # Defer the initial push_event until after the JS hook is mounted (150ms grace)
+      Process.send_after(self(), :push_graph, 150)
     end
 
     agents = AgentRegistry.list_agents()
@@ -46,9 +48,10 @@ defmodule ApmV5Web.FormationLive do
       |> assign(:dot_source, nil)
       |> assign(:dot_formation_id, nil)
       |> assign(:dot_executable, System.find_executable("dot"))
-      |> push_formation_graph(formations)
 
-    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok, socket |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
@@ -86,8 +89,11 @@ defmodule ApmV5Web.FormationLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/formation" skill_count={@active_skill_count} />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/formation" skill_count={@active_skill_count} />
+      </:sidebar>
+      <:main>
 
       <%!-- Main content --%>
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -505,8 +511,9 @@ defmodule ApmV5Web.FormationLive do
           </div>
         </div>
       </div>
-    </div>
     <.wizard page="formation" />
+      </:main>
+    </.page_layout>
     """
   end
 
@@ -824,6 +831,10 @@ defmodule ApmV5Web.FormationLive do
   # --- PubSub ---
 
   @impl true
+  def handle_info(:push_graph, socket) do
+    {:noreply, push_formation_graph(socket, socket.assigns.formations)}
+  end
+
   def handle_info({:agent_registered, _agent}, socket), do: refresh(socket)
   def handle_info({:agent_updated, _agent}, socket), do: refresh(socket)
   def handle_info({:agent_discovered, _, _}, socket), do: refresh(socket)

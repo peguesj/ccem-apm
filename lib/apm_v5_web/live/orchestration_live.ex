@@ -35,8 +35,8 @@ defmodule ApmV5Web.OrchestrationLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic)
     end
 
-    runs = OrchestrationManager.list_runs()
-    workflows = WorkflowRegistry.list_workflows()
+    runs = try do OrchestrationManager.list_runs() rescue _ -> [] catch :exit, _ -> [] end
+    workflows = try do WorkflowRegistry.list_workflows() rescue _ -> [] catch :exit, _ -> [] end
 
     {:ok,
      assign(socket,

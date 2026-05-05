@@ -22,7 +22,9 @@ defmodule ApmV5Web.ClaudeCodeDiscoveryLive do
       |> assign(:active_skill_count, skill_count())
       |> load_discovery_data()
 
-    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok, socket |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
@@ -45,8 +47,11 @@ defmodule ApmV5Web.ClaudeCodeDiscoveryLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/plugins/claude-code" skill_count={@active_skill_count} />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/plugins/claude-code" skill_count={@active_skill_count} />
+      </:sidebar>
+      <:main>
 
       <div class="flex-1 flex flex-col overflow-hidden">
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
@@ -165,7 +170,8 @@ defmodule ApmV5Web.ClaudeCodeDiscoveryLive do
           </div>
         </main>
       </div>
-    </div>
+      </:main>
+    </.page_layout>
     """
   end
 

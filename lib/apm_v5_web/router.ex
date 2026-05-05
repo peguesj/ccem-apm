@@ -110,7 +110,7 @@ defmodule ApmV5Web.Router do
       # Observe: Fleet LiveView (CP-176 / US-451)
       live "/fleet", FleetLive, :index
       # Observe: Formations LiveView redesign (CP-179 / US-454)
-      live "/observe/formations", FormationsLive, :index
+      live "/observe/formation", FormationsLive, :index
 
       # Extension: ag_ui
       live "/ag-ui", AgUiLive, :index
@@ -138,6 +138,8 @@ defmodule ApmV5Web.Router do
       live "/plugins/ralph", RalphPluginLive, :index
       live "/plugins/ag_ui", AgUiPluginLive, :index
       live "/plugins/claude-code", ClaudeCodeDiscoveryLive, :index
+      # Extension: harness — MUST be before the :slug wildcard to avoid infinite redirect loop
+      live "/plugins/harness", HarnessLive, :index
       live "/plugins/:slug", PluginDashboardLive, :plugin_show
       live "/integrations", PluginDashboardLive, :integrations_tab
       live "/integrations/lvm", LvmStatusLive, :index
@@ -151,9 +153,6 @@ defmodule ApmV5Web.Router do
 
       # Extension: memory
       live "/memory", MemoryLive, :index
-
-      # Extension: harness
-      live "/plugins/harness", HarnessLive, :index
 
       # Extension: library
       live "/library", LibraryLive, :index

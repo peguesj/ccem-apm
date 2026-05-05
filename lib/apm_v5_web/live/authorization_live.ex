@@ -302,6 +302,8 @@ defmodule ApmV5Web.AuthorizationLive do
           end
         rescue
           _ -> %{status: :err, message: "Authorization check failed"}
+        catch
+          :exit, _ -> %{status: :err, message: "Auth gate unavailable"}
         end
       end
 
@@ -1180,25 +1182,31 @@ defmodule ApmV5Web.AuthorizationLive do
   defp action_ds_tone(:read), do: "info"
   defp action_ds_tone(_), do: "neutral"
 
+  defp auth_summary_default do
+    %{
+      total_decisions_24h: 0,
+      grants: 0,
+      denies: 0,
+      escalations: 0,
+      auto_approvals: 0,
+      rate_limited: 0,
+      avg_decision_ms: 0,
+      pending_count: 0
+    }
+  end
+
   defp load_data do
     summary =
       try do
         AuthorizationGate.summary()
       rescue
-        _ ->
-          %{
-            registered_tools: 0,
-            active_sessions: 0,
-            tokens: %{},
-            total_authorized: 0,
-            total_denied: 0,
-            total_escalated: 0,
-            risk_distribution: %{}
-          }
+        _ -> auth_summary_default()
+      catch
+        :exit, _ -> auth_summary_default()
       end
 
-    sessions = try do SessionStore.list_active() rescue _ -> [] end
-    tools = try do AuthorizationGate.list_tools() rescue _ -> [] end
+    sessions = try do SessionStore.list_active() rescue _ -> [] catch :exit, _ -> [] end
+    tools = try do AuthorizationGate.list_tools() rescue _ -> [] catch :exit, _ -> [] end
 
     audit_entries =
       try do
@@ -1209,6 +1217,8 @@ defmodule ApmV5Web.AuthorizationLive do
         end)
       rescue
         _ -> []
+      catch
+        :exit, _ -> []
       end
 
     %{summary: summary, sessions: sessions, tools: tools, audit_entries: audit_entries}

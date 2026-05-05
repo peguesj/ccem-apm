@@ -97,6 +97,8 @@ defmodule ApmV5.Application do
       ApmV5.WorkflowRegistry,
       ApmV5.Orchestration.OrchestrationManager,
       ApmV5.Orchestration.OrchestrationRunStore,
+      # Coalesce subsystem — DecisionGateStore + CoalesceOrchestrator
+      ApmV5.Coalesce.CoalesceSupervisor,
       # Memory plugin workers (claude-mem integration)
       ApmV5.Plugins.Memory.MemoryClientBridge,
       ApmV5.Plugins.Memory.ObservationCache,

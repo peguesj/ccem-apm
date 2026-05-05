@@ -17,7 +17,9 @@ defmodule ApmV5Web.BackfillLive do
     if connected?(socket) do
       :timer.send_interval(10_000, self(), :refresh)
     end
-    {:ok, socket |> assign_data() |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok, socket |> assign_data() |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
@@ -72,8 +74,11 @@ defmodule ApmV5Web.BackfillLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/backfill" />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/backfill" />
+      </:sidebar>
+      <:main>
 
       <div class="flex-1 flex flex-col overflow-hidden">
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
@@ -166,8 +171,9 @@ defmodule ApmV5Web.BackfillLive do
           </div>
         </div>
       </div>
-    </div>
     <.wizard page="welcome" dom_id="ccem-wizard-welcome-backfill" />
+      </:main>
+    </.page_layout>
     """
   end
 

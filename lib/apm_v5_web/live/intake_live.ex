@@ -19,16 +19,18 @@ defmodule ApmV5Web.IntakeLive do
     events = IntakeStore.list(limit: 50)
     watchers = IntakeStore.watchers()
 
-    {:ok,
-     socket
-     |> assign(:page_title, "Intake")
-     |> assign(:events, events)
-     |> assign(:watchers, watchers)
-     |> assign(:filter_source, "all")
-     |> assign(:filter_type, "all")
-     |> assign(:sidebar_collapsed, false)
-     |> assign(:inspector_open, false)
-     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    socket =
+      socket
+      |> assign(:page_title, "Intake")
+      |> assign(:events, events)
+      |> assign(:watchers, watchers)
+      |> assign(:filter_source, "all")
+      |> assign(:filter_type, "all")
+      |> assign(:sidebar_collapsed, false)
+      |> assign(:inspector_open, false)
+      |> assign(:selected_event, nil)
+
+    {:ok, ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data(socket)}
   end
 
   @impl true
@@ -53,6 +55,19 @@ defmodule ApmV5Web.IntakeLive do
 
   def handle_event("toggle_sidebar", _params, socket) do
     {:noreply, assign(socket, sidebar_collapsed: !socket.assigns.sidebar_collapsed)}
+  end
+
+  def handle_event("select_event", %{"id" => id}, socket) do
+    selected = Enum.find(socket.assigns.events, fn e -> Map.get(e, :id) == id end)
+
+    {:noreply,
+     socket
+     |> assign(:selected_event, selected)
+     |> assign(:inspector_open, selected != nil)}
+  end
+
+  def handle_event("close_inspector", _params, socket) do
+    {:noreply, socket |> assign(:inspector_open, false) |> assign(:selected_event, nil)}
   end
 
   # ── Helpers ──────────────────────────────────────────────────────────────
@@ -195,13 +210,39 @@ defmodule ApmV5Web.IntakeLive do
                     <%= String.slice(event.id, 0, 8) %>…
                   </span>
                 </:col>
+                <:col :let={event} label="">
+                  <.btn variant="ghost" size="xs" phx-click="select_event" phx-value-id={event.id}>
+                    View
+                  </.btn>
+                </:col>
               </.data_table>
             <% end %>
           </.card>
 
         </div>
       </:main>
-      <:inspector></:inspector>
+      <:inspector>
+        <%= if @selected_event do %>
+          <div style="padding: var(--ccem-space-4); display: flex; flex-direction: column; gap: var(--ccem-space-3);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: var(--ccem-text-sm); font-weight: 600; color: var(--ccem-fg-primary);">Event Detail</span>
+              <.btn variant="ghost" size="xs" phx-click="close_inspector">Close</.btn>
+            </div>
+            <div style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); word-break: break-all;">
+              <div><strong>ID:</strong> <%= @selected_event.id %></div>
+              <div><strong>Source:</strong> <%= @selected_event.source %></div>
+              <div><strong>Type:</strong> <%= @selected_event.event_type %></div>
+              <div><strong>Severity:</strong> <%= @selected_event.severity %></div>
+              <div><strong>Project:</strong> <%= @selected_event.project %></div>
+              <div><strong>Received:</strong> <%= format_time(@selected_event.received_at) %></div>
+            </div>
+            <div>
+              <span style="font-size: var(--ccem-text-xs); font-weight: 600; color: var(--ccem-fg-secondary);">Payload</span>
+              <pre style="background: var(--ccem-surface-3); border-radius: var(--ccem-radius-sm); padding: var(--ccem-space-2); font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-secondary); overflow-x: auto; margin-top: var(--ccem-space-2);"><%= inspect(@selected_event.payload, pretty: true) %></pre>
+            </div>
+          </div>
+        <% end %>
+      </:inspector>
     </.page_layout>
     """
   end
