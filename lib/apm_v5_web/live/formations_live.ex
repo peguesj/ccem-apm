@@ -230,17 +230,17 @@ defmodule ApmV5Web.FormationsLive do
         <%!-- Layout views --%>
 
         <%!-- ── Tree mode (D3 force graph) ────────────────────────────────── --%>
-        <div :if={@layout_mode == "Tree"}>
+        <div :if={@layout_mode == "Tree"} style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
           <%= if @formations == [] do %>
             <.empty_state_view />
           <% else %>
-            <.card padded={false}>
+            <div style="flex: 1; min-height: 480px; display: flex; flex-direction: column; background: var(--ccem-bg-1); border: 1px solid var(--ccem-line); border-radius: 8px; overflow: hidden;">
               <div
                 id="formations-force-graph"
                 phx-hook="FormationGraph"
                 phx-update="ignore"
                 data-orientation="graph_td"
-                style="width: 100%; height: 560px; display: block; background: var(--ccem-bg-0, #0d1117);"
+                style="width: 100%; flex: 1; min-height: 480px; display: block; background: var(--ccem-bg-0, #0d1117);"
               >
                 <%!-- Formation nodes --%>
                 <%= for node <- @graph_nodes do %>
@@ -262,7 +262,7 @@ defmodule ApmV5Web.FormationsLive do
                   />
                 <% end %>
               </div>
-            </.card>
+            </div>
 
             <%!-- Edge type legend --%>
             <div style="display: flex; align-items: center; gap: 16px; margin-top: 10px; flex-wrap: wrap;">
