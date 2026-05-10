@@ -175,6 +175,7 @@ defmodule ApmV5Web.Router do
     get "/status", ApiController, :status
     get "/agents", ApiController, :agents
     post "/register", ApiController, :register
+    post "/sessions/register", ApiController, :register_session
     post "/heartbeat", ApiController, :heartbeat
     post "/notify", ApiController, :notify
     get "/agents/activity-log", ApiController, :activity_log
@@ -314,6 +315,8 @@ defmodule ApmV5Web.Router do
     post "/upm/sync", UpmController, :sync_all
     post "/upm/sync/:project_id", UpmController, :sync_project
     get "/upm/sync/status", UpmController, :sync_status
+    post "/upm/story", UpmController, :update_story
+    post "/upm/manifest", UpmController, :write_manifest
 
     # ── EXTENSION: formations (v1) ────────────────────────────────────────
     get "/formations", FormationApiController, :list_formations
@@ -576,12 +579,26 @@ defmodule ApmV5Web.Router do
     get "/memory/timeline", MemoryController, :timeline
     get "/memory/health", MemoryController, :health
 
+    # ── EXTENSION: memory bridge (claude-mem direct read) ─────────────────
+    get "/memory/bridge/observations", MemoryBridgeController, :observations
+    get "/memory/bridge/session/:session_id", MemoryBridgeController, :session
+    get "/memory/bridge/stats", MemoryBridgeController, :stats
+
     # ── EXTENSION: harness ────────────────────────────────────────────────
     get "/harness/health", HarnessController, :health
     get "/harness/hooks", HarnessController, :hooks
     get "/harness/session", HarnessController, :session
     get "/harness/plans", HarnessController, :plans
     get "/harness/settings", HarnessController, :settings
+
+    # ── EXTENSION: hook repair v2 ─────────────────────────────────────────
+    get "/actions", ActionController, :index
+    post "/actions/:type", ActionController, :run
+    get "/actions/runs", ActionController, :list_runs
+    get "/actions/runs/:run_id", ActionController, :get_run
+    get "/hooks/health", HookHealthController, :health
+    post "/hooks/scan", HookHealthController, :scan
+    post "/hooks/clear/:project", HookHealthController, :clear
 
     # ── EXTENSION: library ────────────────────────────────────────────────
     get "/library", LibraryController, :index
