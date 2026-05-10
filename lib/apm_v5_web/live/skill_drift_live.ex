@@ -20,6 +20,8 @@ defmodule ApmV5Web.SkillDriftLive do
      |> assign(:report, report)
      |> assign(:fixing, false)
      |> assign(:fix_result, nil)
+     |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
@@ -45,96 +47,89 @@ defmodule ApmV5Web.SkillDriftLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-6 space-y-6">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-white">Skill Drift Detector</h1>
-        <div class="flex gap-2">
-          <button phx-click="rescan" class="btn btn-sm btn-outline btn-info">
-            Rescan
-          </button>
-          <button phx-click="fix_all" class="btn btn-sm btn-primary" disabled={@fixing}>
-            <%= if @fixing, do: "Fixing...", else: "Fix All" %>
-          </button>
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar><.sidebar_nav current_path="/skills" /></:sidebar>
+      <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+      <:main>
+        <%!-- Page header --%>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+          <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Skill Drift Detector</h1>
+          <div style="display: flex; gap: 8px;">
+            <.btn variant="secondary" size="sm" phx-click="rescan">Rescan</.btn>
+            <.btn variant="primary" size="sm" phx-click="fix_all" disabled={@fixing}>
+              <%= if @fixing, do: "Fixing...", else: "Fix All" %>
+            </.btn>
+          </div>
         </div>
-      </div>
 
-      <%!-- Summary cards --%>
-      <div class="grid grid-cols-4 gap-4">
-        <div class="stat bg-base-200 rounded-lg">
-          <div class="stat-title">Scanned</div>
-          <div class="stat-value text-info"><%= @report.summary.scanned %></div>
+        <%!-- Summary stat tiles --%>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+          <.card padded={true} style="flex: 1; min-width: 120px;">
+            <.stat_tile label="Scanned" value={to_string(@report.summary.scanned)} />
+          </.card>
+          <.card padded={true} style="flex: 1; min-width: 120px;">
+            <.stat_tile label="Clean" value={to_string(@report.summary.clean)} />
+          </.card>
+          <.card padded={true} style="flex: 1; min-width: 120px;">
+            <.stat_tile label="Warning" value={to_string(@report.summary.warning)} />
+          </.card>
+          <.card padded={true} style="flex: 1; min-width: 120px;">
+            <.stat_tile label="Critical" value={to_string(@report.summary.critical)} />
+          </.card>
         </div>
-        <div class="stat bg-base-200 rounded-lg">
-          <div class="stat-title">Clean</div>
-          <div class="stat-value text-success"><%= @report.summary.clean %></div>
-        </div>
-        <div class="stat bg-base-200 rounded-lg">
-          <div class="stat-title">Warning</div>
-          <div class="stat-value text-warning"><%= @report.summary.warning %></div>
-        </div>
-        <div class="stat bg-base-200 rounded-lg">
-          <div class="stat-title">Critical</div>
-          <div class="stat-value text-error"><%= @report.summary.critical %></div>
-        </div>
-      </div>
 
-      <%!-- Fix result banner --%>
-      <%= if @fix_result do %>
-        <div class="alert alert-success">
-          <span>Applied <%= @fix_result.fixes_applied %> of <%= @fix_result.fixes_available %> available fixes.</span>
-        </div>
-      <% end %>
+        <%!-- Fix result banner --%>
+        <%= if @fix_result do %>
+          <div style="margin-bottom: 16px; padding: 10px 14px; border-radius: 6px; background: color-mix(in srgb, var(--ccem-ok) 12%, transparent); border: 1px solid color-mix(in srgb, var(--ccem-ok) 30%, transparent); color: var(--ccem-ok); font-size: 13px;">
+            Applied <%= @fix_result.fixes_applied %> of <%= @fix_result.fixes_available %> available fixes.
+          </div>
+        <% end %>
 
-      <%!-- Findings table --%>
-      <div class="overflow-x-auto">
-        <table class="table table-zebra w-full">
-          <thead>
-            <tr>
-              <th>Severity</th>
-              <th>Skill</th>
-              <th>Type</th>
-              <th>Line</th>
-              <th>Found</th>
-              <th>Expected</th>
-              <th>Fixable</th>
-            </tr>
-          </thead>
-          <tbody>
-            <%= for {severity, findings} <- [
+        <%!-- Findings table --%>
+        <.card padded={false}>
+          <.data_table id="drift-findings-table" rows={
+            for {severity, findings} <- [
               {:critical, Map.get(@report.findings_by_severity, :critical, [])},
               {:warning, Map.get(@report.findings_by_severity, :warning, [])},
               {:info, Map.get(@report.findings_by_severity, :info, [])}
-            ], finding <- findings do %>
-              <tr>
-                <td>
-                  <span class={severity_badge_class(severity)}>
-                    <%= severity %>
-                  </span>
-                </td>
-                <td class="font-mono text-sm"><%= finding.skill_name %></td>
-                <td><%= finding.drift_type %></td>
-                <td><%= finding.line %></td>
-                <td class="font-mono text-sm text-error"><%= finding.found %></td>
-                <td class="font-mono text-sm text-success"><%= finding.expected %></td>
-                <td>
-                  <%= if finding.fixable do %>
-                    <span class="badge badge-success badge-sm">Yes</span>
-                  <% else %>
-                    <span class="badge badge-ghost badge-sm">No</span>
-                  <% end %>
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      </div>
+            ], finding <- findings do
+              Map.put(finding, :severity, severity)
+            end
+          }>
+            <:col :let={row} label="Severity">
+              <.badge tone={severity_tone(row.severity)}>
+                <%= row.severity %>
+              </.badge>
+            </:col>
+            <:col :let={row} label="Skill">
+              <span style="font-family: monospace; font-size: 12px;"><%= row.skill_name %></span>
+            </:col>
+            <:col :let={row} label="Type"><%= row.drift_type %></:col>
+            <:col :let={row} label="Line"><%= row.line %></:col>
+            <:col :let={row} label="Found">
+              <span style="font-family: monospace; font-size: 12px; color: var(--ccem-err);"><%= row.found %></span>
+            </:col>
+            <:col :let={row} label="Expected">
+              <span style="font-family: monospace; font-size: 12px; color: var(--ccem-ok);"><%= row.expected %></span>
+            </:col>
+            <:col :let={row} label="Fixable">
+              <%= if row.fixable do %>
+                <.badge tone="ok">Yes</.badge>
+              <% else %>
+                <.badge tone="neutral">No</.badge>
+              <% end %>
+            </:col>
+          </.data_table>
+        </.card>
 
-      <%= if all_findings_empty?(@report) do %>
-        <div class="text-center text-success py-8">
-          All skills are clean. No drift detected.
-        </div>
-      <% end %>
-    </div>
+        <%!-- Empty state --%>
+        <%= if all_findings_empty?(@report) do %>
+          <div style="text-align: center; padding: 48px 0; color: var(--ccem-ok); font-size: 14px;">
+            All skills are clean. No drift detected.
+          </div>
+        <% end %>
+      </:main>
+    </.page_layout>
     """
   end
 
@@ -142,10 +137,10 @@ defmodule ApmV5Web.SkillDriftLive do
   # Private helpers
   # ---------------------------------------------------------------------------
 
-  defp severity_badge_class(:critical), do: "badge badge-error badge-sm"
-  defp severity_badge_class(:warning), do: "badge badge-warning badge-sm"
-  defp severity_badge_class(:info), do: "badge badge-info badge-sm"
-  defp severity_badge_class(_), do: "badge badge-ghost badge-sm"
+  defp severity_tone(:critical), do: "err"
+  defp severity_tone(:warning), do: "warn"
+  defp severity_tone(:info), do: "info"
+  defp severity_tone(_), do: "neutral"
 
   defp all_findings_empty?(report) do
     report.summary.critical == 0 and report.summary.warning == 0 and

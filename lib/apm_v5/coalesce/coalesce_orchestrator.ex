@@ -40,18 +40,31 @@ defmodule ApmV5.Coalesce.CoalesceOrchestrator do
   @doc "Get the full state of a run."
   @spec get_run(String.t()) :: map() | nil
   def get_run(run_id) do
-    case :ets.lookup(@table, run_id) do
-      [{^run_id, run}] -> run
-      [] -> nil
+    case :ets.whereis(@table) do
+      :undefined ->
+        nil
+
+      _tid ->
+        case :ets.lookup(@table, run_id) do
+          [{^run_id, run}] -> run
+          [] -> nil
+        end
     end
   end
 
   @doc "List all runs, newest first."
   @spec list_runs() :: [map()]
   def list_runs do
-    :ets.tab2list(@table)
-    |> Enum.map(fn {_id, run} -> run end)
-    |> Enum.sort_by(& &1.started_at, :desc)
+    case :ets.whereis(@table) do
+      :undefined ->
+        []
+
+      _tid ->
+        @table
+        |> :ets.tab2list()
+        |> Enum.map(fn {_id, run} -> run end)
+        |> Enum.sort_by(& &1.started_at, :desc)
+    end
   end
 
   @doc "Cancel an in-progress run."

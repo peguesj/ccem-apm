@@ -38,8 +38,10 @@ defmodule ApmV5Web.ActionsLive do
      |> assign(:selected_project, nil)
      |> assign(:selected_run, nil)
      |> assign(:scanning, false)
-     |> assign(:selected_paths, MapSet.new()
-     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
+     |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> assign(:selected_paths, MapSet.new())
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
@@ -197,17 +199,25 @@ defmodule ApmV5Web.ActionsLive do
      |> put_flash(:info, "Running #{action.name} on #{count} project#{suffix}")}
   end
 
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, sidebar_collapsed: !socket.assigns.sidebar_collapsed)}
+  end
+
+  def handle_event("toggle_inspector", _params, socket) do
+    {:noreply, assign(socket, inspector_open: !socket.assigns.inspector_open)}
+  end
+
   # --- Components ---
 
   attr :value, :boolean, required: true
 
   defp status_cell(assigns) do
     ~H"""
-    <span :if={@value} class="flex items-center justify-center">
-      <.icon name="hero-check-circle" class="size-4 text-success" />
+    <span :if={@value} style="display: flex; align-items: center; justify-content: center;">
+      <.icon name="hero-check-circle" class="size-4" style="color: var(--ccem-ok, #22c55e);" />
     </span>
-    <span :if={!@value} class="flex items-center justify-center">
-      <.icon name="hero-x-circle" class="size-4 text-error/50" />
+    <span :if={!@value} style="display: flex; align-items: center; justify-content: center; opacity: 0.3;">
+      <.icon name="hero-x-circle" class="size-4" style="color: var(--ccem-err, #ef4444);" />
     </span>
     """
   end
@@ -217,366 +227,266 @@ defmodule ApmV5Web.ActionsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <%!-- Sidebar --%>
-      <.sidebar_nav current_path="/actions" />
-
-      <%!-- Main content --%>
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Actions</h2>
-            <span class="text-xs text-base-content/40">
-              Configure and apply APM integration to your projects
-            </span>
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar><.sidebar_nav current_path="/actions" /></:sidebar>
+      <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+      <:main>
+        <%!-- Page header --%>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Actions</h1>
+            <span style="font-size: 12px; color: var(--ccem-fg-muted);">Configure and apply APM integration to your projects</span>
           </div>
-        </header>
+        </div>
 
-        <%!-- Scrollable body — extra bottom padding leaves room for the bulk toolbar --%>
-        <div class="flex-1 overflow-auto p-4 space-y-6 pb-24">
+        <%!-- Stat tiles --%>
+        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Projects" value={to_string(length(@projects))} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Actions" value={to_string(length(@catalog))} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Recent Runs" value={to_string(length(@runs))} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Selected" value={to_string(MapSet.size(@selected_paths))} />
+          </.card>
+        </div>
 
-          <%!-- Projects Status Table --%>
-          <div>
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">
-                Projects
-                <span :if={@projects != []} class="ml-1 text-base-content/30 normal-case">
-                  — {length(@projects)} found
-                </span>
-              </h3>
-              <button
-                phx-click="scan_projects"
-                disabled={@scanning}
-                class="btn btn-ghost btn-xs text-base-content/50"
-              >
-                <.icon name="hero-arrow-path" class={["size-3", @scanning && "animate-spin"]} />
-                {if @scanning, do: "Scanning...", else: "Rescan"}
-              </button>
+        <%!-- Projects Status Table --%>
+        <div style="margin-bottom: 24px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em;">Projects</span>
+              <.badge :if={@projects != []} tone="neutral"><%= to_string(length(@projects)) %> found</.badge>
             </div>
-
-            <div class="bg-base-200 rounded-lg border border-base-300 overflow-hidden">
-              <div :if={@projects == []} class="p-8 text-center text-base-content/30 text-sm">
-                No projects found.
-                <button phx-click="scan_projects" class="link link-primary ml-1">Scan now</button>
-              </div>
-
-              <table
-                :if={@projects != []}
-                id="projects-select-table"
-                phx-hook="ShiftSelect"
-                class="w-full text-sm"
-              >
-                <thead>
-                  <tr class="border-b border-base-300 bg-base-300/30">
-                    <th class="px-3 py-2 w-8" data-no-select="true">
-                      <%!-- Select-all / deselect-all header checkbox --%>
-                      <input
-                        type="checkbox"
-                        class="checkbox checkbox-xs"
-                        phx-click={
-                          if @projects != [] and MapSet.size(@selected_paths) == length(@projects),
-                            do: "deselect_all",
-                            else: "select_all"
-                        }
-                        checked={
-                          @projects != [] and MapSet.size(@selected_paths) == length(@projects)
-                        }
-                      />
-                    </th>
-                    <th class="px-4 py-2 text-left text-xs text-base-content/50 font-medium">
-                      Project
-                    </th>
-                    <th class="px-4 py-2 text-left text-xs text-base-content/50 font-medium">
-                      Stack
-                    </th>
-                    <th class="px-4 py-2 text-center text-xs text-base-content/50 font-medium">
-                      Hooks
-                    </th>
-                    <th class="px-4 py-2 text-center text-xs text-base-content/50 font-medium">
-                      Memory
-                    </th>
-                    <th class="px-4 py-2 text-center text-xs text-base-content/50 font-medium">
-                      Config
-                    </th>
-                    <th class="px-4 py-2 text-right text-xs text-base-content/50 font-medium">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    :for={{proj, index} <- Enum.with_index(@projects)}
-                    data-row-index={index}
-                    phx-click="toggle_row"
-                    phx-value-path={proj.path}
-                    class={[
-                      "border-b border-base-300/50 cursor-pointer transition-colors select-none",
-                      MapSet.member?(@selected_paths, proj.path) &&
-                        "bg-primary/5 hover:bg-primary/10" ||
-                        "hover:bg-base-300/20"
-                    ]}
-                  >
-                    <%!-- Row checkbox — stops propagation so toggle_row doesn't double-fire --%>
-                    <td class="px-3 py-3" data-no-select="true">
-                      <input
-                        type="checkbox"
-                        class="checkbox checkbox-xs pointer-events-none"
-                        checked={MapSet.member?(@selected_paths, proj.path)}
-                        readonly
-                      />
-                    </td>
-                    <td class="px-4 py-3">
-                      <div class="font-medium text-base-content text-sm">{proj.name}</div>
-                      <div class="text-[10px] text-base-content/40 font-mono truncate max-w-xs">
-                        {proj.path}
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 text-xs text-base-content/60">
-                      {format_stack(proj.stack)}
-                    </td>
-                    <td class="px-4 py-3 text-center">
-                      <.status_cell value={proj[:has_hooks] || false} />
-                    </td>
-                    <td class="px-4 py-3 text-center">
-                      <.status_cell value={proj[:has_memory_pointer] || false} />
-                    </td>
-                    <td class="px-4 py-3 text-center">
-                      <.status_cell value={proj[:has_apm_config] || false} />
-                    </td>
-                    <%!-- Per-row action buttons — LiveView delegation fires the button's phx-click first,
-                         so the TR's toggle_row does not fire when a button is clicked. --%>
-                    <td class="px-4 py-3" data-no-select="true">
-                      <div class="flex items-center justify-end gap-1">
-                        <button
-                          :for={action <- @catalog}
-                          phx-click="open_run_modal"
-                          phx-value-action={action.id}
-                          phx-value-path={proj.path}
-                          class="btn btn-ghost btn-xs text-base-content/50 hover:text-base-content tooltip tooltip-left"
-                          data-tip={action.name}
-                        >
-                          <.icon name={action_icon(action.id)} class="size-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <.btn variant="ghost" size="xs" phx-click="scan_projects" disabled={@scanning}>
+              <.icon name="hero-arrow-path" class={["size-3", @scanning && "animate-spin"]} />
+              <%= if @scanning, do: "Scanning...", else: "Rescan" %>
+            </.btn>
           </div>
 
-          <%!-- Action Catalog --%>
-          <div>
-            <h3 class="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-3">
-              Action Catalog
-            </h3>
-            <div class="grid grid-cols-2 gap-4">
-              <div :for={action <- @catalog} class="bg-base-200 border border-base-300 rounded-xl p-4">
-                <div class="flex items-start justify-between mb-2">
-                  <div>
-                    <span class={"text-xs font-semibold uppercase #{category_color(action.category)}"}>
-                      {action.category}
-                    </span>
-                    <h3 class="font-medium mt-0.5 text-base-content">{action.name}</h3>
-                  </div>
-                </div>
-                <p class="text-xs text-base-content/60 mb-3">{action.description}</p>
-                <button
-                  phx-click="open_run_modal"
-                  phx-value-action={action.id}
-                  class="btn btn-primary btn-sm w-full"
-                >
-                  Run
-                </button>
-              </div>
+          <.card padded={false}>
+            <div :if={@projects == []} style="padding: 32px; text-align: center; color: var(--ccem-fg-muted); font-size: 13px;">
+              No projects found.
+              <button phx-click="scan_projects" style="color: var(--ccem-accent); background: none; border: none; cursor: pointer; padding: 0; margin-left: 4px;">Scan now</button>
             </div>
-          </div>
 
-          <%!-- Recent Runs --%>
-          <div>
-            <h3 class="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-3">
-              Recent Runs
-            </h3>
-            <div :if={@runs == []} class="text-base-content/40 text-sm">
-              No runs yet. Run an action above to get started.
-            </div>
-            <table :if={@runs != []} class="w-full text-sm">
+            <table
+              :if={@projects != []}
+              id="projects-select-table"
+              phx-hook="ShiftSelect"
+              style="width: 100%; font-size: 13px; border-collapse: collapse;"
+            >
               <thead>
-                <tr class="text-left text-base-content/50 border-b border-base-300">
-                  <th class="pb-3 pr-4">Action</th>
-                  <th class="pb-3 pr-4">Project</th>
-                  <th class="pb-3 pr-4">Status</th>
-                  <th class="pb-3 pr-4">Started</th>
-                  <th class="pb-3 pr-4">Duration</th>
-                  <th class="pb-3">Result</th>
+                <tr style="border-bottom: 1px solid var(--ccem-border); background: var(--ccem-surface-2);">
+                  <th style="padding: 8px 12px; width: 32px;" data-no-select="true">
+                    <input
+                      type="checkbox"
+                      style="cursor: pointer;"
+                      phx-click={
+                        if @projects != [] and MapSet.size(@selected_paths) == length(@projects),
+                          do: "deselect_all",
+                          else: "select_all"
+                      }
+                      checked={
+                        @projects != [] and MapSet.size(@selected_paths) == length(@projects)
+                      }
+                    />
+                  </th>
+                  <th style="padding: 8px 16px; text-align: left; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Project</th>
+                  <th style="padding: 8px 16px; text-align: left; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Stack</th>
+                  <th style="padding: 8px 16px; text-align: center; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Hooks</th>
+                  <th style="padding: 8px 16px; text-align: center; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Memory</th>
+                  <th style="padding: 8px 16px; text-align: center; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Config</th>
+                  <th style="padding: 8px 16px; text-align: right; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  :for={run <- @runs}
-                  class="border-b border-base-300/50 hover:bg-base-200/50"
+                  :for={{proj, index} <- Enum.with_index(@projects)}
+                  data-row-index={index}
+                  phx-click="toggle_row"
+                  phx-value-path={proj.path}
+                  style={[
+                    "border-bottom: 1px solid var(--ccem-border); cursor: pointer; transition: background 0.1s;",
+                    if(MapSet.member?(@selected_paths, proj.path),
+                      do: "background: rgba(var(--ccem-accent-rgb, 99,102,241), 0.06);",
+                      else: "")
+                  ]}
                 >
-                  <td class="py-3 pr-4 font-medium text-base-content">{run.action_type}</td>
-                  <td class="py-3 pr-4 text-base-content/60 max-w-xs truncate font-mono text-xs">
-                    {Path.basename(run.project_path)}
+                  <td style="padding: 10px 12px;" data-no-select="true">
+                    <input
+                      type="checkbox"
+                      style="pointer-events: none;"
+                      checked={MapSet.member?(@selected_paths, proj.path)}
+                      readonly
+                    />
                   </td>
-                  <td class="py-3 pr-4">
-                    <span class={run_status_class(run.status)}>{run.status}</span>
+                  <td style="padding: 10px 16px;">
+                    <div style="font-weight: 500; color: var(--ccem-fg);">{proj.name}</div>
+                    <div style="font-size: 10px; color: var(--ccem-fg-subtle); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px;">{proj.path}</div>
                   </td>
-                  <td class="py-3 pr-4 text-base-content/40 text-xs">{run.started_at}</td>
-                  <td class="py-3 pr-4 text-base-content/60">
-                    {format_duration(run.started_at, run.completed_at)}
+                  <td style="padding: 10px 16px; font-size: 12px; color: var(--ccem-fg-muted);">{format_stack(proj.stack)}</td>
+                  <td style="padding: 10px 16px; text-align: center;">
+                    <.status_cell value={proj[:has_hooks] || false} />
                   </td>
-                  <td class="py-3">
-                    <button phx-click="view_result" phx-value-id={run.id} class="btn btn-ghost btn-xs">
-                      View
-                    </button>
+                  <td style="padding: 10px 16px; text-align: center;">
+                    <.status_cell value={proj[:has_memory_pointer] || false} />
+                  </td>
+                  <td style="padding: 10px 16px; text-align: center;">
+                    <.status_cell value={proj[:has_apm_config] || false} />
+                  </td>
+                  <td style="padding: 10px 16px;" data-no-select="true">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                      <.btn
+                        :for={action <- @catalog}
+                        variant="ghost"
+                        size="xs"
+                        phx-click="open_run_modal"
+                        phx-value-action={action.id}
+                        phx-value-path={proj.path}
+                        title={action.name}
+                      >
+                        <.icon name={action_icon(action.id)} class="size-3.5" />
+                      </.btn>
+                    </div>
                   </td>
                 </tr>
               </tbody>
             </table>
-          </div>
-
+          </.card>
         </div>
-      </div>
-    </div>
 
-    <%!-- Bulk Action Toolbar — fixed bottom bar, visible when rows are selected --%>
+        <%!-- Action Catalog --%>
+        <div style="margin-bottom: 24px;">
+          <h3 style="font-size: 11px; font-weight: 600; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px 0;">Action Catalog</h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+            <.card :for={action <- @catalog} style="padding: 16px;">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
+                <div>
+                  <.badge tone={category_tone(action.category)} square={true}><%= action.category %></.badge>
+                  <div style="font-weight: 500; color: var(--ccem-fg); margin-top: 4px;">{action.name}</div>
+                </div>
+              </div>
+              <p style="font-size: 12px; color: var(--ccem-fg-muted); margin: 0 0 12px 0;">{action.description}</p>
+              <.btn variant="primary" size="sm" phx-click="open_run_modal" phx-value-action={action.id} style="width: 100%;">
+                Run
+              </.btn>
+            </.card>
+          </div>
+        </div>
+
+        <%!-- Recent Runs --%>
+        <div style="padding-bottom: 80px;">
+          <h3 style="font-size: 11px; font-weight: 600; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px 0;">Recent Runs</h3>
+          <div :if={@runs == []} style="font-size: 13px; color: var(--ccem-fg-muted);">
+            No runs yet. Run an action above to get started.
+          </div>
+          <.card :if={@runs != []} padded={false}>
+            <.data_table id="runs-table" rows={@runs}>
+              <:col :let={row} label="Action"><%= row[:action_type] %></:col>
+              <:col :let={row} label="Project"><span style="font-family: monospace; font-size: 11px; color: var(--ccem-fg-muted);"><%= Path.basename(row[:project_path] || "") %></span></:col>
+              <:col :let={row} label="Status"><.badge tone={run_status_tone(row[:status])}><%= row[:status] %></.badge></:col>
+              <:col :let={row} label="Started"><span style="font-size: 11px; color: var(--ccem-fg-subtle);"><%= row[:started_at] %></span></:col>
+              <:col :let={row} label="Duration"><span style="color: var(--ccem-fg-muted);"><%= format_duration(row[:started_at], row[:completed_at]) %></span></:col>
+              <:col :let={row} label="Result">
+                <.btn variant="ghost" size="xs" phx-click="view_result" phx-value-id={row[:id]}>View</.btn>
+              </:col>
+            </.data_table>
+          </.card>
+        </div>
+      </:main>
+    </.page_layout>
+
+    <%!-- Bulk Action Toolbar --%>
     <div
       :if={MapSet.size(@selected_paths) > 0}
-      class="fixed bottom-0 inset-x-0 bg-base-200 border-t border-primary/30 px-6 py-3 flex items-center gap-3 z-40 shadow-xl"
+      style="position: fixed; bottom: 0; left: 0; right: 0; background: var(--ccem-surface-1); border-top: 1px solid var(--ccem-accent-border, rgba(99,102,241,0.3)); padding: 12px 24px; display: flex; align-items: center; gap: 12px; z-index: 40; box-shadow: 0 -4px 16px rgba(0,0,0,0.2);"
     >
-      <span class="text-sm font-medium text-base-content/70 tabular-nums">
+      <span style="font-size: 13px; font-weight: 500; color: var(--ccem-fg-muted);">
         {MapSet.size(@selected_paths)} selected
       </span>
-      <div class="w-px h-5 bg-base-300" />
-      <button
-        phx-click="run_bulk_action"
-        phx-value-action="update_hooks"
-        class="btn btn-sm btn-outline gap-1.5"
-      >
-        <.icon name="hero-code-bracket" class="size-3.5" />
-        Update Hooks
-      </button>
-      <button
-        phx-click="run_bulk_action"
-        phx-value-action="add_memory_pointer"
-        class="btn btn-sm btn-outline gap-1.5"
-      >
-        <.icon name="hero-bookmark" class="size-3.5" />
-        Add Memory
-      </button>
-      <button
-        phx-click="run_bulk_action"
-        phx-value-action="backfill_apm_config"
-        class="btn btn-sm btn-outline gap-1.5"
-      >
-        <.icon name="hero-cog-6-tooth" class="size-3.5" />
-        Backfill Config
-      </button>
-      <button
-        phx-click="run_bulk_action"
-        phx-value-action="analyze_project"
-        class="btn btn-sm btn-outline gap-1.5"
-      >
-        <.icon name="hero-magnifying-glass" class="size-3.5" />
-        Analyze
-      </button>
-      <div class="flex-1" />
-      <button
-        phx-click="deselect_all"
-        class="btn btn-ghost btn-sm text-base-content/40 gap-1.5"
-      >
-        <.icon name="hero-x-mark" class="size-3.5" />
-        Clear
-      </button>
+      <div style="width: 1px; height: 20px; background: var(--ccem-border);"></div>
+      <.btn variant="secondary" size="sm" phx-click="run_bulk_action" phx-value-action="update_hooks">
+        <.icon name="hero-code-bracket" class="size-3.5" /> Update Hooks
+      </.btn>
+      <.btn variant="secondary" size="sm" phx-click="run_bulk_action" phx-value-action="add_memory_pointer">
+        <.icon name="hero-bookmark" class="size-3.5" /> Add Memory
+      </.btn>
+      <.btn variant="secondary" size="sm" phx-click="run_bulk_action" phx-value-action="backfill_apm_config">
+        <.icon name="hero-cog-6-tooth" class="size-3.5" /> Backfill Config
+      </.btn>
+      <.btn variant="secondary" size="sm" phx-click="run_bulk_action" phx-value-action="analyze_project">
+        <.icon name="hero-magnifying-glass" class="size-3.5" /> Analyze
+      </.btn>
+      <div style="flex: 1;"></div>
+      <.btn variant="ghost" size="sm" phx-click="deselect_all">
+        <.icon name="hero-x-mark" class="size-3.5" /> Clear
+      </.btn>
     </div>
 
     <%!-- Run Action Modal --%>
     <div
       :if={@show_modal and @selected_action}
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50;"
     >
-      <div class="bg-base-200 rounded-xl border border-base-300 w-2/3 max-w-2xl flex flex-col max-h-[72vh]">
-        <%!-- Modal header --%>
-        <div class="flex items-start justify-between px-5 py-4 border-b border-base-300 flex-shrink-0">
+      <div style="background: var(--ccem-surface-1); border: 1px solid var(--ccem-border); border-radius: 12px; width: 66%; max-width: 640px; display: flex; flex-direction: column; max-height: 72vh;">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--ccem-border); flex-shrink: 0;">
           <div>
-            <h3 class="text-sm font-semibold text-base-content">{@selected_action.name}</h3>
-            <p class="text-xs text-base-content/50 mt-0.5">{@selected_action.description}</p>
+            <div style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">{@selected_action.name}</div>
+            <div style="font-size: 12px; color: var(--ccem-fg-muted); margin-top: 2px;">{@selected_action.description}</div>
           </div>
-          <button phx-click="close_modal" class="btn btn-ghost btn-xs btn-circle ml-4 flex-shrink-0">
+          <.btn variant="ghost" size="xs" phx-click="close_modal" style="margin-left: 16px; flex-shrink: 0;">
             <.icon name="hero-x-mark" class="size-3" />
-          </button>
+          </.btn>
         </div>
 
-        <%!-- Project picker list --%>
-        <div class="flex flex-col min-h-0 flex-1">
-          <div class="px-5 py-2 flex-shrink-0">
-            <span class="text-xs font-medium text-base-content/50 uppercase tracking-wider">
-              Select a project
-            </span>
+        <div style="display: flex; flex-direction: column; min-height: 0; flex: 1;">
+          <div style="padding: 8px 20px; flex-shrink: 0;">
+            <span style="font-size: 11px; font-weight: 500; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em;">Select a project</span>
           </div>
 
-          <div :if={@projects == []} class="px-5 pb-3 text-xs text-base-content/40">
+          <div :if={@projects == []} style="padding: 12px 20px; font-size: 12px; color: var(--ccem-fg-muted);">
             No projects found. Use the path input below or
-            <button phx-click="scan_projects" class="link link-primary">scan</button>
+            <button phx-click="scan_projects" style="color: var(--ccem-accent); background: none; border: none; cursor: pointer; padding: 0;">scan</button>
             first.
           </div>
 
-          <div :if={@projects != []} class="overflow-y-auto flex-1 min-h-0 border-b border-base-300">
+          <div :if={@projects != []} style="overflow-y: auto; flex: 1; min-height: 0; border-bottom: 1px solid var(--ccem-border);">
             <button
               :for={proj <- @projects}
               phx-click="select_project"
               phx-value-path={proj.path}
-              class={[
-                "w-full flex items-center gap-3 px-5 py-2.5 text-left hover:bg-base-300/40 transition-colors border-b border-base-300/40 last:border-0",
-                @project_path == proj.path && "bg-primary/10"
+              style={[
+                "width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 20px; text-align: left; border-bottom: 1px solid rgba(var(--ccem-border-rgb,255,255,255),0.06); cursor: pointer; background: none; border-left: none; border-right: none; transition: background 0.1s;",
+                if(@project_path == proj.path, do: "background: rgba(var(--ccem-accent-rgb, 99,102,241), 0.08);", else: "")
               ]}
             >
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-base-content truncate">{proj.name}</div>
-                <div class="text-[10px] text-base-content/40 font-mono truncate">{proj.path}</div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 13px; font-weight: 500; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{proj.name}</div>
+                <div style="font-size: 10px; color: var(--ccem-fg-subtle); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{proj.path}</div>
               </div>
-              <span class={[
-                "badge badge-xs flex-shrink-0",
-                action_applied?(proj, @selected_action.id) && "badge-success" || "badge-ghost opacity-60"
-              ]}>
+              <.badge tone={if action_applied?(proj, @selected_action.id), do: "ok", else: "neutral"} square={true}>
                 {if action_applied?(proj, @selected_action.id), do: "applied", else: "pending"}
-              </span>
-              <.icon
-                :if={@project_path == proj.path}
-                name="hero-check"
-                class="size-4 text-primary flex-shrink-0"
-              />
+              </.badge>
+              <.icon :if={@project_path == proj.path} name="hero-check" class="size-4" style="color: var(--ccem-accent); flex-shrink: 0;" />
             </button>
           </div>
         </div>
 
-        <%!-- Path input and submit --%>
-        <form phx-submit="run_action" class="px-5 py-4 space-y-3 flex-shrink-0">
+        <form phx-submit="run_action" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; flex-shrink: 0;">
           <div>
-            <label class="text-xs text-base-content/50 block mb-1.5">
+            <label style="font-size: 12px; color: var(--ccem-fg-muted); display: block; margin-bottom: 6px;">
               Project path (pre-filled from selection above, or type manually)
             </label>
-            <input
-              type="text"
-              name="project_path"
-              value={@project_path}
-              phx-change="update_path"
-              placeholder="~/Developer/my-project"
-              class="input input-bordered input-sm w-full bg-base-100"
-            />
+            <.ds_input type="text" name="project_path" value={@project_path} phx-change="update_path" placeholder="~/Developer/my-project" />
           </div>
-          <div class="flex justify-end gap-2">
-            <button type="button" phx-click="close_modal" class="btn btn-ghost btn-sm">Cancel</button>
-            <button
-              type="submit"
-              class="btn btn-primary btn-sm"
-              disabled={String.trim(@project_path) == ""}
-            >
-              Run Action
-            </button>
+          <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <.btn variant="ghost" size="sm" phx-click="close_modal" type="button">Cancel</.btn>
+            <.btn variant="primary" size="sm" type="submit" disabled={String.trim(@project_path) == ""}>Run Action</.btn>
           </div>
         </form>
       </div>
@@ -585,27 +495,23 @@ defmodule ApmV5Web.ActionsLive do
     <%!-- Result Modal --%>
     <div
       :if={@selected_run}
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50;"
     >
-      <div class="bg-base-200 rounded-xl border border-base-300 w-2/3 max-h-[60vh] flex flex-col">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-300 flex-shrink-0">
-          <h3 class="text-sm font-semibold text-base-content">
+      <div style="background: var(--ccem-surface-1); border: 1px solid var(--ccem-border); border-radius: 12px; width: 66%; max-height: 60vh; display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--ccem-border); flex-shrink: 0;">
+          <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
             {@selected_run.action_type} — {Path.basename(@selected_run.project_path)}
-          </h3>
-          <button phx-click="close_modal" class="btn btn-ghost btn-xs btn-circle">
+          </span>
+          <.btn variant="ghost" size="xs" phx-click="close_modal">
             <.icon name="hero-x-mark" class="size-3" />
-          </button>
+          </.btn>
         </div>
-        <div class="p-4 overflow-auto flex-1">
-          <p :if={@selected_run.error} class="text-error text-sm">{@selected_run.error}</p>
-          <pre
-            :if={!@selected_run.error}
-            class="text-xs text-success whitespace-pre-wrap"
-          >{inspect(@selected_run.result, pretty: true)}</pre>
+        <div style="padding: 16px; overflow: auto; flex: 1;">
+          <p :if={@selected_run.error} style="color: var(--ccem-err, #ef4444); font-size: 13px;">{@selected_run.error}</p>
+          <pre :if={!@selected_run.error} style="font-size: 11px; color: var(--ccem-ok, #22c55e); white-space: pre-wrap;">{inspect(@selected_run.result, pretty: true)}</pre>
         </div>
       </div>
     </div>
-    <.wizard page="actions" />
     """
   end
 
@@ -656,16 +562,16 @@ defmodule ApmV5Web.ActionsLive do
   defp format_stack(stack) when is_binary(stack), do: stack
   defp format_stack(_), do: "—"
 
-  defp run_status_class("completed"), do: "badge badge-xs badge-success"
-  defp run_status_class("failed"), do: "badge badge-xs badge-error"
-  defp run_status_class("running"), do: "badge badge-xs badge-info"
-  defp run_status_class(_), do: "badge badge-xs badge-ghost"
+  defp run_status_tone("completed"), do: "ok"
+  defp run_status_tone("failed"), do: "err"
+  defp run_status_tone("running"), do: "info"
+  defp run_status_tone(_), do: "neutral"
 
-  defp category_color("hooks"), do: "text-yellow-400"
-  defp category_color("memory"), do: "text-blue-400"
-  defp category_color("config"), do: "text-green-400"
-  defp category_color("analysis"), do: "text-purple-400"
-  defp category_color(_), do: "text-base-content/40"
+  defp category_tone("hooks"), do: "warn"
+  defp category_tone("memory"), do: "iris"
+  defp category_tone("config"), do: "ok"
+  defp category_tone("analysis"), do: "accent"
+  defp category_tone(_), do: "neutral"
 
   defp format_duration(nil, _), do: "—"
   defp format_duration(_, nil), do: "running"

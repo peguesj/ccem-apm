@@ -34,16 +34,19 @@ defmodule ApmV5Web.PortsLive do
     clashes = ApmV5.PortManager.detect_clashes()
     ranges = ApmV5.PortManager.get_port_ranges()
 
-    {:ok,
-     socket
-     |> assign(:page_title, "Ports")
-     |> assign(:port_map, port_map)
-     |> assign(:clashes, clashes)
-     |> assign(:port_ranges, ranges)
-     |> assign(:status_filter, "all")
-     |> assign(:namespace_filter, "all")
-     |> assign_derived(port_map, clashes
-     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
+    socket =
+      socket
+      |> assign(:page_title, "Ports")
+      |> assign(:port_map, port_map)
+      |> assign(:clashes, clashes)
+      |> assign(:port_ranges, ranges)
+      |> assign(:status_filter, "all")
+      |> assign(:namespace_filter, "all")
+      |> assign(:sidebar_collapsed, false)
+      |> assign(:inspector_open, false)
+      |> assign_derived(port_map, clashes)
+
+    {:ok, ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data(socket)}
   end
 
   @impl true
@@ -79,6 +82,14 @@ defmodule ApmV5Web.PortsLive do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "No available port")}
     end
+  end
+
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, sidebar_collapsed: !socket.assigns.sidebar_collapsed)}
+  end
+
+  def handle_event("toggle_inspector", _params, socket) do
+    {:noreply, assign(socket, inspector_open: !socket.assigns.inspector_open)}
   end
 
   @impl true
@@ -143,122 +154,118 @@ defmodule ApmV5Web.PortsLive do
 
   # --- Helpers ---
 
-  defp ns_color("web"), do: "bg-blue-500/20 text-blue-400 border-blue-500/30"
-  defp ns_color("api"), do: "bg-purple-500/20 text-purple-400 border-purple-500/30"
-  defp ns_color("service"), do: "bg-amber-500/20 text-amber-400 border-amber-500/30"
-  defp ns_color("tool"), do: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-  defp ns_color(_), do: "bg-base-content/10 text-base-content/60 border-base-content/20"
-
-  defp range_color(:web), do: "bg-blue-500"
-  defp range_color(:api), do: "bg-purple-500"
-  defp range_color(:service), do: "bg-amber-500"
-  defp range_color(:tool), do: "bg-emerald-500"
-  defp range_color(_), do: "bg-base-content/30"
+  defp ns_tone("web"), do: "iris"
+  defp ns_tone("api"), do: "accent"
+  defp ns_tone("service"), do: "warn"
+  defp ns_tone("tool"), do: "ok"
+  defp ns_tone(_), do: "neutral"
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <%!-- Sidebar --%>
-      <.sidebar_nav current_path="/ports" />
-
-      <%!-- Main content --%>
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Top bar --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Port Manager</h2>
-            <div class="badge badge-sm badge-ghost"><%= @total %> projects</div>
-            <div class="badge badge-sm badge-success"><%= @active_count %> active</div>
-            <div :if={@clash_count > 0} class="badge badge-sm badge-error"><%= @clash_count %> clashes</div>
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar><.sidebar_nav current_path="/ports" /></:sidebar>
+      <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+      <:main>
+        <%!-- Page header --%>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Port Manager</h1>
+            <.badge tone="neutral"><%= to_string(@total) %> projects</.badge>
+            <.badge tone="ok"><%= to_string(@active_count) %> active</.badge>
+            <.badge :if={@clash_count > 0} tone="err"><%= to_string(@clash_count) %> clashes</.badge>
           </div>
-          <button phx-click="scan_ports" class="btn btn-primary btn-xs">
-            <.icon name="hero-magnifying-glass" class="size-3" /> Scan Ports
-          </button>
-        </header>
+          <.btn variant="primary" size="sm" phx-click="scan_ports">Scan Ports</.btn>
+        </div>
 
-        <%!-- Content --%>
-        <div class="flex-1 overflow-y-auto p-4 space-y-4">
-          <%!-- Filters --%>
-          <div class="flex items-center gap-4 bg-base-200 rounded-xl border border-base-300 p-3">
-            <span class="text-xs text-base-content/50 uppercase tracking-wider">Status</span>
-            <div class="flex gap-1">
-              <button :for={s <- ["all", "active", "clashes"]} phx-click="filter" phx-value-status={s}
-                class={["btn btn-xs", if(@status_filter == s, do: "btn-primary", else: "btn-ghost")]}>
-                <%= String.capitalize(s) %>
-              </button>
+        <%!-- Stat tiles --%>
+        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Total Projects" value={to_string(@total)} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Active" value={to_string(@active_count)} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Clashes" value={to_string(@clash_count)} />
+          </.card>
+        </div>
+
+        <%!-- Filters --%>
+        <.card style="margin-bottom: 16px; padding: 12px 16px;">
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 11px; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em;">Status</span>
+              <.segmented_control options={["all", "active", "clashes"]} active={@status_filter} on_change="filter" />
             </div>
-            <div class="w-px h-4 bg-base-300"></div>
-            <span class="text-xs text-base-content/50 uppercase tracking-wider">Namespace</span>
-            <div class="flex gap-1">
-              <button :for={ns <- ["all", "web", "api", "service", "tool"]} phx-click="namespace_filter" phx-value-namespace={ns}
-                class={["btn btn-xs", if(@namespace_filter == ns, do: "btn-primary", else: "btn-ghost")]}>
-                <%= String.capitalize(ns) %>
-              </button>
+            <div style="width: 1px; height: 20px; background: var(--ccem-border);"></div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 11px; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em;">Namespace</span>
+              <.segmented_control options={["all", "web", "api", "service", "tool"]} active={@namespace_filter} on_change="namespace_filter" />
             </div>
           </div>
+        </.card>
 
-          <%!-- Projects + Port Ranges --%>
-          <div class="flex gap-4">
-            <div class="flex-1">
-              <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <div :for={p <- @filtered} class="bg-base-200 rounded-xl border border-base-300 p-4 hover:border-primary/30 transition-colors">
-                  <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-base-content truncate"><%= p.name %></h3>
-                    <span class={"px-2 py-0.5 rounded text-[10px] font-medium border #{ns_color(to_string(p.namespace))}"}>
-                      <%= p.namespace %>
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-3 mb-3">
-                    <span class="text-3xl font-mono font-bold text-base-content">:<%= p.port %></span>
-                    <span class={["w-2.5 h-2.5 rounded-full", if(p.active, do: "bg-success", else: "bg-base-content/20")]}></span>
-                  </div>
-                  <div :if={MapSet.member?(@clash_ports, p.name)} class="p-2 rounded bg-error/10 border border-error/20">
-                    <span class="text-xs text-error">Port clash</span>
-                    <button phx-click="assign_port" phx-value-project={p.name} class="ml-2 btn btn-xs btn-error">
-                      Reassign
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div :if={@filtered == []} class="text-center py-12 text-base-content/30">No projects match filters</div>
+        <%!-- Projects grid + Port Ranges side panel --%>
+        <div style="display: flex; gap: 16px;">
+          <div style="flex: 1; min-width: 0;">
+            <div :if={@filtered == []} style="text-align: center; padding: 48px 0; color: var(--ccem-fg-muted);">
+              No projects match filters
             </div>
-
-            <div class="w-64 shrink-0">
-              <div class="bg-base-200 rounded-xl border border-base-300 p-4">
-                <h3 class="text-sm font-semibold text-base-content/80 mb-4">Port Ranges</h3>
-                <div class="space-y-3">
-                  <div :for={{ns, range} <- @port_ranges} class="space-y-1">
-                    <div class="flex items-center justify-between text-xs">
-                      <span class="text-base-content/60 capitalize"><%= ns %></span>
-                      <span class="text-base-content/40 font-mono"><%= range.first %>-<%= range.last %></span>
-                    </div>
-                    <div class="h-2 bg-base-300 rounded-full overflow-hidden">
-                      <div class={["h-full rounded-full", range_color(ns)]} style={"width: #{min(Range.size(range) / 70, 100)}%"}></div>
-                    </div>
-                  </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">
+              <.card :for={p <- @filtered} style="padding: 16px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                  <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= p.name %></span>
+                  <.badge tone={ns_tone(to_string(p.namespace))} square={true}><%= p.namespace %></.badge>
                 </div>
-              </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                  <span style="font-size: 24px; font-family: monospace; font-weight: 700; color: var(--ccem-fg);">:<%= p.port %></span>
+                  <.badge tone={if p.active, do: "ok", else: "neutral"} dot={true}><%= if p.active, do: "active", else: "inactive" %></.badge>
+                </div>
+                <div :if={MapSet.member?(@clash_ports, p.name)} style="padding: 8px; border-radius: 6px; background: var(--ccem-err-bg, rgba(239,68,68,0.08)); border: 1px solid var(--ccem-err-border, rgba(239,68,68,0.2)); display: flex; align-items: center; justify-content: space-between;">
+                  <.badge tone="err">Port clash</.badge>
+                  <.btn variant="destructive" size="xs" phx-click="assign_port" phx-value-project={p.name}>Reassign</.btn>
+                </div>
+              </.card>
             </div>
           </div>
 
-          <%!-- Clash resolution --%>
-          <div :if={@clash_count > 0} class="bg-error/5 rounded-xl border border-error/20 p-4">
-            <h3 class="text-sm font-semibold text-error mb-3">Clash Resolution</h3>
-            <div class="space-y-2">
-              <div :for={clash <- @clashes} class="flex items-center justify-between p-3 bg-base-200 rounded-lg border border-base-300">
-                <div class="text-sm">
-                  <span class="text-base-content/60">Port</span>
-                  <span class="font-mono font-bold text-base-content mx-2"><%= clash.port %></span>
-                  <span class="text-error"><%= Enum.join(clash.projects, ", ") %></span>
+          <%!-- Port Ranges panel --%>
+          <div style="width: 240px; flex-shrink: 0;">
+            <.card style="padding: 16px;">
+              <h3 style="font-size: 12px; font-weight: 600; color: var(--ccem-fg-muted); margin: 0 0 16px 0;">Port Ranges</h3>
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div :for={{ns, range} <- @port_ranges} style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                    <span style="color: var(--ccem-fg-muted); text-transform: capitalize;"><%= ns %></span>
+                    <span style="color: var(--ccem-fg-subtle); font-family: monospace;"><%= range.first %>-<%= range.last %></span>
+                  </div>
+                  <div style="height: 6px; background: var(--ccem-surface-2); border-radius: 3px; overflow: hidden;">
+                    <div style={"height: 100%; border-radius: 3px; background: var(--ccem-accent); width: #{min(trunc(Range.size(range) / 70 * 100), 100)}%;"}></div>
+                  </div>
                 </div>
               </div>
-            </div>
+            </.card>
           </div>
         </div>
-      </div>
-    </div>
-    <.wizard page="ports" />
+
+        <%!-- Clash resolution --%>
+        <div :if={@clash_count > 0} style="margin-top: 16px;">
+          <.card style="border-color: var(--ccem-err-border, rgba(239,68,68,0.3)); padding: 16px;">
+            <h3 style="font-size: 13px; font-weight: 600; color: var(--ccem-err, #ef4444); margin: 0 0 12px 0;">Clash Resolution</h3>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div :for={clash <- @clashes} style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--ccem-surface-1); border-radius: 6px; border: 1px solid var(--ccem-border);">
+                <div style="font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                  <span style="color: var(--ccem-fg-muted);">Port</span>
+                  <span style="font-family: monospace; font-weight: 700; color: var(--ccem-fg);"><%= clash.port %></span>
+                  <.badge tone="err"><%= Enum.join(clash.projects, ", ") %></.badge>
+                </div>
+              </div>
+            </div>
+          </.card>
+        </div>
+      </:main>
+    </.page_layout>
     """
   end
 end

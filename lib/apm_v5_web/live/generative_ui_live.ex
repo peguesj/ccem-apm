@@ -31,8 +31,10 @@ defmodule ApmV5Web.GenerativeUILive do
      socket
      |> assign(:page_title, "Generative UI")
      |> assign(:components, components)
-     |> assign(:agent_filter, nil
-     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
+     |> assign(:agent_filter, nil)
+     |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
@@ -52,8 +54,11 @@ defmodule ApmV5Web.GenerativeUILive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/generative-ui" />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/generative-ui" />
+      </:sidebar>
+      <:main>
 
       <div class="flex-1 flex flex-col overflow-hidden">
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
@@ -85,8 +90,9 @@ defmodule ApmV5Web.GenerativeUILive do
           </div>
         </div>
       </div>
-    </div>
     <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-genui" />
+      </:main>
+    </.page_layout>
     """
   end
 

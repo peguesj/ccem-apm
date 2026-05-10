@@ -1,0 +1,210 @@
+/* claude-design: CCEM-APM-Design-v1.0 — ingested 2026-05-04T13:07:32Z */
+/* Source: CCEM APM — Design System + Wireframes — DO NOT EDIT MANUALLY, regenerate via /claude-design */
+
+/* ============================================================
+   CCEM APM — Design Tokens
+   Aesthetic: AI-native, refined (Linear × Vercel × Bloomberg)
+   Base: dark-primary, monochrome with signature lime accent
+   ============================================================ */
+
+:root {
+  /* ── Canvas / Surface ── */
+  --ccem-bg-0:         oklch(0.145 0.012 255);   /* app background */
+  --ccem-bg-1:         oklch(0.175 0.014 255);   /* card / panel  */
+  --ccem-bg-2:         oklch(0.205 0.016 255);   /* raised / hover */
+  --ccem-bg-3:         oklch(0.235 0.017 255);   /* input / border hover */
+  --ccem-bg-inverse:   oklch(0.98  0.004 255);   /* light surface */
+
+  /* ── Borders / Hairlines ── */
+  --ccem-line-subtle:  oklch(0.26 0.015 255 / 0.5);
+  --ccem-line:         oklch(0.30 0.018 255 / 0.8);
+  --ccem-line-strong:  oklch(0.36 0.02  255);
+  --ccem-line-accent:  oklch(0.86 0.18 140 / 0.35);
+
+  /* ── Text ── */
+  --ccem-fg:           oklch(0.97 0.005 255);
+  --ccem-fg-muted:     oklch(0.78 0.012 255);
+  --ccem-fg-dim:       oklch(0.58 0.013 255);
+  --ccem-fg-faint:     oklch(0.44 0.012 255);
+  --ccem-fg-inverse:   oklch(0.17 0.015 255);
+
+  /* ── Brand / Signature Accent ── */
+  --ccem-accent:       oklch(0.86 0.18 140);    /* signature lime */
+  --ccem-accent-dim:   oklch(0.72 0.15 140);
+  --ccem-accent-soft:  oklch(0.86 0.18 140 / 0.12);
+  --ccem-accent-glow:  oklch(0.86 0.18 140 / 0.35);
+
+  /* Secondary — electric indigo (used sparingly) */
+  --ccem-iris:         oklch(0.68 0.19 280);
+  --ccem-iris-soft:    oklch(0.68 0.19 280 / 0.16);
+
+  /* ── Status / Semantic ── */
+  --ccem-ok:           oklch(0.82 0.18 150);
+  --ccem-ok-soft:      oklch(0.82 0.18 150 / 0.14);
+  --ccem-warn:         oklch(0.82 0.16 85);
+  --ccem-warn-soft:    oklch(0.82 0.16 85  / 0.14);
+  --ccem-err:          oklch(0.70 0.22 25);
+  --ccem-err-soft:     oklch(0.70 0.22 25  / 0.14);
+  --ccem-info:         oklch(0.78 0.14 230);
+  --ccem-info-soft:    oklch(0.78 0.14 230 / 0.14);
+
+  /* Live / pulse */
+  --ccem-live:         oklch(0.86 0.18 140);
+  --ccem-live-glow:    oklch(0.86 0.22 140 / 0.6);
+
+  /* ── Typography ── */
+  --ccem-font-sans:    'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --ccem-font-mono:    'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ccem-font-display: 'Geist', 'Inter', sans-serif;
+
+  /* Scale (compact/dense) */
+  --ccem-t-2xs:  10px;
+  --ccem-t-xs:   11px;
+  --ccem-t-sm:   12px;
+  --ccem-t-base: 13px;
+  --ccem-t-md:   14px;
+  --ccem-t-lg:   16px;
+  --ccem-t-xl:   20px;
+  --ccem-t-2xl:  28px;
+  --ccem-t-3xl:  36px;
+  --ccem-t-4xl:  48px;
+  --ccem-t-5xl:  64px;
+
+  /* ── Spacing (4pt) ── */
+  --ccem-s-0: 0;
+  --ccem-s-1: 4px;
+  --ccem-s-2: 8px;
+  --ccem-s-3: 12px;
+  --ccem-s-4: 16px;
+  --ccem-s-5: 20px;
+  --ccem-s-6: 24px;
+  --ccem-s-8: 32px;
+  --ccem-s-10: 40px;
+  --ccem-s-12: 48px;
+  --ccem-s-16: 64px;
+
+  /* ── Radius ── */
+  --ccem-r-xs:  3px;
+  --ccem-r-sm:  5px;
+  --ccem-r-md:  7px;
+  --ccem-r-lg:  10px;
+  --ccem-r-xl:  14px;
+  --ccem-r-2xl: 20px;
+  --ccem-r-full: 999px;
+
+  /* ── Shadows ── */
+  --ccem-shadow-xs: 0 1px 0 0 rgba(0,0,0,0.25), inset 0 1px 0 0 rgba(255,255,255,0.02);
+  --ccem-shadow-sm: 0 2px 6px -2px rgba(0,0,0,0.4);
+  --ccem-shadow-md: 0 8px 24px -8px rgba(0,0,0,0.5);
+  --ccem-shadow-lg: 0 24px 64px -16px rgba(0,0,0,0.6);
+  --ccem-shadow-glow: 0 0 0 1px var(--ccem-accent-glow), 0 0 24px -4px var(--ccem-accent-glow);
+
+  /* ── Motion ── */
+  --ccem-ease-out:     cubic-bezier(0.22, 1, 0.36, 1);
+  --ccem-ease-in-out:  cubic-bezier(0.65, 0, 0.35, 1);
+  --ccem-dur-fast:     120ms;
+  --ccem-dur-base:     200ms;
+  --ccem-dur-slow:     400ms;
+  --ccem-dur-deliberate: 700ms;
+}
+
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--ccem-font-sans);
+  font-size: var(--ccem-t-base);
+  color: var(--ccem-fg);
+  background: var(--ccem-bg-0);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'ss01', 'cv11';
+}
+
+/* ── Utility primitives ── */
+.ccem-mono { font-family: var(--ccem-font-mono); font-feature-settings: 'zero', 'ss01'; }
+.ccem-tabular { font-variant-numeric: tabular-nums; }
+.ccem-uppercase { text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* Dot-grid background, refined */
+.ccem-grid-bg {
+  background-color: var(--ccem-bg-0);
+  background-image:
+    radial-gradient(circle at 1px 1px, oklch(0.32 0.02 255 / 0.35) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+/* Noise overlay — organic texture, barely visible */
+.ccem-noise::before {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.03 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+}
+
+/* Scanline — for "LIVE" data surfaces */
+@keyframes ccem-scan {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+.ccem-scanline { position: relative; overflow: hidden; }
+.ccem-scanline::after {
+  content: "";
+  position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ccem-accent-glow), transparent);
+  animation: ccem-scan 3.2s linear infinite;
+}
+
+/* Pulse */
+@keyframes ccem-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.95); }
+}
+.ccem-pulse { animation: ccem-pulse 2.2s var(--ccem-ease-in-out) infinite; }
+
+/* Shimmer skeleton — used by AI loading states */
+@keyframes ccem-shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+.ccem-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--ccem-bg-1) 0%,
+    var(--ccem-bg-2) 30%,
+    oklch(0.28 0.02 255) 50%,
+    var(--ccem-bg-2) 70%,
+    var(--ccem-bg-1) 100%);
+  background-size: 200% 100%;
+  animation: ccem-shimmer 1.8s var(--ccem-ease-in-out) infinite;
+}
+
+/* Streaming caret */
+@keyframes ccem-caret {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0; }
+}
+.ccem-caret {
+  display: inline-block;
+  width: 7px; height: 1em;
+  vertical-align: -2px;
+  background: var(--ccem-accent);
+  margin-left: 3px;
+  animation: ccem-caret 1s steps(2, end) infinite;
+}
+
+/* Focus ring */
+.ccem-focus:focus-visible {
+  outline: 2px solid var(--ccem-accent);
+  outline-offset: 2px;
+}
+
+/* Scrollbar styling */
+.ccem-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.ccem-scroll::-webkit-scrollbar-track { background: transparent; }
+.ccem-scroll::-webkit-scrollbar-thumb {
+  background: var(--ccem-line); border-radius: 8px; border: 2px solid var(--ccem-bg-0);
+}
+.ccem-scroll::-webkit-scrollbar-thumb:hover { background: var(--ccem-line-strong); }

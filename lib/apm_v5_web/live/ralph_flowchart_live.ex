@@ -61,14 +61,19 @@ defmodule ApmV5Web.RalphFlowchartLive do
       |> assign(:selected_step, nil)
       |> push_flowchart_data(steps, edges, length(steps))
 
-    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok, socket |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/ralph" skill_count={@active_skill_count} />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/ralph" skill_count={@active_skill_count} />
+      </:sidebar>
+      <:main>
 
       <%!-- Main content --%>
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -171,8 +176,9 @@ defmodule ApmV5Web.RalphFlowchartLive do
           </div>
         </div>
       </div>
-    </div>
     <.wizard page="upm" dom_id="ccem-wizard-upm-ralph" />
+      </:main>
+    </.page_layout>
     """
   end
 

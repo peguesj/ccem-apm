@@ -26,6 +26,8 @@ defmodule ApmV5Web.ApprovalHistoryLive do
      |> assign(:filter_tool_name, "")
      |> assign(:filter_decision, "all")
      |> assign(:entries, load_entries([]))
+     |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
@@ -61,7 +63,11 @@ defmodule ApmV5Web.ApprovalHistoryLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen bg-[#0f1420] text-gray-200 p-6">
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/authorization/history" />
+      </:sidebar>
+      <:main>
       <div class="max-w-7xl mx-auto">
         <div class="flex items-center justify-between mb-6">
           <h1 class="text-2xl font-bold text-white">Approval History</h1>
@@ -145,7 +151,8 @@ defmodule ApmV5Web.ApprovalHistoryLive do
           </table>
         </div>
       </div>
-    </div>
+      </:main>
+    </.page_layout>
     """
   end
 

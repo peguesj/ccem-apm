@@ -230,6 +230,17 @@ defmodule ApmV5.ActionEngine do
         %{name: "project", type: "string", required: false},
         %{name: "config", type: "object", required: false}
       ]
+    },
+    %{
+      id: "repair_hooks",
+      name: "Repair Hook Filesystem",
+      description: "Scan all project directories under ~/Developer for missing or root-owned .remember/logs/hook-errors.log paths. Creates missing dirs/files for user-owned paths. Emits a notification with the sudo chown command for any root-owned paths that require elevated repair. Idempotent — safe to run repeatedly.",
+      category: "hooks",
+      icon: "wrench",
+      params: [
+        %{name: "check_only", type: "boolean", required: false},
+        %{name: "project_path", type: "string", required: false}
+      ]
     }
   ]
 
@@ -1544,6 +1555,65 @@ Runs the skill with custom configuration.
     end
 
     {:ok, report}
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp execute_action("repair_hooks", _project_path, params) do
+    check_only = Map.get(params, "check_only", false)
+    single_project = Map.get(params, "project_path")
+    dev_root = Path.expand("~/Developer")
+    current_user = System.get_env("USER", "jeremiah")
+    repair_script = Path.expand("~/Developer/ccem/apm/hooks/repair_hooks.sh")
+
+    unless File.exists?(repair_script) do
+      {:error, "repair_hooks.sh not found at #{repair_script}"}
+    else
+      args =
+        []
+        |> then(fn a -> if check_only, do: a ++ ["--check-only"], else: a end)
+        |> then(fn a -> if single_project, do: a ++ ["--project", single_project], else: a end)
+
+      case System.cmd("bash", [repair_script | args], stderr_to_stdout: true) do
+        {output, 0} ->
+          {find_output, _} = System.cmd("find",
+            [dev_root, "-maxdepth", "3", "-name", ".remember", "-not", "-user", current_user],
+            stderr_to_stdout: true)
+
+          needs_sudo = find_output |> String.trim() |> String.split("\n") |> Enum.reject(&(&1 == ""))
+
+          result = %{
+            script_output: output,
+            needs_sudo: needs_sudo,
+            sudo_command: if(needs_sudo != [],
+              do: "sudo chown -R #{current_user}:staff " <> Enum.join(needs_sudo, " "),
+              else: nil
+            )
+          }
+
+          notif =
+            if needs_sudo != [],
+              do: %{type: "warning", title: "Hook Repair: sudo required",
+                    message: "#{length(needs_sudo)} path(s) owned by root — copy sudo_command from result",
+                    category: "hooks", data: Jason.encode!(%{needs_sudo: needs_sudo})},
+              else: %{type: "success", title: "Hook Filesystem Repaired",
+                    message: "All .remember/logs/hook-errors.log paths are healthy.",
+                    category: "hooks", data: "{}"}
+
+          try do
+            Phoenix.PubSub.broadcast(ApmV5.PubSub, "notifications", {:new_notification, notif})
+          rescue
+            _ -> :ok
+          catch
+            _, _ -> :ok
+          end
+
+          {:ok, result}
+
+        {output, exit_code} ->
+          {:error, "repair_hooks.sh exited #{exit_code}: #{output}"}
+      end
+    end
   rescue
     e -> {:error, Exception.message(e)}
   end

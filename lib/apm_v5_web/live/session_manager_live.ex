@@ -135,12 +135,15 @@ defmodule ApmV5Web.SessionManagerLive do
     assigns = assign(assigns, grouped: grouped, hidden_count: hidden_count)
 
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav
         current_path={@current_path}
         notification_count={@notification_count}
         skill_count={@skill_count}
-      />
+        />
+      </:sidebar>
+      <:main>
 
       <div class="flex-1 flex flex-col overflow-hidden">
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
@@ -317,7 +320,8 @@ defmodule ApmV5Web.SessionManagerLive do
         </div>
       </div>
       </div>
-    </div>
+      </:main>
+    </.page_layout>
     """
   end
 

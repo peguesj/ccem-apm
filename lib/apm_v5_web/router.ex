@@ -94,6 +94,8 @@ defmodule ApmV5Web.Router do
       live "/analytics", AnalyticsLive, :index
       live "/health", HealthCheckLive, :index
       live "/conversations", ConversationMonitorLive, :index
+      # Observe: Conversations LiveView (CP-181 / US-456)
+      live "/observe/conversations", ConversationMonitorLive, :index
       live "/backfill", BackfillLive, :index
       live "/drtw", DrtwLive, :index
       live "/intake", IntakeLive, :index
@@ -102,6 +104,13 @@ defmodule ApmV5Web.Router do
       live "/a2a", A2ALive, :index
       live "/sessions", SessionManagerLive, :index
       live "/sessions/:id", SessionManagerLive, :show
+      live "/observe/sessions/:session_id", SessionDetailLive, :index
+      # Observe: Timeline LiveView (CP-180 / US-455)
+      live "/observe/timeline", SessionTimelineLive, :index
+      # Observe: Fleet LiveView (CP-176 / US-451)
+      live "/fleet", FleetLive, :index
+      # Observe: Formations LiveView redesign (CP-179 / US-454)
+      live "/observe/formation", FormationsLive, :index
 
       # Extension: ag_ui
       live "/ag-ui", AgUiLive, :index
@@ -114,6 +123,7 @@ defmodule ApmV5Web.Router do
 
       # Extension: agentlock
       live "/authorization", AuthorizationLive, :index
+      live "/govern/authorization", AuthorizationLive, :index
       live "/approvals-history", ApprovalHistoryLive, :index
       live "/routing", RoutingLive, :index
 
@@ -128,6 +138,8 @@ defmodule ApmV5Web.Router do
       live "/plugins/ralph", RalphPluginLive, :index
       live "/plugins/ag_ui", AgUiPluginLive, :index
       live "/plugins/claude-code", ClaudeCodeDiscoveryLive, :index
+      # Extension: harness — MUST be before the :slug wildcard to avoid infinite redirect loop
+      live "/plugins/harness", HarnessLive, :index
       live "/plugins/:slug", PluginDashboardLive, :plugin_show
       live "/integrations", PluginDashboardLive, :integrations_tab
       live "/integrations/lvm", LvmStatusLive, :index
@@ -563,6 +575,13 @@ defmodule ApmV5Web.Router do
     get "/memory/search", MemoryController, :search
     get "/memory/timeline", MemoryController, :timeline
     get "/memory/health", MemoryController, :health
+
+    # ── EXTENSION: harness ────────────────────────────────────────────────
+    get "/harness/health", HarnessController, :health
+    get "/harness/hooks", HarnessController, :hooks
+    get "/harness/session", HarnessController, :session
+    get "/harness/plans", HarnessController, :plans
+    get "/harness/settings", HarnessController, :settings
 
     # ── EXTENSION: library ────────────────────────────────────────────────
     get "/library", LibraryController, :index

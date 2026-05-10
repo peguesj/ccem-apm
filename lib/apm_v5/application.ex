@@ -97,9 +97,14 @@ defmodule ApmV5.Application do
       ApmV5.WorkflowRegistry,
       ApmV5.Orchestration.OrchestrationManager,
       ApmV5.Orchestration.OrchestrationRunStore,
+      # Coalesce subsystem — DecisionGateStore + CoalesceOrchestrator
+      ApmV5.Coalesce.CoalesceSupervisor,
       # Memory plugin workers (claude-mem integration)
       ApmV5.Plugins.Memory.MemoryClientBridge,
       ApmV5.Plugins.Memory.ObservationCache,
+      # Harness plugin workers (Claude Code harness runtime monitor)
+      ApmV5.Plugins.Harness.HarnessMonitor,
+      ApmV5.Plugins.Harness.HookTelemetryBuffer,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]
