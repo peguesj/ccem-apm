@@ -67,6 +67,7 @@ defmodule ApmV5Web.AuthorizationLive do
          sidebar_collapsed: false,
          inspector_open: false,
          inspector_mode: "filters",
+         ttl_max: @ttl_max,
          ttl_remaining: if(pending != [], do: @ttl_max, else: 0),
          scope_test_input: %{"tool_name" => "", "scope" => ""},
          scope_test_result: nil,

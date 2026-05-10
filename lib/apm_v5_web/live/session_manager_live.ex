@@ -46,7 +46,9 @@ defmodule ApmV5Web.SessionManagerLive do
        filter_search: "",
        group_by: "none",
        hidden_sessions: MapSet.new(),
-       show_hidden: false
+       show_hidden: false,
+       sidebar_collapsed: false,
+       inspector_open: false
      )
      |> assign_sidebar_nav_data()}
   end

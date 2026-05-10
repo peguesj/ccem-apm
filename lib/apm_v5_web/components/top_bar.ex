@@ -64,6 +64,8 @@ defmodule ApmV5Web.Components.TopBar do
   attr :current_user, :string, default: nil
   attr :on_project_change, :string, default: nil
   attr :on_command_bar, :string, default: nil
+  attr :notification_count, :integer, default: 0
+  attr :on_notifications, :string, default: "toggle_notifications"
   attr :class, :string, default: nil
   attr :rest, :global
 
@@ -206,6 +208,9 @@ defmodule ApmV5Web.Components.TopBar do
           <span>K</span>
         </button>
 
+        <!-- Notifications bell -->
+        <.notifications_bell count={@notification_count} on_click={@on_notifications} />
+
         <!-- Presence stack -->
         <.presence_stack slots={@presence_slots} session_count={@session_count} />
 
@@ -213,6 +218,69 @@ defmodule ApmV5Web.Components.TopBar do
         <.account_circle initial={@account_initial} />
       </div>
     </header>
+    """
+  end
+
+  # ---------------------------------------------------------------------------
+  # notifications_bell/1 — bell icon button with unread count badge
+  # ---------------------------------------------------------------------------
+
+  attr :count, :integer, required: true
+  attr :on_click, :string, default: nil
+
+  defp notifications_bell(assigns) do
+    ~H"""
+    <button
+      phx-click={@on_click}
+      title={
+        if @count > 0,
+          do: "#{@count} unread notification#{if @count == 1, do: "", else: "s"}",
+          else: "Notifications"
+      }
+      aria-label="Notifications"
+      style={[
+        "position: relative;",
+        "display: flex;",
+        "align-items: center;",
+        "justify-content: center;",
+        "width: 28px;",
+        "height: 28px;",
+        "background: var(--ccem-bg-2);",
+        "border: 1px solid var(--ccem-line);",
+        "border-radius: 6px;",
+        "color: #{if @count > 0, do: "var(--ccem-accent)", else: "var(--ccem-fg-dim)"};",
+        "cursor: pointer;",
+        "padding: 0;",
+        "flex-shrink: 0;"
+      ]}
+    >
+      <!-- Bell glyph (Unicode 0x1F514 fallback to ‎-style; using \u{1F514} bell) -->
+      <span style="font-size: 14px; line-height: 1;" aria-hidden="true">&#128276;</span>
+
+      <!-- Unread count badge -->
+      <span
+        :if={@count > 0}
+        style={[
+          "position: absolute;",
+          "top: -4px;",
+          "right: -4px;",
+          "min-width: 16px;",
+          "height: 16px;",
+          "padding: 0 4px;",
+          "background: var(--ccem-err, #f87171);",
+          "border: 1.5px solid var(--ccem-bg-1);",
+          "border-radius: 8px;",
+          "color: white;",
+          "font-size: 10px;",
+          "font-weight: 700;",
+          "line-height: 13px;",
+          "font-variant-numeric: tabular-nums;",
+          "text-align: center;"
+        ]}
+      >
+        {if @count > 99, do: "99+", else: to_string(@count)}
+      </span>
+    </button>
     """
   end
 
