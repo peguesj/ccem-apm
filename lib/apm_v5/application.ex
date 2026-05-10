@@ -105,6 +105,12 @@ defmodule ApmV5.Application do
       # Harness plugin workers (Claude Code harness runtime monitor)
       ApmV5.Plugins.Harness.HarnessMonitor,
       ApmV5.Plugins.Harness.HookTelemetryBuffer,
+      # LFG BTAU plugin — ref-counted sparsebundle mount manager
+      ApmV5.Plugins.LfgBtau.MountManager,
+      # Hook repair v2 workers (ActionRunStore + HookHealthMonitor)
+      {Task.Supervisor, name: ApmV5.ActionRunStore.TaskSupervisor},
+      ApmV5.ActionRunStore,
+      ApmV5.HookHealthMonitor,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]
