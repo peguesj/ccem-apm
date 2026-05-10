@@ -9,6 +9,7 @@ defmodule ApmV5.Plugins.Memory.MemoryPlugin do
 
   @behaviour ApmV5.Plugins.PluginBehaviour
 
+  alias ApmV5.Plugins.Memory.FederationRouter
   alias ApmV5.Plugins.Memory.MemoryClientBridge
   alias ApmV5.Plugins.Memory.ObservationCache
 
@@ -76,6 +77,16 @@ defmodule ApmV5.Plugins.Memory.MemoryPlugin do
         action: "health_check",
         description: "Claude-mem worker reachability status",
         params: %{}
+      },
+      %{
+        action: "route_query",
+        description: "Federated fanout search across claude_mem, viki, and (future) serena sources",
+        params: %{
+          query: "string (required)",
+          sources: "list of atoms — [:claude_mem, :viki, :serena] (optional)",
+          top_n: "integer — max results to return (optional, default 20)",
+          timeout_ms: "integer — per-source timeout in ms (optional, default 500)"
+        }
       }
     ]
   end
@@ -167,6 +178,10 @@ defmodule ApmV5.Plugins.Memory.MemoryPlugin do
       {:error, :unreachable} ->
         {:ok, %{status: :unavailable, reachable: false}}
     end
+  end
+
+  def handle_action("route_query", params, opts) do
+    FederationRouter.route_query(params, opts)
   end
 
   def handle_action(action, _params, _opts) do
