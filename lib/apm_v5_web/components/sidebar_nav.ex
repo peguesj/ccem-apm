@@ -445,5 +445,5 @@ defmodule ApmV5Web.Components.SidebarNav do
     |> Enum.map_join(" ", &String.capitalize/1)
   end
 
-  defp version, do: ApmV5.AppVersion.current()
+  defp version, do: @app_version
 end
