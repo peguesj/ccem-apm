@@ -68,6 +68,7 @@ defmodule ApmV5Web.ConversationMonitorLive do
         live_offset: 0,
         selected_message: nil
       )
+      |> stream_configure(:conversations, dom_id: &"conv-#{&1.session_id}")
       |> stream(:conversations, window)
       |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
 
