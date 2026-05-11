@@ -15,6 +15,14 @@ defmodule ApmV5Web.ConversationMonitorLive do
 
   PubSub: subscribes to `"apm:conversations"` for live conversation list updates.
   Live polling at 3-second intervals refreshes the transcript of the selected session.
+
+  ## Pagination
+
+  The conversations list is paginated server-side (default `@page_size = 100`).
+  Only the current page window is pushed to the client via `Phoenix.LiveView.stream/3`,
+  which appends / replaces rows incrementally in the DOM rather than re-sending the
+  full list. Navigating pages calls `stream(socket, :conversations, window, reset: true)`
+  so the DOM is swapped in place without a full re-render.
   """
 
   use ApmV5Web, :live_view
@@ -23,6 +31,7 @@ defmodule ApmV5Web.ConversationMonitorLive do
 
   @pubsub_topic "apm:conversations"
   @live_poll_ms 3_000
+  @page_size 100
 
   # ---------------------------------------------------------------------------
   # mount/3
@@ -34,25 +43,35 @@ defmodule ApmV5Web.ConversationMonitorLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic)
     end
 
-    conversations = load_conversations()
+    all_conversations = load_conversations()
+    total_count = length(all_conversations)
+    total_pages = max(1, ceil(total_count / @page_size))
+    page = 1
+    window = page_window(all_conversations, page)
 
-    {:ok,
-     socket
-     |> assign(
-       page_title: "Conversations",
-       view_mode: "Live",
-       sidebar_collapsed: false,
-       inspector_open: false,
-       inspector_mode: "selection",
-       selected_session: nil,
-       filter_query: "",
-       conversations: conversations,
-       messages: [],
-       messages_loading: false,
-       live_offset: 0,
-       selected_message: nil
-     )
-     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    socket =
+      socket
+      |> assign(
+        page_title: "Conversations",
+        view_mode: "Live",
+        sidebar_collapsed: false,
+        inspector_open: false,
+        inspector_mode: "selection",
+        selected_session: nil,
+        filter_query: "",
+        all_conversations: all_conversations,
+        total_count: total_count,
+        total_pages: total_pages,
+        page: page,
+        messages: [],
+        messages_loading: false,
+        live_offset: 0,
+        selected_message: nil
+      )
+      |> stream(:conversations, window)
+      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
+
+    {:ok, socket}
   end
 
   # ---------------------------------------------------------------------------
@@ -61,12 +80,14 @@ defmodule ApmV5Web.ConversationMonitorLive do
 
   @impl true
   def handle_info({:conversations_updated, conversations}, socket) do
-    {:noreply, assign(socket, conversations: conversations)}
+    socket = refresh_conversations(socket, conversations)
+    {:noreply, socket}
   end
 
   @impl true
   def handle_info(:refresh, socket) do
-    {:noreply, assign(socket, conversations: load_conversations())}
+    conversations = load_conversations()
+    {:noreply, refresh_conversations(socket, conversations)}
   end
 
   @impl true
@@ -109,7 +130,37 @@ defmodule ApmV5Web.ConversationMonitorLive do
 
   @impl true
   def handle_event("filter_conversations", %{"value" => query}, socket) do
-    {:noreply, assign(socket, filter_query: query)}
+    filtered = apply_filter(socket.assigns.all_conversations, query)
+    total_count = length(filtered)
+    total_pages = max(1, ceil(total_count / @page_size))
+    page = 1
+    window = page_window(filtered, page)
+
+    socket =
+      socket
+      |> assign(
+        filter_query: query,
+        total_count: total_count,
+        total_pages: total_pages,
+        page: page
+      )
+      |> stream(:conversations, window, reset: true)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("paginate", %{"page" => raw_page}, socket) do
+    page = raw_page |> String.to_integer() |> max(1) |> min(socket.assigns.total_pages)
+    all = apply_filter(socket.assigns.all_conversations, socket.assigns.filter_query)
+    window = page_window(all, page)
+
+    socket =
+      socket
+      |> assign(page: page)
+      |> stream(:conversations, window, reset: true)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -161,8 +212,6 @@ defmodule ApmV5Web.ConversationMonitorLive do
 
   @impl true
   def render(assigns) do
-    assigns = assign(assigns, :filtered_conversations, filter_conversations(assigns))
-
     ~H"""
     <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
       <:sidebar>
@@ -181,14 +230,14 @@ defmodule ApmV5Web.ConversationMonitorLive do
               Conversations
             </h1>
             <span style="font-size: 12px; color: var(--ccem-fg-dim);">
-              {length(@filtered_conversations)} of {length(@conversations)} sessions
+              {@total_count} sessions
             </span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <.badge :if={count_active(@conversations) > 0} tone="ok" dot>
-              {count_active(@conversations)} live
+            <.badge :if={count_active(@all_conversations) > 0} tone="ok" dot>
+              {count_active(@all_conversations)} live
             </.badge>
-            <.badge :if={count_active(@conversations) == 0} tone="neutral">
+            <.badge :if={count_active(@all_conversations) == 0} tone="neutral">
               idle
             </.badge>
             <button
@@ -204,13 +253,13 @@ defmodule ApmV5Web.ConversationMonitorLive do
         <%!-- Stat tiles --%>
         <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
           <.card style="flex: 1; min-width: 110px; padding: 12px 16px;">
-            <.stat_tile label="Total" value={to_string(length(@conversations))} />
+            <.stat_tile label="Total" value={to_string(length(@all_conversations))} />
           </.card>
           <.card style="flex: 1; min-width: 110px; padding: 12px 16px;">
-            <.stat_tile label="Active" value={to_string(count_active(@conversations))} />
+            <.stat_tile label="Active" value={to_string(count_active(@all_conversations))} />
           </.card>
           <.card style="flex: 1; min-width: 110px; padding: 12px 16px;">
-            <.stat_tile label="Idle" value={to_string(count_idle(@conversations))} />
+            <.stat_tile label="Idle" value={to_string(count_idle(@all_conversations))} />
           </.card>
           <.card style="flex: 1; min-width: 110px; padding: 12px 16px;">
             <.stat_tile
@@ -244,55 +293,120 @@ defmodule ApmV5Web.ConversationMonitorLive do
 
           <%!-- Left: Conversation list --%>
           <.card padded={false}>
-            <div style="padding: 10px 12px; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">
+            <%!-- Card header --%>
+            <div style="padding: 10px 12px; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line)); display: flex; align-items: center; justify-content: space-between;">
               <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
                 Sessions
               </span>
+              <span :if={@total_pages > 1} style="font-size: 11px; color: var(--ccem-fg-dim);">
+                Page {@page} of {@total_pages}
+              </span>
             </div>
-            <div :if={@filtered_conversations == []} style="padding: 32px 16px; text-align: center; color: var(--ccem-fg-dim); font-size: 13px;">
+
+            <%!-- Empty state --%>
+            <div :if={@total_count == 0} style="padding: 32px 16px; text-align: center; color: var(--ccem-fg-dim); font-size: 13px;">
               No sessions found in ~/.claude/projects/
             </div>
-            <.data_table
-              :if={@filtered_conversations != []}
-              id="conversations-table"
-              rows={@filtered_conversations}
+
+            <%!-- Stream-backed table — tbody uses phx-update="stream" so only the
+                 current page window is pushed to the DOM per navigation --%>
+            <div :if={@total_count > 0} style="overflow-x: auto; width: 100%;">
+              <table
+                id="conversations-table"
+                style="width: 100%; border-collapse: collapse; table-layout: auto;"
+              >
+                <thead>
+                  <tr>
+                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">Session</th>
+                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">Project</th>
+                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">Size</th>
+                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">Status</th>
+                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">Last Active</th>
+                  </tr>
+                </thead>
+                <tbody id="conversations-rows" phx-update="stream">
+                  <tr
+                    :for={{dom_id, conv} <- @streams.conversations}
+                    id={dom_id}
+                    style="height: 36px; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));"
+                  >
+                    <td style="padding: 0 12px; font-family: var(--ccem-font-sans, sans-serif); font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg);">
+                      <button
+                        phx-click="select_session"
+                        phx-value-path={conversation_path(conv)}
+                        style={
+                          "background: none; border: none; cursor: pointer; text-align: left; " <>
+                            "font-family: var(--ccem-font-mono, monospace); font-size: 11px; " <>
+                            "color: #{if selected_session?(conv, @selected_session), do: "var(--ccem-accent)", else: "var(--ccem-fg)"}; " <>
+                            "padding: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;"
+                        }
+                        title={conv.session_id}
+                      >
+                        {truncate(conv.session_id, 14)}
+                      </button>
+                    </td>
+                    <td style="padding: 0 12px; font-family: var(--ccem-font-sans, sans-serif); font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg);">
+                      <span style="font-size: 12px; color: var(--ccem-fg); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block;" title={conv.project}>
+                        {truncate(conv.project, 16)}
+                      </span>
+                    </td>
+                    <td style="padding: 0 12px; font-family: var(--ccem-font-sans, sans-serif); font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg);">
+                      <span style="font-size: 11px; font-family: var(--ccem-font-mono, monospace); color: var(--ccem-fg-dim);">
+                        {format_bytes(conv.size_bytes)}
+                      </span>
+                    </td>
+                    <td style="padding: 0 12px; font-family: var(--ccem-font-sans, sans-serif); font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg);">
+                      <.badge tone={if conv.active, do: "ok", else: "neutral"} dot={conv.active}>
+                        {if conv.active, do: "active", else: "idle #{conv.idle_minutes}m"}
+                      </.badge>
+                    </td>
+                    <td style="padding: 0 12px; font-family: var(--ccem-font-sans, sans-serif); font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg);">
+                      <span style="font-size: 11px; color: var(--ccem-fg-dim); white-space: nowrap;">
+                        {format_dt(conv.last_modified)}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <%!-- Pagination controls --%>
+            <div
+              :if={@total_pages > 1}
+              style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-top: 1px solid var(--ccem-line-subtle, var(--ccem-line));"
             >
-              <:col :let={conv} label="Session">
-                <button
-                  phx-click="select_session"
-                  phx-value-path={conversation_path(conv)}
-                  style={
-                    "background: none; border: none; cursor: pointer; text-align: left; " <>
-                      "font-family: var(--ccem-font-mono, monospace); font-size: 11px; " <>
-                      "color: #{if selected_session?(conv, @selected_session), do: "var(--ccem-accent)", else: "var(--ccem-fg)"}; " <>
-                      "padding: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;"
-                  }
-                  title={conv.session_id}
-                >
-                  {truncate(conv.session_id, 14)}
-                </button>
-              </:col>
-              <:col :let={conv} label="Project">
-                <span style="font-size: 12px; color: var(--ccem-fg); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block;" title={conv.project}>
-                  {truncate(conv.project, 16)}
-                </span>
-              </:col>
-              <:col :let={conv} label="Size">
-                <span style="font-size: 11px; font-family: var(--ccem-font-mono, monospace); color: var(--ccem-fg-dim);">
-                  {format_bytes(conv.size_bytes)}
-                </span>
-              </:col>
-              <:col :let={conv} label="Status">
-                <.badge tone={if conv.active, do: "ok", else: "neutral"} dot={conv.active}>
-                  {if conv.active, do: "active", else: "idle #{conv.idle_minutes}m"}
-                </.badge>
-              </:col>
-              <:col :let={conv} label="Last Active">
-                <span style="font-size: 11px; color: var(--ccem-fg-dim); white-space: nowrap;">
-                  {format_dt(conv.last_modified)}
-                </span>
-              </:col>
-            </.data_table>
+              <button
+                phx-click="paginate"
+                phx-value-page={@page - 1}
+                disabled={@page <= 1}
+                style={
+                  "display: inline-flex; align-items: center; gap: 4px; " <>
+                    "padding: 4px 10px; font-size: 11px; border-radius: 4px; border: 1px solid var(--ccem-line); " <>
+                    "background: var(--ccem-bg-2); cursor: #{if @page <= 1, do: "not-allowed", else: "pointer"}; " <>
+                    "color: #{if @page <= 1, do: "var(--ccem-fg-muted)", else: "var(--ccem-fg)"}; " <>
+                    "opacity: #{if @page <= 1, do: "0.45", else: "1"};"
+                }
+              >
+                &#8592; Prev
+              </button>
+              <span style="font-size: 11px; color: var(--ccem-fg-dim);">
+                Page {@page} of {@total_pages} &middot; {@total_count} sessions
+              </span>
+              <button
+                phx-click="paginate"
+                phx-value-page={@page + 1}
+                disabled={@page >= @total_pages}
+                style={
+                  "display: inline-flex; align-items: center; gap: 4px; " <>
+                    "padding: 4px 10px; font-size: 11px; border-radius: 4px; border: 1px solid var(--ccem-line); " <>
+                    "background: var(--ccem-bg-2); cursor: #{if @page >= @total_pages, do: "not-allowed", else: "pointer"}; " <>
+                    "color: #{if @page >= @total_pages, do: "var(--ccem-fg-muted)", else: "var(--ccem-fg)"}; " <>
+                    "opacity: #{if @page >= @total_pages, do: "0.45", else: "1"};"
+                }
+              >
+                Next &#8594;
+              </button>
+            </div>
           </.card>
 
           <%!-- Right: Transcript panel --%>
@@ -528,26 +642,6 @@ defmodule ApmV5Web.ConversationMonitorLive do
   end
 
   # ---------------------------------------------------------------------------
-  # Private: filtering
-  # ---------------------------------------------------------------------------
-
-  @spec filter_conversations(map()) :: list(map())
-  defp filter_conversations(%{conversations: convs, filter_query: ""}) do
-    Enum.sort_by(convs, & &1.last_modified, {:desc, NaiveDateTime})
-  end
-
-  defp filter_conversations(%{conversations: convs, filter_query: query}) do
-    q = String.downcase(query)
-
-    convs
-    |> Enum.filter(fn conv ->
-      String.contains?(String.downcase(conv.session_id), q) or
-        String.contains?(String.downcase(conv.project), q)
-    end)
-    |> Enum.sort_by(& &1.last_modified, {:desc, NaiveDateTime})
-  end
-
-  # ---------------------------------------------------------------------------
   # Private: path resolution
   # ---------------------------------------------------------------------------
 
@@ -638,4 +732,51 @@ defmodule ApmV5Web.ConversationMonitorLive do
   defp msg_badge_tone("assistant"), do: "ok"
   defp msg_badge_tone("system"), do: "warn"
   defp msg_badge_tone(_), do: "neutral"
+
+  @spec page_window(list(map()), pos_integer()) :: list(map())
+  defp page_window(items, page) do
+    offset = (page - 1) * @page_size
+    Enum.slice(items, offset, @page_size)
+  end
+
+  @spec apply_filter(list(map()), String.t()) :: list(map())
+  defp apply_filter(conversations, ""), do: conversations
+
+  defp apply_filter(conversations, query) do
+    q = String.downcase(query)
+
+    Enum.filter(conversations, fn conv ->
+      searchable =
+        [
+          Map.get(conv, :session_id, ""),
+          Map.get(conv, :model, ""),
+          Map.get(conv, :project, "")
+        ]
+        |> Enum.join(" ")
+        |> String.downcase()
+
+      String.contains?(searchable, q)
+    end)
+  end
+
+  @spec refresh_conversations(Phoenix.LiveView.Socket.t(), list(map())) ::
+          Phoenix.LiveView.Socket.t()
+  defp refresh_conversations(socket, conversations) do
+    page = socket.assigns[:page] || 1
+    query = socket.assigns[:filter_query] || ""
+    filtered = apply_filter(conversations, query)
+    total_count = length(filtered)
+    total_pages = max(1, ceil(total_count / @page_size))
+    page = min(page, total_pages)
+    window = page_window(filtered, page)
+
+    socket
+    |> assign(
+      all_conversations: conversations,
+      total_count: total_count,
+      total_pages: total_pages,
+      page: page
+    )
+    |> stream(:conversations, window, reset: true)
+  end
 end

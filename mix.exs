@@ -4,14 +4,15 @@ defmodule ApmV5.MixProject do
   def project do
     [
       app: :apm_v5,
-      version: "9.1.1",
+      version: "9.2.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      elixirc_options: [ignore_module_conflict: true]
     ]
   end
 

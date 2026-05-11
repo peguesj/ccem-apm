@@ -1,6 +1,62 @@
 {
-  "latest": "9.0.0",
+  "latest": "9.2.0",
   "versions": [
+    {
+      "version": "9.2.0",
+      "date": "2026-05-11",
+      "label": "v9.2.0 — CCEM APM Full Redesign (Waves 7–9)",
+      "summary": "Completes the Claude Design handoff redesign (US-465–473, CP-190–198). Govern: Approvals, Routing, Coalesce, UPM LiveViews. Extend: Plugins, Integrations, AG-UI, Notifications, Showcase, Docs LiveViews. Platform: Architecture, DRTW, UAT LiveViews. AI Platform: LVM, Claude Code Discovery, Ralph Plugin, AG-UI Plugin LiveViews. Auth API: 8 new apm-auth skill-spec endpoints, PolicyRulesStore wildcard rule support, authorize decision field. UI/UX: full-height sticky sidebar with 6-section taxonomy and expandable carets, AgentLock popup suppressed on /authorization, timeline spacing normalized.",
+      "features": [
+        "Govern Wave 7 (CP-190): Approvals, Routing, Coalesce, UPM LiveViews with DS chrome",
+        "Extend Wave 8 (CP-192–193): Plugins, Integrations, AG-UI, Notifications, Showcase, Docs LiveViews",
+        "Platform Wave 9 (CP-194): Architecture, DRTW, UAT LiveViews",
+        "AI Platform Wave 9 (CP-195–197): LVM, Claude Code Discovery, Ralph Plugin, AG-UI Plugin LiveViews",
+        "Auth API (CCEM-565): 8 new endpoints — session/start, session/heartbeat, session/end, token/redeem, policies GET+POST, approvals/pending, approvals/:id/decide",
+        "PolicyRulesStore wildcard: check_rule/1 falls back to '*' rule when no exact match",
+        "Authorize response: decision field ('allow'|'ask'|'deny') added across all response branches",
+        "Sidebar nav: h-screen sticky, 6-section taxonomy (Observe/Govern/Measure/Intelligence/Extend/AI Platform), expandable carets with localStorage persistence",
+        "AgentLock popup: suppressed on /authorization, /authorization/*, /govern/authorization pages",
+        "Timeline spacing: stat tile and D3 chart margin normalized (20px → 16px)",
+        "TDD gate: govern_intelligence (29 tests) + platform (34 tests)"
+      ],
+      "breaking": false,
+      "migration_notes": null
+    },
+    {
+      "version": "9.1.2",
+      "date": "2026-05-05",
+      "label": "v9.1.2 — Claude Code Harness Plugin + Hook Repair",
+      "summary": "Claude Code Harness Plugin (CP-199–202) with HarnessLive /plugins/harness, HarnessMonitor GenServer, HookTelemetryBuffer ETS ring buffer, and 5 API endpoints. Hook filesystem repair action (CP-203–205). audit_hook_performance action with culprit detection. SessionManagerLive assign fix. Skills coalesced to v9.1.2.",
+      "features": [
+        "HarnessPlugin: :ccem scope, 3-tab LiveView at /plugins/harness (health/hooks/session)",
+        "HarnessMonitor GenServer: 15s session.json poll, PubSub harness:state",
+        "HookTelemetryBuffer: ETS ring buffer (500 cap), subscribes apm:hooks",
+        "HarnessController: /api/v2/harness/* — 5 endpoints with 503 on dead GenServer",
+        "repair_hooks action: idempotent scan, root-owned path detection, APM notification",
+        "audit_hook_performance action: culprit detection (npx cold-start, blocking curl, etc.)",
+        "SessionManagerLive: sidebar_collapsed + inspector_open assign fix, null-byte corruption repair",
+        "DocsLive: version selector with historical backfill v8.8.0–v9.1.2",
+        "Skills coalesced to v9.1.2 across ccem, apm, coalesce skill files"
+      ],
+      "breaking": false,
+      "migration_notes": null
+    },
+    {
+      "version": "9.1.1",
+      "date": "2026-04-22",
+      "label": "v9.1.1 — Hooks Max-Payload + Coalesce + Testmaxxing Formation v2",
+      "summary": "Hook payloads upgraded to max-payload schema (session_id, project, working_dir, git_branch, agent identity chain). Coalesce v9.1.1 skill sync across 15 skills. Testmaxxing Formation v2 with typed edges, pub/sub channel edges, DOT graph, notification channel filter.",
+      "features": [
+        "Max-payload hooks: session_id + project + working_dir + git_branch in all 9 hooks",
+        "Agent identity resolution chain: CLAUDE_AGENT_ID → PARENT_TOOL_USE_ID → CLAUDE_SESSION_ID",
+        "Memory write detection + skill invocation tracking in pre/post tool hooks",
+        "Pattern heartbeat every 10 tool calls, notification audit trail, session end summary",
+        "Coalesce: 15 skills synced — ccem-apm, apm-api-reference, apm-auth, apm-telemetry, formation, orchestrator, upm, ralph, ship, coalesce, doctor, elixir-expert, conversation-mgmt, live-all, showcase",
+        "Testmaxxing Formation v2: edge_type field, pub/sub channel edges, DOT endpoint, notification channel filter, legend"
+      ],
+      "breaking": false,
+      "migration_notes": null
+    },
     {
       "version": "9.0.0",
       "date": "2026-04-06",
