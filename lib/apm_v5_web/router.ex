@@ -140,6 +140,11 @@ defmodule ApmV5Web.Router do
       live "/plugins/claude-code", ClaudeCodeDiscoveryLive, :index
       # Extension: harness — MUST be before the :slug wildcard to avoid infinite redirect loop
       live "/plugins/harness", HarnessLive, :index
+      live "/plugins/open-design", OpenDesignLive, :index
+      # Extension: composio — MUST be before the :slug wildcard
+      live "/plugins/composio", ComposioLive, :index
+      # Extension: builder wizard — MUST be before the :slug wildcard
+      live "/plugins/builder", BuilderLive, :index
       live "/plugins/:slug", PluginDashboardLive, :plugin_show
       live "/integrations", PluginDashboardLive, :integrations_tab
       live "/integrations/lvm", LvmStatusLive, :index
@@ -487,6 +492,16 @@ defmodule ApmV5Web.Router do
     post "/auth/policy/rules", AuthController, :add_policy_rule
     delete "/auth/policy/rules/:tool_name", AuthController, :remove_policy_rule
 
+    # Aliases matching the apm-auth skill spec (CCEM-565)
+    post "/auth/session/start", AuthController, :session_start
+    post "/auth/session/heartbeat", AuthController, :session_heartbeat
+    post "/auth/session/end", AuthController, :session_end
+    post "/auth/token/redeem", AuthController, :redeem_token
+    get "/auth/policies", AuthController, :list_policies
+    post "/auth/policies", AuthController, :create_policy
+    get "/auth/approvals/pending", AuthController, :list_approvals_pending
+    post "/auth/approvals/:id/decide", AuthController, :decide_approval
+
     # Auto-approval policies (hierarchical scope matching)
     get "/auth/auto-approval-policies", AutoApprovalController, :index
     post "/auth/auto-approval-policies", AutoApprovalController, :create
@@ -584,12 +599,40 @@ defmodule ApmV5Web.Router do
     get "/memory/bridge/session/:session_id", MemoryBridgeController, :session
     get "/memory/bridge/stats", MemoryBridgeController, :stats
 
+    # ── EXTENSION: open-design ───────────────────────────────────────────
+    get "/open-design/health", OpenDesignController, :health
+    get "/open-design/agents", OpenDesignController, :agents
+    get "/open-design/skills", OpenDesignController, :skills
+    get "/open-design/skills/:id", OpenDesignController, :skill_detail
+    get "/open-design/design-systems", OpenDesignController, :design_systems
+    get "/open-design/design-systems/:id", OpenDesignController, :design_system_detail
+    get "/open-design/projects", OpenDesignController, :projects
+    get "/open-design/projects/:id", OpenDesignController, :project_detail
+    get "/open-design/templates", OpenDesignController, :templates
+
     # ── EXTENSION: harness ────────────────────────────────────────────────
     get "/harness/health", HarnessController, :health
     get "/harness/hooks", HarnessController, :hooks
     get "/harness/session", HarnessController, :session
     get "/harness/plans", HarnessController, :plans
     get "/harness/settings", HarnessController, :settings
+
+    # ── EXTENSION: builder ────────────────────────────────────────────────
+    post "/builder/sessions", BuilderController, :start_session
+    get "/builder/sessions/:id", BuilderController, :get_session
+    patch "/builder/sessions/:id", BuilderController, :update_session
+    post "/builder/sessions/:id/analyze", BuilderController, :analyze_source
+    post "/builder/sessions/:id/generate", BuilderController, :generate_preview
+    post "/builder/sessions/:id/write", BuilderController, :write_files
+
+    # ── EXTENSION: composio ───────────────────────────────────────────────
+    get "/composio/toolkits", ComposioController, :toolkits
+    get "/composio/tools", ComposioController, :tools
+    post "/composio/tools/execute", ComposioController, :execute_tool
+    get "/composio/accounts", ComposioController, :accounts
+    post "/composio/accounts/connect", ComposioController, :connect_account
+    get "/composio/mcp/servers", ComposioController, :mcp_servers
+    post "/composio/mcp/servers", ComposioController, :create_mcp_server
 
     # ── EXTENSION: hook repair v2 ─────────────────────────────────────────
     get "/actions", ActionController, :index
@@ -619,6 +662,11 @@ defmodule ApmV5Web.Router do
     pipe_through :api_flexible
 
     get "/a2ui/components", A2uiController, :components
+  end
+
+  # ── WEBHOOKS (no auth pipeline — validated internally by handler) ──────────
+  scope "/", ApmV5Web do
+    post "/webhooks/composio", ComposioWebhookController, :receive
   end
 
   # Enable LiveDashboard in development

@@ -36,12 +36,17 @@ defmodule ApmV5Web.V2.AuthController do
 
     case AuthorizationGate.authorize(agent_id, session_id, tool_name, role, tool_params) do
       {:ok, token_id} ->
-        json(conn, %{ok: true, allowed: true, token_id: token_id})
+        json(conn, %{ok: true, allowed: true, decision: "allow", auth_token: token_id, token_id: token_id})
+
+      {:error, :approval_required, detail} ->
+        conn
+        |> put_status(200)
+        |> json(%{ok: true, allowed: false, decision: "ask", reason: :approval_required, detail: detail})
 
       {:error, reason, detail} ->
         conn
         |> put_status(200)
-        |> json(%{ok: true, allowed: false, reason: reason, detail: detail})
+        |> json(%{ok: true, allowed: false, decision: "deny", reason: reason, detail: detail})
     end
   end
 
@@ -432,6 +437,162 @@ defmodule ApmV5Web.V2.AuthController do
   def remove_policy_rule(conn, %{"tool_name" => tool_name}) do
     PolicyRulesStore.remove_rule(tool_name)
     json(conn, %{ok: true, removed: tool_name})
+  end
+
+  # ---------------------------------------------------------------------------
+  # apm-auth skill spec aliases (CCEM-565)
+  # The 8 paths documented in the apm-auth skill but missing from the original
+  # controller. Each delegates to the established machinery above.
+  # ---------------------------------------------------------------------------
+
+  @doc "POST /api/v2/auth/session/start — Register agent session (apm-auth skill compat)"
+  def session_start(conn, params) do
+    user_id = Map.get(params, "agent_id", Map.get(params, "user_id", "unknown"))
+    role = Map.get(params, "role", "agent")
+    trust_level = Map.get(params, "trust_level", "standard")
+
+    opts = [
+      data_boundary: :authenticated_user_only,
+      metadata: Map.merge(Map.get(params, "metadata", %{}), %{"trust_level" => trust_level})
+    ]
+
+    {:ok, session_id} = SessionStore.create(user_id, role, opts)
+    json(conn, %{ok: true, session_id: session_id, trust_level: trust_level})
+  end
+
+  @doc "POST /api/v2/auth/session/heartbeat — Keepalive for agent session"
+  def session_heartbeat(conn, params) do
+    session_id = Map.get(params, "session_id", "")
+
+    case SessionStore.get(session_id) do
+      nil ->
+        conn |> put_status(404) |> json(%{ok: false, error: "Session not found"})
+
+      _session ->
+        SessionStore.increment_tool_calls(session_id)
+        json(conn, %{ok: true, session_id: session_id, refreshed: true})
+    end
+  end
+
+  @doc "POST /api/v2/auth/session/end — Terminate agent session"
+  def session_end(conn, params) do
+    session_id = Map.get(params, "session_id", "")
+    SessionStore.destroy(session_id)
+    json(conn, %{ok: true, session_id: session_id, terminated: true})
+  end
+
+  @doc "POST /api/v2/auth/token/redeem — Redeem auth token for execution permit"
+  def redeem_token(conn, params) do
+    token_id = Map.get(params, "auth_token", Map.get(params, "token_id", ""))
+    scope = Map.get(params, "scope", "")
+    single_use = Map.get(params, "single_use", false)
+    ttl_ms = Map.get(params, "ttl_ms", 30_000)
+
+    if token_id == "" and scope != "" do
+      # Mint a new scoped token (used by /specialize --authorize=once|time=N)
+      {:ok, new_token_id} = TokenStore.generate("scope-agent", "scope-session", scope, %{ttl_ms: ttl_ms, single_use: single_use})
+
+      json(conn, %{ok: true, auth_token: new_token_id, token_id: new_token_id, ttl_ms: ttl_ms, scope: scope})
+    else
+      case TokenStore.get(token_id) do
+        nil ->
+          conn |> put_status(404) |> json(%{ok: false, error: "Token not found or expired"})
+
+        token ->
+          json(conn, %{
+            ok: true,
+            valid: token.status == :active,
+            token_id: token.token_id,
+            tool_name: token.tool_name,
+            expires_at: DateTime.to_iso8601(token.expires_at)
+          })
+      end
+    end
+  end
+
+  @doc "GET /api/v2/auth/policies — List active policy rules (apm-auth skill compat)"
+  def list_policies(conn, _params) do
+    rules = PolicyRulesStore.list_rules()
+    json(conn, %{ok: true, policies: rules, rules: rules, count: length(rules)})
+  end
+
+  @doc "POST /api/v2/auth/policies — Create or update a policy rule"
+  def create_policy(conn, params) do
+    tool_name = Map.get(params, "tool", Map.get(params, "tool_name", ""))
+    scope = Map.get(params, "scope", "")
+    default_action = Map.get(params, "default", Map.get(params, "action", "allow"))
+    name = Map.get(params, "name", "")
+
+    effective_tool = cond do
+      tool_name != "" -> tool_name
+      String.starts_with?(scope, "formation:") -> "*"
+      name != "" -> "*"
+      true -> ""
+    end
+
+    action =
+      case default_action do
+        "allow" -> :always_allow
+        "deny" -> :always_deny
+        "always_allow" -> :always_allow
+        "always_deny" -> :always_deny
+        _ -> :always_allow
+      end
+
+    cond do
+      effective_tool == "" ->
+        conn |> put_status(400) |> json(%{ok: false, error: "tool or scope required"})
+
+      true ->
+        PolicyRulesStore.add_rule(effective_tool, action)
+        json(conn, %{ok: true, tool_name: effective_tool, action: default_action, scope: scope, name: name})
+    end
+  end
+
+  @doc "GET /api/v2/auth/approvals/pending — List pending human-approval decisions"
+  def list_approvals_pending(conn, _params) do
+    pending = PendingDecisions.list_pending() |> Enum.map(&pending_to_json/1)
+    json(conn, %{ok: true, pending: pending, count: length(pending)})
+  end
+
+  @doc "POST /api/v2/auth/approvals/:id/decide — Approve or deny a pending decision"
+  def decide_approval(conn, %{"id" => request_id} = params) do
+    raw_decision = Map.get(params, "decision", "")
+    sticky = Map.get(params, "sticky", false)
+
+    decision =
+      case raw_decision do
+        "allow" -> :approve
+        "approve" -> :approve
+        "deny" -> :deny
+        _ -> nil
+      end
+
+    cond do
+      is_nil(decision) ->
+        conn |> put_status(400) |> json(%{ok: false, error: "decision must be 'allow'/'approve' or 'deny'"})
+
+      true ->
+        result = PendingDecisions.decide(request_id, decision)
+
+        if sticky and decision == :approve do
+          case PendingDecisions.get(request_id) do
+            %{tool_name: tool} when is_binary(tool) -> PolicyRulesStore.add_rule(tool, :always_allow)
+            _ -> :ok
+          end
+        end
+
+        case result do
+          {:ok, token_id} ->
+            json(conn, %{ok: true, decided: request_id, decision: raw_decision, token_id: token_id})
+
+          :ok ->
+            json(conn, %{ok: true, decided: request_id, decision: raw_decision})
+
+          {:error, :not_found} ->
+            conn |> put_status(404) |> json(%{ok: false, error: "Pending request not found"})
+        end
+    end
   end
 
   # ---------------------------------------------------------------------------

@@ -207,7 +207,7 @@ defmodule ApmV5Web.SessionTimelineLive do
         </div>
 
         <%!-- Stat tiles --%>
-        <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
           <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
             <.stat_tile label="Active Sessions" value={to_string(@stats.active_sessions)} />
           </.card>
@@ -223,7 +223,7 @@ defmodule ApmV5Web.SessionTimelineLive do
         </div>
 
         <%!-- Time ruler --%>
-        <div style="display: flex; margin-bottom: 4px; padding-left: 112px; padding-right: 8px;">
+        <div style="display: flex; margin-bottom: 10px; padding-left: 112px; padding-right: 8px;">
           <div style="flex: 1; position: relative; height: 16px;">
             <span
               :for={{label, pct} <- ruler_ticks(@window)}
@@ -259,7 +259,7 @@ defmodule ApmV5Web.SessionTimelineLive do
         </div>
 
         <%!-- D3 Gantt chart (agent-level swim lanes from SessionTimeline hook) --%>
-        <.card style="margin-top: 20px; padding: 0; overflow: hidden;">
+        <.card style="margin-top: 16px; padding: 0; overflow: hidden;">
           <div style="padding: 10px 14px; border-bottom: 1px solid var(--ccem-line-subtle); display: flex; align-items: center; justify-content: space-between;">
             <span style="font-size: 12px; font-weight: 600; color: var(--ccem-fg);">Agent Activity</span>
             <.badge tone="neutral">{@stats.peak_agents} agents</.badge>

@@ -44,10 +44,35 @@
             if (!el) return;
             el.classList.toggle("sidebar-collapsed");
             localStorage.setItem(KEY, el.classList.contains("sidebar-collapsed") ? "1" : "0");
+          },
+          toggleGroup(groupId) {
+            const children = document.getElementById(groupId + "-children");
+            if (!children) return;
+            const hidden = children.classList.toggle("hidden");
+            localStorage.setItem("apm:nav-group:" + groupId, hidden ? "0" : "1");
+            // Update aria-expanded on the button
+            const btn = document.querySelector("[aria-controls='" + groupId + "-children']");
+            if (btn) btn.setAttribute("aria-expanded", hidden ? "false" : "true");
+            // Swap chevron icon
+            const icon = btn && btn.querySelector("svg use, svg path");
+            const svgEl = btn && btn.querySelector("svg");
+            if (svgEl) {
+              // Toggle heroicon chevron-down vs chevron-right by re-classing the button
+              btn.classList.toggle("nav-group-open", !hidden);
+            }
+          },
+          restoreGroups() {
+            ["nav-plugins", "nav-integrations"].forEach(id => {
+              const stored = localStorage.getItem("apm:nav-group:" + id);
+              if (stored === "1") {
+                const el = document.getElementById(id + "-children");
+                if (el) el.classList.remove("hidden");
+              }
+            });
           }
         };
-        document.addEventListener("DOMContentLoaded", restore);
-        window.addEventListener("phx:page-loading-stop", restore);
+        document.addEventListener("DOMContentLoaded", () => { restore(); window.apmSidebar.restoreGroups(); });
+        window.addEventListener("phx:page-loading-stop", () => { restore(); window.apmSidebar.restoreGroups(); });
       })();
     </script>
     <script type="module">
@@ -169,9 +194,15 @@
               if (!data) return;
               const entries = data.pending || data.data || (Array.isArray(data) ? data : []);
               const pending = entries.filter(e => e.status === 'pending' || !e.status);
-              if (pending.length > 0 && pending[0].request_id !== currentPendingId) {
+              // Suppress global modal on /authorization — that page has its own inline approval UI
+              const isAuthPage = window.location.pathname === '/authorization' ||
+                window.location.pathname.startsWith('/authorization/') ||
+                window.location.pathname === '/govern/authorization';
+              if (pending.length > 0 && pending[0].request_id !== currentPendingId && !isAuthPage) {
                 showModal(pending[0]);
               } else if (pending.length === 0 && currentPendingId) {
+                hideModal();
+              } else if (isAuthPage && currentPendingId) {
                 hideModal();
               }
             })
