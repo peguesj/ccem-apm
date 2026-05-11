@@ -1,8 +1,45 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file. Latest: v9.0.0 — Ecosystem Refactoring: Diligent Architecture, New Integrations, Synergize, Railway-Style Graphs.
+All notable changes to CCEM APM are documented in this file. Latest: v9.1.3 — Wave 7-9 TDD Validation + Compile Fixes.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [9.1.3] - 2026-05-11
+
+Wave 7-9 TDD test suites, ConversationMonitorLive compile fixes, stream_configure fix for map-based items.
+
+### Added
+- **PolicyRulesStore test suite** (CP-191) — 8 tests covering wildcard rule fallback, exact match precedence, removal idempotency (tagged `:govern_intelligence`)
+- **Auth controller test suite** (CP-191) — 21 tests covering all 8 apm-auth skill-spec endpoints: session/start, session/heartbeat, session/end, token/redeem, policies GET+POST, approvals/pending, approvals/:id/decide, plus authorize decision field (tagged `:govern_intelligence`)
+- **Platform TDD suite** (CP-198) — 34 tests for Extend, Platform, and AI Platform module verification with compile gate (tagged `:platform`)
+
+### Fixed
+- **ConversationMonitorLive** — Added missing private functions: `page_window/2` (pagination), `apply_filter/2` (query filtering), `refresh_conversations/2` (PubSub state refresh)
+- **stream_configure** — Fixed dom_id configuration for map-based conversation items to prevent ArgumentError at mount/3 (CCEM-567)
+
+---
+
+## [9.1.2] - 2026-05-05
+
+Hook Filesystem Repair, Claude Code Harness Plugin, audit_hook_performance action, and structural LiveView recovery.
+
+### Added
+- **Claude Code Harness Plugin** — `HarnessPlugin` (`:ccem` scope), `HarnessMonitor` GenServer (15s session.json poll, PubSub `"harness:state"`), `HookTelemetryBuffer` ETS ring buffer (500 cap, subscribes `"apm:hooks"`). LiveView at `/plugins/harness` with 3-tab layout (health/hooks/session), API at `/api/v2/harness/*` with 5 endpoints (health, hooks, session, plans, settings) with 503 on dead GenServer (CP-199–CP-202)
+- **repair_hooks action** — `ActionEngine` `repair_hooks` catalog entry (category: hooks, icon: wrench) that runs `repair_hooks.sh`, detects root-owned `.remember` dirs via `find -not -user`, emits APM notification with `sudo_command` field. `/repair-hooks` Claude Code skill with check|fix|fix-sudo|status subcommands (CP-203–CP-205)
+- **audit_hook_performance action** — Scans `~/.claude/settings.json` for performance culprits: cold-start `npx` invocations, blocking `curl` calls in hooks, `claude-flow` session-end hooks
+
+### Fixed
+- **SessionManagerLive** — Added missing `sidebar_collapsed`/`inspector_open` assigns; stripped null byte corruption in `:live_view` atom
+- **harness_live.ex** — Replaced unsupported `style=` attribute on `<.icon>` with `<span>` wrapper; fixes `--warnings-as-errors` compile failure
+- **Structural LiveView recovery** — 25+ broken pages migrated to `<.page_layout>` shell (Pattern A: 21 files), GenServer `mount` calls guarded with `try/rescue/catch :exit` (Pattern B: 5 files), intake/scanner data tables wired with `phx-click` row interactivity (Pattern C: 2 files)
+
+### Changed
+- Plugin registry: HarnessPlugin added to `@default_plugins`
+- Application supervision: HarnessMonitor + HookTelemetryBuffer added to supervision tree
+- Router: `/plugins/harness` LiveView route + `/api/v2/harness/*` API routes registered
+- Hook registry: harness hooks added
 
 ---
 

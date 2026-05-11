@@ -9,9 +9,8 @@ defmodule ApmV5.StatusPayloadBuilder do
   """
 
   alias ApmV5.AgentRegistry
+  alias ApmV5.AppVersion
   alias ApmV5.ConfigLoader
-
-  @server_version "9.0.0"
 
   @spec build_status_payload() :: map()
   def build_status_payload do
@@ -35,7 +34,7 @@ defmodule ApmV5.StatusPayloadBuilder do
       uptime: uptime,
       agent_count: length(agents),
       session_id: session_id,
-      server_version: @server_version,
+      server_version: AppVersion.current(),
       total_projects: length(project_list),
       active_project: Map.get(config, "active_project"),
       projects: project_summaries
@@ -54,7 +53,7 @@ defmodule ApmV5.StatusPayloadBuilder do
     %{
       status: "ok",
       uptime: uptime,
-      server_version: @server_version,
+      server_version: AppVersion.current(),
       total_projects: length(projects),
       active_project: Map.get(config, "active_project"),
       projects: project_summaries

@@ -2,7 +2,7 @@ defmodule ApmV5Web.Components.SidebarNav do
   @moduledoc """
   Shared sidebar navigation component for all LiveViews.
 
-  Organized into 6 sections matching the v9.2.0 redesign taxonomy:
+  Organized into 6 sections matching the v9.1.3 redesign taxonomy:
 
   1. **OBSERVE**       — live monitoring surfaces (Dashboard, Fleet, Sessions, Conversations,
      Formations, Timeline, Tool Calls, A2A, Architecture)
@@ -443,6 +443,5 @@ defmodule ApmV5Web.Components.SidebarNav do
     |> Enum.map_join(" ", &String.capitalize/1)
   end
 
-  @app_version "9.1.2"
-  defp version, do: @app_version
+  defp version, do: ApmV5.AppVersion.current()
 end

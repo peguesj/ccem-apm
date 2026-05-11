@@ -1,23 +1,17 @@
 {
-  "latest": "9.2.0",
+  "latest": "9.1.3",
   "versions": [
     {
-      "version": "9.2.0",
+      "version": "9.1.3",
       "date": "2026-05-11",
-      "label": "v9.2.0 — CCEM APM Full Redesign (Waves 7–9)",
-      "summary": "Completes the Claude Design handoff redesign (US-465–473, CP-190–198). Govern: Approvals, Routing, Coalesce, UPM LiveViews. Extend: Plugins, Integrations, AG-UI, Notifications, Showcase, Docs LiveViews. Platform: Architecture, DRTW, UAT LiveViews. AI Platform: LVM, Claude Code Discovery, Ralph Plugin, AG-UI Plugin LiveViews. Auth API: 8 new apm-auth skill-spec endpoints, PolicyRulesStore wildcard rule support, authorize decision field. UI/UX: full-height sticky sidebar with 6-section taxonomy and expandable carets, AgentLock popup suppressed on /authorization, timeline spacing normalized.",
+      "label": "v9.1.3 — Wave 7-9 TDD Validation + Compile Fixes",
+      "summary": "TDD test suites for CP-190–198 (govern_intelligence + platform tags), conversation_monitor_live compile fixes (missing helper functions), auth API endpoint tests.",
       "features": [
-        "Govern Wave 7 (CP-190): Approvals, Routing, Coalesce, UPM LiveViews with DS chrome",
-        "Extend Wave 8 (CP-192–193): Plugins, Integrations, AG-UI, Notifications, Showcase, Docs LiveViews",
-        "Platform Wave 9 (CP-194): Architecture, DRTW, UAT LiveViews",
-        "AI Platform Wave 9 (CP-195–197): LVM, Claude Code Discovery, Ralph Plugin, AG-UI Plugin LiveViews",
-        "Auth API (CCEM-565): 8 new endpoints — session/start, session/heartbeat, session/end, token/redeem, policies GET+POST, approvals/pending, approvals/:id/decide",
-        "PolicyRulesStore wildcard: check_rule/1 falls back to '*' rule when no exact match",
-        "Authorize response: decision field ('allow'|'ask'|'deny') added across all response branches",
-        "Sidebar nav: h-screen sticky, 6-section taxonomy (Observe/Govern/Measure/Intelligence/Extend/AI Platform), expandable carets with localStorage persistence",
-        "AgentLock popup: suppressed on /authorization, /authorization/*, /govern/authorization pages",
-        "Timeline spacing: stat tile and D3 chart margin normalized (20px → 16px)",
-        "TDD gate: govern_intelligence (29 tests) + platform (34 tests)"
+        "PolicyRulesStore wildcard test suite (CP-191): 8 tests covering exact match, wildcard fallback, precedence, removal",
+        "Auth controller test suite (CP-191): 21 tests covering 8 apm-auth endpoints + decision field",
+        "Platform TDD suite (CP-198): 34 tests for Extend, Platform, AI Platform module verification",
+        "ConversationMonitorLive: add missing page_window/2, apply_filter/2, refresh_conversations/2 helpers",
+        "stream_configure dom_id for map-based conversation items (CCEM-567)"
       ],
       "breaking": false,
       "migration_notes": null
