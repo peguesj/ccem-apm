@@ -1,6 +1,6 @@
 # Claude Usage Tracking
 
-CCEM APM v6.4.0 introduces built-in Claude Usage tracking — a real-time token and effort monitoring system that gives you per-project, per-model visibility into how Claude is being used across all your active workstreams.
+CCEM APM v9.1.3 introduces built-in Claude Usage tracking — a real-time token and effort monitoring system that gives you per-project, per-model visibility into how Claude is being used across all your active workstreams.
 
 > **Tip:** New to CCEM APM? Start with [Getting Started](/docs/user/getting-started) to set up the server, then return here to understand usage tracking.
 

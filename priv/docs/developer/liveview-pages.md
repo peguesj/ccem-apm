@@ -1,9 +1,9 @@
 # LiveView Pages
 
-CCEM APM v6.4.0 uses Phoenix LiveView for real-time, interactive web pages. Each page maintains a WebSocket connection with the server for live updates without page refresh.
+CCEM APM v9.1.3 uses Phoenix LiveView for real-time, interactive web pages. Each page maintains a WebSocket connection with the server for live updates without page refresh.
 
 **Author**: Jeremiah Pegues
-**Version**: v6.4.0
+**Version**: v9.1.3
 
 ## LiveView Architecture
 

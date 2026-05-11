@@ -1,9 +1,9 @@
 # Skills — User Guide
 
-**Version**: v6.4.0
+**Version**: v9.1.3
 **Author**: Jeremiah Pegues
 
-The Skills page is the central hub for understanding, auditing, and repairing the skill definitions that power CCEM APM's agentic workflow. The v6.4.0 redesign replaces the previous flat-list analytics view with a three-tier health card grid, an interactive Fix Wizard, a live session timeline, and full AG-UI integration awareness — all built to WCAG 2.1 AA compliance.
+The Skills page is the central hub for understanding, auditing, and repairing the skill definitions that power CCEM APM's agentic workflow. The v9.1.3 release includes comprehensive TDD validation, auth API test coverage, and platform module verification.
 
 ---
 

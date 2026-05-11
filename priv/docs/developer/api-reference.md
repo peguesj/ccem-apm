@@ -1,8 +1,8 @@
 # REST API Reference
 
-Complete API endpoint documentation for CCEM APM v9.0.0. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
+Complete API endpoint documentation for CCEM APM v9.1.3. The API uses JSON for request/response bodies and supports both HTTP/REST and WebSocket connections.
 
-> **v9.0.0 additions**: Integration endpoints (`GET /api/v2/integrations`) for claude_mem, claude_flow, claude_expertise, UAT. Synergize action (`POST /api/v2/actions/synergize`). Task registration (`POST /api/v2/tasks/register`). New LiveViews: `/architecture`, `/settings`.
+> **v9.1.3 additions**: TDD test suites for auth API and platform modules. ConversationMonitorLive compile fixes. Stream configuration for map-based items.
 >
 > **v8.11.0 additions**: Plugin Repository API (`/api/v2/plugins/repositories`) for managing plugin sources. Claude Code Plugin Bridge (`/api/v2/plugins/cc/*`) for discovering CC ecosystem plugins. Library API (`/api/v2/library/*`) for the 7-tab resource catalog.
 >

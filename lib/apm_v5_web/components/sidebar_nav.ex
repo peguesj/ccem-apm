@@ -24,6 +24,8 @@ defmodule ApmV5Web.Components.SidebarNav do
   use Phoenix.Component
   import ApmV5Web.CoreComponents, only: [icon: 1]
 
+  @app_version "9.1.3"
+
   attr :current_path, :string, required: true
   attr :notification_count, :integer, default: 0
   attr :skill_count, :integer, default: 0
