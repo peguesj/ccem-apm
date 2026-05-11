@@ -51,32 +51,17 @@ defmodule ApmV5Web.ApprovalsLive do
 
   @impl true
   def handle_event("approve", %{"id" => id}, socket) do
-    try do
-      ApprovalQueue.approve(id, %{approver: "dashboard"})
-    rescue
-      _ -> :ok
-    end
-
+    catch_exit(fn -> apply(ApprovalQueue, :approve, [id, %{approver: "dashboard"}]) end)
     {:noreply, load_data(socket)}
   end
 
   def handle_event("deny", %{"id" => id}, socket) do
-    try do
-      ApprovalQueue.deny(id, "Denied via Approvals dashboard")
-    rescue
-      _ -> :ok
-    end
-
+    catch_exit(fn -> apply(ApprovalQueue, :deny, [id, "Denied via Approvals dashboard"]) end)
     {:noreply, load_data(socket)}
   end
 
   def handle_event("defer", %{"id" => id}, socket) do
-    try do
-      ApprovalQueue.defer(id, "Deferred via dashboard")
-    rescue
-      _ -> :ok
-    end
-
+    catch_exit(fn -> apply(ApprovalQueue, :defer, [id, "Deferred via dashboard"]) end)
     {:noreply, load_data(socket)}
   end
 
@@ -104,13 +89,7 @@ defmodule ApmV5Web.ApprovalsLive do
         <.sidebar_nav current_path="/approvals" />
       </:sidebar>
       <:topbar>
-        <.top_bar project_name="CCEM APM">
-          <:actions>
-            <.badge tone="warn" dot={@pending_count > 0}>
-              {@pending_count} pending
-            </.badge>
-          </:actions>
-        </.top_bar>
+        <.top_bar project_name="CCEM APM" />
       </:topbar>
       <:main>
         <div style="padding: 24px; display: flex; flex-direction: column; gap: 24px;">
@@ -163,10 +142,10 @@ defmodule ApmV5Web.ApprovalsLive do
               </:col>
               <:col :let={item} label="Actions">
                 <div style="display: flex; gap: 6px;">
-                  <.btn variant="ok" size="xs" phx-click="approve" phx-value-id={Map.get(item, :id, "")}>
+                  <.btn variant="primary" size="xs" phx-click="approve" phx-value-id={Map.get(item, :id, "")}>
                     Approve
                   </.btn>
-                  <.btn variant="danger" size="xs" phx-click="deny" phx-value-id={Map.get(item, :id, "")}>
+                  <.btn variant="destructive" size="xs" phx-click="deny" phx-value-id={Map.get(item, :id, "")}>
                     Deny
                   </.btn>
                   <.btn variant="ghost" size="xs" phx-click="defer" phx-value-id={Map.get(item, :id, "")}>
@@ -220,23 +199,8 @@ defmodule ApmV5Web.ApprovalsLive do
   # ---------------------------------------------------------------------------
 
   defp load_data(socket) do
-    pending_items =
-      try do
-        ApprovalQueue.list_pending()
-      rescue
-        _ -> []
-      catch
-        :exit, _ -> []
-      end
-
-    recent_audit =
-      try do
-        ApprovalAuditLog.tail(20)
-      rescue
-        _ -> []
-      catch
-        :exit, _ -> []
-      end
+    pending_items = catch_exit(fn -> apply(ApprovalQueue, :list_pending, []) end) || []
+    recent_audit = catch_exit(fn -> apply(ApprovalAuditLog, :tail, [20]) end) || []
 
     today = Date.utc_today()
 
@@ -273,6 +237,16 @@ defmodule ApmV5Web.ApprovalsLive do
     end
   end
   defp format_ttl(_), do: "—"
+
+  defp catch_exit(fun) do
+    try do
+      fun.()
+    rescue
+      _ -> nil
+    catch
+      :exit, _ -> nil
+    end
+  end
 
   defp format_dt(nil), do: "—"
   defp format_dt(%DateTime{} = dt) do

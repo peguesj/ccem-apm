@@ -231,8 +231,6 @@ defmodule ApmV5Web.DashboardLive do
           skill_count={@active_skill_count}
           plugins={@plugins}
           integrations={@integrations}
-          collapsed={@sidebar_collapsed}
-          on_toggle="toggle_sidebar"
         />
       </:sidebar>
 
@@ -1330,14 +1328,6 @@ defmodule ApmV5Web.DashboardLive do
     push_graph_data(socket, filtered)
   end
 
-  defp namespaces_from_agents(agents) do
-    agents
-    |> Enum.map(& &1[:namespace])
-    |> Enum.reject(&is_nil/1)
-    |> Enum.uniq()
-    |> Enum.sort()
-  end
-
   defp push_graph_data(socket, agents) do
     graph_agents =
       Enum.map(agents, fn agent ->
@@ -1394,38 +1384,6 @@ defmodule ApmV5Web.DashboardLive do
   end
 
   defp format_last_seen(_), do: "unknown"
-
-  defp status_badge_class("active"), do: "badge-success"
-  defp status_badge_class("idle"), do: "badge-ghost"
-  defp status_badge_class("error"), do: "badge-error"
-  defp status_badge_class("discovered"), do: "badge-info"
-  defp status_badge_class("completed"), do: "badge-accent"
-  defp status_badge_class(_), do: "badge-ghost"
-
-  defp agent_type_badge_class("squadron"), do: "badge-info"
-  defp agent_type_badge_class("swarm"), do: "badge-warning"
-  defp agent_type_badge_class("orchestrator"), do: "badge-accent"
-  defp agent_type_badge_class(_), do: "badge-ghost"
-
-  defp filtered_notifications(notifications, channel_filter, source_filter) do
-    Enum.filter(notifications, fn n ->
-      (is_nil(channel_filter) or n[:channel] == channel_filter) and
-        (is_nil(source_filter) or n[:source] == source_filter)
-    end)
-  end
-
-  defp notif_badge_class("error"), do: "badge-error"
-  defp notif_badge_class("warning"), do: "badge-warning"
-  defp notif_badge_class("success"), do: "badge-success"
-  defp notif_badge_class("info"), do: "badge-info"
-  defp notif_badge_class(_), do: "badge-ghost"
-
-  defp tab_label(:inspector), do: "Inspector"
-  defp tab_label(:ralph), do: "Ralph"
-  defp tab_label(:upm), do: "UPM"
-  defp tab_label(:ports), do: "Ports"
-  defp tab_label(:commands), do: "Commands"
-  defp tab_label(:todos), do: "TODOs"
 
   defp skill_count do
     try do
@@ -1533,39 +1491,12 @@ defmodule ApmV5Web.DashboardLive do
 
   # --- UPM Helpers ---
 
-  defp upm_status_badge("registered"), do: "badge-ghost"
-  defp upm_status_badge("running"), do: "badge-info"
-  defp upm_status_badge("verifying"), do: "badge-warning"
-  defp upm_status_badge("verified"), do: "badge-success"
-  defp upm_status_badge("shipped"), do: "badge-accent"
-  defp upm_status_badge(_), do: "badge-ghost"
-
-  defp upm_story_dot("pending"), do: "bg-base-content/30"
-  defp upm_story_dot("in_progress"), do: "bg-info"
-  defp upm_story_dot("passed"), do: "bg-success"
-  defp upm_story_dot("failed"), do: "bg-error"
-  defp upm_story_dot(_), do: "bg-base-content/30"
-
   defp upm_story_summary(stories) when is_list(stories) do
     passed = Enum.count(stories, &(&1.status == "passed"))
     total = length(stories)
     "#{passed}/#{total} passed"
   end
   defp upm_story_summary(_), do: ""
-
-  defp upm_event_color("wave_start"), do: "text-info"
-  defp upm_event_color("wave_complete"), do: "text-info"
-  defp upm_event_color("story_pass"), do: "text-success"
-  defp upm_event_color("story_fail"), do: "text-error"
-  defp upm_event_color("verify_start"), do: "text-warning"
-  defp upm_event_color("verify_complete"), do: "text-success"
-  defp upm_event_color("ship"), do: "text-accent"
-  defp upm_event_color(_), do: "text-base-content/50"
-
-  defp format_event_time(%DateTime{} = dt) do
-    Calendar.strftime(dt, "%H:%M:%S")
-  end
-  defp format_event_time(_), do: ""
 
   defp safe_get_config do
     try do

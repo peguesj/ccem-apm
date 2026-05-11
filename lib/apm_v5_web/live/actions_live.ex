@@ -214,10 +214,10 @@ defmodule ApmV5Web.ActionsLive do
   defp status_cell(assigns) do
     ~H"""
     <span :if={@value} style="display: flex; align-items: center; justify-content: center;">
-      <.icon name="hero-check-circle" class="size-4" style="color: var(--ccem-ok, #22c55e);" />
+      <.icon name="hero-check-circle" class="size-4 text-ok" />
     </span>
     <span :if={!@value} style="display: flex; align-items: center; justify-content: center; opacity: 0.3;">
-      <.icon name="hero-x-circle" class="size-4" style="color: var(--ccem-err, #ef4444);" />
+      <.icon name="hero-x-circle" class="size-4 text-err" />
     </span>
     """
   end
@@ -472,7 +472,7 @@ defmodule ApmV5Web.ActionsLive do
               <.badge tone={if action_applied?(proj, @selected_action.id), do: "ok", else: "neutral"} square={true}>
                 {if action_applied?(proj, @selected_action.id), do: "applied", else: "pending"}
               </.badge>
-              <.icon :if={@project_path == proj.path} name="hero-check" class="size-4" style="color: var(--ccem-accent); flex-shrink: 0;" />
+              <.icon :if={@project_path == proj.path} name="hero-check" class="size-4 text-accent flex-shrink-0" />
             </button>
           </div>
         </div>

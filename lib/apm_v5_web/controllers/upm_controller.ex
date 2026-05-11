@@ -276,4 +276,29 @@ defmodule ApmV5Web.UpmController do
       completed_at: r.completed_at && DateTime.to_iso8601(r.completed_at)
     }
   end
+
+  def update_story(conn, params) do
+    session_id = Map.get(params, "session_id", "default")
+    story_id = Map.get(params, "story_id")
+    attrs = Map.take(params, ["todo_ref", "task_id", "commit_sha", "worktree_ref", "branch_ref"])
+
+    case ApmV5.UpmStore.update_story(session_id, story_id, attrs) do
+      :ok -> json(conn, %{ok: true})
+      {:error, reason} -> conn |> put_status(404) |> json(%{ok: false, error: inspect(reason)})
+    end
+  end
+
+  def write_manifest(conn, params) do
+    formation_id = Map.get(params, "formation_id")
+    manifest = Map.get(params, "manifest", %{})
+
+    try do
+      :ets.new(:upm_manifests, [:named_table, :public, :set])
+    rescue
+      ArgumentError -> :ok
+    end
+
+    :ets.insert(:upm_manifests, {formation_id, manifest, DateTime.utc_now()})
+    json(conn, %{ok: true, formation_id: formation_id})
+  end
 end

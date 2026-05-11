@@ -1,3 +1,4 @@
+# credo:disable-for-next-line Credo.Check.Warning.ModuleAttributeInGuard
 defmodule ApmV5.Plugins.Harness.HarnessMonitor do
   @moduledoc """
   GenServer that polls `~/.claude/state/session.json` every 15 seconds

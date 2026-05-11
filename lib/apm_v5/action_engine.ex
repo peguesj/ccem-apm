@@ -241,6 +241,15 @@ defmodule ApmV5.ActionEngine do
         %{name: "check_only", type: "boolean", required: false},
         %{name: "project_path", type: "string", required: false}
       ]
+    },
+    %{
+      id: "audit_hook_performance",
+      name: "Audit Hook Performance",
+      description: "Scan Claude Code hook scripts for performance culprits: cold-start npx, blocking network calls, heavy shell ops that add latency or block interrupts",
+      category: "hooks",
+      icon: "clock",
+      dangerous: false,
+      params: []
     }
   ]
 
@@ -272,6 +281,15 @@ defmodule ApmV5.ActionEngine do
   @spec run_action(String.t(), String.t(), map()) :: {:ok, String.t()} | {:error, term()}
   def run_action(action_type, project_path, params \\ %{}) do
     GenServer.call(__MODULE__, {:run_action, action_type, project_path, params})
+  end
+
+  @doc """
+  Public wrapper around the private `execute_action/3` for use by ActionRunStore.
+  Delegates directly to the internal action executor without going through GenServer state.
+  """
+  @spec execute_action_public(String.t(), String.t(), map()) :: {:ok, map()} | {:error, term()}
+  def execute_action_public(action_type, project_path, params) do
+    execute_action(action_type, project_path, params)
   end
 
   @spec list_runs() :: [map()]

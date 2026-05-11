@@ -445,7 +445,7 @@ defmodule ApmV5Web.Components.DesignSystem do
   attr :id, :string, default: nil
   attr :disabled, :boolean, default: false
   attr :class, :string, default: nil
-  attr :rest, :global
+  attr :rest, :global, include: ~w(autocomplete aria-label)
 
   slot :icon
   slot :suffix

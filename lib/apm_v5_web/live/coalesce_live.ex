@@ -203,14 +203,7 @@ defmodule ApmV5Web.CoalesceLive do
         <.sidebar_nav current_path="/coalesce" />
       </:sidebar>
       <:topbar>
-        <.top_bar project_name="CCEM APM">
-          <:actions>
-            <.badge tone="neutral">{length(@runs)} runs</.badge>
-            <.badge tone={if length(@pending_gates) > 0, do: "warn", else: "neutral"} dot={length(@pending_gates) > 0}>
-              {length(@pending_gates)} pending gates
-            </.badge>
-          </:actions>
-        </.top_bar>
+        <.top_bar project_name="CCEM APM" />
       </:topbar>
       <:main>
         <div style="display: flex; height: 100%; overflow: hidden;">
@@ -273,7 +266,7 @@ defmodule ApmV5Web.CoalesceLive do
                 </div>
                 <div style="display: flex; gap: 8px;">
                   <%= if @active_run.status == :awaiting_gate do %>
-                    <.btn variant="ok" size="sm" phx-click="apply_run" phx-value-run_id={@active_run.run_id}>
+                    <.btn variant="primary" size="sm" phx-click="apply_run" phx-value-run_id={@active_run.run_id}>
                       Apply Diffs
                     </.btn>
                   <% end %>
@@ -298,10 +291,10 @@ defmodule ApmV5Web.CoalesceLive do
                         <span style="font-size: 11px; color: var(--ccem-fg-dim);">{gate.type}</span>
                         <%= if gate.status == :pending and gate.type == :human do %>
                           <div style="display: flex; gap: 4px; margin-left: 4px;">
-                            <.btn variant="ok" size="xs" phx-click="gate_approve" phx-value-composite_id={gate.composite_id}>
+                            <.btn variant="primary" size="xs" phx-click="gate_approve" phx-value-composite_id={gate.composite_id}>
                               Approve
                             </.btn>
-                            <.btn variant="danger" size="xs" phx-click="gate_reject" phx-value-composite_id={gate.composite_id} phx-value-reason="rejected from dashboard">
+                            <.btn variant="destructive" size="xs" phx-click="gate_reject" phx-value-composite_id={gate.composite_id} phx-value-reason="rejected from dashboard">
                               Reject
                             </.btn>
                             <.btn variant="ghost" size="xs" phx-click="gate_defer" phx-value-composite_id={gate.composite_id}>

@@ -243,7 +243,7 @@ defmodule ApmV5Web.AlignmentLive do
                 </span>
               </div>
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2); margin-left: auto;">
-                <.icon name="hero-exclamation-triangle" class="w-4 h-4" style="color: var(--ccem-warn);" />
+                <.icon name="hero-exclamation-triangle" class="w-4 h-4 text-warn" />
                 <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Gaps:</span>
                 <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-warn);">
                   <%= Map.get(summary, "gap_count", 0) %>
@@ -264,7 +264,7 @@ defmodule ApmV5Web.AlignmentLive do
               >
                 <%= if !@report && !@running do %>
                   <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: var(--ccem-space-4); color: var(--ccem-fg-muted);">
-                    <.icon name="hero-magnifying-glass-circle" class="w-16 h-16" style="opacity: 0.4;" />
+                    <.icon name="hero-magnifying-glass-circle" class="w-16 h-16 opacity-40" />
                     <p style="font-size: var(--ccem-text-sm);">Run the audit to visualize agent alignment</p>
                   </div>
                 <% end %>

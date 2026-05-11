@@ -171,6 +171,42 @@ defmodule ApmV5Web.ApiController do
     json(conn, %{agents: agent_list})
   end
 
+  @doc "POST /api/sessions/register -- register a Claude Code session and persist to disk"
+  def register_session(conn, params) do
+    session_id = params["session_id"]
+
+    if is_nil(session_id) or session_id == "" do
+      conn
+      |> put_status(:bad_request)
+      |> json(%{error: "Missing required field: session_id"})
+    else
+      payload = %{
+        "session_id" => session_id,
+        "project" => params["project"] || "unknown",
+        "git_branch" => params["git_branch"] || "unknown",
+        "working_dir" => params["working_dir"] || "",
+        "timestamp" => params["timestamp"] || DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+
+      sessions_dir = Path.expand("~/Developer/ccem/apm/sessions")
+      :ok = File.mkdir_p(sessions_dir)
+      file_path = Path.join(sessions_dir, "#{session_id}.json")
+
+      case Jason.encode(payload, pretty: true) do
+        {:ok, json_str} ->
+          File.write!(file_path, json_str)
+          # Trigger SessionManager to pick up the new file on next poll cycle
+          if pid = Process.whereis(ApmV5.SessionManager), do: send(pid, :poll)
+          json(conn, %{ok: true, session_id: session_id, file: file_path})
+
+        {:error, reason} ->
+          conn
+          |> put_status(:internal_server_error)
+          |> json(%{error: "Failed to encode session: #{inspect(reason)}"})
+      end
+    end
+  end
+
   @doc "GET /api/input/pending -- pending input requests"
   def pending_input(conn, _params) do
     pending = ProjectStore.get_pending_inputs()

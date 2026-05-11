@@ -137,7 +137,7 @@ defmodule ApmV5Web.IntakeLive do
           <%!-- Watcher registry --%>
           <.card padded={true}>
             <div style="display: flex; align-items: center; gap: var(--ccem-space-2); margin-bottom: var(--ccem-space-3);">
-              <.icon name="hero-eye" class="size-4" style="color: var(--ccem-accent);" />
+              <.icon name="hero-eye" class="size-4 text-accent" />
               <span style="font-size: var(--ccem-text-sm); font-weight: 600; color: var(--ccem-fg-primary);">
                 Registered Watchers
               </span>
@@ -170,7 +170,7 @@ defmodule ApmV5Web.IntakeLive do
             </div>
             <%= if @events == [] do %>
               <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--ccem-space-12); gap: var(--ccem-space-2); color: var(--ccem-fg-muted);">
-                <.icon name="hero-inbox" class="size-8" style="opacity: 0.3;" />
+                <.icon name="hero-inbox" class="size-8 opacity-30" />
                 <span style="font-size: var(--ccem-text-sm);">
                   No events yet. POST to
                   <code style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); background: var(--ccem-surface-3); padding: 0 4px; border-radius: 3px;">/api/intake</code>

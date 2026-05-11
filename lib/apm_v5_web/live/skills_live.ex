@@ -317,10 +317,10 @@ defmodule ApmV5Web.SkillsLive do
                   <%= for {name, status, msg} <- @fix_progress do %>
                     <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 4px;">
                       <%= case status do %>
-                        <% :done -> %><.icon name="hero-check-circle" class="h-4 w-4" style="color: var(--ccem-ok);" />
+                        <% :done -> %><span style="color: var(--ccem-ok);"><.icon name="hero-check-circle" class="h-4 w-4" /></span>
                         <% :running -> %><span style="color: var(--ccem-accent);">⟳</span>
-                        <% :pending -> %><.icon name="hero-clock" class="h-4 w-4" style="color: var(--ccem-fg-subtle);" />
-                        <% :error -> %><.icon name="hero-x-circle" class="h-4 w-4" style="color: var(--ccem-err);" />
+                        <% :pending -> %><span style="color: var(--ccem-fg-subtle);"><.icon name="hero-clock" class="h-4 w-4" /></span>
+                        <% :error -> %><.icon name="hero-x-circle" class="h-4 w-4 text-err" />
                       <% end %>
                       <span style="font-family: monospace;">{name}</span>
                       <span style="color: var(--ccem-fg-subtle);">{msg}</span>

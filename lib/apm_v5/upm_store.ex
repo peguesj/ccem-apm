@@ -30,6 +30,18 @@ defmodule ApmV5.UpmStore do
     GenServer.call(__MODULE__, {:register_agent, params})
   end
 
+  @doc "Update referential fields on a story (todo_ref, task_id, commit_sha, worktree_ref, branch_ref)."
+  @spec update_story(String.t(), String.t(), map()) :: :ok | {:error, term()}
+  def update_story(session_id, story_id, attrs) do
+    GenServer.call(__MODULE__, {:update_story, session_id, story_id, attrs})
+  end
+
+  @doc "Return the 5 referential fields for a story."
+  @spec get_story_refs(String.t(), String.t()) :: map() | {:error, term()}
+  def get_story_refs(session_id, story_id) do
+    GenServer.call(__MODULE__, {:get_story_refs, session_id, story_id})
+  end
+
   @doc "Record a UPM lifecycle event."
   @spec record_event(map()) :: :ok
   def record_event(params) do
@@ -574,7 +586,12 @@ defmodule ApmV5.UpmStore do
             wave: wave,
             work_item_title: title,
             upm_session_id: session_id,
-            agent_type: "individual"
+            agent_type: "individual",
+            todo_ref: params["todo_ref"],
+            task_id: params["task_id"],
+            worktree_ref: params["worktree_ref"],
+            branch_ref: params["branch_ref"],
+            commit_sha: params["commit_sha"]
           }
 
           ApmV5.AgentRegistry.register_agent(agent_id, metadata)
@@ -656,6 +673,44 @@ defmodule ApmV5.UpmStore do
     {:reply, :ok, %{state | event_counter: counter}}
   end
 
+  def handle_call({:update_story, session_id, story_id, attrs}, _from, state) do
+    case :ets.lookup(@sessions_table, session_id) do
+      [{^session_id, session}] ->
+        stories =
+          Enum.map(session.stories, fn story ->
+            if story.id == story_id do
+              Map.merge(story, Map.new(attrs, fn {k, v} -> {String.to_existing_atom(k), v} end))
+            else
+              story
+            end
+          end)
+
+        updated = %{session | stories: stories, updated_at: DateTime.utc_now()}
+        :ets.insert(@sessions_table, {session_id, updated})
+        {:reply, :ok, state}
+
+      [] ->
+        {:reply, {:error, :session_not_found}, state}
+    end
+  end
+
+  def handle_call({:get_story_refs, session_id, story_id}, _from, state) do
+    case :ets.lookup(@sessions_table, session_id) do
+      [{^session_id, session}] ->
+        case Enum.find(session.stories, &(&1.id == story_id)) do
+          nil ->
+            {:reply, {:error, :story_not_found}, state}
+
+          story ->
+            refs = Map.take(story, [:todo_ref, :task_id, :worktree_ref, :branch_ref, :commit_sha])
+            {:reply, refs, state}
+        end
+
+      [] ->
+        {:reply, {:error, :session_not_found}, state}
+    end
+  end
+
   # --- Private Helpers ---
 
   @spec normalize_story(term()) :: map()
@@ -670,7 +725,12 @@ defmodule ApmV5.UpmStore do
           title: story["title"],
           status: "pending",
           agent_id: nil,
-          plane_issue_id: story["plane_issue_id"]
+          plane_issue_id: story["plane_issue_id"],
+          todo_ref: story["todo_ref"],
+          task_id: story["task_id"],
+          worktree_ref: story["worktree_ref"],
+          branch_ref: story["branch_ref"],
+          commit_sha: story["commit_sha"]
         }
 
       true ->
