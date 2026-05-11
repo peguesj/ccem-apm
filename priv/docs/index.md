@@ -1,12 +1,20 @@
 # CCEM APM Documentation
 
-**Version 9.0.0** | Phoenix/Elixir Agent Performance & Management
+**Version 9.1.3** | Phoenix/Elixir Agent Performance & Management
 
 A real-time monitoring and orchestration platform for Claude Code AI agent sessions, providing fleet visualization, multi-project tracking, and autonomous workflow management.
 
 ---
 
-## What's New in v7.0.0
+## What's New in v9.1.3
+
+- **Wave 7-9 TDD Validation** -- Comprehensive test coverage for CP-190–198 with `govern_intelligence` (29 tests) and `platform` (34 tests) tags
+- **PolicyRulesStore Tests** -- Wildcard rule fallback, exact match precedence, removal idempotency
+- **Auth Controller Tests** -- All 8 apm-auth skill-spec endpoints validated (session lifecycle, token/redeem, policies, approvals)
+- **ConversationMonitorLive Fix** -- Added missing helper functions (page_window/2, apply_filter/2, refresh_conversations/2)
+- **Stream Configure** -- Fixed dom_id configuration for map-based conversation items (CCEM-567)
+
+## What's New in v9.1.2
 
 - **AgentLock Authorization Protocol** -- 3-layer security model (Agent -> Gate -> Execution) with 10 new auth modules under `lib/apm_v5/auth/`
 - **19 New Auth Endpoints** -- Full REST API at `/api/v2/auth/*` for token management, policy CRUD, session control, rate limits, context inspection, and redaction preview

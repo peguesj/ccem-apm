@@ -69,6 +69,8 @@ defmodule ApmV5Web.SkillsLive do
       |> assign(:fix_in_progress, false)
       |> assign(:fix_progress, [])
       |> assign(:fix_current, nil)
+      |> assign(:sidebar_collapsed, false)
+      |> assign(:inspector_open, false)
 
     {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -79,7 +81,7 @@ defmodule ApmV5Web.SkillsLive do
     <%!-- Skip link (WCAG 2.1 AA §2.4.1) --%>
     <a
       href="#main-content"
-      class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[9999] focus:px-3 focus:py-2 focus:bg-primary focus:text-primary-content focus:rounded focus:outline-none focus:ring-2 focus:ring-primary-content"
+      style="position: absolute; top: -9999px; left: -9999px; z-index: 9999; padding: 6px 12px; background: var(--ccem-accent); color: #fff; border-radius: 4px;"
     >
       Skip to main content
     </a>
@@ -87,609 +89,544 @@ defmodule ApmV5Web.SkillsLive do
     <div
       id="skills-view"
       phx-hook="Skills"
-      class="flex h-screen bg-base-300 overflow-hidden"
       phx-window-keydown="keydown"
     >
-      <.sidebar_nav current_path="/skills" skill_count={@active_skill_count} />
+      <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+        <:sidebar><.sidebar_nav current_path="/skills" skill_count={@active_skill_count} /></:sidebar>
+        <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+        <:main>
+          <%!-- Page header --%>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Skills</h1>
+              <.badge tone="accent"><%= to_string(length(@registry_skills)) %></.badge>
 
-      <%!-- Main area --%>
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Standard header bar --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h1 class="text-sm font-semibold text-base-content">Skills</h1>
-            <span class="badge badge-sm badge-primary">{length(@registry_skills)}</span>
-            <div
-              role="tablist"
-              aria-label="Skills views"
-              class="tabs tabs-boxed tabs-xs bg-base-300"
-            >
-              <button
-                role="tab"
-                id="tab-registry"
-                aria-selected={to_string(@tab == :registry)}
-                aria-controls="tabpanel-registry"
-                class={["tab", @tab == :registry && "tab-active"]}
-                phx-click="set_tab"
-                phx-value-tab="registry"
-                tabindex={if @tab == :registry, do: "0", else: "-1"}
-              >
-                Registry
-              </button>
-              <button
-                role="tab"
-                id="tab-session"
-                aria-selected={to_string(@tab == :session)}
-                aria-controls="tabpanel-session"
-                class={["tab", @tab == :session && "tab-active"]}
-                phx-click="set_tab"
-                phx-value-tab="session"
-                tabindex={if @tab == :session, do: "0", else: "-1"}
-              >
-                Session
-              </button>
-              <button
-                role="tab"
-                id="tab-ag_ui"
-                aria-selected={to_string(@tab == :ag_ui)}
-                aria-controls="tabpanel-ag_ui"
-                class={["tab", @tab == :ag_ui && "tab-active"]}
-                phx-click="set_tab"
-                phx-value-tab="ag_ui"
-                tabindex={if @tab == :ag_ui, do: "0", else: "-1"}
-              >
-                AG-UI
-              </button>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <%!-- View toggle (registry tab only) --%>
-            <div :if={@tab == :registry} class="btn-group">
-              <button
-                class={["btn btn-xs", @view_mode == "grid" && "btn-active"]}
-                phx-click="set_view_mode"
-                phx-value-mode="grid"
-                aria-label="Grid view"
-                aria-pressed={to_string(@view_mode == "grid")}
-              >
-                <.icon name="hero-squares-2x2" class="size-3.5" />
-              </button>
-              <button
-                class={["btn btn-xs", @view_mode == "list" && "btn-active"]}
-                phx-click="set_view_mode"
-                phx-value-mode="list"
-                aria-label="List view"
-                aria-pressed={to_string(@view_mode == "list")}
-              >
-                <.icon name="hero-list-bullet" class="size-3.5" />
-              </button>
-            </div>
-            <span
-              :if={@tab == :registry and active_filter_count(assigns) > 0}
-              aria-live="polite"
-              aria-atomic="true"
-              class="badge badge-xs badge-info"
-            >
-              {active_filter_count(assigns)} filter{if active_filter_count(assigns) > 1, do: "s", else: ""} active
-            </span>
-            <button
-              :if={@tab == :registry}
-              class={["btn btn-xs btn-primary", @audit_loading && "loading"]}
-              phx-click="audit_all"
-              disabled={@audit_loading}
-              aria-busy={to_string(@audit_loading)}
-            >
-              {if @audit_loading, do: "Scanning…", else: "Audit All"}
-            </button>
-          </div>
-        </header>
-
-        <%!-- Search / filter bar (registry tab only) --%>
-        <div
-          :if={@tab == :registry}
-          class="bg-base-200 border-b border-base-300 px-4 py-2 flex-shrink-0"
-          role="search"
-          aria-label="Filter skills"
-        >
-          <form phx-change="update_filters" class="flex items-center gap-2 flex-wrap">
-            <label for="skill-search" class="sr-only">Search skills</label>
-            <input
-              id="skill-search"
-              type="search"
-              name="search"
-              value={@search_query}
-              placeholder="Search skills…"
-              phx-debounce="200"
-              class="input input-xs input-bordered flex-1 min-w-[10rem] max-w-xs"
-              aria-label="Search skills by name or description"
-              autocomplete="off"
-            />
-
-            <label for="filter-tier" class="sr-only">Filter by health tier</label>
-            <select
-              id="filter-tier"
-              name="tier"
-              class="select select-xs select-bordered"
-              aria-label="Filter by health tier"
-            >
-              <option value="all" selected={@filter_tier == "all"}>All tiers</option>
-              <option value="healthy" selected={@filter_tier == "healthy"}>Healthy</option>
-              <option value="needs_attention" selected={@filter_tier == "needs_attention"}>Needs Attention</option>
-              <option value="critical" selected={@filter_tier == "critical"}>Critical</option>
-            </select>
-
-            <label for="filter-methodology" class="sr-only">Filter by methodology</label>
-            <select
-              id="filter-methodology"
-              name="methodology"
-              class="select select-xs select-bordered"
-              aria-label="Filter by methodology"
-            >
-              <option value="all" selected={@filter_methodology == "all"}>All methodologies</option>
-              <option value="ralph" selected={@filter_methodology == "ralph"}>Ralph</option>
-              <option value="tdd" selected={@filter_methodology == "tdd"}>TDD</option>
-              <option value="elixir_architect" selected={@filter_methodology == "elixir_architect"}>Elixir Architect</option>
-            </select>
-
-            <label for="group-by" class="sr-only">Group by</label>
-            <select
-              id="group-by"
-              name="group_by"
-              class="select select-xs select-bordered"
-              aria-label="Group skills by"
-            >
-              <option value="none" selected={@group_by == "none"}>No grouping</option>
-              <option value="tier" selected={@group_by == "tier"}>By Tier</option>
-              <option value="source" selected={@group_by == "source"}>By Source</option>
-              <option value="methodology" selected={@group_by == "methodology"}>By Methodology</option>
-            </select>
-          </form>
-
-          <button
-            :if={active_filter_count(assigns) > 0}
-            phx-click="clear_filters"
-            class="btn btn-xs btn-ghost mt-1"
-            aria-label="Clear all active filters"
-          >
-            ✕ Clear filters
-          </button>
-        </div>
-
-        <%!-- Body --%>
-        <main id="main-content" role="main" aria-label="Skills dashboard" class="flex-1 overflow-y-auto p-4">
-          <%!-- Registry Tab --%>
-          <div
-            :if={@tab == :registry}
-            id="tabpanel-registry"
-            role="tabpanel"
-            aria-labelledby="tab-registry"
-            class="space-y-4"
-            tabindex="0"
-          >
-            <%!-- Summary stats --%>
-            <div class="stats shadow bg-base-200 w-full" aria-label="Skills health summary">
-              <div class="stat">
-                <div class="stat-title" id="stat-total">Total Skills</div>
-                <div class="stat-value text-2xl" aria-labelledby="stat-total">{length(@registry_skills)}</div>
-              </div>
-              <div class="stat">
-                <div class="stat-title" id="stat-healthy">Healthy</div>
-                <div class="stat-value text-2xl text-success" aria-labelledby="stat-healthy">
-                  {Enum.count(@registry_skills, &(&1.health_score >= 80))}
-                </div>
-                <div class="stat-desc">score ≥ 80</div>
-              </div>
-              <div class="stat">
-                <div class="stat-title" id="stat-attention">Needs Attention</div>
-                <div class="stat-value text-2xl text-warning" aria-labelledby="stat-attention">
-                  {Enum.count(@registry_skills, &(&1.health_score in 50..79))}
-                </div>
-                <div class="stat-desc">score 50–79</div>
-              </div>
-              <div class="stat">
-                <div class="stat-title" id="stat-critical">Critical</div>
-                <div class="stat-value text-2xl text-error" aria-labelledby="stat-critical">
-                  {Enum.count(@registry_skills, &(&1.health_score < 50))}
-                </div>
-                <div class="stat-desc">score &lt; 50</div>
-              </div>
-            </div>
-
-            <%!-- Filter results count --%>
-            <div
-              :if={active_filter_count(assigns) > 0}
-              aria-live="polite"
-              aria-atomic="true"
-              class="text-xs text-base-content/50"
-            >
-              Showing {length(@filtered_skills)} of {length(@registry_skills)} skills
-            </div>
-
-            <%!-- Batch action bar --%>
-            <%= if MapSet.size(@selected_skills) > 0 do %>
-              <div class="bg-primary/10 border border-primary/20 rounded-lg px-4 py-2 flex items-center justify-between">
-                <span class="text-sm">{MapSet.size(@selected_skills)} selected</span>
-                <div class="flex gap-2">
-                  <button phx-click="batch_fix" class="btn btn-warning btn-xs">Fix Selected</button>
-                  <button phx-click="batch_audit" class="btn btn-info btn-xs">Audit Selected</button>
-                  <button phx-click="clear_selection" class="btn btn-ghost btn-xs">Clear</button>
-                </div>
-              </div>
-            <% end %>
-
-            <%!-- Fix progress panel --%>
-            <%= if @fix_in_progress do %>
-              <div class="bg-base-200 border border-warning/20 rounded-lg p-3 space-y-2">
-                <div class="flex items-center gap-2">
-                  <span class="loading loading-spinner loading-xs text-warning"></span>
-                  <span class="text-sm font-semibold">Fixing skills...</span>
-                  <span class="text-xs text-base-content/50">
-                    {length(Enum.filter(@fix_progress, fn {_, s, _} -> s == :done end))}/{length(@fix_progress)}
-                  </span>
-                </div>
-                <%= for {name, status, msg} <- @fix_progress do %>
-                  <div class="flex items-center gap-2 text-xs">
-                    <%= case status do %>
-                      <% :done -> %><.icon name="hero-check-circle" class="h-4 w-4 text-success" />
-                      <% :running -> %><span class="loading loading-spinner loading-xs"></span>
-                      <% :pending -> %><.icon name="hero-clock" class="h-4 w-4 text-base-content/30" />
-                      <% :error -> %><.icon name="hero-x-circle" class="h-4 w-4 text-error" />
-                    <% end %>
-                    <span class="font-mono">{name}</span>
-                    <span class="text-base-content/50">{msg}</span>
-                  </div>
-                <% end %>
-              </div>
-            <% end %>
-
-            <%!-- Grouped or flat rendering --%>
-            <%= if @group_by != "none" do %>
-              <%= for {group_name, group_skills} <- group_skills(@filtered_skills, @group_by) do %>
-                <div class="collapse collapse-arrow bg-base-200 mb-2">
-                  <input type="checkbox" checked />
-                  <div class="collapse-title text-sm font-medium">
-                    {group_name} <span class="badge badge-sm">{length(group_skills)}</span>
-                  </div>
-                  <div class="collapse-content">
-                    <%= if @view_mode == "list" do %>
-                      <.skill_list_view skills={group_skills} selected_skills={@selected_skills} selected_skill={@selected_skill} />
-                    <% else %>
-                      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" role="list">
-                        <.skill_card :for={skill <- group_skills} skill={skill} selected_skill={@selected_skill} selected_skills={@selected_skills} />
-                      </div>
-                    <% end %>
-                  </div>
-                </div>
-              <% end %>
-            <% else %>
-              <%!-- Flat rendering (no grouping) --%>
-              <%= if @view_mode == "list" do %>
-                <.skill_list_view skills={@filtered_skills} selected_skills={@selected_skills} selected_skill={@selected_skill} />
-              <% else %>
-                <%!-- Tier card sections (critical -> needs attention -> healthy) --%>
-                <% {healthy, needs_attention, critical} = split_tiers(@filtered_skills) %>
-
-                <.skill_tier_cards
-                  tier={:critical}
-                  skills={critical}
-                  collapsed={Map.get(@collapsed_tiers, :critical, false)}
-                  selected={@selected_skill}
-                  selected_skills={@selected_skills}
-                />
-                <.skill_tier_cards
-                  tier={:needs_attention}
-                  skills={needs_attention}
-                  collapsed={Map.get(@collapsed_tiers, :needs_attention, false)}
-                  selected={@selected_skill}
-                  selected_skills={@selected_skills}
-                />
-                <.skill_tier_cards
-                  tier={:healthy}
-                  skills={healthy}
-                  collapsed={Map.get(@collapsed_tiers, :healthy, true)}
-                  selected={@selected_skill}
-                  selected_skills={@selected_skills}
-                />
-              <% end %>
-            <% end %>
-
-            <div :if={@registry_skills == []} class="text-center py-12 text-base-content/30">
-              <p>No skills found in ~/.claude/skills/</p>
-              <button class="btn btn-primary btn-sm mt-4" phx-click="audit_all">Scan Now</button>
-            </div>
-          </div>
-
-          <%!-- Session Tab --%>
-          <div
-            :if={@tab == :session}
-            id="tabpanel-session"
-            role="tabpanel"
-            aria-labelledby="tab-session"
-            class="space-y-6"
-            tabindex="0"
-          >
-            <%!-- Invocation Timeline --%>
-            <section aria-labelledby="timeline-heading">
-              <h2
-                id="timeline-heading"
-                class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3"
-              >
-                Invocation Timeline
-              </h2>
-              <p
-                :if={@session_skills == %{}}
-                class="text-sm text-base-content/30 py-4"
-                aria-live="polite"
-              >
-                No skills invoked in current session.
-              </p>
+              <%!-- Tab list --%>
               <div
-                :if={@session_skills != %{}}
-                role="list"
-                aria-label="Skill invocation timeline"
-                class="relative pl-6 space-y-3"
+                role="tablist"
+                aria-label="Skills views"
+                style="display: flex; gap: 4px;"
               >
-                <%!-- Vertical timeline line --%>
-                <div class="absolute left-2 top-0 bottom-0 w-0.5 bg-base-300" aria-hidden="true"></div>
-                <article
-                  :for={{skill, data} <- Enum.sort_by(@session_skills, fn {_k, v} -> v.last_seen end, :desc)}
-                  role="listitem"
-                  class="relative"
-                  aria-label={"#{skill}: #{data.count} invocations, last #{format_time(data.last_seen)}"}
-                >
-                  <%!-- Timeline dot --%>
-                  <div
-                    class={[
-                      "absolute -left-4 top-2 w-3 h-3 rounded-full border-2 border-base-200",
-                      if(methodology_for_skill(skill), do: "bg-primary", else: "bg-base-content/30")
-                    ]}
-                    aria-hidden="true"
-                  ></div>
-                  <div class="card bg-base-200 border border-base-300 p-3 ml-2">
-                    <div class="flex items-center justify-between">
-                      <div class="flex items-center gap-2">
-                        <span class="text-sm font-semibold">{skill}</span>
-                        <span
-                          :if={methodology_for_skill(skill)}
-                          class={["badge badge-xs", methodology_badge(methodology_for_skill(skill))]}
-                        >
-                          {methodology_for_skill(skill)}
-                        </span>
-                      </div>
-                      <div class="flex items-center gap-2 text-xs text-base-content/40">
-                        <span
-                          class="badge badge-xs badge-primary"
-                          aria-label={"#{data.count} invocations"}
-                        >
-                          {data.count}×
-                        </span>
-                        <span>{format_time(data.last_seen)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              </div>
-            </section>
-
-            <%!-- Skill Catalog --%>
-            <section aria-labelledby="catalog-heading">
-              <h2
-                id="catalog-heading"
-                class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3"
-              >
-                Skill Catalog
-              </h2>
-              <div class="overflow-x-auto">
-                <table class="table table-xs w-full" aria-label="All tracked skills">
-                  <caption class="sr-only">Skill usage statistics across all sessions</caption>
-                  <thead>
-                    <tr class="text-[10px] uppercase tracking-wider text-base-content/40">
-                      <th scope="col">Skill</th>
-                      <th scope="col" class="text-right">Total Invocations</th>
-                      <th scope="col" class="text-right">Sessions</th>
-                      <th scope="col">Source</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      :for={{skill, data} <- Enum.sort_by(@catalog, fn {_k, v} -> -v.total_count end)}
-                      class="hover"
-                    >
-                      <td class="font-medium">{skill}</td>
-                      <td class="text-right tabular-nums">{data.total_count}</td>
-                      <td class="text-right tabular-nums">{data.session_count}</td>
-                      <td>
-                        <span class={["badge badge-xs", source_badge(data.source)]}>{data.source}</span>
-                      </td>
-                    </tr>
-                    <tr :if={@catalog == %{}}>
-                      <td colspan="4" class="text-center text-base-content/30 py-6">
-                        No skills tracked yet
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <%!-- Co-occurrence matrix --%>
-            <section :if={@co_occurrence != %{}} aria-labelledby="cooccurrence-heading">
-              <h2
-                id="cooccurrence-heading"
-                class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3"
-              >
-                Skill Co-occurrence
-              </h2>
-              <div class="overflow-x-auto">
-                <table class="table table-xs w-full" aria-label="Skills used together">
-                  <caption class="sr-only">
-                    Skills that frequently appear in the same sessions
-                  </caption>
-                  <thead>
-                    <tr class="text-[10px] uppercase tracking-wider text-base-content/40">
-                      <th scope="col">Skill A</th>
-                      <th scope="col">Skill B</th>
-                      <th scope="col" class="text-right">Sessions Together</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      :for={{{a, b}, count} <- Enum.sort_by(@co_occurrence, fn {_k, v} -> -v end)}
-                      class="hover"
-                    >
-                      <td>{a}</td>
-                      <td>{b}</td>
-                      <td class="text-right tabular-nums">{count}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </div>
-
-          <%!-- AG-UI Tab --%>
-          <div
-            :if={@tab == :ag_ui}
-            id="tabpanel-ag_ui"
-            role="tabpanel"
-            aria-labelledby="tab-ag_ui"
-            class="space-y-6"
-            tabindex="0"
-          >
-            <%!-- AG-UI health summary stats --%>
-            <div class="stats shadow bg-base-200 w-full" aria-label="AG-UI hook health summary">
-              <div class="stat">
-                <div class="stat-title">Connected</div>
-                <div class="stat-value text-2xl text-success">
-                  {Enum.count(@registry_skills, &(&1.health_score >= 80))}
-                </div>
-                <div class="stat-desc">healthy hooks</div>
-              </div>
-              <div class="stat">
-                <div class="stat-title">Degraded</div>
-                <div class="stat-value text-2xl text-warning">
-                  {Enum.count(@registry_skills, &(&1.health_score in 50..79))}
-                </div>
-                <div class="stat-desc">partial connectivity</div>
-              </div>
-              <div class="stat">
-                <div class="stat-title">Broken</div>
-                <div class="stat-value text-2xl text-error">
-                  {Enum.count(@registry_skills, &(&1.health_score < 50))}
-                </div>
-                <div class="stat-desc">need repair</div>
-              </div>
-            </div>
-
-            <section aria-labelledby="ag-ui-emitters-heading">
-              <h2
-                id="ag-ui-emitters-heading"
-                class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3"
-              >
-                Skills as AG-UI Event Emitters
-              </h2>
-              <p class="text-sm text-base-content/60 mb-4">
-                Skills emit AG-UI events when invoked. Each skill connection shows event emission status.
-              </p>
-              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" role="list">
-                <article
-                  :for={skill <- @registry_skills}
-                  class={["card bg-base-200 border p-3", ag_ui_border_class(skill.health_score)]}
-                  role="listitem"
-                  aria-label={"Skill #{skill.name}: #{ag_ui_status_label(skill.health_score)}"}
-                >
-                  <div class="flex items-center justify-between mb-1">
-                    <span class="text-sm font-medium truncate">{skill.name}</span>
-                    <div
-                      class={["w-2 h-2 rounded-full animate-pulse", ag_ui_dot_class(skill.health_score)]}
-                      aria-hidden="true"
-                    ></div>
-                  </div>
-                  <div class={["text-[10px] mb-2", ag_ui_text_class(skill.health_score)]}>
-                    {ag_ui_status_label(skill.health_score)}
-                  </div>
-                  <div class="flex gap-1 flex-wrap items-center justify-between">
-                    <div class="flex gap-1">
-                      <span class="badge badge-xs badge-ghost">CUSTOM</span>
-                      <span
-                        :if={skill.has_frontmatter}
-                        class="badge badge-xs badge-success badge-outline"
-                      >
-                        valid
-                      </span>
-                    </div>
-                    <button
-                      :if={skill.health_score < 50}
-                      class="btn btn-xs btn-error btn-outline"
-                      phx-click="fix_frontmatter"
-                      phx-value-skill={skill.name}
-                      aria-label={"Repair #{skill.name} hook"}
-                    >
-                      Repair
-                    </button>
-                  </div>
-                </article>
-                <div
-                  :if={@registry_skills == []}
-                  class="col-span-full text-center text-base-content/30 py-8"
-                >
-                  No skills registered. Run Audit All to scan.
-                </div>
-              </div>
-            </section>
-
-            <section aria-labelledby="hook-repair-heading">
-              <div class="flex items-center justify-between mb-3">
-                <h2
-                  id="hook-repair-heading"
-                  class="text-xs font-semibold uppercase tracking-wider text-base-content/50"
-                >
-                  Hook Repair
-                </h2>
                 <button
-                  phx-click="repair_hooks"
-                  class="btn btn-xs btn-warning"
-                  aria-label="Repair broken skill hooks and redeploy AG-UI event bridge"
+                  role="tab"
+                  id="tab-registry"
+                  aria-selected={to_string(@tab == :registry)}
+                  aria-controls="tabpanel-registry"
+                  phx-click="set_tab"
+                  phx-value-tab="registry"
+                  tabindex={if @tab == :registry, do: "0", else: "-1"}
+                  style={"padding: 4px 10px; border-radius: 4px; font-size: 12px; border: none; cursor: pointer; #{if @tab == :registry, do: "background: var(--ccem-accent); color: #fff;", else: "background: transparent; color: var(--ccem-fg-muted);"}"}
                 >
-                  <.icon name="hero-wrench-screwdriver" class="size-3" /> Repair All Hooks
+                  Registry
+                </button>
+                <button
+                  role="tab"
+                  id="tab-session"
+                  aria-selected={to_string(@tab == :session)}
+                  aria-controls="tabpanel-session"
+                  phx-click="set_tab"
+                  phx-value-tab="session"
+                  tabindex={if @tab == :session, do: "0", else: "-1"}
+                  style={"padding: 4px 10px; border-radius: 4px; font-size: 12px; border: none; cursor: pointer; #{if @tab == :session, do: "background: var(--ccem-accent); color: #fff;", else: "background: transparent; color: var(--ccem-fg-muted);"}"}
+                >
+                  Session
+                </button>
+                <button
+                  role="tab"
+                  id="tab-ag_ui"
+                  aria-selected={to_string(@tab == :ag_ui)}
+                  aria-controls="tabpanel-ag_ui"
+                  phx-click="set_tab"
+                  phx-value-tab="ag_ui"
+                  tabindex={if @tab == :ag_ui, do: "0", else: "-1"}
+                  style={"padding: 4px 10px; border-radius: 4px; font-size: 12px; border: none; cursor: pointer; #{if @tab == :ag_ui, do: "background: var(--ccem-accent); color: #fff;", else: "background: transparent; color: var(--ccem-fg-muted);"}"}
+                >
+                  AG-UI
                 </button>
               </div>
-              <div class="bg-base-200 rounded-lg p-3 space-y-2">
-                <div class="flex items-center gap-2 text-xs">
-                  <div
-                    class={[
-                      "w-2 h-2 rounded-full",
-                      if(Enum.count(@registry_skills, &(&1.health_score < 50)) == 0,
-                        do: "bg-success",
-                        else: "bg-error"
-                      )
-                    ]}
-                    aria-hidden="true"
-                  ></div>
-                  <span class="font-medium">AG-UI Event Bridge</span>
-                  <span class="text-base-content/50">
-                    {if Enum.count(@registry_skills, &(&1.health_score < 50)) == 0,
-                      do: "All hooks operational",
-                      else:
-                        "#{Enum.count(@registry_skills, &(&1.health_score < 50))} hook(s) need repair"}
-                  </span>
-                </div>
-                <p class="text-xs text-base-content/50">
-                  Triggers restart-to-reload action to repair broken skill hooks and re-deploy AG-UI event bridge.
-                </p>
+            </div>
+
+            <%!-- Header actions --%>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <%!-- View toggle (registry tab only) --%>
+              <div :if={@tab == :registry} style="display: flex; gap: 2px;">
+                <.btn
+                  variant={if @view_mode == "grid", do: "primary", else: "ghost"}
+                  size="xs"
+                  phx-click="set_view_mode"
+                  phx-value-mode="grid"
+                  aria-label="Grid view"
+                  aria-pressed={to_string(@view_mode == "grid")}
+                >
+                  <.icon name="hero-squares-2x2" class="size-3.5" />
+                </.btn>
+                <.btn
+                  variant={if @view_mode == "list", do: "primary", else: "ghost"}
+                  size="xs"
+                  phx-click="set_view_mode"
+                  phx-value-mode="list"
+                  aria-label="List view"
+                  aria-pressed={to_string(@view_mode == "list")}
+                >
+                  <.icon name="hero-list-bullet" class="size-3.5" />
+                </.btn>
               </div>
-            </section>
+              <.badge :if={@tab == :registry and active_filter_count(assigns) > 0} tone="info">
+                {active_filter_count(assigns)} filter{if active_filter_count(assigns) > 1, do: "s", else: ""} active
+              </.badge>
+              <.btn :if={@tab == :registry} variant="primary" size="sm" phx-click="audit_all" disabled={@audit_loading} aria-busy={to_string(@audit_loading)}>
+                {if @audit_loading, do: "Scanning…", else: "Audit All"}
+              </.btn>
+            </div>
           </div>
-        </main>
-      </div>
+
+          <%!-- Search / filter bar (registry tab only) --%>
+          <div
+            :if={@tab == :registry}
+            role="search"
+            aria-label="Filter skills"
+            style="margin-bottom: 16px;"
+          >
+            <form phx-change="update_filters" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <label for="skill-search" class="sr-only">Search skills</label>
+              <.ds_input
+                id="skill-search"
+                type="search"
+                name="search"
+                value={@search_query}
+                placeholder="Search skills…"
+                phx-debounce="200"
+                aria-label="Search skills by name or description"
+                autocomplete="off"
+              />
+
+              <label for="filter-tier" class="sr-only">Filter by health tier</label>
+              <select
+                id="filter-tier"
+                name="tier"
+                aria-label="Filter by health tier"
+                style="padding: 4px 8px; border-radius: 4px; background: var(--ccem-surface); color: var(--ccem-fg); border: 1px solid var(--ccem-border); font-size: 12px;"
+              >
+                <option value="all" selected={@filter_tier == "all"}>All tiers</option>
+                <option value="healthy" selected={@filter_tier == "healthy"}>Healthy</option>
+                <option value="needs_attention" selected={@filter_tier == "needs_attention"}>Needs Attention</option>
+                <option value="critical" selected={@filter_tier == "critical"}>Critical</option>
+              </select>
+
+              <label for="filter-methodology" class="sr-only">Filter by methodology</label>
+              <select
+                id="filter-methodology"
+                name="methodology"
+                aria-label="Filter by methodology"
+                style="padding: 4px 8px; border-radius: 4px; background: var(--ccem-surface); color: var(--ccem-fg); border: 1px solid var(--ccem-border); font-size: 12px;"
+              >
+                <option value="all" selected={@filter_methodology == "all"}>All methodologies</option>
+                <option value="ralph" selected={@filter_methodology == "ralph"}>Ralph</option>
+                <option value="tdd" selected={@filter_methodology == "tdd"}>TDD</option>
+                <option value="elixir_architect" selected={@filter_methodology == "elixir_architect"}>Elixir Architect</option>
+              </select>
+
+              <label for="group-by" class="sr-only">Group by</label>
+              <select
+                id="group-by"
+                name="group_by"
+                aria-label="Group skills by"
+                style="padding: 4px 8px; border-radius: 4px; background: var(--ccem-surface); color: var(--ccem-fg); border: 1px solid var(--ccem-border); font-size: 12px;"
+              >
+                <option value="none" selected={@group_by == "none"}>No grouping</option>
+                <option value="tier" selected={@group_by == "tier"}>By Tier</option>
+                <option value="source" selected={@group_by == "source"}>By Source</option>
+                <option value="methodology" selected={@group_by == "methodology"}>By Methodology</option>
+              </select>
+            </form>
+
+            <.btn :if={active_filter_count(assigns) > 0} variant="ghost" size="xs" phx-click="clear_filters" aria-label="Clear all active filters" style="margin-top: 4px;">
+              ✕ Clear filters
+            </.btn>
+          </div>
+
+          <%!-- Main content area --%>
+          <main id="main-content" role="main" aria-label="Skills dashboard">
+            <%!-- Registry Tab --%>
+            <div
+              :if={@tab == :registry}
+              id="tabpanel-registry"
+              role="tabpanel"
+              aria-labelledby="tab-registry"
+              tabindex="0"
+            >
+              <%!-- Summary stat tiles --%>
+              <div
+                style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;"
+                aria-label="Skills health summary"
+              >
+                <.card padded={true} style="flex: 1; min-width: 120px;">
+                  <.stat_tile label="Total Skills" value={to_string(length(@registry_skills))} />
+                </.card>
+                <.card padded={true} style="flex: 1; min-width: 120px;">
+                  <.stat_tile
+                    label="Healthy"
+                    value={to_string(Enum.count(@registry_skills, &(&1.health_score >= 80)))}
+                  />
+                </.card>
+                <.card padded={true} style="flex: 1; min-width: 120px;">
+                  <.stat_tile
+                    label="Needs Attention"
+                    value={to_string(Enum.count(@registry_skills, &(&1.health_score in 50..79)))}
+                  />
+                </.card>
+                <.card padded={true} style="flex: 1; min-width: 120px;">
+                  <.stat_tile
+                    label="Critical"
+                    value={to_string(Enum.count(@registry_skills, &(&1.health_score < 50)))}
+                  />
+                </.card>
+              </div>
+
+              <%!-- Filter results count --%>
+              <div
+                :if={active_filter_count(assigns) > 0}
+                aria-live="polite"
+                aria-atomic="true"
+                style="font-size: 11px; color: var(--ccem-fg-subtle); margin-bottom: 8px;"
+              >
+                Showing {length(@filtered_skills)} of {length(@registry_skills)} skills
+              </div>
+
+              <%!-- Batch action bar --%>
+              <%= if MapSet.size(@selected_skills) > 0 do %>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; margin-bottom: 12px; background: color-mix(in srgb, var(--ccem-accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--ccem-accent) 20%, transparent); border-radius: 6px;">
+                  <span style="font-size: 13px; color: var(--ccem-fg);">{MapSet.size(@selected_skills)} selected</span>
+                  <div style="display: flex; gap: 6px;">
+                    <.btn variant="secondary" size="xs" phx-click="batch_fix">Fix Selected</.btn>
+                    <.btn variant="secondary" size="xs" phx-click="batch_audit">Audit Selected</.btn>
+                    <.btn variant="ghost" size="xs" phx-click="clear_selection">Clear</.btn>
+                  </div>
+                </div>
+              <% end %>
+
+              <%!-- Fix progress panel --%>
+              <%= if @fix_in_progress do %>
+                <.card padded={true} style="margin-bottom: 12px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 12px; font-weight: 600; color: var(--ccem-fg);">Fixing skills...</span>
+                    <span style="font-size: 11px; color: var(--ccem-fg-subtle);">
+                      {length(Enum.filter(@fix_progress, fn {_, s, _} -> s == :done end))}/{length(@fix_progress)}
+                    </span>
+                  </div>
+                  <%= for {name, status, msg} <- @fix_progress do %>
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 4px;">
+                      <%= case status do %>
+                        <% :done -> %><.icon name="hero-check-circle" class="h-4 w-4" style="color: var(--ccem-ok);" />
+                        <% :running -> %><span style="color: var(--ccem-accent);">⟳</span>
+                        <% :pending -> %><.icon name="hero-clock" class="h-4 w-4" style="color: var(--ccem-fg-subtle);" />
+                        <% :error -> %><.icon name="hero-x-circle" class="h-4 w-4" style="color: var(--ccem-err);" />
+                      <% end %>
+                      <span style="font-family: monospace;">{name}</span>
+                      <span style="color: var(--ccem-fg-subtle);">{msg}</span>
+                    </div>
+                  <% end %>
+                </.card>
+              <% end %>
+
+              <%!-- Grouped or flat rendering --%>
+              <%= if @group_by != "none" do %>
+                <%= for {group_name, group_skills} <- group_skills(@filtered_skills, @group_by) do %>
+                  <.card padded={false} style="margin-bottom: 8px;">
+                    <details open>
+                      <summary style="padding: 10px 14px; font-size: 12px; font-weight: 600; color: var(--ccem-fg); cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        {group_name}
+                        <.badge tone="neutral">{to_string(length(group_skills))}</.badge>
+                      </summary>
+                      <div style="padding: 0 14px 14px;">
+                        <%= if @view_mode == "list" do %>
+                          <.skill_list_view skills={group_skills} selected_skills={@selected_skills} selected_skill={@selected_skill} />
+                        <% else %>
+                          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px;" role="list">
+                            <.skill_card :for={skill <- group_skills} skill={skill} selected_skill={@selected_skill} selected_skills={@selected_skills} />
+                          </div>
+                        <% end %>
+                      </div>
+                    </details>
+                  </.card>
+                <% end %>
+              <% else %>
+                <%!-- Flat rendering (no grouping) --%>
+                <%= if @view_mode == "list" do %>
+                  <.skill_list_view skills={@filtered_skills} selected_skills={@selected_skills} selected_skill={@selected_skill} />
+                <% else %>
+                  <%!-- Tier card sections (critical -> needs attention -> healthy) --%>
+                  <% {healthy, needs_attention, critical} = split_tiers(@filtered_skills) %>
+
+                  <.skill_tier_cards
+                    tier={:critical}
+                    skills={critical}
+                    collapsed={Map.get(@collapsed_tiers, :critical, false)}
+                    selected={@selected_skill}
+                    selected_skills={@selected_skills}
+                  />
+                  <.skill_tier_cards
+                    tier={:needs_attention}
+                    skills={needs_attention}
+                    collapsed={Map.get(@collapsed_tiers, :needs_attention, false)}
+                    selected={@selected_skill}
+                    selected_skills={@selected_skills}
+                  />
+                  <.skill_tier_cards
+                    tier={:healthy}
+                    skills={healthy}
+                    collapsed={Map.get(@collapsed_tiers, :healthy, true)}
+                    selected={@selected_skill}
+                    selected_skills={@selected_skills}
+                  />
+                <% end %>
+              <% end %>
+
+              <div :if={@registry_skills == []} style="text-align: center; padding: 48px 0; color: var(--ccem-fg-subtle);">
+                <p style="margin: 0 0 16px;">No skills found in ~/.claude/skills/</p>
+                <.btn variant="primary" size="sm" phx-click="audit_all">Scan Now</.btn>
+              </div>
+            </div>
+
+            <%!-- Session Tab --%>
+            <div
+              :if={@tab == :session}
+              id="tabpanel-session"
+              role="tabpanel"
+              aria-labelledby="tab-session"
+              tabindex="0"
+            >
+              <%!-- Invocation Timeline --%>
+              <section aria-labelledby="timeline-heading" style="margin-bottom: 24px;">
+                <h2
+                  id="timeline-heading"
+                  style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 12px;"
+                >
+                  Invocation Timeline
+                </h2>
+                <p
+                  :if={@session_skills == %{}}
+                  style="font-size: 13px; color: var(--ccem-fg-subtle); padding: 16px 0;"
+                  aria-live="polite"
+                >
+                  No skills invoked in current session.
+                </p>
+                <div
+                  :if={@session_skills != %{}}
+                  role="list"
+                  aria-label="Skill invocation timeline"
+                  style="position: relative; padding-left: 24px;"
+                >
+                  <div style="position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: var(--ccem-border);" aria-hidden="true"></div>
+                  <article
+                    :for={{skill, data} <- Enum.sort_by(@session_skills, fn {_k, v} -> v.last_seen end, :desc)}
+                    role="listitem"
+                    style="position: relative; margin-bottom: 10px;"
+                    aria-label={"#{skill}: #{data.count} invocations, last #{format_time(data.last_seen)}"}
+                  >
+                    <div
+                      style={"position: absolute; left: -20px; top: 8px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ccem-surface); #{if methodology_for_skill(skill), do: "background: var(--ccem-accent);", else: "background: var(--ccem-fg-subtle);"}"}
+                      aria-hidden="true"
+                    ></div>
+                    <.card padded={true} style="margin-left: 8px;">
+                      <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">{skill}</span>
+                          <.badge :if={methodology_for_skill(skill)} tone={methodology_tone(methodology_for_skill(skill))}>
+                            {methodology_for_skill(skill)}
+                          </.badge>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ccem-fg-subtle);">
+                          <.badge tone="accent" aria-label={"#{data.count} invocations"}>
+                            {data.count}×
+                          </.badge>
+                          <span>{format_time(data.last_seen)}</span>
+                        </div>
+                      </div>
+                    </.card>
+                  </article>
+                </div>
+              </section>
+
+              <%!-- Skill Catalog --%>
+              <section aria-labelledby="catalog-heading" style="margin-bottom: 24px;">
+                <h2
+                  id="catalog-heading"
+                  style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 12px;"
+                >
+                  Skill Catalog
+                </h2>
+                <.card padded={false}>
+                  <.data_table id="skill-catalog-table" rows={Enum.sort_by(@catalog, fn {_k, v} -> -v.total_count end)}>
+                    <:col :let={row} label="Skill">
+                      <span style="font-weight: 500; color: var(--ccem-fg);">{elem(row, 0)}</span>
+                    </:col>
+                    <:col :let={row} label="Total Invocations">
+                      <span style="font-variant-numeric: tabular-nums;">{elem(row, 1).total_count}</span>
+                    </:col>
+                    <:col :let={row} label="Sessions">
+                      <span style="font-variant-numeric: tabular-nums;">{elem(row, 1).session_count}</span>
+                    </:col>
+                    <:col :let={row} label="Source">
+                      <.badge tone={source_tone(elem(row, 1).source)}>{elem(row, 1).source}</.badge>
+                    </:col>
+                  </.data_table>
+                  <%= if @catalog == %{} do %>
+                    <div style="text-align: center; color: var(--ccem-fg-subtle); padding: 24px; font-size: 13px;">
+                      No skills tracked yet
+                    </div>
+                  <% end %>
+                </.card>
+              </section>
+
+              <%!-- Co-occurrence matrix --%>
+              <section :if={@co_occurrence != %{}} aria-labelledby="cooccurrence-heading">
+                <h2
+                  id="cooccurrence-heading"
+                  style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 12px;"
+                >
+                  Skill Co-occurrence
+                </h2>
+                <.card padded={false}>
+                  <.data_table id="cooccurrence-table" rows={Enum.sort_by(@co_occurrence, fn {_k, v} -> -v end)}>
+                    <:col :let={row} label="Skill A">{elem(elem(row, 0), 0)}</:col>
+                    <:col :let={row} label="Skill B">{elem(elem(row, 0), 1)}</:col>
+                    <:col :let={row} label="Sessions Together">
+                      <span style="font-variant-numeric: tabular-nums;">{elem(row, 1)}</span>
+                    </:col>
+                  </.data_table>
+                </.card>
+              </section>
+            </div>
+
+            <%!-- AG-UI Tab --%>
+            <div
+              :if={@tab == :ag_ui}
+              id="tabpanel-ag_ui"
+              role="tabpanel"
+              aria-labelledby="tab-ag_ui"
+              tabindex="0"
+            >
+              <%!-- AG-UI health summary stats --%>
+              <div
+                style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;"
+                aria-label="AG-UI hook health summary"
+              >
+                <.card padded={true} style="flex: 1; min-width: 120px;">
+                  <.stat_tile
+                    label="Connected"
+                    value={to_string(Enum.count(@registry_skills, &(&1.health_score >= 80)))}
+                  />
+                </.card>
+                <.card padded={true} style="flex: 1; min-width: 120px;">
+                  <.stat_tile
+                    label="Degraded"
+                    value={to_string(Enum.count(@registry_skills, &(&1.health_score in 50..79)))}
+                  />
+                </.card>
+                <.card padded={true} style="flex: 1; min-width: 120px;">
+                  <.stat_tile
+                    label="Broken"
+                    value={to_string(Enum.count(@registry_skills, &(&1.health_score < 50)))}
+                  />
+                </.card>
+              </div>
+
+              <section aria-labelledby="ag-ui-emitters-heading" style="margin-bottom: 24px;">
+                <h2
+                  id="ag-ui-emitters-heading"
+                  style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 8px;"
+                >
+                  Skills as AG-UI Event Emitters
+                </h2>
+                <p style="font-size: 13px; color: var(--ccem-fg-muted); margin: 0 0 16px;">
+                  Skills emit AG-UI events when invoked. Each skill connection shows event emission status.
+                </p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;" role="list">
+                  <article
+                    :for={skill <- @registry_skills}
+                    style={"padding: 12px; border-radius: 6px; background: var(--ccem-surface); border: 1px solid #{ag_ui_border_color(skill.health_score)};"}
+                    role="listitem"
+                    aria-label={"Skill #{skill.name}: #{ag_ui_status_label(skill.health_score)}"}
+                  >
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                      <span style="font-size: 13px; font-weight: 500; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{skill.name}</span>
+                      <div
+                        style={"width: 8px; height: 8px; border-radius: 50%; animation: pulse 2s infinite; background: #{ag_ui_dot_color(skill.health_score)};"}
+                        aria-hidden="true"
+                      ></div>
+                    </div>
+                    <div style={"font-size: 10px; margin-bottom: 8px; color: #{ag_ui_text_color(skill.health_score)};"}>
+                      {ag_ui_status_label(skill.health_score)}
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
+                      <div style="display: flex; gap: 4px;">
+                        <.badge tone="neutral">CUSTOM</.badge>
+                        <.badge :if={skill.has_frontmatter} tone="ok">valid</.badge>
+                      </div>
+                      <.btn
+                        :if={skill.health_score < 50}
+                        variant="destructive"
+                        size="xs"
+                        phx-click="fix_frontmatter"
+                        phx-value-skill={skill.name}
+                        aria-label={"Repair #{skill.name} hook"}
+                      >
+                        Repair
+                      </.btn>
+                    </div>
+                  </article>
+                  <div
+                    :if={@registry_skills == []}
+                    style="grid-column: 1 / -1; text-align: center; color: var(--ccem-fg-subtle); padding: 32px;"
+                  >
+                    No skills registered. Run Audit All to scan.
+                  </div>
+                </div>
+              </section>
+
+              <section aria-labelledby="hook-repair-heading">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                  <h2
+                    id="hook-repair-heading"
+                    style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0;"
+                  >
+                    Hook Repair
+                  </h2>
+                  <.btn variant="secondary" size="xs" phx-click="repair_hooks" aria-label="Repair broken skill hooks and redeploy AG-UI event bridge">
+                    <.icon name="hero-wrench-screwdriver" class="size-3" /> Repair All Hooks
+                  </.btn>
+                </div>
+                <.card padded={true}>
+                  <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 8px;">
+                    <div
+                      style={"width: 8px; height: 8px; border-radius: 50%; background: #{if Enum.count(@registry_skills, &(&1.health_score < 50)) == 0, do: "var(--ccem-ok)", else: "var(--ccem-err)"};"}
+                      aria-hidden="true"
+                    ></div>
+                    <span style="font-weight: 500; color: var(--ccem-fg);">AG-UI Event Bridge</span>
+                    <span style="color: var(--ccem-fg-subtle);">
+                      {if Enum.count(@registry_skills, &(&1.health_score < 50)) == 0,
+                        do: "All hooks operational",
+                        else:
+                          "#{Enum.count(@registry_skills, &(&1.health_score < 50))} hook(s) need repair"}
+                    </span>
+                  </div>
+                  <p style="font-size: 11px; color: var(--ccem-fg-subtle); margin: 0;">
+                    Triggers restart-to-reload action to repair broken skill hooks and re-deploy AG-UI event bridge.
+                  </p>
+                </.card>
+              </section>
+            </div>
+          </main>
+        </:main>
+      </.page_layout>
     </div>
 
-    <%!-- Skill detail drawer --%>
+    <%!-- Skill detail drawer — outside page_layout so it overlays correctly --%>
     <div :if={@selected_skill != nil}>
       <%!-- Backdrop --%>
       <div
-        class="fixed inset-0 bg-black/40 z-40"
+        style="position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 40;"
         phx-click="close_drawer"
         aria-hidden="true"
       ></div>
@@ -700,42 +637,37 @@ defmodule ApmV5Web.SkillsLive do
         role="dialog"
         aria-modal="true"
         aria-labelledby="drawer-title"
-        class="fixed inset-y-0 right-0 w-96 bg-base-200 shadow-2xl z-50 flex flex-col"
+        style="position: fixed; inset-block: 0; right: 0; width: 384px; background: var(--ccem-surface); box-shadow: -4px 0 24px rgba(0,0,0,0.3); z-index: 50; display: flex; flex-direction: column;"
       >
         <%!-- Drawer header --%>
-        <div class="flex items-center justify-between p-4 border-b border-base-300 flex-shrink-0">
-          <div class="flex items-center gap-3">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--ccem-border); flex-shrink: 0;">
+          <div style="display: flex; align-items: center; gap: 12px;">
             {health_ring(@selected_skill.health_score)}
             <div>
-              <h2 id="drawer-title" class="font-semibold text-base leading-tight">
+              <h2 id="drawer-title" style="font-weight: 600; font-size: 14px; margin: 0 0 4px; color: var(--ccem-fg);">
                 {@selected_skill.name}
               </h2>
-              <span class={["badge badge-sm mt-1", health_badge_class(@selected_skill.health_score)]}>
+              <.badge tone={health_tone(@selected_skill.health_score)}>
                 {health_label(@selected_skill.health_score)} — {@selected_skill.health_score}/100
-              </span>
+              </.badge>
             </div>
           </div>
-          <button
-            class="btn btn-ghost btn-sm"
-            phx-click="close_drawer"
-            aria-label="Close skill details"
-            autofocus
-          >
+          <.btn variant="ghost" size="sm" phx-click="close_drawer" aria-label="Close skill details" autofocus>
             ✕
-          </button>
+          </.btn>
         </div>
 
         <%!-- Drawer body --%>
-        <div class="flex-1 p-4 space-y-4 overflow-y-auto">
+        <div style="flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;">
           <%!-- Description --%>
           <section aria-labelledby="drawer-desc-heading">
             <h3
               id="drawer-desc-heading"
-              class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2"
+              style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 8px;"
             >
               Description
             </h3>
-            <p class="text-sm text-base-content/80">
+            <p style="font-size: 13px; color: var(--ccem-fg-muted); margin: 0;">
               {if @selected_skill.description && @selected_skill.description != "",
                 do: @selected_skill.description,
                 else: "No description available."}
@@ -746,11 +678,11 @@ defmodule ApmV5Web.SkillsLive do
           <section aria-labelledby="drawer-health-heading">
             <h3
               id="drawer-health-heading"
-              class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2"
+              style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 8px;"
             >
               Health Breakdown
             </h3>
-            <div class="grid grid-cols-5 gap-2">
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;">
               <.health_bar
                 label="Frontmatter"
                 value={if @selected_skill.has_frontmatter, do: 30, else: 0}
@@ -786,14 +718,14 @@ defmodule ApmV5Web.SkillsLive do
           >
             <h3
               id="drawer-frontmatter-heading"
-              class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2"
+              style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 8px;"
             >
               Frontmatter
             </h3>
-            <div class="bg-base-300 rounded p-3 text-xs font-mono space-y-1">
-              <div :for={{k, v} <- @selected_skill.raw_frontmatter} class="flex gap-2">
-                <span class="text-primary font-semibold">{k}:</span>
-                <span class="text-base-content/80 break-all">{v}</span>
+            <div style="background: var(--ccem-bg); border-radius: 4px; padding: 10px; font-family: monospace; font-size: 11px; display: flex; flex-direction: column; gap: 4px;">
+              <div :for={{k, v} <- @selected_skill.raw_frontmatter} style="display: flex; gap: 8px;">
+                <span style="color: var(--ccem-accent); font-weight: 600;">{k}:</span>
+                <span style="color: var(--ccem-fg-muted); word-break: break-all;">{v}</span>
               </div>
             </div>
           </section>
@@ -802,33 +734,33 @@ defmodule ApmV5Web.SkillsLive do
           <section aria-labelledby="drawer-meta-heading">
             <h3
               id="drawer-meta-heading"
-              class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2"
+              style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 8px;"
             >
               Metadata
             </h3>
-            <dl class="text-xs space-y-1.5">
-              <div class="flex gap-2">
-                <dt class="text-base-content/50 w-32 flex-shrink-0">Files:</dt>
-                <dd class="tabular-nums">{@selected_skill.file_count}</dd>
+            <dl style="font-size: 11px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; gap: 8px;">
+                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">Files:</dt>
+                <dd style="font-variant-numeric: tabular-nums;">{@selected_skill.file_count}</dd>
               </div>
-              <div class="flex gap-2">
-                <dt class="text-base-content/50 w-32 flex-shrink-0">Description Quality:</dt>
+              <div style="display: flex; gap: 8px;">
+                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">Description Quality:</dt>
                 <dd>
-                  <span class={["badge badge-xs", desc_quality_badge(@selected_skill.description_quality)]}>
+                  <.badge tone={desc_quality_tone(@selected_skill.description_quality)}>
                     {@selected_skill.description_quality}
-                  </span>
+                  </.badge>
                 </dd>
               </div>
-              <div class="flex gap-2">
-                <dt class="text-base-content/50 w-32 flex-shrink-0">Last Modified:</dt>
+              <div style="display: flex; gap: 8px;">
+                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">Last Modified:</dt>
                 <dd>{format_modified(@selected_skill.last_modified)}</dd>
               </div>
-              <div class="flex gap-2">
-                <dt class="text-base-content/50 w-32 flex-shrink-0">Has Examples:</dt>
+              <div style="display: flex; gap: 8px;">
+                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">Has Examples:</dt>
                 <dd>{if @selected_skill.has_examples, do: "Yes", else: "No"}</dd>
               </div>
-              <div class="flex gap-2">
-                <dt class="text-base-content/50 w-32 flex-shrink-0">Has Template:</dt>
+              <div style="display: flex; gap: 8px;">
+                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">Has Template:</dt>
                 <dd>{if @selected_skill.has_template, do: "Yes", else: "No"}</dd>
               </div>
             </dl>
@@ -836,139 +768,131 @@ defmodule ApmV5Web.SkillsLive do
         </div>
 
         <%!-- AgentLock Authorization Gate --%>
-        <section class="px-5 pt-3 pb-4 border-t border-base-300" aria-label="Authorization gate status">
-          <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">
+        <section style="padding: 12px 16px 16px; border-top: 1px solid var(--ccem-border);" aria-label="Authorization gate status">
+          <h3 style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 8px;">
             AgentLock Authorization
           </h3>
-          <div :if={@selected_skill.auth_gated} class="flex items-center gap-2">
-            <span class="badge badge-success badge-sm gap-1">
+          <div :if={@selected_skill.auth_gated} style="display: flex; align-items: center; gap: 8px;">
+            <.badge tone="ok">
               <.icon name="hero-shield-check" class="size-3" />
               Auth Gated
-            </span>
-            <span class="text-xs text-base-content/50">agentlock_pre_tool.sh active</span>
+            </.badge>
+            <span style="font-size: 11px; color: var(--ccem-fg-subtle);">agentlock_pre_tool.sh active</span>
           </div>
-          <div :if={not @selected_skill.auth_gated} class="space-y-2">
-            <span class="badge badge-warning badge-sm gap-1">
+          <div :if={not @selected_skill.auth_gated} style="display: flex; flex-direction: column; gap: 8px;">
+            <.badge tone="warn">
               <.icon name="hero-shield-exclamation" class="size-3" />
               Auth Missing
-            </span>
-            <div :if={length(@selected_skill.auth_missing_tools || []) > 0} class="flex flex-wrap gap-1 mt-1">
-              <span
-                :for={tool <- @selected_skill.auth_missing_tools || []}
-                class="badge badge-ghost badge-xs font-mono"
-              >
+            </.badge>
+            <div :if={length(@selected_skill.auth_missing_tools || []) > 0} style="display: flex; flex-wrap: wrap; gap: 4px;">
+              <.badge :for={tool <- @selected_skill.auth_missing_tools || []} tone="neutral">
                 {tool}
-              </span>
+              </.badge>
             </div>
-            <button
-              class="btn btn-xs btn-outline btn-warning w-full mt-1"
-              phx-click="gate_with_agentlock"
-              phx-value-skill={@selected_skill.name}
-            >
+            <.btn variant="secondary" size="xs" phx-click="gate_with_agentlock" phx-value-skill={@selected_skill.name} style="width: 100%;">
               <.icon name="hero-shield-exclamation" class="size-3" />
               Gate with AgentLock
-            </button>
+            </.btn>
           </div>
           <%!-- Recent Auth Decisions (CCEM-266) --%>
-          <div :if={@agentlock_status && @agentlock_status.decision_count > 0} class="mt-3 pt-2 border-t border-base-300/50">
-            <p class="text-[10px] uppercase tracking-wider text-base-content/40 mb-1">Recent Auth Decisions</p>
-            <div class="space-y-1">
-              <div :for={decision <- @agentlock_status.recent_decisions} class="flex items-center gap-1 text-[11px]">
-                <span class={"badge badge-xs #{if decision.event == "authorized", do: "badge-success", else: "badge-warning"}"}></span>
-                <span class="font-mono truncate max-w-[120px]">{decision.tool}</span>
-                <span class="text-base-content/40 ml-auto">{decision.event}</span>
+          <div :if={@agentlock_status && @agentlock_status.decision_count > 0} style="margin-top: 12px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--ccem-border) 50%, transparent);">
+            <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 4px;">Recent Auth Decisions</p>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div :for={decision <- @agentlock_status.recent_decisions} style="display: flex; align-items: center; gap: 4px; font-size: 11px;">
+                <.badge tone={if decision.event == "authorized", do: "ok", else: "warn"} dot={true}></.badge>
+                <span style="font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;">{decision.tool}</span>
+                <span style="color: var(--ccem-fg-subtle); margin-left: auto;">{decision.event}</span>
               </div>
             </div>
           </div>
         </section>
 
         <%!-- Drawer footer / actions --%>
-        <div class="p-4 border-t border-base-300 flex-shrink-0">
+        <div style="padding: 16px; border-top: 1px solid var(--ccem-border); flex-shrink: 0;">
           <%!-- Step: nil — Fix button or healthy indicator --%>
           <div :if={@fix_wizard_step == nil}>
-            <button
+            <.btn
               :if={@selected_skill.health_score < 80}
-              class="btn btn-warning btn-sm w-full"
+              variant="secondary"
+              size="sm"
               phx-click="start_fix_wizard"
               aria-describedby="fix-hint"
+              style="width: 100%;"
             >
               <.icon name="hero-wrench-screwdriver" class="size-4" />
-              Fix Skill <span class="badge badge-xs badge-secondary ml-1">CCEM</span>
-            </button>
+              Fix Skill <.badge tone="iris" style="margin-left: 4px;">CCEM</.badge>
+            </.btn>
             <p
               :if={@selected_skill.health_score < 80}
               id="fix-hint"
-              class="text-[10px] text-base-content/40 mt-1 text-center"
+              style="font-size: 10px; color: var(--ccem-fg-subtle); margin: 4px 0 0; text-align: center;"
             >
               Guided repair for frontmatter, description, triggers, templates, and examples
             </p>
-            <p :if={@selected_skill.health_score >= 80} class="text-xs text-success text-center py-1">
+            <p :if={@selected_skill.health_score >= 80} style="font-size: 12px; color: var(--ccem-ok); text-align: center; padding: 4px 0;">
               ✓ Skill is healthy — no fixes needed
             </p>
           </div>
 
           <%!-- Fix Wizard Step 1: Diagnose --%>
-          <div :if={@fix_wizard_step == :diagnose} class="space-y-3">
-            <div class="flex items-center gap-1 mb-2" role="navigation" aria-label="Fix wizard steps">
-              <button class="btn btn-warning btn-xs" phx-click="wizard_step" phx-value-step="1" aria-current="step" aria-label="Step 1: Diagnose (current)">1 Diagnose</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-ghost btn-xs opacity-30 cursor-not-allowed" disabled aria-label="Step 4: Done (not yet available)">4 Done</button>
+          <div :if={@fix_wizard_step == :diagnose} style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 4px;" role="navigation" aria-label="Fix wizard steps">
+              <.btn variant="primary" size="xs" phx-click="wizard_step" phx-value-step="1" aria-current="step" aria-label="Step 1: Diagnose (current)">1 Diagnose</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="ghost" size="xs" disabled aria-label="Step 4: Done (not yet available)">4 Done</.btn>
             </div>
-            <ul class="space-y-1.5 text-xs" aria-label="Detected skill issues">
+            <ul style="font-size: 11px; display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none;" aria-label="Detected skill issues">
               <li
                 :if={not @selected_skill.has_frontmatter}
-                class="flex items-center gap-2 text-error"
+                style="display: flex; align-items: center; gap: 8px; color: var(--ccem-err);"
               >
                 <span aria-hidden="true">✗</span> Missing frontmatter (–30 pts)
               </li>
               <li
                 :if={@selected_skill.description_quality in ["missing", "poor"]}
-                class="flex items-center gap-2 text-warning"
+                style="display: flex; align-items: center; gap: 8px; color: var(--ccem-warn);"
               >
                 <span aria-hidden="true">⚠</span>
                 Poor description quality (–{desc_penalty(@selected_skill.description_quality)} pts)
               </li>
               <li
                 :if={Map.get(@selected_skill, :trigger_count, 0) == 0}
-                class="flex items-center gap-2 text-warning"
+                style="display: flex; align-items: center; gap: 8px; color: var(--ccem-warn);"
               >
                 <span aria-hidden="true">⚠</span> No triggers defined (–20 pts)
               </li>
-              <li :if={not @selected_skill.has_examples} class="flex items-center gap-2 text-base-content/50">
+              <li :if={not @selected_skill.has_examples} style="display: flex; align-items: center; gap: 8px; color: var(--ccem-fg-subtle);">
                 <span aria-hidden="true">·</span> No examples (–15 pts)
               </li>
-              <li :if={not @selected_skill.has_template} class="flex items-center gap-2 text-base-content/50">
+              <li :if={not @selected_skill.has_template} style="display: flex; align-items: center; gap: 8px; color: var(--ccem-fg-subtle);">
                 <span aria-hidden="true">·</span> No template (–10 pts)
               </li>
             </ul>
-            <div class="flex gap-2 pt-1">
-              <button class="btn btn-warning btn-sm flex-1" phx-click="wizard_next">
-                Select Repairs →
-              </button>
-              <button class="btn btn-ghost btn-sm" phx-click="cancel_fix">Cancel</button>
+            <div style="display: flex; gap: 8px;">
+              <.btn variant="primary" size="sm" phx-click="wizard_next" style="flex: 1;">Select Repairs →</.btn>
+              <.btn variant="ghost" size="sm" phx-click="cancel_fix">Cancel</.btn>
             </div>
           </div>
 
           <%!-- Fix Wizard Step 2: Select --%>
-          <div :if={@fix_wizard_step == :select} class="space-y-3">
-            <div class="flex items-center gap-1 mb-2" role="navigation" aria-label="Fix wizard steps">
-              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-warning btn-xs" phx-click="wizard_step" phx-value-step="2" aria-current="step" aria-label="Step 2: Select Repairs (current)">2 Select</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-ghost btn-xs opacity-30 cursor-not-allowed" disabled aria-label="Step 4: Done (not yet available)">4 Done</button>
+          <div :if={@fix_wizard_step == :select} style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 4px;" role="navigation" aria-label="Fix wizard steps">
+              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="primary" size="xs" phx-click="wizard_step" phx-value-step="2" aria-current="step" aria-label="Step 2: Select Repairs (current)">2 Select</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="ghost" size="xs" disabled aria-label="Step 4: Done (not yet available)">4 Done</.btn>
             </div>
-            <div class="space-y-2 text-xs">
-              <label class="flex items-center gap-2 cursor-pointer">
+            <div style="font-size: 11px; display: flex; flex-direction: column; gap: 8px;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                 <input
                   type="checkbox"
-                  class="checkbox checkbox-xs checkbox-warning"
                   checked={MapSet.member?(@fix_wizard_selected_repairs, "frontmatter")}
                   phx-click="toggle_repair"
                   phx-value-repair="frontmatter"
@@ -976,16 +900,15 @@ defmodule ApmV5Web.SkillsLive do
                 <span>
                   Fix frontmatter
                   <%= if @selected_skill.has_frontmatter do %>
-                    <span class="badge badge-xs badge-success ml-1">OK</span>
+                    <.badge tone="ok" style="margin-left: 4px;">OK</.badge>
                   <% else %>
-                    <span class="badge badge-xs badge-warning ml-1">needs fix</span>
+                    <.badge tone="warn" style="margin-left: 4px;">needs fix</.badge>
                   <% end %>
                 </span>
               </label>
-              <label class="flex items-center gap-2 cursor-pointer">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                 <input
                   type="checkbox"
-                  class="checkbox checkbox-xs checkbox-warning"
                   checked={MapSet.member?(@fix_wizard_selected_repairs, "description")}
                   phx-click="toggle_repair"
                   phx-value-repair="description"
@@ -993,16 +916,15 @@ defmodule ApmV5Web.SkillsLive do
                 <span>
                   Improve description
                   <%= if @selected_skill.description_quality == "good" do %>
-                    <span class="badge badge-xs badge-success ml-1">OK</span>
+                    <.badge tone="ok" style="margin-left: 4px;">OK</.badge>
                   <% else %>
-                    <span class="badge badge-xs badge-warning ml-1">needs fix</span>
+                    <.badge tone="warn" style="margin-left: 4px;">needs fix</.badge>
                   <% end %>
                 </span>
               </label>
-              <label class="flex items-center gap-2 cursor-pointer">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                 <input
                   type="checkbox"
-                  class="checkbox checkbox-xs checkbox-warning"
                   checked={MapSet.member?(@fix_wizard_selected_repairs, "triggers")}
                   phx-click="toggle_repair"
                   phx-value-repair="triggers"
@@ -1010,16 +932,15 @@ defmodule ApmV5Web.SkillsLive do
                 <span>
                   Add triggers
                   <%= if Map.get(@selected_skill, :trigger_count, 0) > 0 do %>
-                    <span class="badge badge-xs badge-success ml-1">OK (<%= Map.get(@selected_skill, :trigger_count, 0) %>)</span>
+                    <.badge tone="ok" style="margin-left: 4px;">OK (<%= Map.get(@selected_skill, :trigger_count, 0) %>)</.badge>
                   <% else %>
-                    <span class="badge badge-xs badge-warning ml-1">none</span>
+                    <.badge tone="warn" style="margin-left: 4px;">none</.badge>
                   <% end %>
                 </span>
               </label>
-              <label class="flex items-center gap-2 cursor-pointer">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                 <input
                   type="checkbox"
-                  class="checkbox checkbox-xs checkbox-warning"
                   checked={MapSet.member?(@fix_wizard_selected_repairs, "templates")}
                   phx-click="toggle_repair"
                   phx-value-repair="templates"
@@ -1027,16 +948,15 @@ defmodule ApmV5Web.SkillsLive do
                 <span>
                   Add templates
                   <%= if Map.get(@selected_skill, :has_templates_section, false) do %>
-                    <span class="badge badge-xs badge-success ml-1">OK</span>
+                    <.badge tone="ok" style="margin-left: 4px;">OK</.badge>
                   <% else %>
-                    <span class="badge badge-xs badge-warning ml-1">missing</span>
+                    <.badge tone="warn" style="margin-left: 4px;">missing</.badge>
                   <% end %>
                 </span>
               </label>
-              <label class="flex items-center gap-2 cursor-pointer">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                 <input
                   type="checkbox"
-                  class="checkbox checkbox-xs checkbox-warning"
                   checked={MapSet.member?(@fix_wizard_selected_repairs, "examples")}
                   phx-click="toggle_repair"
                   phx-value-repair="examples"
@@ -1044,124 +964,126 @@ defmodule ApmV5Web.SkillsLive do
                 <span>
                   Add examples
                   <%= if Map.get(@selected_skill, :has_examples_section, false) do %>
-                    <span class="badge badge-xs badge-success ml-1">OK</span>
+                    <.badge tone="ok" style="margin-left: 4px;">OK</.badge>
                   <% else %>
-                    <span class="badge badge-xs badge-warning ml-1">missing</span>
+                    <.badge tone="warn" style="margin-left: 4px;">missing</.badge>
                   <% end %>
                 </span>
               </label>
-              <p class="text-[10px] text-base-content/40 mt-1">Items marked OK can still be re-run to regenerate.</p>
+              <p style="font-size: 10px; color: var(--ccem-fg-subtle); margin: 0;">Items marked OK can still be re-run to regenerate.</p>
             </div>
-            <div class="flex gap-2 pt-1">
-              <button class="btn btn-ghost btn-xs" phx-click="wizard_back">← Back</button>
-              <button
-                class="btn btn-warning btn-sm flex-1"
+            <div style="display: flex; gap: 8px;">
+              <.btn variant="ghost" size="xs" phx-click="wizard_back">← Back</.btn>
+              <.btn
+                variant="primary"
+                size="sm"
                 phx-click="wizard_next"
                 disabled={MapSet.size(@fix_wizard_selected_repairs) == 0}
                 aria-disabled={to_string(MapSet.size(@fix_wizard_selected_repairs) == 0)}
+                style="flex: 1;"
               >
                 Preview →
-              </button>
-              <button class="btn btn-ghost btn-sm" phx-click="cancel_fix">Cancel</button>
+              </.btn>
+              <.btn variant="ghost" size="sm" phx-click="cancel_fix">Cancel</.btn>
             </div>
           </div>
 
           <%!-- Fix Wizard Step 3: Preview --%>
-          <div :if={@fix_wizard_step == :preview} class="space-y-3">
-            <div class="flex items-center gap-1 mb-2" role="navigation" aria-label="Fix wizard steps">
-              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-warning btn-xs" phx-click="wizard_step" phx-value-step="3" aria-current="step" aria-label="Step 3: Preview (current)">3 Preview</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-ghost btn-xs opacity-30 cursor-not-allowed" disabled aria-label="Step 4: Done (not yet available)">4 Done</button>
+          <div :if={@fix_wizard_step == :preview} style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 4px;" role="navigation" aria-label="Fix wizard steps">
+              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="primary" size="xs" phx-click="wizard_step" phx-value-step="3" aria-current="step" aria-label="Step 3: Preview (current)">3 Preview</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="ghost" size="xs" disabled aria-label="Step 4: Done (not yet available)">4 Done</.btn>
             </div>
-            <p class="text-xs text-base-content/60">
-              The following repairs will run on <strong>{@selected_skill.name}</strong>:
+            <p style="font-size: 11px; color: var(--ccem-fg-muted);">
+              The following repairs will run on <strong style="color: var(--ccem-fg);">{@selected_skill.name}</strong>:
             </p>
             <%!-- Async diff preview --%>
-            <div :if={@fix_preview_loading} class="flex items-center gap-2 py-2" aria-live="polite" aria-busy="true">
-              <span class="loading loading-spinner loading-xs text-warning"></span>
-              <span class="text-xs text-base-content/50">Loading diff preview…</span>
+            <div :if={@fix_preview_loading} style="display: flex; align-items: center; gap: 8px; padding: 8px 0;" aria-live="polite" aria-busy="true">
+              <span style="color: var(--ccem-accent);">⟳</span>
+              <span style="font-size: 11px; color: var(--ccem-fg-subtle);">Loading diff preview…</span>
             </div>
-            <div :if={not @fix_preview_loading and @fix_preview != nil} class="bg-base-300 rounded p-2 text-xs font-mono space-y-1" aria-label="Diff preview" aria-live="polite">
-              <div class="text-base-content/60 font-sans mb-1">{@fix_preview.summary}</div>
-              <div class="text-success text-[10px]">
+            <div :if={not @fix_preview_loading and @fix_preview != nil} style="background: var(--ccem-bg); border-radius: 4px; padding: 8px; font-family: monospace; font-size: 11px; display: flex; flex-direction: column; gap: 4px;" aria-label="Diff preview" aria-live="polite">
+              <div style="color: var(--ccem-fg-muted); font-family: sans-serif; margin-bottom: 4px;">{@fix_preview.summary}</div>
+              <div style="color: var(--ccem-ok); font-size: 10px;">
                 Health: {@fix_preview.health_before} → {@fix_preview.health_after}
               </div>
-              <div :for={change <- @fix_preview.changes} class="border-l-2 border-warning pl-2 mt-1">
-                <div class="text-warning">{change.field}: {change.issue}</div>
-                <div class="text-success">+ {change.fix}</div>
+              <div :for={change <- @fix_preview.changes} style="border-left: 2px solid var(--ccem-warn); padding-left: 8px; margin-top: 4px;">
+                <div style="color: var(--ccem-warn);">{change.field}: {change.issue}</div>
+                <div style="color: var(--ccem-ok);">+ {change.fix}</div>
               </div>
             </div>
-            <ul class="text-xs space-y-1">
+            <ul style="font-size: 11px; display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none;">
               <li
                 :for={repair <- MapSet.to_list(@fix_wizard_selected_repairs)}
-                class="flex items-center gap-2"
+                style="display: flex; align-items: center; gap: 8px;"
               >
-                <span class="text-warning" aria-hidden="true">→</span>
+                <span style="color: var(--ccem-warn);" aria-hidden="true">→</span>
                 {repair_label(repair)}
               </li>
             </ul>
-            <div class="flex gap-2 pt-1">
-              <button class="btn btn-ghost btn-xs" phx-click="wizard_back">← Back</button>
-              <button
-                class="btn btn-warning btn-sm flex-1"
+            <div style="display: flex; gap: 8px;">
+              <.btn variant="ghost" size="xs" phx-click="wizard_back">← Back</.btn>
+              <.btn
+                variant="primary"
+                size="sm"
                 phx-click="run_wizard_fix"
                 phx-value-skill={@selected_skill.name}
+                style="flex: 1;"
               >
                 Run Fixes
-              </button>
-              <button class="btn btn-ghost btn-sm" phx-click="cancel_fix">Cancel</button>
+              </.btn>
+              <.btn variant="ghost" size="sm" phx-click="cancel_fix">Cancel</.btn>
             </div>
           </div>
 
           <%!-- Fix Wizard Step 4: Done --%>
-          <div :if={@fix_wizard_step == :done} class="space-y-3 text-center">
-            <div class="flex items-center gap-1 mb-2 justify-center" role="navigation" aria-label="Fix wizard steps">
-              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-ghost btn-xs opacity-50" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</button>
-              <span class="text-base-content/30 text-xs">→</span>
-              <button class="btn btn-success btn-xs" aria-current="step" aria-label="Step 4: Done (current)" disabled>4 Done</button>
+          <div :if={@fix_wizard_step == :done} style="display: flex; flex-direction: column; gap: 10px; text-align: center;">
+            <div style="display: flex; align-items: center; gap: 4px; justify-content: center;" role="navigation" aria-label="Fix wizard steps">
+              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</.btn>
+              <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
+              <.btn variant="primary" size="xs" aria-current="step" aria-label="Step 4: Done (current)" disabled>4 Done</.btn>
             </div>
-            <div class="text-success text-2xl" aria-hidden="true">✓</div>
-            <p class="text-sm font-medium text-success">Fix initiated</p>
-            <p class="text-xs text-base-content/50">
-              Repairs queued for <strong>{@selected_skill.name}</strong>. Run Audit All to rescan health.
+            <div style="color: var(--ccem-ok); font-size: 24px;" aria-hidden="true">✓</div>
+            <p style="font-size: 13px; font-weight: 500; color: var(--ccem-ok); margin: 0;">Fix initiated</p>
+            <p style="font-size: 11px; color: var(--ccem-fg-subtle); margin: 0;">
+              Repairs queued for <strong style="color: var(--ccem-fg);">{@selected_skill.name}</strong>. Run Audit All to rescan health.
             </p>
-            <button class="btn btn-ghost btn-sm w-full" phx-click="cancel_fix">
+            <.btn variant="ghost" size="sm" phx-click="cancel_fix" style="width: 100%;">
               Close
-            </button>
+            </.btn>
           </div>
         </div>
       </aside>
     </div>
 
-    <.wizard page="skills" />
-
     <%!-- Dry-run fix preview modal --%>
-    <div :if={@show_dry_run_modal} class="modal modal-open" role="dialog" aria-modal="true">
-      <div class="modal-box w-11/12 max-w-2xl">
-        <h3 class="font-bold text-lg mb-1">Fix Preview</h3>
-        <p class="text-sm text-base-content/60 mb-4">
-          Review proposed changes for <strong class="text-base-content">{@dry_run_skill && @dry_run_skill.name}</strong>
+    <div :if={@show_dry_run_modal} style="position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5);" role="dialog" aria-modal="true">
+      <.card padded={true} style="width: 90%; max-width: 600px;">
+        <h3 style="font-weight: 700; font-size: 16px; margin: 0 0 4px; color: var(--ccem-fg);">Fix Preview</h3>
+        <p style="font-size: 13px; color: var(--ccem-fg-muted); margin: 0 0 16px;">
+          Review proposed changes for <strong style="color: var(--ccem-fg);">{@dry_run_skill && @dry_run_skill.name}</strong>
         </p>
-        <div class="bg-base-300 rounded-lg p-4 font-mono text-xs whitespace-pre-wrap overflow-auto max-h-64 border border-base-300">
+        <div style="background: var(--ccem-bg); border-radius: 6px; padding: 16px; font-family: monospace; font-size: 11px; white-space: pre-wrap; overflow: auto; max-height: 256px; border: 1px solid var(--ccem-border);">
           {@dry_run_preview}
         </div>
-        <div class="modal-action mt-4">
-          <button class="btn btn-ghost btn-sm" phx-click="cancel_dry_run">Cancel</button>
-          <button class="btn btn-warning btn-sm gap-1" phx-click="confirm_fix">
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <.btn variant="ghost" size="sm" phx-click="cancel_dry_run">Cancel</.btn>
+          <.btn variant="primary" size="sm" phx-click="confirm_fix">
             <.icon name="hero-wrench-screwdriver" class="size-3.5" />
             Confirm & Apply Fix
-          </button>
+          </.btn>
         </div>
-      </div>
-      <div class="modal-backdrop" phx-click="cancel_dry_run"></div>
+      </.card>
+      <div style="position: fixed; inset: 0; z-index: -1;" phx-click="cancel_dry_run"></div>
     </div>
     """
   end
@@ -1594,23 +1516,19 @@ defmodule ApmV5Web.SkillsLive do
     <section
       :if={@skills != []}
       aria-labelledby={"tier-heading-#{@tier}"}
-      class="space-y-2"
+      style="margin-bottom: 8px;"
     >
       <button
         id={"tier-heading-#{@tier}"}
-        class={[
-          "w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-base-300 transition-colors",
-          "text-xs font-semibold uppercase tracking-wider",
-          tier_color_class(@tier)
-        ]}
+        style={"width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; background: var(--ccem-surface); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #{tier_color(@tier)};"}
         phx-click="toggle_tier"
         phx-value-tier={@tier}
         aria-expanded={to_string(not @collapsed)}
         aria-controls={"tier-grid-#{@tier}"}
       >
-        <span class="flex items-center gap-2">
+        <span style="display: flex; align-items: center; gap: 8px;">
           <span>{tier_label(@tier)}</span>
-          <span class={["badge badge-sm", tier_badge_class(@tier)]}>{length(@skills)}</span>
+          <.badge tone={tier_badge_tone(@tier)}>{to_string(length(@skills))}</.badge>
         </span>
         <span aria-hidden="true">{if @collapsed, do: "▶", else: "▼"}</span>
       </button>
@@ -1619,7 +1537,7 @@ defmodule ApmV5Web.SkillsLive do
         :if={not @collapsed}
         id={"tier-grid-#{@tier}"}
         role="list"
-        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
+        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 8px;"
       >
         <.skill_card :for={skill <- @skills} skill={skill} selected_skill={@selected} selected_skills={@selected_skills} />
       </div>
@@ -1637,12 +1555,7 @@ defmodule ApmV5Web.SkillsLive do
     ~H"""
     <article
       role="listitem"
-      class={[
-        "card bg-base-200 border border-base-300 p-3 cursor-pointer",
-        "hover:border-primary/50 hover:bg-base-300 transition-colors",
-        @selected_skill && @selected_skill.name == @skill.name && "border-primary bg-primary/5",
-        MapSet.member?(@selected_skills, @skill.name) && "ring-1 ring-primary/40"
-      ]}
+      style={"padding: 12px; border-radius: 6px; background: var(--ccem-surface); border: 1px solid #{if @selected_skill && @selected_skill.name == @skill.name, do: "var(--ccem-accent)", else: "var(--ccem-border)"}; cursor: pointer; #{if MapSet.member?(@selected_skills, @skill.name), do: "outline: 1px solid color-mix(in srgb, var(--ccem-accent) 40%, transparent);", else: ""}"}
       phx-click="select_skill"
       phx-value-name={@skill.name}
       tabindex="0"
@@ -1650,31 +1563,30 @@ defmodule ApmV5Web.SkillsLive do
       phx-key="Enter"
       aria-label={"#{@skill.name}: #{health_label(@skill.health_score)}, score #{@skill.health_score}"}
     >
-      <div class="flex items-start gap-3">
-        <div class="flex-shrink-0 mt-1">
+      <div style="display: flex; align-items: flex-start; gap: 10px;">
+        <div style="flex-shrink: 0; margin-top: 2px;">
           <input
             type="checkbox"
-            class="checkbox checkbox-xs checkbox-primary"
             checked={MapSet.member?(@selected_skills, @skill.name)}
             phx-click="toggle_skill_select"
             phx-value-name={@skill.name}
           />
         </div>
-        <div class="flex-shrink-0 mt-0.5">
+        <div style="flex-shrink: 0; margin-top: 0;">
           {health_ring(@skill.health_score)}
         </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="text-sm font-semibold truncate">{@skill.name}</span>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{@skill.name}</span>
           </div>
-          <p class="text-[11px] text-base-content/60 line-clamp-2 mb-2">
+          <p style="font-size: 11px; color: var(--ccem-fg-muted); margin: 0 0 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
             {@skill.description || "No description"}
           </p>
-          <div class="flex items-center gap-1 flex-wrap">
-            <span class={["badge badge-xs", desc_quality_badge(@skill.description_quality)]}>
+          <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+            <.badge tone={desc_quality_tone(@skill.description_quality)}>
               {@skill.description_quality}
-            </span>
-            <span class="text-[10px] text-base-content/40">
+            </.badge>
+            <span style="font-size: 10px; color: var(--ccem-fg-subtle);">
               {format_modified(@skill.last_modified)}
             </span>
           </div>
@@ -1690,48 +1602,38 @@ defmodule ApmV5Web.SkillsLive do
 
   defp skill_list_view(assigns) do
     ~H"""
-    <div class="overflow-x-auto">
-      <table class="table table-xs table-zebra w-full" aria-label="Skills list">
-        <thead>
-          <tr class="text-[10px] uppercase tracking-wider text-base-content/40">
-            <th class="w-8"><input type="checkbox" class="checkbox checkbox-xs" phx-click="select_all" /></th>
-            <th>Name</th>
-            <th>Tier</th>
-            <th>Health</th>
-            <th>Source</th>
-            <th>Triggers</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            :for={skill <- @skills}
-            class={["hover cursor-pointer", MapSet.member?(@selected_skills, skill.name) && "bg-primary/10"]}
-            phx-click="select_skill"
-            phx-value-name={skill.name}
-          >
-            <td>
-              <input
-                type="checkbox"
-                class="checkbox checkbox-xs checkbox-primary"
-                checked={MapSet.member?(@selected_skills, skill.name)}
-                phx-click="toggle_skill_select"
-                phx-value-name={skill.name}
-              />
-            </td>
-            <td class="font-mono text-xs">{skill.name}</td>
-            <td><span class={["badge badge-xs", skill_tier_badge_class(skill)]}>{skill_tier_label(skill)}</span></td>
-            <td class="tabular-nums">{skill.health_score || "-"}</td>
-            <td class="text-xs text-base-content/50">{Map.get(skill, :source, "user")}</td>
-            <td class="tabular-nums">{Map.get(skill, :trigger_count, 0)}</td>
-            <td class="text-xs text-base-content/60 truncate max-w-xs">{skill.description || "-"}</td>
-          </tr>
-          <tr :if={@skills == []}>
-            <td colspan="7" class="text-center text-base-content/30 py-6">No skills match filters</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <.data_table id="skills-list-table" rows={@skills}>
+      <:col :let={row} label="">
+        <input
+          type="checkbox"
+          checked={MapSet.member?(@selected_skills, row.name)}
+          phx-click="toggle_skill_select"
+          phx-value-name={row.name}
+        />
+      </:col>
+      <:col :let={row} label="Name">
+        <span
+          style="font-family: monospace; font-size: 11px; color: var(--ccem-fg); cursor: pointer;"
+          phx-click="select_skill"
+          phx-value-name={row.name}
+        >{row.name}</span>
+      </:col>
+      <:col :let={row} label="Tier">
+        <.badge tone={skill_tier_tone(row)}>{skill_tier_label(row)}</.badge>
+      </:col>
+      <:col :let={row} label="Health">
+        <span style="font-variant-numeric: tabular-nums;">{row.health_score || "-"}</span>
+      </:col>
+      <:col :let={row} label="Source">
+        <span style="font-size: 11px; color: var(--ccem-fg-subtle);">{Map.get(row, :source, "user")}</span>
+      </:col>
+      <:col :let={row} label="Triggers">
+        <span style="font-variant-numeric: tabular-nums;">{Map.get(row, :trigger_count, 0)}</span>
+      </:col>
+      <:col :let={row} label="Description">
+        <span style="font-size: 11px; color: var(--ccem-fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; max-width: 240px;">{row.description || "-"}</span>
+      </:col>
+    </.data_table>
     """
   end
 
@@ -1741,10 +1643,10 @@ defmodule ApmV5Web.SkillsLive do
 
   defp health_bar(assigns) do
     ~H"""
-    <div class="text-center">
-      <div class="text-[10px] text-base-content/50 mb-1">{@label}</div>
+    <div style="text-align: center;">
+      <div style="font-size: 10px; color: var(--ccem-fg-subtle); margin-bottom: 4px;">{@label}</div>
       <div
-        class="w-full bg-base-300 rounded-full h-2"
+        style="width: 100%; background: var(--ccem-bg); border-radius: 9999px; height: 6px;"
         role="progressbar"
         aria-valuenow={@value}
         aria-valuemin={0}
@@ -1752,16 +1654,10 @@ defmodule ApmV5Web.SkillsLive do
         aria-label={@label}
       >
         <div
-          class={[
-            "h-2 rounded-full",
-            @value == @max && "bg-success",
-            @value > 0 && @value < @max && "bg-warning",
-            @value == 0 && "bg-base-300"
-          ]}
-          style={"width: #{if @max > 0, do: round(@value / @max * 100), else: 0}%"}
+          style={"height: 6px; border-radius: 9999px; width: #{if @max > 0, do: round(@value / @max * 100), else: 0}%; background: #{cond do @value == @max -> "var(--ccem-ok)"; @value > 0 -> "var(--ccem-warn)"; true -> "var(--ccem-bg)" end};"}
         ></div>
       </div>
-      <div class="text-[10px] text-base-content/50 mt-1">{@value}/{@max}</div>
+      <div style="font-size: 10px; color: var(--ccem-fg-subtle); margin-top: 4px;">{@value}/{@max}</div>
     </div>
     """
   end
@@ -1852,11 +1748,11 @@ defmodule ApmV5Web.SkillsLive do
 
   defp group_skills(skills, _), do: [{"All", skills}]
 
-  defp skill_tier_badge_class(skill) do
+  defp skill_tier_tone(skill) do
     cond do
-      skill.health_score >= 80 -> "badge-success"
-      skill.health_score >= 50 -> "badge-warning"
-      true -> "badge-error"
+      skill.health_score >= 80 -> "ok"
+      skill.health_score >= 50 -> "warn"
+      true -> "err"
     end
   end
 
@@ -1889,13 +1785,13 @@ defmodule ApmV5Web.SkillsLive do
   defp tier_label(:needs_attention), do: "Needs Attention"
   defp tier_label(:critical), do: "Critical"
 
-  defp tier_badge_class(:healthy), do: "badge-success"
-  defp tier_badge_class(:needs_attention), do: "badge-warning"
-  defp tier_badge_class(:critical), do: "badge-error"
+  defp tier_badge_tone(:healthy), do: "ok"
+  defp tier_badge_tone(:needs_attention), do: "warn"
+  defp tier_badge_tone(:critical), do: "err"
 
-  defp tier_color_class(:healthy), do: "text-success"
-  defp tier_color_class(:needs_attention), do: "text-warning"
-  defp tier_color_class(:critical), do: "text-error"
+  defp tier_color(:healthy), do: "var(--ccem-ok)"
+  defp tier_color(:needs_attention), do: "var(--ccem-warn)"
+  defp tier_color(:critical), do: "var(--ccem-err)"
 
   # SVG donut health ring — uses Phoenix.HTML.raw/1 (not ~H) to avoid compile-time recursion
   defp health_ring(score) do
@@ -1960,10 +1856,10 @@ defmodule ApmV5Web.SkillsLive do
 
   defp format_time(_), do: "—"
 
-  defp methodology_badge(:ralph), do: "badge-success"
-  defp methodology_badge(:tdd), do: "badge-info"
-  defp methodology_badge(:elixir_architect), do: "badge-accent"
-  defp methodology_badge(_), do: "badge-ghost"
+  defp methodology_tone(:ralph), do: "ok"
+  defp methodology_tone(:tdd), do: "info"
+  defp methodology_tone(:elixir_architect), do: "accent"
+  defp methodology_tone(_), do: "neutral"
 
   defp methodology_for_skill("ralph"), do: :ralph
   defp methodology_for_skill("tdd:spawn"), do: :tdd
@@ -1971,13 +1867,13 @@ defmodule ApmV5Web.SkillsLive do
   defp methodology_for_skill("elixir-architect"), do: :elixir_architect
   defp methodology_for_skill(_), do: nil
 
-  defp source_badge(:observed), do: "badge-success"
-  defp source_badge(:filesystem), do: "badge-ghost"
-  defp source_badge(_), do: "badge-ghost"
+  defp source_tone(:observed), do: "ok"
+  defp source_tone(:filesystem), do: "neutral"
+  defp source_tone(_), do: "neutral"
 
-  defp health_badge_class(score) when score >= 80, do: "badge-success"
-  defp health_badge_class(score) when score >= 50, do: "badge-warning"
-  defp health_badge_class(_), do: "badge-error"
+  defp health_tone(score) when score >= 80, do: "ok"
+  defp health_tone(score) when score >= 50, do: "warn"
+  defp health_tone(_), do: "err"
 
   defp health_label(score) when score >= 80, do: "healthy"
   defp health_label(score) when score >= 50, do: "needs attention"
@@ -1987,9 +1883,9 @@ defmodule ApmV5Web.SkillsLive do
   defp desc_score("truncated"), do: 10
   defp desc_score(_), do: 0
 
-  defp desc_quality_badge("good"), do: "badge-success"
-  defp desc_quality_badge("truncated"), do: "badge-warning"
-  defp desc_quality_badge(_), do: "badge-error"
+  defp desc_quality_tone("good"), do: "ok"
+  defp desc_quality_tone("truncated"), do: "warn"
+  defp desc_quality_tone(_), do: "err"
 
   defp format_modified(nil), do: "—"
 
@@ -2039,18 +1935,17 @@ defmodule ApmV5Web.SkillsLive do
   defp ag_ui_status_label(score) when score >= 50, do: "Degraded"
   defp ag_ui_status_label(_), do: "Broken"
 
-  defp ag_ui_border_class(score) when score >= 80, do: "border-success/30"
-  defp ag_ui_border_class(score) when score >= 50, do: "border-warning/30"
-  defp ag_ui_border_class(_), do: "border-error/30"
+  defp ag_ui_border_color(score) when score >= 80, do: "color-mix(in srgb, var(--ccem-ok) 30%, transparent)"
+  defp ag_ui_border_color(score) when score >= 50, do: "color-mix(in srgb, var(--ccem-warn) 30%, transparent)"
+  defp ag_ui_border_color(_), do: "color-mix(in srgb, var(--ccem-err) 30%, transparent)"
 
-  defp ag_ui_dot_class(score) when score >= 80, do: "bg-success"
-  defp ag_ui_dot_class(score) when score >= 50, do: "bg-warning"
-  defp ag_ui_dot_class(_), do: "bg-error"
+  defp ag_ui_dot_color(score) when score >= 80, do: "var(--ccem-ok)"
+  defp ag_ui_dot_color(score) when score >= 50, do: "var(--ccem-warn)"
+  defp ag_ui_dot_color(_), do: "var(--ccem-err)"
 
-  defp ag_ui_text_class(score) when score >= 80, do: "text-success"
-  defp ag_ui_text_class(score) when score >= 50, do: "text-warning"
-  defp ag_ui_text_class(_), do: "text-error"
-
+  defp ag_ui_text_color(score) when score >= 80, do: "var(--ccem-ok)"
+  defp ag_ui_text_color(score) when score >= 50, do: "var(--ccem-warn)"
+  defp ag_ui_text_color(_), do: "var(--ccem-err)"
 
   defp build_dry_run_preview(nil), do: "No skill selected."
 

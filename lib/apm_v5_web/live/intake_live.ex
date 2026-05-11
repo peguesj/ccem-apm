@@ -8,8 +8,6 @@ defmodule ApmV5Web.IntakeLive do
 
   use ApmV5Web, :live_view
 
-  import ApmV5Web.Components.GettingStartedWizard
-
   alias ApmV5.Intake.Store, as: IntakeStore
 
   @impl true
@@ -21,14 +19,18 @@ defmodule ApmV5Web.IntakeLive do
     events = IntakeStore.list(limit: 50)
     watchers = IntakeStore.watchers()
 
-    {:ok,
-     socket
-     |> assign(:page_title, "Intake")
-     |> assign(:events, events)
-     |> assign(:watchers, watchers)
-     |> assign(:filter_source, "all")
-     |> assign(:filter_type, "all"
-     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
+    socket =
+      socket
+      |> assign(:page_title, "Intake")
+      |> assign(:events, events)
+      |> assign(:watchers, watchers)
+      |> assign(:filter_source, "all")
+      |> assign(:filter_type, "all")
+      |> assign(:sidebar_collapsed, false)
+      |> assign(:inspector_open, false)
+      |> assign(:selected_event, nil)
+
+    {:ok, ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data(socket)}
   end
 
   @impl true
@@ -51,12 +53,29 @@ defmodule ApmV5Web.IntakeLive do
     {:noreply, socket |> assign(:filter_type, type) |> assign(:events, events)}
   end
 
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, sidebar_collapsed: !socket.assigns.sidebar_collapsed)}
+  end
+
+  def handle_event("select_event", %{"id" => id}, socket) do
+    selected = Enum.find(socket.assigns.events, fn e -> Map.get(e, :id) == id end)
+
+    {:noreply,
+     socket
+     |> assign(:selected_event, selected)
+     |> assign(:inspector_open, selected != nil)}
+  end
+
+  def handle_event("close_inspector", _params, socket) do
+    {:noreply, socket |> assign(:inspector_open, false) |> assign(:selected_event, nil)}
+  end
+
   # ── Helpers ──────────────────────────────────────────────────────────────
 
-  defp severity_badge_class("critical"), do: "badge badge-xs badge-error"
-  defp severity_badge_class("major"), do: "badge badge-xs badge-warning"
-  defp severity_badge_class("success"), do: "badge badge-xs badge-success"
-  defp severity_badge_class(_), do: "badge badge-xs badge-ghost"
+  defp severity_tone("critical"), do: "err"
+  defp severity_tone("major"), do: "warn"
+  defp severity_tone("success"), do: "ok"
+  defp severity_tone(_), do: "neutral"
 
   defp source_counts(events) do
     events
@@ -72,134 +91,159 @@ defmodule ApmV5Web.IntakeLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/intake" />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar><.sidebar_nav current_path="/intake" /></:sidebar>
+      <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+      <:main>
+        <div style="padding: var(--ccem-space-4); display: flex; flex-direction: column; gap: var(--ccem-space-4);">
 
-      <%!-- Main content --%>
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Intake Event Stream</h2>
-            <div class="badge badge-sm badge-ghost"><%= length(@events) %> events</div>
+          <%!-- Page header --%>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: var(--ccem-space-3);">
+              <h1 style="font-size: var(--ccem-text-lg); font-weight: 600; color: var(--ccem-fg-primary);">
+                Intake Event Stream
+              </h1>
+              <.badge tone="neutral"><%= length(@events) %> events</.badge>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
+              <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Source:</span>
+              <select phx-change="filter_source" name="source"
+                style="background: var(--ccem-surface-2); color: var(--ccem-fg-primary); border: 1px solid var(--ccem-border); border-radius: var(--ccem-radius-sm); padding: 0 var(--ccem-space-2); height: 28px; font-size: var(--ccem-text-xs);">
+                <option value="all" selected={@filter_source == "all"}>All</option>
+                <%= for {source, _count} <- source_counts(@events) do %>
+                  <option value={source} selected={@filter_source == source}><%= source %></option>
+                <% end %>
+              </select>
+              <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Type:</span>
+              <select phx-change="filter_type" name="type"
+                style="background: var(--ccem-surface-2); color: var(--ccem-fg-primary); border: 1px solid var(--ccem-border); border-radius: var(--ccem-radius-sm); padding: 0 var(--ccem-space-2); height: 28px; font-size: var(--ccem-text-xs);">
+                <option value="all" selected={@filter_type == "all"}>All</option>
+                <option value="context_fetch" selected={@filter_type == "context_fetch"}>context_fetch</option>
+                <option value="submission" selected={@filter_type == "submission"}>submission</option>
+                <option value="sync_complete" selected={@filter_type == "sync_complete"}>sync_complete</option>
+                <option value="custom" selected={@filter_type == "custom"}>custom</option>
+              </select>
+            </div>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-base-content/40">Source:</span>
-            <select phx-change="filter_source" name="source" class="select select-xs select-ghost">
-              <option value="all" selected={@filter_source == "all"}>All</option>
-              <%= for {source, _count} <- source_counts(@events) do %>
-                <option value={source} selected={@filter_source == source}><%= source %></option>
-              <% end %>
-            </select>
-            <span class="text-xs text-base-content/40">Type:</span>
-            <select phx-change="filter_type" name="type" class="select select-xs select-ghost">
-              <option value="all" selected={@filter_type == "all"}>All</option>
-              <option value="context_fetch" selected={@filter_type == "context_fetch"}>context_fetch</option>
-              <option value="submission" selected={@filter_type == "submission"}>submission</option>
-              <option value="sync_complete" selected={@filter_type == "sync_complete"}>sync_complete</option>
-              <option value="custom" selected={@filter_type == "custom"}>custom</option>
-            </select>
-          </div>
-        </header>
-
-        <%!-- Body --%>
-        <div class="flex-1 overflow-auto p-4 space-y-4">
 
           <%!-- Stats row --%>
-          <div class="grid grid-cols-4 gap-3">
-            <div class="bg-base-200 rounded-lg p-3">
-              <div class="text-2xl font-bold text-base-content"><%= length(@events) %></div>
-              <div class="text-xs text-base-content/50 mt-1">Total Events</div>
-            </div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--ccem-space-3);">
+            <.stat_tile label="Total Events" value={to_string(length(@events))} delta_direction="flat" />
             <%= for {source, count} <- Enum.take(source_counts(@events), 3) do %>
-              <div class="bg-base-200 rounded-lg p-3">
-                <div class="text-2xl font-bold text-primary"><%= count %></div>
-                <div class="text-xs text-base-content/50 mt-1"><%= source %></div>
-              </div>
+              <.stat_tile label={source} value={to_string(count)} delta_direction="flat" />
             <% end %>
           </div>
 
           <%!-- Watcher registry --%>
-          <div class="bg-base-200 rounded-lg p-4">
-            <h3 class="text-sm font-semibold text-base-content mb-3 flex items-center gap-2">
-              <.icon name="hero-eye" class="size-4 text-primary" />
-              Registered Watchers
-              <span class="badge badge-xs badge-primary"><%= length(@watchers) %></span>
-            </h3>
-            <div class="flex flex-wrap gap-2">
+          <.card padded={true}>
+            <div style="display: flex; align-items: center; gap: var(--ccem-space-2); margin-bottom: var(--ccem-space-3);">
+              <.icon name="hero-eye" class="size-4" style="color: var(--ccem-accent);" />
+              <span style="font-size: var(--ccem-text-sm); font-weight: 600; color: var(--ccem-fg-primary);">
+                Registered Watchers
+              </span>
+              <.badge tone="accent" square={true}><%= length(@watchers) %></.badge>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: var(--ccem-space-2);">
               <%= for watcher <- @watchers do %>
-                <div class="flex items-center gap-2 bg-base-300 rounded px-3 py-1.5">
-                  <span class="inline-block w-1.5 h-1.5 rounded-full bg-success"></span>
-                  <span class="text-xs font-mono text-base-content/80"><%= watcher.name() %></span>
-                  <span class="text-xs text-base-content/40">
+                <div style="display: flex; align-items: center; gap: var(--ccem-space-2); background: var(--ccem-surface-3); border-radius: var(--ccem-radius-sm); padding: var(--ccem-space-1) var(--ccem-space-3);">
+                  <.badge tone="ok" dot={true} square={true}> </.badge>
+                  <span style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-secondary);">
+                    <%= watcher.name() %>
+                  </span>
+                  <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
                     <%= if watcher.sources() == [:all], do: "all sources", else: Enum.join(watcher.sources(), ", ") %>
                   </span>
                 </div>
               <% end %>
             </div>
-          </div>
+          </.card>
 
           <%!-- Event stream table --%>
-          <div class="bg-base-200 rounded-lg overflow-hidden">
-            <div class="px-4 py-3 border-b border-base-300 flex items-center justify-between">
-              <h3 class="text-sm font-semibold text-base-content">Event Stream</h3>
-              <span class="text-xs text-base-content/40">Live — updates in real-time</span>
+          <.card padded={false}>
+            <div style="padding: var(--ccem-space-3) var(--ccem-space-4); border-bottom: 1px solid var(--ccem-border); display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: var(--ccem-text-sm); font-weight: 600; color: var(--ccem-fg-primary);">
+                Event Stream
+              </span>
+              <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                Live — updates in real-time
+              </span>
             </div>
-            <div class="overflow-auto">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="text-left text-base-content/50 border-b border-base-300 bg-base-300/30">
-                    <th class="pb-2 pt-2 px-4">Time</th>
-                    <th class="pb-2 pt-2 px-4">Source</th>
-                    <th class="pb-2 pt-2 px-4">Type</th>
-                    <th class="pb-2 pt-2 px-4">Severity</th>
-                    <th class="pb-2 pt-2 px-4">Project</th>
-                    <th class="pb-2 pt-2 px-4">Payload Summary</th>
-                    <th class="pb-2 pt-2 px-4">ID</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <%= if @events == [] do %>
-                    <tr>
-                      <td colspan="7" class="py-12 text-center text-base-content/40">
-                        <div class="flex flex-col items-center gap-2">
-                          <.icon name="hero-inbox" class="size-8 opacity-30" />
-                          <span>No events yet. POST to <code class="text-xs bg-base-300 px-1 rounded">/api/intake</code> to submit one.</span>
-                        </div>
-                      </td>
-                    </tr>
-                  <% else %>
-                    <%= for event <- @events do %>
-                      <tr class="border-b border-base-300/50 hover:bg-base-300/30">
-                        <td class="py-2 px-4 font-mono text-xs text-base-content/60">
-                          <%= format_time(event.received_at) %>
-                        </td>
-                        <td class="py-2 px-4">
-                          <span class="badge badge-xs badge-outline"><%= event.source %></span>
-                        </td>
-                        <td class="py-2 px-4 text-xs font-mono text-base-content/80"><%= event.event_type %></td>
-                        <td class="py-2 px-4">
-                          <span class={severity_badge_class(event.severity)}><%= event.severity %></span>
-                        </td>
-                        <td class="py-2 px-4 text-xs text-base-content/60"><%= event.project %></td>
-                        <td class="py-2 px-4 text-xs text-base-content/50 max-w-xs truncate">
-                          <%= event.payload["title"] || event.payload["message"] || inspect(event.payload) |> String.slice(0, 60) %>
-                        </td>
-                        <td class="py-2 px-4 font-mono text-xs text-base-content/30">
-                          <%= String.slice(event.id, 0, 8) %>…
-                        </td>
-                      </tr>
-                    <% end %>
-                  <% end %>
-                </tbody>
-              </table>
-            </div>
-          </div>
+            <%= if @events == [] do %>
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--ccem-space-12); gap: var(--ccem-space-2); color: var(--ccem-fg-muted);">
+                <.icon name="hero-inbox" class="size-8" style="opacity: 0.3;" />
+                <span style="font-size: var(--ccem-text-sm);">
+                  No events yet. POST to
+                  <code style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); background: var(--ccem-surface-3); padding: 0 4px; border-radius: 3px;">/api/intake</code>
+                  to submit one.
+                </span>
+              </div>
+            <% else %>
+              <.data_table id="intake-events" rows={@events}>
+                <:col :let={event} label="Time">
+                  <span style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                    <%= format_time(event.received_at) %>
+                  </span>
+                </:col>
+                <:col :let={event} label="Source">
+                  <.badge tone="neutral"><%= event.source %></.badge>
+                </:col>
+                <:col :let={event} label="Type">
+                  <span style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-secondary);">
+                    <%= event.event_type %>
+                  </span>
+                </:col>
+                <:col :let={event} label="Severity">
+                  <.badge tone={severity_tone(event.severity)}><%= event.severity %></.badge>
+                </:col>
+                <:col :let={event} label="Project">
+                  <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                    <%= event.project %>
+                  </span>
+                </:col>
+                <:col :let={event} label="Payload">
+                  <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;">
+                    <%= event.payload["title"] || event.payload["message"] || inspect(event.payload) |> String.slice(0, 60) %>
+                  </span>
+                </:col>
+                <:col :let={event} label="ID">
+                  <span style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                    <%= String.slice(event.id, 0, 8) %>…
+                  </span>
+                </:col>
+                <:col :let={event} label="">
+                  <.btn variant="ghost" size="xs" phx-click="select_event" phx-value-id={event.id}>
+                    View
+                  </.btn>
+                </:col>
+              </.data_table>
+            <% end %>
+          </.card>
 
         </div>
-      </div>
-    </div>
-    <.wizard page="agents" dom_id="ccem-wizard-agents-intake" />
+      </:main>
+      <:inspector>
+        <%= if @selected_event do %>
+          <div style="padding: var(--ccem-space-4); display: flex; flex-direction: column; gap: var(--ccem-space-3);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: var(--ccem-text-sm); font-weight: 600; color: var(--ccem-fg-primary);">Event Detail</span>
+              <.btn variant="ghost" size="xs" phx-click="close_inspector">Close</.btn>
+            </div>
+            <div style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); word-break: break-all;">
+              <div><strong>ID:</strong> <%= @selected_event.id %></div>
+              <div><strong>Source:</strong> <%= @selected_event.source %></div>
+              <div><strong>Type:</strong> <%= @selected_event.event_type %></div>
+              <div><strong>Severity:</strong> <%= @selected_event.severity %></div>
+              <div><strong>Project:</strong> <%= @selected_event.project %></div>
+              <div><strong>Received:</strong> <%= format_time(@selected_event.received_at) %></div>
+            </div>
+            <div>
+              <span style="font-size: var(--ccem-text-xs); font-weight: 600; color: var(--ccem-fg-secondary);">Payload</span>
+              <pre style="background: var(--ccem-surface-3); border-radius: var(--ccem-radius-sm); padding: var(--ccem-space-2); font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-secondary); overflow-x: auto; margin-top: var(--ccem-space-2);"><%= inspect(@selected_event.payload, pretty: true) %></pre>
+            </div>
+          </div>
+        <% end %>
+      </:inspector>
+    </.page_layout>
     """
   end
 end

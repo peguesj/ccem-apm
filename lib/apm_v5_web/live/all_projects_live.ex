@@ -41,8 +41,8 @@ defmodule ApmV5Web.AllProjectsLive do
 
     config = safe_config()
     projects = Map.get(config, "projects", [])
-    agents = AgentRegistry.list_agents()
-    notifications = AgentRegistry.get_notifications()
+    agents = try do AgentRegistry.list_agents() rescue _ -> [] catch :exit, _ -> [] end
+    notifications = try do AgentRegistry.get_notifications() rescue _ -> [] catch :exit, _ -> [] end
     session_count = count_sessions(config)
 
     widgets = @default_widgets |> Enum.into(%{}, fn w -> {w.id, w} end)
@@ -65,14 +65,19 @@ defmodule ApmV5Web.AllProjectsLive do
       |> assign(:upm_status, %{})
       |> assign(:inspector_tab, :ralph)
 
-    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok, socket |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/apm-all" />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/apm-all" />
+      </:sidebar>
+      <:main>
 
       <%!-- Main --%>
       <div class="flex-1 flex flex-col overflow-hidden">
@@ -455,8 +460,9 @@ defmodule ApmV5Web.AllProjectsLive do
           </div>
         </div>
       </div>
-    </div>
     <.wizard page="dashboard" dom_id="ccem-wizard-dashboard-allprojects" />
+      </:main>
+    </.page_layout>
     """
   end
 

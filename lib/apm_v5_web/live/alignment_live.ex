@@ -24,21 +24,26 @@ defmodule ApmV5Web.AlignmentLive do
      |> assign(:running, false)
      |> assign(:run_id, nil)
      |> assign(:report, nil)
-     |> assign(:error, nil
-     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data())}
+     |> assign(:error, nil)
+     |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
   def handle_event("run_audit", _params, socket) do
     case ActionEngine.run_action("agent_alignment_audit", "", %{}) do
       {:ok, run_id} ->
-        # Poll for completion
         Process.send_after(self(), {:poll_run, run_id}, 500)
         {:noreply, socket |> assign(:running, true) |> assign(:run_id, run_id) |> assign(:error, nil)}
 
       {:error, reason} ->
         {:noreply, socket |> assign(:error, "Failed to start: #{reason}") |> assign(:running, false)}
     end
+  end
+
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, sidebar_collapsed: !socket.assigns.sidebar_collapsed)}
   end
 
   @impl true
@@ -76,7 +81,6 @@ defmodule ApmV5Web.AlignmentLive do
     aligned_names = Enum.map(aligned, & &1["skill"]) |> MapSet.new()
     partial_names = Enum.map(partial, & &1["skill"]) |> MapSet.new()
 
-    # Build skill nodes
     skill_nodes =
       Enum.map(skills_with_agents, fn s ->
         name = s["name"] || s["skill"] || "unknown"
@@ -97,7 +101,6 @@ defmodule ApmV5Web.AlignmentLive do
         }
       end)
 
-    # Build gap nodes (one per gap type, linked to skill)
     gap_nodes =
       gaps
       |> Enum.group_by(& &1["skill"])
@@ -137,159 +140,22 @@ defmodule ApmV5Web.AlignmentLive do
 
   defp normalize_keys(other), do: other
 
-  @impl true
-  def render(assigns) do
-    ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/alignment" />
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Agent Alignment Audit</h2>
-            <div class="badge badge-sm badge-ghost">referential integrity</div>
-            <%= if @report do %>
-              <span class={[
-                "text-xs font-bold px-2 py-0.5 rounded-full",
-                overall_score_class(@report)
-              ]}>
-                Score: <%= Map.get(@report, "overall_score", 0) %>/100
-              </span>
-            <% end %>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              phx-click="run_audit"
-              disabled={@running}
-              class={[
-                "btn btn-xs gap-1",
-                if(@running, do: "btn-disabled", else: "btn-primary")
-              ]}
-            >
-              <.icon name={if @running, do: "hero-arrow-path", else: "hero-play"} class={["size-3.5", if(@running, do: "animate-spin", else: "")]} />
-              <%= if @running, do: "Running...", else: "Run Audit" %>
-            </button>
-          </div>
-        </header>
-
-        <!-- Error banner -->
-        <%= if @error do %>
-          <div class="mx-4 mt-4 p-3 bg-error/10 border border-error/30 rounded-lg text-sm text-error">
-            <%= @error %>
-          </div>
-        <% end %>
-
-        <!-- Summary row -->
-        <%= if @report do %>
-          <div class="flex gap-4 px-4 py-2 border-b border-base-300 flex-shrink-0 bg-base-200/50">
-            <% summary = Map.get(@report, "summary", %{}) %>
-            <div class="flex items-center gap-2 text-xs">
-              <span class="w-2 h-2 rounded-full bg-base-content/30"></span>
-              <span class="text-base-content/60">Total:</span>
-              <span class="font-medium"><%= Map.get(summary, "total_skills", 0) %></span>
-            </div>
-            <div class="flex items-center gap-2 text-xs">
-              <span class="w-2 h-2 rounded-full bg-success"></span>
-              <span class="text-base-content/60">Aligned:</span>
-              <span class="text-success font-medium"><%= Map.get(summary, "fully_aligned", 0) %></span>
-            </div>
-            <div class="flex items-center gap-2 text-xs">
-              <span class="w-2 h-2 rounded-full bg-warning"></span>
-              <span class="text-base-content/60">Partial:</span>
-              <span class="text-warning font-medium"><%= Map.get(summary, "partially_aligned", 0) %></span>
-            </div>
-            <div class="flex items-center gap-2 text-xs">
-              <span class="w-2 h-2 rounded-full bg-error"></span>
-              <span class="text-base-content/60">Missing:</span>
-              <span class="text-error font-medium"><%= Map.get(summary, "missing_alignment", 0) %></span>
-            </div>
-            <div class="flex items-center gap-2 text-xs ml-auto">
-              <.icon name="hero-exclamation-triangle" class="w-4 h-4 text-warning" />
-              <span class="text-base-content/60">Gaps:</span>
-              <span class="text-warning font-medium"><%= Map.get(summary, "gap_count", 0) %></span>
-            </div>
-          </div>
-        <% end %>
-
-        <!-- Main content: graph + gap list -->
-        <div class="flex flex-1 overflow-hidden">
-          <!-- D3 graph panel -->
-          <div class="flex-1 relative overflow-hidden">
-          <div
-            id="alignment-graph"
-            phx-hook="AlignmentGraph"
-            class="w-full h-full"
-            style="min-height: 600px;"
-          >
-            <%= if !@report && !@running do %>
-              <div class="flex flex-col items-center justify-center h-full gap-4 text-zinc-600">
-                <.icon name="hero-magnifying-glass-circle" class="w-16 h-16" />
-                <p class="text-sm">Run the audit to visualize agent alignment</p>
-              </div>
-            <% end %>
-            <%= if @running do %>
-              <div class="flex flex-col items-center justify-center h-full gap-4 text-violet-400">
-                <.icon name="hero-arrow-path" class="w-12 h-12 animate-spin" />
-                <p class="text-sm">Scanning skills...</p>
-              </div>
-            <% end %>
-          </div>
-        </div>
-
-          <!-- Gaps panel -->
-          <%= if @report && length(Map.get(@report, "gaps", [])) > 0 do %>
-            <div class="w-96 border-l border-base-300 flex flex-col overflow-hidden">
-              <div class="px-4 py-3 border-b border-base-300">
-                <h2 class="text-sm font-medium text-base-content">Alignment Gaps</h2>
-                <p class="text-xs text-base-content/50 mt-0.5">
-                  <%= length(Map.get(@report, "gaps", [])) %> issues requiring attention
-                </p>
-              </div>
-              <div class="flex-1 overflow-y-auto py-2">
-                <%= for gap <- Map.get(@report, "gaps", []) do %>
-                  <% gap = normalize_keys_for_template(gap) %>
-                  <div class="px-4 py-3 border-b border-base-300/60 hover:bg-base-200/50">
-                    <div class="flex items-start gap-2">
-                      <span class={[
-                        "mt-0.5 w-2 h-2 rounded-full flex-shrink-0",
-                        gap_dot_class(gap["gap_type"])
-                      ]}></span>
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                          <span class="text-xs font-mono text-base-content truncate"><%= gap["skill"] %></span>
-                          <span class="text-xs text-base-content/30">·</span>
-                          <span class="text-xs text-base-content/50 truncate"><%= format_gap_type(gap["gap_type"]) %></span>
-                        </div>
-                        <p class="text-xs text-base-content/50 mt-1 leading-relaxed"><%= gap["recommendation"] %></p>
-                      </div>
-                    </div>
-                  </div>
-                <% end %>
-              </div>
-            </div>
-          <% end %>
-        </div>
-      </div>
-    </div>
-    """
-  end
-
-  defp overall_score_class(report) do
+  defp overall_score_tone(report) do
     score = Map.get(report, "overall_score", 0)
     cond do
-      score >= 80 -> "bg-emerald-900/40 text-emerald-400 border border-emerald-700"
-      score >= 50 -> "bg-amber-900/40 text-amber-400 border border-amber-700"
-      true -> "bg-red-900/40 text-red-400 border border-red-700"
+      score >= 80 -> "ok"
+      score >= 50 -> "warn"
+      true -> "err"
     end
   end
 
-  defp gap_dot_class(gap_type) do
+  defp gap_dot_tone(gap_type) do
     case gap_type do
-      "missing_apm_registration" -> "bg-red-500"
-      "missing_formation_role" -> "bg-amber-500"
-      "missing_agent_type" -> "bg-amber-500"
-      "missing_fmt_convention" -> "bg-zinc-500"
-      _ -> "bg-zinc-600"
+      "missing_apm_registration" -> "err"
+      "missing_formation_role" -> "warn"
+      "missing_agent_type" -> "warn"
+      "missing_fmt_convention" -> "neutral"
+      _ -> "neutral"
     end
   end
 
@@ -300,4 +166,158 @@ defmodule ApmV5Web.AlignmentLive do
     Map.new(map, fn {k, v} -> {to_string(k), v} end)
   end
   defp normalize_keys_for_template(other), do: other
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar><.sidebar_nav current_path="/actions/alignment" /></:sidebar>
+      <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+      <:main>
+        <div style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
+
+          <%!-- Top bar --%>
+          <div style="padding: var(--ccem-space-3) var(--ccem-space-4); border-bottom: 1px solid var(--ccem-border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; background: var(--ccem-surface-1);">
+            <div style="display: flex; align-items: center; gap: var(--ccem-space-3);">
+              <h1 style="font-size: var(--ccem-text-sm); font-weight: 600; color: var(--ccem-fg-primary);">
+                Agent Alignment Audit
+              </h1>
+              <.badge tone="neutral">referential integrity</.badge>
+              <%= if @report do %>
+                <.badge tone={overall_score_tone(@report)}>
+                  Score: <%= Map.get(@report, "overall_score", 0) %>/100
+                </.badge>
+              <% end %>
+            </div>
+            <.btn
+              variant={if @running, do: "secondary", else: "primary"}
+              size="xs"
+              phx-click="run_audit"
+              disabled={@running}
+            >
+              <.icon
+                name={if @running, do: "hero-arrow-path", else: "hero-play"}
+                class={["size-3", if(@running, do: "animate-spin", else: "")]}
+              />
+              <%= if @running, do: "Running…", else: "Run Audit" %>
+            </.btn>
+          </div>
+
+          <%!-- Error banner --%>
+          <%= if @error do %>
+            <div style="margin: var(--ccem-space-4); padding: var(--ccem-space-3); background: color-mix(in srgb, var(--ccem-err) 10%, transparent); border: 1px solid color-mix(in srgb, var(--ccem-err) 30%, transparent); border-radius: var(--ccem-radius); font-size: var(--ccem-text-sm); color: var(--ccem-err);">
+              <%= @error %>
+            </div>
+          <% end %>
+
+          <%!-- Summary strip --%>
+          <%= if @report do %>
+            <% summary = Map.get(@report, "summary", %{}) %>
+            <div style="display: flex; align-items: center; gap: var(--ccem-space-4); padding: var(--ccem-space-2) var(--ccem-space-4); border-bottom: 1px solid var(--ccem-border); flex-shrink: 0; background: var(--ccem-surface-2);">
+              <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
+                <.badge tone="neutral" dot={true} square={true}> </.badge>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Total:</span>
+                <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-fg-secondary);">
+                  <%= Map.get(summary, "total_skills", 0) %>
+                </span>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
+                <.badge tone="ok" dot={true} square={true}> </.badge>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Aligned:</span>
+                <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-ok);">
+                  <%= Map.get(summary, "fully_aligned", 0) %>
+                </span>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
+                <.badge tone="warn" dot={true} square={true}> </.badge>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Partial:</span>
+                <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-warn);">
+                  <%= Map.get(summary, "partially_aligned", 0) %>
+                </span>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
+                <.badge tone="err" dot={true} square={true}> </.badge>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Missing:</span>
+                <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-err);">
+                  <%= Map.get(summary, "missing_alignment", 0) %>
+                </span>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--ccem-space-2); margin-left: auto;">
+                <.icon name="hero-exclamation-triangle" class="w-4 h-4" style="color: var(--ccem-warn);" />
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Gaps:</span>
+                <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-warn);">
+                  <%= Map.get(summary, "gap_count", 0) %>
+                </span>
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Main panel: graph + gaps --%>
+          <div style="display: flex; flex: 1; overflow: hidden;">
+
+            <%!-- D3 graph panel --%>
+            <div style="flex: 1; position: relative; overflow: hidden;">
+              <div
+                id="alignment-graph"
+                phx-hook="AlignmentGraph"
+                style="width: 100%; height: 100%; min-height: 600px;"
+              >
+                <%= if !@report && !@running do %>
+                  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: var(--ccem-space-4); color: var(--ccem-fg-muted);">
+                    <.icon name="hero-magnifying-glass-circle" class="w-16 h-16" style="opacity: 0.4;" />
+                    <p style="font-size: var(--ccem-text-sm);">Run the audit to visualize agent alignment</p>
+                  </div>
+                <% end %>
+                <%= if @running do %>
+                  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: var(--ccem-space-4); color: var(--ccem-accent);">
+                    <.icon name="hero-arrow-path" class="w-12 h-12 animate-spin" />
+                    <p style="font-size: var(--ccem-text-sm);">Scanning skills…</p>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+
+            <%!-- Gaps side panel --%>
+            <%= if @report && length(Map.get(@report, "gaps", [])) > 0 do %>
+              <div style="width: 24rem; border-left: 1px solid var(--ccem-border); display: flex; flex-direction: column; overflow: hidden;">
+                <div style="padding: var(--ccem-space-3) var(--ccem-space-4); border-bottom: 1px solid var(--ccem-border);">
+                  <h2 style="font-size: var(--ccem-text-sm); font-weight: 500; color: var(--ccem-fg-primary);">Alignment Gaps</h2>
+                  <p style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); margin-top: 2px;">
+                    <%= length(Map.get(@report, "gaps", [])) %> issues requiring attention
+                  </p>
+                </div>
+                <div style="flex: 1; overflow-y: auto; padding: var(--ccem-space-2) 0;">
+                  <%= for gap <- Map.get(@report, "gaps", []) do %>
+                    <% gap = normalize_keys_for_template(gap) %>
+                    <div style="padding: var(--ccem-space-3) var(--ccem-space-4); border-bottom: 1px solid color-mix(in srgb, var(--ccem-border) 60%, transparent);">
+                      <div style="display: flex; align-items: flex-start; gap: var(--ccem-space-2);">
+                        <.badge tone={gap_dot_tone(gap["gap_type"])} dot={true} square={true}> </.badge>
+                        <div style="flex: 1; min-width: 0;">
+                          <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
+                            <span style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                              <%= gap["skill"] %>
+                            </span>
+                            <span style="color: var(--ccem-fg-muted);">·</span>
+                            <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                              <%= format_gap_type(gap["gap_type"]) %>
+                            </span>
+                          </div>
+                          <p style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); margin-top: 4px; line-height: 1.5;">
+                            <%= gap["recommendation"] %>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+          </div>
+        </div>
+      </:main>
+      <:inspector></:inspector>
+    </.page_layout>
+    """
+  end
 end

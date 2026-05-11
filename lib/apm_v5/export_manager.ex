@@ -5,7 +5,8 @@ defmodule ApmV5.ExportManager do
   CSV export for tabular sections, and validated imports.
   """
 
-  @version "9.1.1"
+  alias ApmV5.AppVersion
+
   @all_sections [:agents, :sessions, :metrics, :slos, :alert_rules, :alert_history, :audit_log]
 
   @doc """
@@ -105,7 +106,7 @@ defmodule ApmV5.ExportManager do
 
   defp build_manifest(sections) do
     %{
-      version: @version,
+      version: AppVersion.current(),
       exported_at: DateTime.utc_now() |> DateTime.to_iso8601(),
       hostname: hostname(),
       sections: Enum.map(sections, &to_string/1)

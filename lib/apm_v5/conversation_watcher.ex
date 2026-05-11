@@ -18,12 +18,20 @@ defmodule ApmV5.ConversationWatcher do
 
   @spec get_conversations() :: [map()]
   def get_conversations do
-    GenServer.call(__MODULE__, :get_conversations)
+    try do
+      GenServer.call(__MODULE__, :get_conversations, 1_500)
+    catch
+      :exit, _ -> []
+    end
   end
 
   @spec get_active_count() :: non_neg_integer()
   def get_active_count do
-    GenServer.call(__MODULE__, :get_active_count)
+    try do
+      GenServer.call(__MODULE__, :get_active_count, 1_500)
+    catch
+      :exit, _ -> 0
+    end
   end
 
   # --- GenServer callbacks ---

@@ -103,6 +103,8 @@ defmodule ApmV5Web.PluginDashboardLive do
     {:ok,
      socket
      |> assign_data()
+     |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
      |> assign(
        active_tab: "mcp",
@@ -704,8 +706,11 @@ defmodule ApmV5Web.PluginDashboardLive do
       |> Map.put_new(:plugin_repos, [])
 
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path={@current_path} plugins={@plugins} integrations={@integrations} />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path={@current_path} plugins={@plugins} integrations={@integrations} />
+      </:sidebar>
+      <:main>
 
       <div class="flex-1 flex flex-col overflow-hidden min-w-0">
         <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
@@ -1305,8 +1310,9 @@ defmodule ApmV5Web.PluginDashboardLive do
         </div>
       </div>
       <div :if={@selected_issue} phx-click="close_drawer" class="fixed inset-0 bg-black/30 z-40" />
-    </div>
     <.wizard page="welcome" dom_id="ccem-wizard-welcome-plugins" />
+      </:main>
+    </.page_layout>
     """
   end
 

@@ -1,28 +1,36 @@
 defmodule ApmV5Web.SessionTimelineLive do
   @moduledoc """
-  LiveView for session timeline with swim-lane visualization.
+  Observe — Timeline LiveView (CP-180 / US-455).
 
-  Displays events grouped into six category swim lanes — lifecycle, auth,
-  formation, task, tool, system — each rendered as a horizontal track with
-  colour-coded event dots positioned by relative timestamp.  A right-side
-  drill-down panel slides in when an event dot is selected.  Time-window
-  and per-lane toggle controls are fully server-side; no custom JS required.
+  Swim-lane timeline displaying one row per agent, with horizontal bars for
+  active session periods rendered via the `SessionTimeline` D3.js hook. The
+  time window (15m / 1h / 6h / 24h) is server-controlled; PubSub pushes
+  reload signals on agent and conversation updates.
+
+  ## Layout
+  - `<.page_layout>` three-zone shell (sidebar / main / inspector)
+  - Top bar with time-window `<.segmented_control>`
+  - Four `<.stat_tile>` metric cards: Active Sessions, Events, Avg Duration, Peak Agents
+  - SVG swim-lane chart driven by `SessionTimeline` D3 hook
+  - Right `<.inspector_panel>` slides open on event selection
   """
 
   use ApmV5Web, :live_view
 
-  import ApmV5Web.Accessibility
-  import ApmV5Web.Components.GettingStartedWizard
-
   alias ApmV5.AgentRegistry
   alias ApmV5.AuditLog
 
-  # ---- Constants -----------------------------------------------------------
+  @pubsub_topic_agents "apm:agents"
+  @pubsub_topic_conversations "apm:conversations"
+  @pubsub_topic_audit "apm:audit"
 
+  @refresh_ms 10_000
+
+  # Six semantic swim-lane categories (order defines display order).
   @categories ~w(lifecycle auth formation task tool system)
 
-  # Keyword prefixes that map an audit event_type to a swim-lane category.
-  # Order matters — first match wins.
+  # Prefix patterns that map an event_type string to a category.
+  # Order matters — first match wins; "system" is the catch-all.
   @category_patterns [
     {"lifecycle", ["agent_register", "agent_update", "ag_ui.run_started", "ag_ui.run_finished",
                    "ag_ui.run_error", "register", "deregister", "session"]},
@@ -30,281 +38,80 @@ defmodule ApmV5Web.SessionTimelineLive do
     {"formation", ["formation", "fmt", "squadron", "swarm", "cluster", "orchestrat"]},
     {"task",      ["task", "bg_task", "background", "action"]},
     {"tool",      ["tool", "ag_ui.tool", "TOOL_CALL", "call_start", "call_end", "call_args"]},
-    {"system",    []}   # catch-all
+    {"system",    []}
   ]
 
-  # ---- Mount ---------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # mount/3
+  # ---------------------------------------------------------------------------
 
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:agents")
-      Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:audit")
-      ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
-      ApmV5.AgUi.EventBus.subscribe("tool:*")
-      ApmV5.AgUi.EventBus.subscribe("state:*")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic_agents)
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic_conversations)
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, @pubsub_topic_audit)
+      Process.send_after(self(), :refresh, @refresh_ms)
     end
 
     socket =
       socket
-      |> assign(:page_title, "Session Timeline")
-      |> assign(:active_nav, :timeline)
-      |> assign(:active_skill_count, skill_count())
-      |> assign(:time_window_minutes, 60)
-      |> assign(:selected_event, nil)
-      |> assign(:hidden_categories, MapSet.new())
-      |> assign(:filter_categories, @categories)
-      |> assign(:show_empty_lanes, false)
-      |> load_events()
+      |> assign(
+        page_title: "Timeline",
+        active_nav: :timeline,
+        window: "1h",
+        sidebar_collapsed: false,
+        inspector_open: false,
+        inspector_mode: "selection",
+        selected_event: nil,
+        hidden_categories: MapSet.new(),
+        show_empty_lanes: false,
+        categories: @categories
+      )
+      |> load_timeline_data()
+      |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
 
-    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok, socket}
   end
 
-  # ---- Render --------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # handle_info/2
+  # ---------------------------------------------------------------------------
 
   @impl true
-  def render(assigns) do
-    ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/timeline" skill_count={@active_skill_count} />
-
-      <%!-- Main column --%>
-      <div id="main-content" class="flex-1 flex flex-col overflow-hidden min-w-0">
-        <%!-- Top bar --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Session Timeline</h2>
-            <div class="badge badge-sm badge-ghost">
-              {total_visible_events(@swim_lanes, @hidden_categories)} events
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <%!-- Time window selector --%>
-            <div class="join">
-              <button
-                :for={{label, mins} <- [{"15m", 15}, {"30m", 30}, {"1h", 60}, {"6h", 360}, {"24h", 1440}]}
-                class={[
-                  "join-item btn btn-xs",
-                  @time_window_minutes == mins && "btn-primary",
-                  @time_window_minutes != mins && "btn-ghost"
-                ]}
-                phx-click="set_time_window"
-                phx-value-minutes={mins}
-              >
-                {label}
-              </button>
-            </div>
-            <button
-              class={[
-                "btn btn-xs",
-                @show_empty_lanes && "btn-primary",
-                !@show_empty_lanes && "btn-ghost"
-              ]}
-              phx-click="toggle_empty_lanes"
-              title="Toggle visibility of lanes with no events in the selected window"
-            >
-              <.icon name={if @show_empty_lanes, do: "hero-eye", else: "hero-eye-slash"} class="size-3" />
-              {empty_lane_count(@swim_lanes)} empty
-            </button>
-            <button class="btn btn-ghost btn-xs" phx-click="refresh">
-              <.icon name="hero-arrow-path" class="size-3" />
-              Refresh
-            </button>
-          </div>
-        </header>
-
-        <%!-- Body: swim lanes + optional drill-down --%>
-        <div class="flex-1 flex overflow-hidden">
-          <%!-- Swim lanes --%>
-          <div class="flex-1 overflow-y-auto p-4 space-y-1 min-w-0">
-            <.live_region id="timeline-status" politeness="polite">
-              <p class="text-xs text-base-content/40 mb-3">
-                Showing events from the last {window_label(@time_window_minutes)} — click any dot to inspect
-              </p>
-            </.live_region>
-
-            <%!-- Time ruler --%>
-            <.time_ruler window_minutes={@time_window_minutes} />
-
-            <%!-- One row per category (empty lanes hidden unless toggled) --%>
-            <.swim_lane
-              :for={lane <- visible_lanes(@swim_lanes, @show_empty_lanes)}
-              lane={lane}
-              hidden={MapSet.member?(@hidden_categories, lane.category)}
-              selected_event={@selected_event}
-            />
-          </div>
-
-          <%!-- Drill-down panel (slide-in) --%>
-          <.drill_down_panel
-            :if={@selected_event != nil}
-            event={find_event(@swim_lanes, @selected_event)}
-          />
-        </div>
-      </div>
-    </div>
-    <.wizard page="agents" dom_id="ccem-wizard-agents-timeline" />
-    """
+  def handle_info(:refresh, socket) do
+    Process.send_after(self(), :refresh, @refresh_ms)
+    {:noreply, load_timeline_data(socket)}
   end
 
-  # ---- Sub-components ------------------------------------------------------
+  def handle_info({:agent_registered, _agent}, socket), do: {:noreply, load_timeline_data(socket)}
+  def handle_info({:agent_updated, _agent}, socket), do: {:noreply, load_timeline_data(socket)}
+  def handle_info({:audit_event, _event}, socket), do: {:noreply, load_timeline_data(socket)}
+  def handle_info({:conversation_updated, _}, socket), do: {:noreply, load_timeline_data(socket)}
+  def handle_info(_msg, socket), do: {:noreply, socket}
 
-  attr :window_minutes, :integer, required: true
-
-  defp time_ruler(assigns) do
-    ~H"""
-    <div class="flex items-center mb-1 pl-28 pr-2">
-      <div class="flex-1 relative h-4">
-        <span
-          :for={{label, pct} <- ruler_ticks(@window_minutes)}
-          class="absolute text-[10px] text-base-content/30 transform -translate-x-1/2"
-          style={"left: #{pct}%"}
-        >
-          {label}
-        </span>
-      </div>
-    </div>
-    """
-  end
-
-  attr :lane, :map, required: true
-  attr :hidden, :boolean, required: true
-  attr :selected_event, :string
-
-  defp swim_lane(assigns) do
-    ~H"""
-    <div class={[
-      "flex items-stretch gap-2 rounded transition-opacity duration-150",
-      @hidden && "opacity-30"
-    ]}>
-      <%!-- Lane label + toggle --%>
-      <button
-        class="w-24 flex-shrink-0 flex flex-col items-end justify-center pr-2 py-2 text-right group"
-        phx-click="toggle_lane"
-        phx-value-category={@lane.category}
-        title={"Toggle #{@lane.category} lane"}
-      >
-        <span class={["text-xs font-semibold capitalize", lane_label_color(@lane.category)]}>
-          {@lane.category}
-        </span>
-        <span class="text-[10px] text-base-content/40 group-hover:text-base-content/70 transition-colors">
-          {@lane.count} events
-        </span>
-      </button>
-
-      <%!-- Track --%>
-      <div class="flex-1 relative h-10 bg-base-300/40 rounded border border-base-300/60 my-1">
-        <%!-- Gridlines at 25%, 50%, 75% --%>
-        <span
-          :for={pct <- [25, 50, 75]}
-          class="absolute top-0 bottom-0 w-px bg-base-300/60"
-          style={"left: #{pct}%"}
-        />
-
-        <%!-- Event dots --%>
-        <button
-          :for={evt <- @lane.events}
-          class={[
-            "absolute top-1/2 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 transition-transform hover:scale-150",
-            "focus:outline-none focus:ring-1 focus:ring-primary",
-            event_dot_size(evt),
-            event_dot_color(evt),
-            @selected_event == evt.id && "ring-2 ring-primary scale-125"
-          ]}
-          style={"left: #{evt.position_pct}%"}
-          phx-click="select_event"
-          phx-value-id={evt.id}
-          title={event_tooltip(evt)}
-          aria-label={"Event: #{evt.event_type} at #{evt.timestamp}"}
-        />
-      </div>
-    </div>
-    """
-  end
-
-  attr :event, :map
-
-  defp drill_down_panel(assigns) do
-    ~H"""
-    <div
-      class="w-80 flex-shrink-0 bg-base-200 border-l border-base-300 flex flex-col overflow-hidden"
-      role="complementary"
-      aria-label="Event detail panel"
-    >
-      <%!-- Panel header --%>
-      <div class="flex items-center justify-between px-3 py-2 border-b border-base-300 flex-shrink-0">
-        <span class="text-xs font-semibold text-base-content">Event Detail</span>
-        <button
-          class="btn btn-ghost btn-xs"
-          phx-click="close_event"
-          aria-label="Close event detail panel"
-        >
-          <.icon name="hero-x-mark" class="size-3" />
-        </button>
-      </div>
-
-      <%!-- Panel body --%>
-      <div class="flex-1 overflow-y-auto p-3 space-y-3 text-xs">
-        <%= if @event do %>
-          <%!-- Type + status badge --%>
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class={["badge badge-sm", event_status_badge(@event)]}>
-              {event_status_label(@event)}
-            </span>
-            <span class={["badge badge-sm badge-outline capitalize", lane_badge_color(categorize(@event.event_type))]}>
-              {categorize(@event.event_type)}
-            </span>
-          </div>
-
-          <%!-- Core fields --%>
-          <table class="w-full text-xs">
-            <tbody>
-              <.detail_row label="Event type" value={to_string(@event.event_type)} />
-              <.detail_row label="Actor" value={@event.actor} />
-              <.detail_row label="Resource" value={@event.resource} />
-              <.detail_row label="Timestamp" value={@event.timestamp} />
-              <%= if @event.correlation_id do %>
-                <.detail_row label="Correlation" value={@event.correlation_id} />
-              <% end %>
-            </tbody>
-          </table>
-
-          <%!-- Details map --%>
-          <%= if map_size(@event.details || %{}) > 0 do %>
-            <div>
-              <p class="font-semibold text-base-content/60 mb-1 uppercase tracking-wide text-[10px]">Details</p>
-              <div class="bg-base-300/50 rounded p-2 space-y-1 font-mono break-all">
-                <div :for={{k, v} <- Map.to_list(@event.details || %{})}>
-                  <span class="text-primary/80">{k}</span>
-                  <span class="text-base-content/50">: </span>
-                  <span class="text-base-content/80">{inspect(v)}</span>
-                </div>
-              </div>
-            </div>
-          <% end %>
-        <% else %>
-          <p class="text-base-content/40 italic">Event not found</p>
-        <% end %>
-      </div>
-    </div>
-    """
-  end
-
-  attr :label, :string, required: true
-  attr :value, :string, required: true
-
-  defp detail_row(assigns) do
-    ~H"""
-    <tr class="align-top">
-      <td class="pr-2 py-0.5 text-base-content/50 whitespace-nowrap font-medium w-24">{@label}</td>
-      <td class="py-0.5 text-base-content/80 break-all">{@value}</td>
-    </tr>
-    """
-  end
-
-  # ---- Event Handlers ------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # handle_event/3
+  # ---------------------------------------------------------------------------
 
   @impl true
+  def handle_event("switch_window", %{"window" => window}, socket) do
+    socket =
+      socket
+      |> assign(:window, window)
+      |> load_timeline_data()
+
+    {:noreply, socket}
+  end
+
+  def handle_event("select_event", %{"id" => id}, socket) do
+    {:noreply, assign(socket, selected_event: id, inspector_open: true, inspector_mode: "selection")}
+  end
+
+  def handle_event("close_event", _params, socket) do
+    {:noreply, assign(socket, selected_event: nil, inspector_open: false)}
+  end
+
   def handle_event("toggle_lane", %{"category" => cat}, socket) do
     hidden = socket.assigns.hidden_categories
 
@@ -316,48 +123,341 @@ defmodule ApmV5Web.SessionTimelineLive do
     {:noreply, assign(socket, hidden_categories: new_hidden)}
   end
 
-  def handle_event("select_event", %{"id" => id}, socket) do
-    {:noreply, assign(socket, selected_event: id)}
-  end
-
-  def handle_event("close_event", _params, socket) do
-    {:noreply, assign(socket, selected_event: nil)}
-  end
-
   def handle_event("toggle_empty_lanes", _params, socket) do
     {:noreply, assign(socket, show_empty_lanes: !socket.assigns.show_empty_lanes)}
   end
 
-  def handle_event("set_time_window", %{"minutes" => mins}, socket) do
-    socket =
-      socket
-      |> assign(:time_window_minutes, String.to_integer(mins))
-      |> load_events()
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, sidebar_collapsed: !socket.assigns.sidebar_collapsed)}
+  end
 
-    {:noreply, socket}
+  def handle_event("toggle_inspector", _params, socket) do
+    {:noreply, assign(socket, inspector_open: !socket.assigns.inspector_open)}
+  end
+
+  def handle_event("inspector_mode", %{"mode" => mode}, socket) do
+    {:noreply, assign(socket, inspector_mode: mode)}
   end
 
   def handle_event("refresh", _params, socket) do
-    {:noreply, load_events(socket)}
+    {:noreply, load_timeline_data(socket)}
   end
 
-  # ---- PubSub Handlers -----------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # render/1
+  # ---------------------------------------------------------------------------
 
   @impl true
-  def handle_info({:agent_registered, _agent}, socket), do: {:noreply, load_events(socket)}
-  def handle_info({:agent_updated, _agent}, socket), do: {:noreply, load_events(socket)}
-  def handle_info({:audit_event, _event}, socket), do: {:noreply, load_events(socket)}
-  def handle_info(_msg, socket), do: {:noreply, socket}
+  def render(assigns) do
+    assigns =
+      assigns
+      |> assign(:visible_lanes, visible_lanes(assigns.swim_lanes, assigns.show_empty_lanes))
+      |> assign(:total_events, total_visible_events(assigns.swim_lanes, assigns.hidden_categories))
 
-  # ---- Private: data loading -----------------------------------------------
+    ~H"""
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/timeline" />
+      </:sidebar>
 
-  defp load_events(socket) do
-    window_minutes = socket.assigns[:time_window_minutes] || 60
+      <:topbar>
+        <.top_bar project_name="CCEM APM" />
+      </:topbar>
+
+      <:main>
+        <%!-- Page header --%>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: baseline; gap: 10px;">
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+              Timeline
+            </h1>
+            <span style="font-size: 12px; color: var(--ccem-fg-dim);">
+              {@total_events} events · last {@window}
+            </span>
+          </div>
+
+          <%!-- Time-window segmented control --%>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <.segmented_control
+              options={["15m", "1h", "6h", "24h"]}
+              active={@window}
+              on_change="switch_window"
+            />
+            <button
+              phx-click="toggle_empty_lanes"
+              style={
+                "padding: 4px 10px; font-size: 11px; font-weight: 500; border-radius: 5px; cursor: pointer; border: 1px solid var(--ccem-line); " <>
+                  if(@show_empty_lanes,
+                    do: "background: var(--ccem-bg-3); color: var(--ccem-fg);",
+                    else: "background: transparent; color: var(--ccem-fg-dim);"
+                  )
+              }
+              title="Toggle empty swim lanes"
+            >
+              {empty_lane_count(@swim_lanes)} empty
+            </button>
+            <button
+              phx-click="refresh"
+              style="display: flex; align-items: center; gap: 5px; padding: 4px 10px; font-size: 11px; border-radius: 5px; cursor: pointer; background: transparent; border: 1px solid var(--ccem-line); color: var(--ccem-fg-dim);"
+              title="Refresh"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <%!-- Stat tiles --%>
+        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Active Sessions" value={to_string(@stats.active_sessions)} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Events" value={to_string(@stats.total_events)} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Avg Duration" value={@stats.avg_duration} />
+          </.card>
+          <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
+            <.stat_tile label="Peak Agents" value={to_string(@stats.peak_agents)} />
+          </.card>
+        </div>
+
+        <%!-- Time ruler --%>
+        <div style="display: flex; margin-bottom: 10px; padding-left: 112px; padding-right: 8px;">
+          <div style="flex: 1; position: relative; height: 16px;">
+            <span
+              :for={{label, pct} <- ruler_ticks(@window)}
+              style={"position: absolute; font-size: 10px; color: var(--ccem-fg-dim); transform: translateX(-50%); left: #{pct}%;"}
+            >
+              {label}
+            </span>
+          </div>
+        </div>
+
+        <%!-- Swim lanes --%>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <p style="font-size: 11px; color: var(--ccem-fg-dim); margin: 0 0 8px 0;">
+            Showing events from the last {window_label(@window)} — click any dot to inspect
+          </p>
+
+          <%= if @visible_lanes == [] do %>
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px; color: var(--ccem-fg-dim);">
+              <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="opacity: 0.3; margin-bottom: 10px;">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p style="font-size: 13px; font-weight: 500; margin: 0 0 4px;">No events in this window</p>
+              <p style="font-size: 11px; margin: 0; opacity: 0.6;">Try a wider time window or enable empty lanes.</p>
+            </div>
+          <% else %>
+            <.swim_lane
+              :for={lane <- @visible_lanes}
+              lane={lane}
+              hidden={MapSet.member?(@hidden_categories, lane.category)}
+              selected_event={@selected_event}
+            />
+          <% end %>
+        </div>
+
+        <%!-- D3 Gantt chart (agent-level swim lanes from SessionTimeline hook) --%>
+        <.card style="margin-top: 16px; padding: 0; overflow: hidden;">
+          <div style="padding: 10px 14px; border-bottom: 1px solid var(--ccem-line-subtle); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 12px; font-weight: 600; color: var(--ccem-fg);">Agent Activity</span>
+            <.badge tone="neutral">{@stats.peak_agents} agents</.badge>
+          </div>
+          <div
+            id="session-timeline-chart"
+            phx-hook="SessionTimeline"
+            phx-update="ignore"
+            style="height: 220px; width: 100%; position: relative;"
+          >
+          </div>
+        </.card>
+      </:main>
+
+      <:inspector>
+        <.inspector_panel
+          open={@inspector_open}
+          mode={@inspector_mode}
+          on_close="toggle_inspector"
+        >
+          <:selection>
+            <%= if evt = find_event(@swim_lanes, @selected_event) do %>
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <%!-- Type + category badges --%>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <.badge tone={event_tone(evt)}>{event_status_label(evt)}</.badge>
+                  <.badge tone={category_tone(evt.category)}>{evt.category}</.badge>
+                </div>
+
+                <%!-- Core fields --%>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <.inspector_row label="Event type" value={to_string(evt.event_type)} mono />
+                  <.inspector_row label="Actor" value={to_string(evt.actor)} />
+                  <.inspector_row label="Resource" value={to_string(evt.resource)} />
+                  <.inspector_row label="Timestamp" value={String.slice(to_string(evt.timestamp), 0, 19)} mono />
+                  <%= if evt.correlation_id do %>
+                    <.inspector_row label="Correlation" value={to_string(evt.correlation_id)} mono />
+                  <% end %>
+                </div>
+
+                <%!-- Details map --%>
+                <%= if map_size(evt.details || %{}) > 0 do %>
+                  <div>
+                    <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 6px;">Details</div>
+                    <div style="background: var(--ccem-bg-2); border-radius: 5px; padding: 8px; font-family: var(--ccem-font-mono, monospace); font-size: 11px; word-break: break-all; display: flex; flex-direction: column; gap: 4px;">
+                      <div :for={{k, v} <- Map.to_list(evt.details || %{})}>
+                        <span style="color: var(--ccem-accent);">{k}</span>
+                        <span style="color: var(--ccem-fg-dim);">: </span>
+                        <span style="color: var(--ccem-fg);">{inspect(v)}</span>
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            <% else %>
+              <p style="font-size: 13px; color: var(--ccem-fg-dim); margin: 0;">
+                Select an event to view details.
+              </p>
+            <% end %>
+          </:selection>
+
+          <:copilot>
+            <p style="font-size: 13px; color: var(--ccem-fg-dim); margin: 0;">
+              Timeline AI co-pilot coming soon.
+            </p>
+          </:copilot>
+
+          <:filters>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div>
+                <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 6px;">
+                  Time Window
+                </div>
+                <.segmented_control
+                  options={["15m", "1h", "6h", "24h"]}
+                  active={@window}
+                  on_change="switch_window"
+                />
+              </div>
+              <div>
+                <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 6px;">
+                  Lanes
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <%= for cat <- @categories do %>
+                    <button
+                      phx-click="toggle_lane"
+                      phx-value-category={cat}
+                      style={
+                        "text-align: left; padding: 4px 8px; font-size: 12px; border-radius: 4px; cursor: pointer; border: none; " <>
+                          if(MapSet.member?(@hidden_categories, cat),
+                            do: "background: transparent; color: var(--ccem-fg-muted); opacity: 0.5;",
+                            else: "background: var(--ccem-bg-3); color: var(--ccem-fg); font-weight: 500;"
+                          )
+                      }
+                    >
+                      {cat}
+                    </button>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          </:filters>
+        </.inspector_panel>
+      </:inspector>
+    </.page_layout>
+    """
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private components
+  # ---------------------------------------------------------------------------
+
+  attr :lane, :map, required: true
+  attr :hidden, :boolean, required: true
+  attr :selected_event, :string, default: nil
+
+  defp swim_lane(assigns) do
+    ~H"""
+    <div style={
+      "display: flex; align-items: stretch; gap: 8px; border-radius: 6px; " <>
+        if(@hidden, do: "opacity: 0.3;", else: "")
+    }>
+      <%!-- Lane label + toggle --%>
+      <button
+        phx-click="toggle_lane"
+        phx-value-category={@lane.category}
+        title={"Toggle #{@lane.category} lane"}
+        style="width: 100px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; padding-right: 8px; background: transparent; border: none; cursor: pointer; text-align: right;"
+      >
+        <span style={"font-size: 11px; font-weight: 600; text-transform: capitalize; #{lane_label_style(@lane.category)}"}>
+          {@lane.category}
+        </span>
+        <span style="font-size: 10px; color: var(--ccem-fg-dim);">
+          {@lane.count} events
+        </span>
+      </button>
+
+      <%!-- Track --%>
+      <div style="flex: 1; position: relative; height: 36px; background: var(--ccem-bg-2); border-radius: 5px; border: 1px solid var(--ccem-line-subtle); margin: 4px 0;">
+        <%!-- Grid lines at 25%, 50%, 75% --%>
+        <span
+          :for={pct <- [25, 50, 75]}
+          style={"position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ccem-line-subtle); left: #{pct}%;"}
+        />
+
+        <%!-- Event dots --%>
+        <button
+          :for={evt <- @lane.events}
+          phx-click="select_event"
+          phx-value-id={evt.id}
+          title={event_tooltip(evt)}
+          aria-label={"Event: #{evt.event_type} at #{evt.timestamp}"}
+          style={
+            "position: absolute; top: 50%; transform: translate(-50%, -50%); " <>
+              "width: #{if String.contains?(to_string(evt.event_type), ["error", "denied", "escalated"]), do: "12px", else: "10px"}; " <>
+              "height: #{if String.contains?(to_string(evt.event_type), ["error", "denied", "escalated"]), do: "12px", else: "10px"}; " <>
+              "border-radius: 50%; cursor: pointer; border: 2px solid; " <>
+              "left: #{evt.position_pct}%; " <>
+              event_dot_style(evt) <>
+              if(@selected_event == evt.id, do: " outline: 2px solid var(--ccem-accent); outline-offset: 2px;", else: "")
+          }
+        />
+      </div>
+    </div>
+    """
+  end
+
+  attr :label, :string, required: true
+  attr :value, :string, required: true
+  attr :mono, :boolean, default: false
+
+  defp inspector_row(assigns) do
+    ~H"""
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+      <span style="font-size: 11px; color: var(--ccem-fg-dim); flex-shrink: 0;">{@label}</span>
+      <span style={
+        "font-size: 12px; color: var(--ccem-fg); text-align: right; word-break: break-all; " <>
+          if(@mono, do: "font-family: var(--ccem-font-mono, monospace); font-variant-numeric: tabular-nums;", else: "")
+      }>
+        {@value}
+      </span>
+    </div>
+    """
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private: data loading
+  # ---------------------------------------------------------------------------
+
+  @spec load_timeline_data(Phoenix.LiveView.Socket.t()) :: Phoenix.LiveView.Socket.t()
+  defp load_timeline_data(socket) do
+    window = socket.assigns[:window] || "1h"
+    window_minutes = window_to_minutes(window)
     now = DateTime.utc_now()
     cutoff = DateTime.add(now, -window_minutes * 60, :second)
     cutoff_iso = DateTime.to_iso8601(cutoff)
 
-    # Pull recent audit events within the window
     raw_events =
       try do
         AuditLog.query(since: cutoff_iso, limit: 500)
@@ -367,25 +467,47 @@ defmodule ApmV5Web.SessionTimelineLive do
         :exit, _ -> []
       end
 
-    # Synthesize lifecycle events from agent registry when audit log is sparse
-    agent_events = agent_lifecycle_events(AgentRegistry.list_agents(), cutoff, now)
+    agents =
+      try do
+        AgentRegistry.list_agents()
+      rescue
+        _ -> []
+      catch
+        :exit, _ -> []
+      end
+
+    agent_events = build_agent_lifecycle_events(agents, cutoff, now)
     all_events = raw_events ++ agent_events
 
     swim_lanes = build_swim_lanes(all_events, cutoff, now)
-    assign(socket, :swim_lanes, swim_lanes)
+    stats = compute_stats(agents, all_events, window_minutes)
+
+    timeline_entries = build_timeline_entries(agents, cutoff, now)
+
+    socket
+    |> assign(:swim_lanes, swim_lanes)
+    |> assign(:stats, stats)
+    |> push_event("timeline_data", %{
+      entries: timeline_entries,
+      time_range: window,
+      cutoff: DateTime.to_iso8601(cutoff),
+      now: DateTime.to_iso8601(now)
+    })
   end
 
-  defp agent_lifecycle_events(agents, cutoff, now) do
-    Enum.flat_map(agents, fn agent ->
-      registered_at = parse_dt(agent[:registered_at] || agent[:registered_at])
+  @spec build_agent_lifecycle_events([map()], DateTime.t(), DateTime.t()) :: [map()]
+  defp build_agent_lifecycle_events(agents, cutoff, now) do
+    agents
+    |> Enum.flat_map(fn agent ->
+      registered_at = parse_dt(agent[:registered_at])
 
       if registered_at && DateTime.compare(registered_at, cutoff) != :lt do
         [%{
           id: "agent-reg-#{agent.id}",
           timestamp: DateTime.to_iso8601(registered_at),
           event_type: "agent_registered",
-          actor: agent.id,
-          resource: agent.id,
+          actor: to_string(agent.id),
+          resource: to_string(agent.id),
           details: %{
             name: agent[:name] || agent.id,
             status: agent[:status],
@@ -403,10 +525,30 @@ defmodule ApmV5Web.SessionTimelineLive do
     end)
   end
 
-  # ---- Private: swim lane building -----------------------------------------
+  # Build D3-ready agent activity entries for the SessionTimeline hook.
+  @spec build_timeline_entries([map()], DateTime.t(), DateTime.t()) :: [map()]
+  defp build_timeline_entries(agents, cutoff, now) do
+    Enum.map(agents, fn agent ->
+      registered_at = parse_dt(agent[:registered_at]) || cutoff
+      start_time = if DateTime.compare(registered_at, cutoff) == :lt, do: cutoff, else: registered_at
 
+      %{
+        name: truncate(to_string(agent[:name] || agent.id), 20),
+        status: to_string(agent[:status] || "idle"),
+        start_time: DateTime.to_iso8601(start_time),
+        end_time: DateTime.to_iso8601(now),
+        tool_calls: Map.get(agent, :tool_calls, 0) || 0
+      }
+    end)
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private: swim lane construction
+  # ---------------------------------------------------------------------------
+
+  @spec build_swim_lanes([map()], DateTime.t(), DateTime.t()) :: [map()]
   defp build_swim_lanes(events, cutoff, now) do
-    window_ms = DateTime.diff(now, cutoff, :millisecond)
+    window_ms = max(DateTime.diff(now, cutoff, :millisecond), 1)
 
     grouped =
       Enum.group_by(events, fn evt ->
@@ -431,9 +573,17 @@ defmodule ApmV5Web.SessionTimelineLive do
               50.0
             end
 
-          # Normalise keys to atoms
+          stable_id =
+            Map.get(evt, :id) ||
+              Map.get(evt, "id") ||
+              Map.get(evt, :event_id) ||
+              Map.get(evt, "event_id") ||
+              Map.get(evt, :request_id) ||
+              Map.get(evt, "request_id") ||
+              "evt-#{System.unique_integer([:positive])}"
+
           %{
-            id: to_string(Map.get(evt, :id) || Map.get(evt, "id", "evt-#{:erlang.unique_integer()}")),
+            id: to_string(stable_id),
             timestamp: ts_str,
             event_type: to_string(Map.get(evt, :event_type) || Map.get(evt, "event_type", "")),
             actor: to_string(Map.get(evt, :actor) || Map.get(evt, "actor", "")),
@@ -446,16 +596,46 @@ defmodule ApmV5Web.SessionTimelineLive do
         end)
         |> Enum.sort_by(& &1.position_pct)
 
-      %{
-        category: cat,
-        events: positioned,
-        count: length(positioned)
-      }
+      %{category: cat, events: positioned, count: length(positioned)}
     end)
   end
 
-  # ---- Private: categorisation ---------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Private: stats computation
+  # ---------------------------------------------------------------------------
 
+  @spec compute_stats([map()], [map()], non_neg_integer()) :: map()
+  defp compute_stats(agents, events, window_minutes) do
+    active_sessions = Enum.count(agents, fn a -> to_string(a[:status]) == "active" end)
+    total_events = length(events)
+    peak_agents = length(agents)
+
+    avg_duration =
+      if peak_agents > 0 do
+        avg_mins = div(window_minutes, max(peak_agents, 1))
+        format_duration_mins(avg_mins)
+      else
+        "—"
+      end
+
+    %{
+      active_sessions: active_sessions,
+      total_events: total_events,
+      peak_agents: peak_agents,
+      avg_duration: avg_duration
+    }
+  end
+
+  @spec format_duration_mins(integer()) :: String.t()
+  defp format_duration_mins(mins) when mins < 1, do: "<1m"
+  defp format_duration_mins(mins) when mins < 60, do: "#{mins}m"
+  defp format_duration_mins(mins), do: "#{div(mins, 60)}h #{rem(mins, 60)}m"
+
+  # ---------------------------------------------------------------------------
+  # Private: categorisation
+  # ---------------------------------------------------------------------------
+
+  @spec categorize(String.t() | atom()) :: String.t()
   defp categorize(event_type) do
     type_str = to_string(event_type)
 
@@ -464,43 +644,92 @@ defmodule ApmV5Web.SessionTimelineLive do
     end)
   end
 
-  # ---- Private: styling helpers --------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Private: ruler helpers
+  # ---------------------------------------------------------------------------
 
-  defp event_dot_color(%{event_type: type}) do
+  @spec ruler_ticks(String.t()) :: [{String.t(), non_neg_integer()}]
+  defp ruler_ticks(window) do
+    now = DateTime.utc_now()
+    window_minutes = window_to_minutes(window)
+
+    Enum.map([0, 25, 50, 75, 100], fn pct ->
+      offset_seconds = trunc(window_minutes * 60 * pct / 100)
+      dt = DateTime.add(now, -(window_minutes * 60) + offset_seconds, :second)
+      label = Calendar.strftime(dt, "%H:%M")
+      {label, pct}
+    end)
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private: lane visibility helpers
+  # ---------------------------------------------------------------------------
+
+  @spec visible_lanes([map()], boolean()) :: [map()]
+  defp visible_lanes(lanes, true), do: lanes
+  defp visible_lanes(lanes, false), do: Enum.reject(lanes, fn l -> l.count == 0 end)
+
+  @spec empty_lane_count([map()]) :: non_neg_integer()
+  defp empty_lane_count(lanes), do: Enum.count(lanes, fn l -> l.count == 0 end)
+
+  @spec total_visible_events([map()], MapSet.t()) :: non_neg_integer()
+  defp total_visible_events(swim_lanes, hidden_categories) do
+    swim_lanes
+    |> Enum.reject(fn lane -> MapSet.member?(hidden_categories, lane.category) end)
+    |> Enum.reduce(0, fn lane, acc -> acc + lane.count end)
+  end
+
+  @spec find_event([map()], String.t() | nil) :: map() | nil
+  defp find_event(_lanes, nil), do: nil
+
+  defp find_event(swim_lanes, event_id) do
+    swim_lanes
+    |> Enum.flat_map(& &1.events)
+    |> Enum.find(fn e -> e.id == event_id end)
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private: styling helpers
+  # ---------------------------------------------------------------------------
+
+  @spec event_dot_style(map()) :: String.t()
+  defp event_dot_style(%{event_type: type}) do
     type_str = to_string(type)
+
     cond do
       String.contains?(type_str, ["error", "denied", "blocked", "rate_limit", "failed"]) ->
-        "bg-error border-error/60"
+        "background: var(--ccem-err); border-color: color-mix(in srgb, var(--ccem-err) 60%, transparent);"
+
       String.contains?(type_str, ["escalated", "warning", "pending", "timeout"]) ->
-        "bg-warning border-warning/60"
+        "background: var(--ccem-warn); border-color: color-mix(in srgb, var(--ccem-warn) 60%, transparent);"
+
       String.contains?(type_str, ["granted", "approved", "success", "finished", "complete"]) ->
-        "bg-success border-success/60"
+        "background: var(--ccem-ok); border-color: color-mix(in srgb, var(--ccem-ok) 60%, transparent);"
+
       String.contains?(type_str, ["auth", "agentlock"]) ->
-        "bg-secondary border-secondary/60"
+        "background: var(--ccem-iris); border-color: color-mix(in srgb, var(--ccem-iris) 60%, transparent);"
+
       true ->
-        "bg-primary border-primary/60"
+        "background: var(--ccem-accent); border-color: color-mix(in srgb, var(--ccem-accent) 60%, transparent);"
     end
   end
 
-  defp event_dot_size(%{event_type: type}) do
+  @spec event_tone(map()) :: String.t()
+  defp event_tone(%{event_type: type}) do
     type_str = to_string(type)
-    if String.contains?(type_str, ["error", "denied", "escalated"]),
-      do: "w-3 h-3",
-      else: "w-2.5 h-2.5"
-  end
 
-  defp event_status_badge(%{event_type: type}) do
-    type_str = to_string(type)
     cond do
-      String.contains?(type_str, ["error", "denied", "blocked", "failed"]) -> "badge-error"
-      String.contains?(type_str, ["escalated", "warning", "pending"]) -> "badge-warning"
-      String.contains?(type_str, ["granted", "approved", "success", "complete", "finished"]) -> "badge-success"
-      true -> "badge-info"
+      String.contains?(type_str, ["error", "denied", "blocked", "failed"]) -> "err"
+      String.contains?(type_str, ["escalated", "warning", "pending"]) -> "warn"
+      String.contains?(type_str, ["granted", "approved", "success", "complete", "finished"]) -> "ok"
+      true -> "neutral"
     end
   end
 
+  @spec event_status_label(map()) :: String.t()
   defp event_status_label(%{event_type: type}) do
     type_str = to_string(type)
+
     cond do
       String.contains?(type_str, ["error", "failed"]) -> "error"
       String.contains?(type_str, ["denied", "blocked"]) -> "denied"
@@ -511,65 +740,50 @@ defmodule ApmV5Web.SessionTimelineLive do
     end
   end
 
-  defp visible_lanes(lanes, true), do: lanes
-  defp visible_lanes(lanes, false), do: Enum.reject(lanes, fn lane -> lane.count == 0 end)
+  @spec category_tone(String.t()) :: String.t()
+  defp category_tone("lifecycle"), do: "ok"
+  defp category_tone("auth"), do: "iris"
+  defp category_tone("formation"), do: "warn"
+  defp category_tone("task"), do: "neutral"
+  defp category_tone("tool"), do: "warn"
+  defp category_tone(_), do: "neutral"
 
-  defp empty_lane_count(lanes), do: Enum.count(lanes, fn lane -> lane.count == 0 end)
+  @spec lane_label_style(String.t()) :: String.t()
+  defp lane_label_style("lifecycle"), do: "color: var(--ccem-accent);"
+  defp lane_label_style("auth"), do: "color: var(--ccem-iris);"
+  defp lane_label_style("formation"), do: "color: var(--ccem-warn);"
+  defp lane_label_style("task"), do: "color: var(--ccem-ok);"
+  defp lane_label_style("tool"), do: "color: var(--ccem-ok);"
+  defp lane_label_style(_), do: "color: var(--ccem-fg-dim);"
 
-  defp lane_label_color("lifecycle"), do: "text-primary"
-  defp lane_label_color("auth"),      do: "text-secondary"
-  defp lane_label_color("formation"), do: "text-accent"
-  defp lane_label_color("task"),      do: "text-info"
-  defp lane_label_color("tool"),      do: "text-warning"
-  defp lane_label_color("system"),    do: "text-base-content/60"
-  defp lane_label_color(_),           do: "text-base-content/60"
-
-  defp lane_badge_color("lifecycle"), do: "badge-primary"
-  defp lane_badge_color("auth"),      do: "badge-secondary"
-  defp lane_badge_color("formation"), do: "badge-accent"
-  defp lane_badge_color("task"),      do: "badge-info"
-  defp lane_badge_color("tool"),      do: "badge-warning"
-  defp lane_badge_color(_),           do: "badge-ghost"
-
+  @spec event_tooltip(map()) :: String.t()
   defp event_tooltip(%{event_type: type, actor: actor, timestamp: ts}) do
     "#{type} | #{actor} | #{String.slice(to_string(ts), 0, 19)}"
   end
 
-  # ---- Private: ruler ticks ------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Private: window helpers
+  # ---------------------------------------------------------------------------
 
-  defp ruler_ticks(window_minutes) do
-    now = DateTime.utc_now()
-    # Produce 5 evenly-spaced labels: 0%, 25%, 50%, 75%, 100%
-    Enum.map([0, 25, 50, 75, 100], fn pct ->
-      offset_seconds = trunc(window_minutes * 60 * pct / 100)
-      dt = DateTime.add(now, -(window_minutes * 60) + offset_seconds, :second)
-      label = Calendar.strftime(dt, "%H:%M")
-      {label, pct}
-    end)
-  end
+  @spec window_to_minutes(String.t()) :: pos_integer()
+  defp window_to_minutes("15m"), do: 15
+  defp window_to_minutes("1h"), do: 60
+  defp window_to_minutes("6h"), do: 360
+  defp window_to_minutes("24h"), do: 1440
+  defp window_to_minutes(_), do: 60
 
-  # ---- Private: aggregation helpers ----------------------------------------
+  @spec window_label(String.t()) :: String.t()
+  defp window_label("15m"), do: "15 minutes"
+  defp window_label("1h"), do: "1 hour"
+  defp window_label("6h"), do: "6 hours"
+  defp window_label("24h"), do: "24 hours"
+  defp window_label(w), do: w
 
-  defp total_visible_events(swim_lanes, hidden_categories) do
-    swim_lanes
-    |> Enum.reject(fn lane -> MapSet.member?(hidden_categories, lane.category) end)
-    |> Enum.reduce(0, fn lane, acc -> acc + lane.count end)
-  end
+  # ---------------------------------------------------------------------------
+  # Private: DateTime parsing
+  # ---------------------------------------------------------------------------
 
-  defp find_event(swim_lanes, event_id) do
-    swim_lanes
-    |> Enum.flat_map(& &1.events)
-    |> Enum.find(fn e -> e.id == event_id end)
-  end
-
-  defp window_label(mins) when mins < 60, do: "#{mins} minutes"
-  defp window_label(60), do: "1 hour"
-  defp window_label(360), do: "6 hours"
-  defp window_label(1440), do: "24 hours"
-  defp window_label(mins), do: "#{div(mins, 60)} hours"
-
-  # ---- Private: DateTime parsing -------------------------------------------
-
+  @spec parse_dt(term()) :: DateTime.t() | nil
   defp parse_dt(nil), do: nil
   defp parse_dt(""), do: nil
 
@@ -583,13 +797,11 @@ defmodule ApmV5Web.SessionTimelineLive do
   defp parse_dt(%DateTime{} = dt), do: dt
   defp parse_dt(_), do: nil
 
-  # ---- Private: skill count ------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Private: string helpers
+  # ---------------------------------------------------------------------------
 
-  defp skill_count do
-    try do
-      map_size(ApmV5.SkillTracker.get_skill_catalog())
-    catch
-      :exit, _ -> 0
-    end
-  end
+  @spec truncate(String.t(), pos_integer()) :: String.t()
+  defp truncate(str, max) when byte_size(str) > max, do: String.slice(str, 0, max) <> "…"
+  defp truncate(str, _max), do: str
 end

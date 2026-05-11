@@ -130,6 +130,10 @@ defmodule ApmV5Web.DashboardLive do
       |> assign(:widget_session_configs, load_widget_session_configs(socket))
       |> assign(:widget_layout_placements, load_widget_layout(socket))
       |> assign(:inspector_collapsed, false)
+      # DS layout shell assigns (CP-175)
+      |> assign(:sidebar_collapsed, false)
+      |> assign(:inspector_open, false)
+      |> assign(:inspector_mode, "copilot")
       |> push_graph_data(agents)
       |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()
 
@@ -214,569 +218,234 @@ defmodule ApmV5Web.DashboardLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/" notification_count={length(@notifications)} skill_count={@active_skill_count} plugins={@plugins} integrations={@integrations} />
+    <.page_layout
+      sidebar_collapsed={@sidebar_collapsed}
+      inspector_open={@inspector_open}
+      inspector_mode={@inspector_mode}
+    >
+      <%!-- Sidebar slot --%>
+      <:sidebar>
+        <.sidebar_nav
+          current_path="/"
+          notification_count={length(@notifications)}
+          skill_count={@active_skill_count}
+          plugins={@plugins}
+          integrations={@integrations}
+          collapsed={@sidebar_collapsed}
+          on_toggle="toggle_sidebar"
+        />
+      </:sidebar>
 
-      <%!-- Main content --%>
-      <div id="main-content" class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Top bar --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Dashboard</h2>
-            <div class="badge badge-sm badge-ghost">
-              {@agent_count} agents
-            </div>
-            <%!-- Project selector --%>
-            <div :if={length(@projects) > 0} class="dropdown dropdown-bottom">
-              <div tabindex="0" role="button" class="btn btn-ghost btn-xs gap-1">
-                <.icon name="hero-folder" class="size-3" />
-                {@active_project || "All Projects"}
-                <.icon name="hero-chevron-down" class="size-3" />
-              </div>
-              <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-52">
-                <%!-- Always first: All Projects --%>
-                <li>
-                  <button phx-click="switch_project" phx-value-project="" class={is_nil(@active_project) && "active"}>
-                    <.icon name="hero-squares-2x2" class="size-3" />
-                    All Projects
-                  </button>
-                </li>
+      <%!-- Top bar slot --%>
+      <:topbar>
+        <.top_bar
+          project_name={@active_project || "CCEM APM"}
+          project_list={Enum.map(@projects, fn p -> {p["name"], p["name"]} end)}
+          active_project_id={@active_project}
+          session_count={@session_count}
+          current_user="Jeremiah Pegues"
+          on_project_change="switch_project"
+        />
+      </:topbar>
 
-                <%!-- Active section --%>
-                <li :if={length(@project_cats.active) > 0} class="menu-title pt-1">
-                  <span class="text-[9px] text-base-content/40 uppercase tracking-widest">Active</span>
-                </li>
-                <li :for={project <- @project_cats.active}>
-                  <button phx-click="switch_project" phx-value-project={project["name"]} class="active">
-                    <.icon name="hero-check-circle" class="size-3 text-success" />
-                    {project["name"]}
-                  </button>
-                </li>
-
-                <%!-- Recently Active section --%>
-                <li :if={length(@project_cats.recent) > 0} class="menu-title pt-1">
-                  <span class="text-[9px] text-base-content/40 uppercase tracking-widest">Recently Active</span>
-                </li>
-                <li :for={project <- @project_cats.recent}>
-                  <button
-                    phx-click="switch_project"
-                    phx-value-project={project["name"]}
-                    class={@active_project == project["name"] && "active"}
-                  >
-                    <.icon name="hero-clock" class="size-3 opacity-50" />
-                    {project["name"]}
-                  </button>
-                </li>
-
-                <%!-- Show other toggle --%>
-                <li :if={length(@project_cats.other) > 0} class="menu-title pt-1">
-                  <button
-                    phx-click="toggle_other_projects"
-                    class="flex items-center gap-1 text-[10px] text-base-content/40 hover:text-base-content/70 normal-case font-normal w-full text-left"
-                  >
-                    <.icon name={if @show_other_projects, do: "hero-chevron-up", else: "hero-chevron-down"} class="size-3" />
-                    {if @show_other_projects, do: "Hide other", else: "Show #{length(@project_cats.other)} other"}
-                  </button>
-                </li>
-                <li :if={@show_other_projects} :for={project <- @project_cats.other}>
-                  <button
-                    phx-click="switch_project"
-                    phx-value-project={project["name"]}
-                    class={@active_project == project["name"] && "active"}
-                  >
-                    <.icon name="hero-folder" class="size-3 opacity-40" />
-                    {project["name"]}
-                  </button>
-                </li>
-              </ul>
-            </div>
-            <%!-- Layout picker --%>
-            <div class="dropdown dropdown-bottom">
-              <div tabindex="0" role="button" class="btn btn-ghost btn-xs gap-1">
-                <.icon name="hero-squares-2x2" class="size-3" />
-                Layouts
-                <.icon name="hero-chevron-down" class="size-3" />
-              </div>
-              <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-48">
-                <li :for={layout <- @saved_layouts}>
-                  <button phx-click="load_layout" phx-value-id={layout["id"]}>
-                    {layout["name"]}
-                  </button>
-                </li>
-                <li :if={@saved_layouts == []}>
-                  <span class="text-base-content/40">No saved layouts</span>
-                </li>
-              </ul>
-            </div>
-            <%!-- Save buttons --%>
-            <button class="btn btn-ghost btn-xs gap-1" phx-click="save_layout" phx-value-name="Quick Save">
-              <.icon name="hero-bookmark" class="size-3" />
-              Save Layout
-            </button>
-            <button class="btn btn-ghost btn-xs gap-1" phx-click="save_filter_preset" phx-value-name="Quick Filters">
-              <.icon name="hero-funnel" class="size-3" />
-              Save Filters
-            </button>
+      <%!-- Main content slot --%>
+      <:main>
+        <%!-- 6-up metric stat tiles --%>
+        <.live_region id="agent-status-summary" politeness="polite">
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-bottom: 16px;">
+            <.card padded={true}>
+              <.stat_tile label="Agents" value={to_string(@agent_count)} delta_direction="flat" />
+            </.card>
+            <.card padded={true}>
+              <.stat_tile
+                label="Active"
+                value={to_string(@active_count)}
+                delta={if @active_count > 0, do: "+#{@active_count}", else: nil}
+                delta_direction="up"
+              />
+            </.card>
+            <.card padded={true}>
+              <.stat_tile label="Idle" value={to_string(@idle_count)} delta_direction="flat" />
+            </.card>
+            <.card padded={true}>
+              <.stat_tile
+                label="Errors"
+                value={to_string(@error_count)}
+                delta={if @error_count > 0, do: to_string(@error_count), else: nil}
+                delta_direction={if @error_count > 0, do: "down", else: "flat"}
+              />
+            </.card>
+            <.card padded={true}>
+              <.stat_tile label="Sessions" value={to_string(@session_count)} delta_direction="flat" />
+            </.card>
+            <.card padded={true}>
+              <.stat_tile
+                label="Notifs"
+                value={to_string(length(@notifications))}
+                delta_direction="flat"
+              />
+            </.card>
           </div>
-          <div class="flex items-center gap-3">
-            <span class="text-xs text-base-content/50" id="clock" phx-hook="Clock">
-              --:--:--
-            </span>
-            <div class="badge badge-sm badge-success gap-1">
-              <span class="inline-block w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
-              LIVE
+        </.live_region>
+
+        <%!-- AgentLock pending approval banner --%>
+        <%= if @agentlock_pending != [] && !@auth_dismissed do %>
+          <% [top | _rest] = @agentlock_pending %>
+          <% label = NamespaceResolver.gate_label(top.request_id, top.tool_name) %>
+          <% agent_lbl = NamespaceResolver.agent_label(top.agent_id) %>
+          <div
+            id="dashboard-agentlock-toast"
+            style="display: flex; align-items: center; justify-content: space-between; border: 1px solid color-mix(in srgb, var(--ccem-warn) 40%, transparent); background: color-mix(in srgb, var(--ccem-warn) 8%, transparent); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; gap: 8px;"
+            role="alert"
+            aria-live="assertive"
+          >
+            <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+              <.badge tone="warn" dot>Approval Required</.badge>
+              <span style="font-family: var(--ccem-font-mono); color: var(--ccem-warn); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <%= label %>
+              </span>
+              <span style="color: var(--ccem-fg-dim);">&middot;</span>
+              <span style="color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <%= agent_lbl %>
+              </span>
+              <span style="color: var(--ccem-fg-dim);">&middot;</span>
+              <span style="color: var(--ccem-fg-muted);"><%= top.risk_level %> risk</span>
+              <div
+                phx-hook="CountdownTimer"
+                id={"dashboard-toast-cd-#{top.request_id}"}
+                data-seconds="20"
+                style="font-family: var(--ccem-font-mono); font-size: 10px; color: color-mix(in srgb, var(--ccem-warn) 60%, transparent); flex-shrink: 0;"
+              >
+                <span data-countdown-display>20s</span>
+              </div>
+              <%= if length(@agentlock_pending) > 1 do %>
+                <.badge tone="warn" square><%= length(@agentlock_pending) %></.badge>
+              <% end %>
             </div>
-            <%!-- Notification bell --%>
-            <div class="dropdown dropdown-end">
-              <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-circle indicator">
-                <.icon name="hero-bell" class="size-4" />
-                <span
-                  :if={Enum.any?(@notifications, &(!&1.read))}
-                  class="indicator-item badge badge-xs badge-error"
-                >
-                  {Enum.count(@notifications, &(!&1.read))}
+            <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+              <.btn variant="primary" size="xs" phx-click="approve_gate" phx-value-id={top.request_id}>
+                Approve
+              </.btn>
+              <.btn variant="destructive" size="xs" phx-click="deny_gate" phx-value-id={top.request_id}>
+                Deny
+              </.btn>
+              <.link navigate="/authorization">
+                <.btn variant="ghost" size="xs" aria-label="View in Authorization">&#8599;</.btn>
+              </.link>
+              <.btn variant="icon" size="xs" phx-click="dismiss_auth" aria-label="Dismiss">
+                &#x2715;
+              </.btn>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- UPM Execution Panel --%>
+        <div :if={@upm_status.active} style="margin-bottom: 12px;">
+          <.card padded={false}>
+            <div style="padding: 12px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+                  UPM Execution
+                </span>
+                <.badge tone={upm_tone(@upm_status.session.status)}>
+                  {@upm_status.session.status}
+                </.badge>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--ccem-fg-muted);">
+                <span>Wave {@upm_status.session.current_wave}/{@upm_status.session.total_waves}</span>
+                <div style="flex: 1; background: var(--ccem-bg-2); border-radius: 999px; height: 4px; overflow: hidden;">
+                  <div style={"width: #{if @upm_status.session.total_waves > 0, do: trunc(@upm_status.session.current_wave / @upm_status.session.total_waves * 100), else: 0}%; background: var(--ccem-iris); height: 4px; border-radius: 999px; transition: width 300ms ease;"}>
+                  </div>
+                </div>
+                <span style="font-size: 10px; color: var(--ccem-fg-faint);">
+                  {upm_story_summary(@upm_status.session.stories)}
                 </span>
               </div>
-              <div tabindex="0" class="dropdown-content z-50 w-96 mt-2">
-                <div class="card bg-base-200 border border-base-300 shadow-xl">
-                  <div class="card-body p-0">
-                    <%!-- Header --%>
-                    <div class="flex justify-between items-center px-3 pt-3 pb-2 border-b border-base-300">
-                      <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
-                        Notifications
-                        <span :if={length(@notifications) > 0} class="ml-1 text-base-content/40 font-normal normal-case">
-                          ({length(@notifications)})
-                        </span>
-                      </h3>
-                      <div class="flex items-center gap-2">
-                        <button
-                          class="text-xs text-primary hover:underline"
-                          phx-click="mark_all_read"
-                        >
-                          Mark read
-                        </button>
-                        <span class="text-base-content/20">·</span>
-                        <button
-                          class="text-xs text-error/70 hover:text-error hover:underline"
-                          phx-click="clear_notifications"
-                        >
-                          Clear all
-                        </button>
-                      </div>
-                    </div>
-                    <%!-- Channel / Source filters --%>
-                    <div
-                      :if={Enum.any?(@notifications, &(&1[:channel] || &1[:source]))}
-                      class="flex gap-2 px-3 py-2 border-b border-base-300"
-                    >
-                      <select
-                        class="select select-xs select-bordered flex-1 text-xs"
-                        phx-change="filter_notifications_by_channel"
-                        name="channel"
-                      >
-                        <option value="">All channels</option>
-                        <%= for ch <- @notifications |> Enum.map(& &1[:channel]) |> Enum.reject(&is_nil/1) |> Enum.uniq() |> Enum.sort() do %>
-                          <option value={ch} selected={@notification_channel_filter == ch}>{ch}</option>
-                        <% end %>
-                      </select>
-                      <select
-                        class="select select-xs select-bordered flex-1 text-xs"
-                        phx-change="filter_notifications_by_source"
-                        name="source"
-                      >
-                        <option value="">All sources</option>
-                        <%= for src <- @notifications |> Enum.map(& &1[:source]) |> Enum.reject(&is_nil/1) |> Enum.uniq() |> Enum.sort() do %>
-                          <option value={src} selected={@notification_source_filter == src}>{src}</option>
-                        <% end %>
-                      </select>
-                    </div>
-                    <%!-- Notification list --%>
-                    <.live_region id="notification-list" politeness="polite">
-                      <div class="space-y-0 max-h-96 overflow-y-auto divide-y divide-base-300">
-                        <div
-                          :for={notif <- @notifications |> filtered_notifications(@notification_channel_filter, @notification_source_filter) |> Enum.take(15)}
-                          class={["p-3 text-xs transition-colors hover:bg-base-300/50", if(!notif.read, do: "bg-base-300/30 border-l-2 border-primary", else: "")]}
-                        >
-                          <div class="flex items-start gap-2">
-                            <span class={["badge badge-xs mt-0.5 flex-shrink-0", notif_badge_class(notif[:type] || notif[:level])]}>
-                              {notif[:type] || notif[:level] || "info"}
-                            </span>
-                            <div class="flex-1 min-w-0">
-                              <div class="flex items-center gap-1.5 min-w-0">
-                                <span class="font-semibold truncate">{notif[:title]}</span>
-                                <span
-                                  :if={notif[:channel]}
-                                  class="badge badge-sm badge-outline flex-shrink-0 text-[10px] font-normal"
-                                >
-                                  {notif[:channel]}
-                                </span>
-                              </div>
-                              <p class="text-base-content/60 mt-0.5 leading-snug">{notif[:message]}</p>
-                              <%!-- Contextual metadata --%>
-                              <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[10px] text-base-content/40">
-                                <span :if={notif[:category]}><%= notif[:category] %></span>
-                                <span :if={notif[:project_name]}><%= notif[:project_name] %></span>
-                                <span :if={notif[:formation_id]}>fmt: {notif[:formation_id]}</span>
-                                <span :if={notif[:agent_id]}>agent: {notif[:agent_id]}</span>
-                              </div>
-                              <%!-- Action buttons --%>
-                              <div class="flex items-center gap-2 mt-2">
-                                <%= if notif[:formation_id] do %>
-                                  <.link
-                                    href="/formation"
-                                    class="btn btn-xs btn-ghost text-[10px] px-1.5 py-0.5 h-auto min-h-0 border border-base-content/20"
-                                  >
-                                    View Formation
-                                  </.link>
-                                <% end %>
-                                <%= if notif[:agent_id] do %>
-                                  <button
-                                    phx-click="select_agent"
-                                    phx-value-agent_id={notif[:agent_id]}
-                                    class="btn btn-xs btn-ghost text-[10px] px-1.5 py-0.5 h-auto min-h-0 border border-base-content/20"
-                                  >
-                                    Inspect Agent
-                                  </button>
-                                <% end %>
-                                <%= if notif[:category] in ["upm", "formation"] do %>
-                                  <.link
-                                    href="/workflow/upm"
-                                    class="btn btn-xs btn-ghost text-[10px] px-1.5 py-0.5 h-auto min-h-0 border border-base-content/20"
-                                  >
-                                    UPM Flow
-                                  </.link>
-                                <% end %>
-                                <button
-                                  phx-click="dismiss_notification"
-                                  phx-value-id={notif[:id]}
-                                  class="ml-auto text-[10px] text-base-content/30 hover:text-base-content/60"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <p
-                          :if={filtered_notifications(@notifications, @notification_channel_filter, @notification_source_filter) == []}
-                          class="text-center text-base-content/40 py-6 text-xs"
-                        >
-                          {if @notifications == [], do: "No notifications", else: "No notifications match filters"}
-                        </p>
-                      </div>
-                    </.live_region>
-                  </div>
-                </div>
-              </div>
             </div>
-            <Layouts.theme_toggle />
-          </div>
-        </header>
-
-        <%!-- Filter bar (Splunk/ELK-style global query) --%>
-        <div class="bg-base-200 border-b border-base-300 px-4 py-1.5 flex items-center gap-2 flex-shrink-0">
-          <.icon name="hero-funnel" class="size-3.5 text-base-content/40" />
-          <input
-            type="text"
-            placeholder="Search agents by name, id, namespace..."
-            value={@filter_query}
-            phx-keyup="update_filter_query"
-            phx-debounce="200"
-            class="input input-xs input-bordered bg-base-300 w-48 text-xs"
-          />
-          <%!-- Status filter --%>
-          <div class="dropdown dropdown-bottom">
-            <div tabindex="0" role="button" class={["btn btn-xs gap-1", @filter_status && "btn-primary" || "btn-ghost"]}>
-              {if @filter_status, do: @filter_status, else: "Status"}
-              <.icon name="hero-chevron-down" class="size-2.5" />
-            </div>
-            <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-32">
-              <li><button phx-click="set_filter" phx-value-field="status" phx-value-value="">All</button></li>
-              <li :for={s <- ["active", "idle", "error", "discovered", "completed"]}>
-                <button phx-click="set_filter" phx-value-field="status" phx-value-value={s}>{s}</button>
-              </li>
-            </ul>
-          </div>
-          <%!-- Agent type filter --%>
-          <div class="dropdown dropdown-bottom">
-            <div tabindex="0" role="button" class={["btn btn-xs gap-1", @filter_agent_type && "btn-info" || "btn-ghost"]}>
-              {if @filter_agent_type, do: @filter_agent_type, else: "Type"}
-              <.icon name="hero-chevron-down" class="size-2.5" />
-            </div>
-            <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-36">
-              <li><button phx-click="set_filter" phx-value-field="agent_type" phx-value-value="">All</button></li>
-              <li :for={t <- ["individual", "squadron", "swarm", "orchestrator"]}>
-                <button phx-click="set_filter" phx-value-field="agent_type" phx-value-value={t}>{t}</button>
-              </li>
-            </ul>
-          </div>
-          <%!-- Namespace filter --%>
-          <div :if={namespaces_from_agents(@agents) != []} class="dropdown dropdown-bottom">
-            <div tabindex="0" role="button" class={["btn btn-xs gap-1", @filter_namespace && "btn-accent" || "btn-ghost"]}>
-              {if @filter_namespace, do: @filter_namespace, else: "Namespace"}
-              <.icon name="hero-chevron-down" class="size-2.5" />
-            </div>
-            <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-44 max-h-48 overflow-y-auto">
-              <li><button phx-click="set_filter" phx-value-field="namespace" phx-value-value="">All</button></li>
-              <li :for={ns <- namespaces_from_agents(@agents)}>
-                <button phx-click="set_filter" phx-value-field="namespace" phx-value-value={ns}>{ns}</button>
-              </li>
-            </ul>
-          </div>
-          <%!-- Show unnamed toggle --%>
-          <label class="flex items-center gap-1 text-[10px] text-base-content/40 ml-auto cursor-pointer">
-            <input type="checkbox" class="checkbox checkbox-xs" phx-click="toggle_show_anon" checked={@show_anon} />
-            Show unnamed
-          </label>
-          <%!-- Clear filters --%>
-          <button
-            :if={@filter_status || @filter_namespace || @filter_agent_type || @filter_query != ""}
-            class="btn btn-ghost btn-xs text-error"
-            phx-click="clear_filters"
-          >
-            Clear
-          </button>
+          </.card>
         </div>
 
-        <%!-- Dashboard body --%>
-        <div class="flex-1 flex overflow-hidden relative">
-          <%!-- Left panel: stats + agents --%>
-          <div class="flex-1 overflow-y-auto p-4 space-y-4">
-            <%!-- 6-up metric strip (design system stat_tile) --%>
-            <.live_region id="agent-status-summary" politeness="polite">
-              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                <.stat_tile label="Agents" value={to_string(@agent_count)} delta_direction="flat" />
-                <.stat_tile label="Active" value={to_string(@active_count)} delta={if(@active_count > 0, do: "+#{@active_count}", else: nil)} delta_direction="up" />
-                <.stat_tile label="Idle" value={to_string(@idle_count)} delta_direction="flat" />
-                <.stat_tile label="Errors" value={to_string(@error_count)} delta={if(@error_count > 0, do: "#{@error_count}", else: nil)} delta_direction={if(@error_count > 0, do: "down", else: "flat")} />
-                <.stat_tile label="Sessions" value={to_string(@session_count)} delta_direction="flat" />
-                <.stat_tile label="Notifications" value={to_string(length(@notifications))} delta_direction="flat" />
+        <%!-- Formation Dependency Graph --%>
+        <div style="margin-bottom: 12px;">
+          <.card padded={false}>
+            <div style="padding: 12px 12px 0 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+                Formation Graph
+              </span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <.btn variant="ghost" size="xs" phx-click="set_graph_view" phx-value-view="graph">
+                  Graph
+                </.btn>
+                <.btn variant="ghost" size="xs" phx-click="set_graph_view" phx-value-view="list">
+                  List
+                </.btn>
+                <.btn
+                  variant="ghost"
+                  size="xs"
+                  phx-click="toggle_graph"
+                  aria-label={if @graph_expanded, do: "Collapse", else: "Expand"}
+                >
+                  {if @graph_expanded, do: "⤢", else: "⤡"}
+                </.btn>
               </div>
-            </.live_region>
-
-            <%!-- US-003: AgentLock Pending Approval Toast (compact, non-disruptive) --%>
-            <%= if @agentlock_pending != [] && !@auth_dismissed do %>
-              <% [top | _rest] = @agentlock_pending %>
-              <% label = NamespaceResolver.gate_label(top.request_id, top.tool_name) %>
-              <% agent_lbl = NamespaceResolver.agent_label(top.agent_id) %>
+            </div>
+            <%= if @graph_view == :graph do %>
               <div
-                id="dashboard-agentlock-toast"
-                class="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-950/30 px-3 py-2 text-xs"
-                role="alert"
-                aria-live="assertive"
+                id="dep-graph"
+                style={"width: 100%; border-radius: 0 0 8px 8px; overflow: hidden; background: #151b28; #{if @graph_expanded, do: "height: calc(100vh - 160px);", else: "height: 380px;"}"}
+                phx-hook="DependencyGraph"
+                phx-update="ignore"
               >
-                <div class="flex items-center gap-2 min-w-0 flex-1">
-                  <.icon name="hero-shield-exclamation" class="h-4 w-4 text-amber-400 shrink-0" />
-                  <span class="font-mono text-amber-300 font-semibold truncate"><%= label %></span>
-                  <span class="text-zinc-500">&middot;</span>
-                  <span class="text-zinc-300 truncate"><%= agent_lbl %></span>
-                  <span class="text-zinc-500">&middot;</span>
-                  <span class="text-zinc-400"><%= top.risk_level %> risk</span>
-                  <div
-                    phx-hook="CountdownTimer"
-                    id={"dashboard-toast-cd-#{top.request_id}"}
-                    data-seconds="20"
-                    class="text-[10px] font-mono text-amber-400/60 tabular-nums shrink-0"
-                  >
-                    <span data-countdown-display>20s</span>
-                  </div>
-                  <%= if length(@agentlock_pending) > 1 do %>
-                    <span class="badge badge-xs badge-warning"><%= length(@agentlock_pending) %></span>
-                  <% end %>
-                </div>
-                <div class="flex items-center gap-1.5 flex-shrink-0 ml-3">
-                  <button
-                    phx-click="approve_gate"
-                    phx-value-id={top.request_id}
-                    class="btn btn-success btn-xs"
-                  >Approve</button>
-                  <button
-                    phx-click="deny_gate"
-                    phx-value-id={top.request_id}
-                    class="btn btn-error btn-xs"
-                  >Deny</button>
-                  <.link navigate="/authorization" class="btn btn-ghost btn-xs" title="View in Authorization">
-                    <.icon name="hero-arrow-top-right-on-square" class="h-3 w-3" />
-                  </.link>
-                  <button phx-click="dismiss_auth" class="btn btn-ghost btn-xs btn-square" title="Dismiss">
-                    <.icon name="hero-x-mark" class="h-3 w-3" />
-                  </button>
-                </div>
               </div>
-            <% end %>
-
-            <%!-- UPM Execution Panel --%>
-            <div :if={@upm_status.active} class="card bg-base-200 border border-base-300">
-              <div class="card-body p-3">
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                    UPM Execution
-                  </h3>
-                  <span class={["badge badge-sm", upm_status_badge(@upm_status.session.status)]}>
-                    {@upm_status.session.status}
-                  </span>
-                </div>
-                <%!-- Wave progress --%>
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="text-xs text-base-content/60">
-                    Wave {@upm_status.session.current_wave}/{@upm_status.session.total_waves}
-                  </span>
-                  <div class="flex-1 bg-base-300 rounded-full h-1.5">
-                    <div
-                      class="bg-primary h-1.5 rounded-full transition-all"
-                      style={"width: #{if @upm_status.session.total_waves > 0, do: trunc(@upm_status.session.current_wave / @upm_status.session.total_waves * 100), else: 0}%"}
-                    ></div>
-                  </div>
-                  <span class="text-[10px] text-base-content/40">
-                    {upm_story_summary(@upm_status.session.stories)}
-                  </span>
-                </div>
-                <%!-- Story list --%>
-                <div class="space-y-0.5 max-h-32 overflow-y-auto">
-                  <div
-                    :for={story <- @upm_status.session.stories}
-                    class="flex items-center gap-2 px-1.5 py-0.5 rounded text-xs hover:bg-base-300"
-                  >
-                    <span class={["w-2 h-2 rounded-full flex-shrink-0", upm_story_dot(story.status)]}></span>
-                    <span class="font-mono text-[10px] text-base-content/50">{story.id}</span>
-                    <span class="truncate flex-1 text-base-content/70">{story[:title] || ""}</span>
-                    <span :if={story.agent_id} class="badge badge-xs badge-ghost font-mono">{story.agent_id}</span>
-                  </div>
-                </div>
-                <%!-- Recent events --%>
-                <div :if={@upm_status.events != []} class="mt-2 border-t border-base-300 pt-2">
-                  <div class="text-[10px] text-base-content/40 uppercase tracking-wider mb-1">Events</div>
-                  <div class="space-y-0.5 max-h-20 overflow-y-auto">
-                    <div :for={event <- Enum.take(Enum.reverse(@upm_status.events), 5)} class="text-[10px] text-base-content/50 flex gap-2">
-                      <span class="text-base-content/30">{format_event_time(event.timestamp)}</span>
-                      <span class={["font-medium", upm_event_color(event.event_type)]}>{event.event_type}</span>
-                      <span :if={event.data["story_id"]} class="font-mono">{event.data["story_id"]}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <%!-- Port Overview --%>
-            <div :if={@project_configs != %{}} class="card bg-base-200 border border-base-300">
-              <div class="card-body p-3">
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                    Port Allocations
-                  </h3>
-                  <div class="flex items-center gap-2">
-                    <span class="text-[10px] text-base-content/40">{map_size(@project_configs)} projects</span>
-                    <span :if={@port_clashes != []} class="badge badge-xs badge-error">{length(@port_clashes)} clashes</span>
-                    <button phx-click="scan_ports" class="btn btn-ghost btn-xs" title="Rescan">
-                      <.icon name="hero-arrow-path" class="size-3" />
-                    </button>
-                    <button phx-click="switch_tab" phx-value-tab="ports" class="btn btn-ghost btn-xs text-primary" title="Details">
-                      <.icon name="hero-arrow-top-right-on-square" class="size-3" />
-                    </button>
-                  </div>
-                </div>
-                <%!-- Compact port grid --%>
-                <div class="flex flex-wrap gap-1.5">
-                  <div
-                    :for={{name, config} <- Enum.sort_by(@project_configs, fn {n, _} -> n end)}
-                    :if={config.ports != []}
-                    class="flex items-center gap-1 px-2 py-1 rounded bg-base-300 text-[10px]"
-                  >
-                    <span class="font-medium text-base-content/70">{name}</span>
-                    <span :for={port_info <- config.ports} class="flex items-center gap-0.5">
-                      <span class={["w-1.5 h-1.5 rounded-full", if(port_info[:active], do: "bg-success", else: "bg-base-content/20")]}></span>
-                      <span class="font-mono text-base-content/50">:{port_info.port}</span>
-                    </span>
-                  </div>
-                </div>
-                <%!-- Clash alerts inline --%>
-                <div :if={@port_clashes != []} class="mt-2 space-y-1">
-                  <div :for={clash <- @port_clashes} class="flex items-center gap-2 px-2 py-1 rounded bg-error/10 text-[10px]">
-                    <.icon name="hero-exclamation-triangle" class="size-3 text-error" />
-                    <span class="font-mono text-error">:{clash.port}</span>
-                    <span class="text-base-content/50">{Enum.join(clash.projects, " + ")}</span>
-                    <button phx-click="get_remediation" phx-value-port={clash.port}
-                      class="ml-auto text-primary hover:underline">fix</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <%!-- D3 Dependency Graph --%>
-            <div class={[
-              "card bg-base-200 border border-base-300 transition-all duration-200",
-              @graph_expanded && "fixed inset-4 z-40 shadow-2xl"
-            ]}>
-              <div class="card-body p-3">
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                    Dependency Graph
-                  </h3>
-                  <div class="flex items-center gap-2">
-                    <%!-- Graph/List pill toggle --%>
-                    <div class="flex items-center gap-0.5 bg-base-300 rounded-full p-0.5">
-                      <button
-                        phx-click="set_graph_view"
-                        phx-value-view="graph"
-                        class={["px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors", if(@graph_view == :graph, do: "bg-base-100 shadow-sm text-base-content", else: "text-base-content/40 hover:text-base-content")]}
-                      >Graph</button>
-                      <button
-                        phx-click="set_graph_view"
-                        phx-value-view="list"
-                        class={["px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors", if(@graph_view == :list, do: "bg-base-100 shadow-sm text-base-content", else: "text-base-content/40 hover:text-base-content")]}
-                      >List</button>
-                    </div>
-                    <%!-- Legend (graph only) --%>
-                    <%= if @graph_view == :graph do %>
-                      <div class="flex items-center gap-2 text-[9px] text-base-content/40">
-                        <span class="flex items-center gap-0.5"><span class="inline-block w-2.5 h-2.5 rounded-full border-2 border-base-content/30"></span> agent</span>
-                        <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-3 rounded-full border-2 border-dashed border-info/60"></span> squadron</span>
-                        <span class="flex items-center gap-0.5"><span class="inline-block w-3.5 h-3.5 rounded-full border-2 border-dotted border-warning/60"></span> swarm</span>
-                        <span class="flex items-center gap-0.5"><span class="inline-block w-3 h-1.5 rounded bg-primary/20 border border-primary/50"></span> namespace</span>
-                      </div>
-                    <% end %>
-                    <button
-                      class="btn btn-ghost btn-xs"
-                      phx-click="toggle_graph"
-                      title={if @graph_expanded, do: "Collapse", else: "Expand"}
-                    >
-                      <.icon name={if @graph_expanded, do: "hero-arrows-pointing-in", else: "hero-arrows-pointing-out"} class="size-3" />
-                    </button>
-                  </div>
-                </div>
-                <%= if @graph_view == :graph do %>
-                  <div
-                    id="dep-graph"
-                    class={[
-                      "w-full rounded-xl relative overflow-hidden",
-                      @graph_expanded && "h-[calc(100%-2rem)]" || "h-[420px]"
-                    ]}
-                    style="background: #151b28;"
-                    phx-hook="DependencyGraph"
-                    phx-update="ignore"
-                  >
-                  </div>
+            <% else %>
+              <div style="padding: 0 12px 12px; overflow-y: auto; max-height: 380px;">
+                <%= if @hierarchy do %>
+                  <.tree_node
+                    node={@hierarchy}
+                    depth={0}
+                    expanded={@list_expanded_nodes}
+                    selected_id={@selected_agent &&
+                      (@selected_agent[:id] || @selected_agent["id"])}
+                  />
                 <% else %>
-                  <%!-- List view: hierarchical recursive tree --%>
-                  <div class="overflow-y-auto max-h-[420px] pr-1 select-none">
-                    <%= if @hierarchy do %>
-                      <.tree_node
-                        node={@hierarchy}
-                        depth={0}
-                        expanded={@list_expanded_nodes}
-                        selected_id={@selected_agent && (@selected_agent[:id] || @selected_agent["id"])}
-                      />
-                    <% else %>
-                      <div class="text-center text-xs text-base-content/40 py-12">
-                        No agents registered. POST to <code class="font-mono">/api/register</code> to add agents.
-                      </div>
-                    <% end %>
+                  <div style="text-align: center; font-size: 12px; color: var(--ccem-fg-faint); padding: 48px 0;">
+                    No agents registered. POST to
+                    <code style="font-family: var(--ccem-font-mono);">/api/register</code>
+                    to add agents.
                   </div>
                 <% end %>
               </div>
-            </div>
+            <% end %>
+          </.card>
+        </div>
 
-            <%!-- Agent Fleet — extracted to AgentPanel component (US-R13) --%>
+        <%!-- Agent Fleet Table --%>
+        <div style="margin-bottom: 12px;">
+          <.card padded={false}>
+            <div style="padding: 12px 12px 8px 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+                Fleet
+              </span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={@filter_query}
+                  phx-keyup="update_filter_query"
+                  phx-debounce="200"
+                  style="height: 24px; padding: 0 8px; font-size: 11px; background: var(--ccem-bg-2); border: 1px solid var(--ccem-line); border-radius: 4px; color: var(--ccem-fg); min-width: 120px;"
+                />
+                <.badge :if={@filter_status} tone="accent">{@filter_status}</.badge>
+                <.btn
+                  :if={@filter_status || @filter_namespace || @filter_agent_type || @filter_query != ""}
+                  variant="ghost"
+                  size="xs"
+                  phx-click="clear_filters"
+                >
+                  Clear
+                </.btn>
+              </div>
+            </div>
             <ApmV5Web.Components.AgentPanel.agent_fleet
               agents={@agents}
               filter_status={@filter_status}
@@ -784,286 +453,163 @@ defmodule ApmV5Web.DashboardLive do
               filter_agent_type={@filter_agent_type}
               filter_query={@filter_query}
             />
-
-            <%!-- Widgetization Engine (CP-93–CP-106) --%>
-            <div style="border-top: 1px solid var(--ccem-line-subtle); padding-top: var(--ccem-s-4);">
-              <div class="flex items-center justify-between mb-3">
-                <h2 class="ccem-uppercase" style="font-size: var(--ccem-t-xs); font-weight: 600; color: var(--ccem-fg-faint);">Widgets</h2>
-              </div>
-              <.live_component
-                module={ApmV5Web.Live.DashboardGridComponent}
-                id="dashboard-grid"
-                placements={@widget_layout_placements}
-                widget_pinned_id={@widget_pinned_id}
-                widget_edit_panel_id={@widget_edit_panel_id}
-                widget_scope_type={@widget_scope_type}
-                widget_scope_value={@widget_scope_value}
-                session_configs={@widget_session_configs}
-              >
-                <:widget :let={slot_assigns}>
-                  <.live_component
-                    module={ApmV5Web.Live.WidgetContainerComponent}
-                    id={"widget-container-#{slot_assigns.widget.id}"}
-                    widget={slot_assigns.widget}
-                    current_config={slot_assigns.config}
-                    is_pinned={slot_assigns.is_pinned}
-                    is_edit_open={slot_assigns.is_edit_open}
-                    scope_type={@widget_scope_type}
-                    scope_value={@widget_scope_value}
-                  >
-                    <:body></:body>
-                  </.live_component>
-                </:widget>
-              </.live_component>
-
-              <%!-- Widget Edit Panel (slides in when editing) --%>
-              <%= if @widget_edit_panel_id do %>
-                <% edit_widget = ApmV5.WidgetRegistry.get_widget(@widget_edit_panel_id) %>
-                <.live_component
-                  :if={edit_widget}
-                  module={ApmV5Web.Live.WidgetEditPanelComponent}
-                  id={"edit-panel-#{@widget_edit_panel_id}"}
-                  widget={edit_widget}
-                  current_config={Map.get(@widget_session_configs, @widget_edit_panel_id, %{})}
-                  is_open={true}
-                />
-              <% end %>
-            </div>
-          </div>
-
-          <%!-- Inspector toggle button — visible at the boundary --%>
-          <button
-            phx-click="toggle_inspector"
-            class="absolute right-0 top-1/2 -translate-y-1/2 z-10 btn btn-ghost btn-xs border border-base-300 rounded-l-md rounded-r-none bg-base-200"
-            title={if @inspector_collapsed, do: "Show inspector", else: "Hide inspector"}
-          >
-            <%= if @inspector_collapsed do %>
-              <.icon name="hero-chevron-left" class="size-3" />
-            <% else %>
-              <.icon name="hero-chevron-right" class="size-3" />
-            <% end %>
-          </button>
-
-          <%!-- Right panel: tabs --%>
-          <div class={[
-            "border-l border-base-300 bg-base-200 flex flex-col flex-shrink-0 transition-all duration-200",
-            if(@inspector_collapsed, do: "w-0 overflow-hidden opacity-0 p-0", else: "w-80")
-          ]}>
-            <div role="tablist" class="tabs tabs-border bg-base-300">
-              <button
-                :for={tab <- [:inspector, :ralph, :upm, :commands]}
-                role="tab"
-                class={["tab tab-sm", @active_tab == tab && "tab-active"]}
-                phx-click="switch_tab"
-                phx-value-tab={tab}
-              >
-                {tab_label(tab)}
-              </button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-3">
-              <%!-- Inspector tab --%>
-              <div :if={@active_tab == :inspector}>
-                <%!-- Scope breadcrumb --%>
-                <ApmV5Web.Components.ScopeBreadcrumb.breadcrumb scope={@chat_scope} />
-
-                <%!-- Agent control panel --%>
-                <ApmV5Web.Components.AgentControlPanel.control_bar
-                  selected_agent={@selected_agent}
-                  agent_status={if @selected_agent, do: @selected_agent.status, else: "unknown"}
-                />
-
-                <div :if={@selected_agent == nil} class="text-center text-base-content/30 py-8 text-xs">
-                  Click an agent or graph node to inspect
-                </div>
-                <div :if={@selected_agent} class="space-y-3">
-                  <h3 class="text-sm font-semibold">{@selected_agent.name}</h3>
-                  <div class="space-y-1 text-xs">
-                    <div class="flex justify-between">
-                      <span class="text-base-content/50">ID</span>
-                      <span class="font-mono truncate max-w-[160px]" title={@selected_agent.id}>
-                        {NamespaceResolver.agent_label(@selected_agent.id,
-                          project: @selected_agent[:project],
-                          role: @selected_agent[:formation_role] || @selected_agent[:role],
-                          task_subject: @selected_agent[:task_subject])}
-                      </span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-base-content/50">Tier</span>
-                      <span>{@selected_agent.tier}</span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-base-content/50">Status</span>
-                      <span class={["badge badge-xs", status_badge_class(@selected_agent.status)]}>
-                        {@selected_agent.status}
-                      </span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-base-content/50">Type</span>
-                      <span class={["badge badge-xs", agent_type_badge_class(@selected_agent[:agent_type])]}>
-                        {@selected_agent[:agent_type] || "individual"}
-                      </span>
-                    </div>
-                    <div :if={@selected_agent[:member_count]} class="flex justify-between">
-                      <span class="text-base-content/50">Members</span>
-                      <span class="badge badge-xs badge-info">{@selected_agent[:member_count]} agents</span>
-                    </div>
-                    <div :if={@selected_agent[:namespace]} class="flex justify-between">
-                      <span class="text-base-content/50">Namespace</span>
-                      <span class="text-primary">{@selected_agent[:namespace]}</span>
-                    </div>
-                    <div :if={@selected_agent[:project_name]} class="flex justify-between">
-                      <span class="text-base-content/50">Project</span>
-                      <span>{@selected_agent.project_name}</span>
-                    </div>
-                    <div :if={@selected_agent[:path]} class="flex justify-between">
-                      <span class="text-base-content/50">Path</span>
-                      <span class="font-mono text-[10px] truncate max-w-[160px]" title={@selected_agent[:path]}>
-                        {Path.basename(@selected_agent[:path] || "")}
-                      </span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-base-content/50">Last Seen</span>
-                      <span>{format_last_seen(@selected_agent.last_seen)}</span>
-                    </div>
-                    <div :if={@selected_agent.deps != []} class="pt-1">
-                      <span class="text-base-content/50">Dependencies:</span>
-                      <div class="flex flex-wrap gap-1 mt-1">
-                        <span :for={dep <- @selected_agent.deps} class="badge badge-xs badge-ghost">
-                          {dep}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <%!-- Chat panel below agent details --%>
-                <div class="mt-3 border-t border-base-300 pt-2" style="height: 200px;">
-                  <ApmV5Web.Components.InspectorChat.chat_panel
-                    scope={@chat_scope}
-                    messages={@chat_messages}
-                    chat_input={@chat_input}
-                    selected_agent={@selected_agent}
-                  />
-                </div>
-              </div>
-
-              <%!-- Ralph tab --%>
-              <div :if={@active_tab == :ralph} class="space-y-2">
-                <div class="flex items-center justify-between">
-                  <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                    Ralph
-                  </h3>
-                  <div class="flex items-center gap-2">
-                    <span class="text-[10px] text-base-content/30">
-                      {@ralph_data.passed}/{@ralph_data.total} passed
-                    </span>
-                    <a href="/ralph" class="text-[10px] text-primary hover:underline">flowchart →</a>
-                  </div>
-                </div>
-
-                <%!-- Progress bar --%>
-                <div :if={@ralph_data.total > 0} class="w-full bg-base-300 rounded-full h-1">
-                  <div
-                    class="bg-success h-1 rounded-full transition-all"
-                    style={"width: #{trunc(@ralph_data.passed / @ralph_data.total * 100)}%"}
-                  ></div>
-                </div>
-
-                <%!-- Story list --%>
-                <div :if={@ralph_data.total > 0} class="space-y-0.5 max-h-80 overflow-y-auto">
-                  <div
-                    :for={story <- @ralph_data.stories}
-                    class="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-base-300 text-xs cursor-default group"
-                  >
-                    <span class={[
-                      "w-2 h-2 rounded-full flex-shrink-0",
-                      story["passes"] == true && "bg-success" || "bg-error/60"
-                    ]}>
-                    </span>
-                    <span class="truncate flex-1 group-hover:text-base-content text-base-content/70">
-                      {story["title"] || story["id"]}
-                    </span>
-                    <span class="text-base-content/30 flex-shrink-0 text-[10px]">
-                      #{story["priority"] || ""}
-                    </span>
-                  </div>
-                </div>
-
-                <%!-- No prd.json --%>
-                <div :if={@ralph_data.total == 0} class="text-xs text-base-content/40 py-4 text-center">
-                  No prd.json for this project.
-                  <a href="/ralph" class="text-primary hover:underline block mt-1">
-                    Open flowchart →
-                  </a>
-                </div>
-              </div>
-
-              <%!-- UPM tab --%>
-              <div :if={@active_tab == :upm} class="space-y-2">
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                  UPM Sessions
-                </h3>
-                <div :if={!@upm_status.active} class="text-xs text-base-content/40 py-4 text-center">
-                  No active UPM session. Start with <code>/upm build</code>.
-                </div>
-                <div :if={@upm_status.active} class="space-y-2">
-                  <div class="p-2 rounded bg-base-300 text-xs space-y-1">
-                    <div class="flex justify-between">
-                      <span class="text-base-content/50">Session</span>
-                      <span class="font-mono text-[10px]">{@upm_status.session.id}</span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-base-content/50">Status</span>
-                      <span class={["badge badge-xs", upm_status_badge(@upm_status.session.status)]}>
-                        {@upm_status.session.status}
-                      </span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-base-content/50">Wave</span>
-                      <span>{@upm_status.session.current_wave}/{@upm_status.session.total_waves}</span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-base-content/50">Stories</span>
-                      <span>{upm_story_summary(@upm_status.session.stories)}</span>
-                    </div>
-                  </div>
-                  <%!-- Full event timeline --%>
-                  <div :if={@upm_status.events != []} class="space-y-0.5">
-                    <div class="text-[10px] text-base-content/40 uppercase tracking-wider">Timeline</div>
-                    <div :for={event <- Enum.reverse(@upm_status.events)} class="text-[10px] text-base-content/50 flex gap-2 py-0.5">
-                      <span class="text-base-content/30 flex-shrink-0">{format_event_time(event.timestamp)}</span>
-                      <span class={["font-medium", upm_event_color(event.event_type)]}>{event.event_type}</span>
-                      <span :if={event.data["story_id"]} class="font-mono">{event.data["story_id"]}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <%!-- Commands tab --%>
-              <div :if={@active_tab == :commands} class="space-y-2">
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                  Slash Commands
-                </h3>
-                <div :if={@commands == []} class="text-xs text-base-content/40">
-                  No commands registered. POST to /api/commands to add.
-                </div>
-                <div :for={cmd <- @commands} class="p-2 rounded bg-base-300 text-xs">
-                  <div class="font-semibold">/{cmd["name"] || cmd[:name]}</div>
-                  <div class="text-base-content/50">{cmd["description"] || cmd[:description]}</div>
-                </div>
-              </div>
-
-            </div>
-          </div>
+          </.card>
         </div>
-      </div>
 
-      <%!-- Getting Started Showcase --%>
-      <.showcase show={@show_showcase} />
-    </div>
+        <%!-- Widgetization Engine (CP-93–CP-106) --%>
+        <div style="border-top: 1px solid var(--ccem-line-subtle); padding-top: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-faint);">
+              Widgets
+            </span>
+          </div>
+          <.live_component
+            module={ApmV5Web.Live.DashboardGridComponent}
+            id="dashboard-grid"
+            placements={@widget_layout_placements}
+            widget_pinned_id={@widget_pinned_id}
+            widget_edit_panel_id={@widget_edit_panel_id}
+            widget_scope_type={@widget_scope_type}
+            widget_scope_value={@widget_scope_value}
+            session_configs={@widget_session_configs}
+          >
+            <:widget :let={slot_assigns}>
+              <.live_component
+                module={ApmV5Web.Live.WidgetContainerComponent}
+                id={"widget-container-#{slot_assigns.widget.id}"}
+                widget={slot_assigns.widget}
+                current_config={slot_assigns.config}
+                is_pinned={slot_assigns.is_pinned}
+              >
+                <:body></:body>
+              </.live_component>
+            </:widget>
+          </.live_component>
+          <%= if @widget_edit_panel_id do %>
+            <% edit_widget = ApmV5.WidgetRegistry.get_widget(@widget_edit_panel_id) %>
+            <.live_component
+              :if={edit_widget}
+              module={ApmV5Web.Live.WidgetEditPanelComponent}
+              id={"edit-panel-#{@widget_edit_panel_id}"}
+              widget={edit_widget}
+              current_config={Map.get(@widget_session_configs, @widget_edit_panel_id, %{})}
+              is_open={true}
+            />
+          <% end %>
+        </div>
+
+        <%!-- Getting Started Showcase --%>
+        <.showcase show={@show_showcase} />
+      </:main>
+
+      <%!-- Inspector slot --%>
+      <:inspector>
+        <.inspector_panel open={@inspector_open} mode={@inspector_mode} on_close="toggle_inspector">
+          <:copilot>
+            <ApmV5Web.Components.ScopeBreadcrumb.breadcrumb scope={@chat_scope} />
+            <ApmV5Web.Components.AgentControlPanel.control_bar
+              selected_agent={@selected_agent}
+              agent_status={if @selected_agent, do: @selected_agent.status, else: "unknown"}
+            />
+            <div
+              :if={is_nil(@selected_agent)}
+              style="text-align: center; color: var(--ccem-fg-faint); padding: 32px 0; font-size: 12px;"
+            >
+              Click an agent or graph node to inspect
+            </div>
+            <div :if={@selected_agent} style="display: flex; flex-direction: column; gap: 12px;">
+              <.card padded={true}>
+                <div style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--ccem-fg-dim);">ID</span>
+                    <span style="font-family: var(--ccem-font-mono); font-size: 11px; color: var(--ccem-fg);">
+                      {@selected_agent.id}
+                    </span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--ccem-fg-dim);">Status</span>
+                    <.badge tone={agent_status_tone(@selected_agent.status)}>
+                      {@selected_agent.status}
+                    </.badge>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--ccem-fg-dim);">Type</span>
+                    <.badge tone="neutral">{@selected_agent[:agent_type] || "individual"}</.badge>
+                  </div>
+                </div>
+              </.card>
+            </div>
+          </:copilot>
+          <:selection>
+            <div
+              :if={is_nil(@selected_agent)}
+              style="text-align: center; color: var(--ccem-fg-faint); padding: 32px 0; font-size: 12px;"
+            >
+              No selection
+            </div>
+            <div :if={@selected_agent} style="display: flex; flex-direction: column; gap: 8px;">
+              <.agent_card
+                agent_id={@selected_agent.id}
+                name={@selected_agent.name || @selected_agent.id}
+                role={@selected_agent[:agent_type] || "individual"}
+                status={@selected_agent.status}
+              />
+              <div style="font-size: 12px; color: var(--ccem-fg-dim);">
+                <div>Namespace: {@selected_agent[:namespace] || "—"}</div>
+                <div>Last seen: {format_last_seen(@selected_agent[:last_seen])}</div>
+              </div>
+            </div>
+          </:selection>
+          <:filters>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim); margin-bottom: 4px;">
+                Status
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <.btn
+                  :for={s <- ["active", "idle", "error", "discovered", "completed"]}
+                  variant={if @filter_status == s, do: "primary", else: "ghost"}
+                  size="xs"
+                  phx-click="set_filter"
+                  phx-value-field="status"
+                  phx-value-value={s}
+                >
+                  {s}
+                </.btn>
+              </div>
+              <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim); margin-top: 8px; margin-bottom: 4px;">
+                Type
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <.btn
+                  :for={t <- ["individual", "squadron", "swarm", "orchestrator"]}
+                  variant={if @filter_agent_type == t, do: "primary", else: "ghost"}
+                  size="xs"
+                  phx-click="set_filter"
+                  phx-value-field="agent_type"
+                  phx-value-value={t}
+                >
+                  {t}
+                </.btn>
+              </div>
+              <.btn
+                :if={@filter_status || @filter_namespace || @filter_agent_type ||
+                  @filter_query != ""}
+                variant="destructive"
+                size="sm"
+                phx-click="clear_filters"
+                style="margin-top: 8px;"
+              >
+                Clear All Filters
+              </.btn>
+            </div>
+          </:filters>
+        </.inspector_panel>
+      </:inspector>
+    </.page_layout>
     """
   end
+
 
   # --- Event Handlers ---
 
@@ -1073,8 +619,23 @@ defmodule ApmV5Web.DashboardLive do
   end
 
   def handle_event("toggle_inspector", _params, socket) do
-    {:noreply, assign(socket, :inspector_collapsed, !socket.assigns.inspector_collapsed)}
+    {:noreply,
+     socket
+     |> assign(:inspector_collapsed, !socket.assigns.inspector_collapsed)
+     |> assign(:inspector_open, !socket.assigns.inspector_open)}
   end
+
+  # DS layout shell events (CP-175)
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, :sidebar_collapsed, !socket.assigns.sidebar_collapsed)}
+  end
+
+  def handle_event("inspector_mode", %{"mode" => mode}, socket)
+      when mode in ["selection", "copilot", "filters"] do
+    {:noreply, assign(socket, :inspector_mode, mode)}
+  end
+
+  def handle_event("inspector_mode", _params, socket), do: {:noreply, socket}
 
   # Chat events
   def handle_event("chat:send", %{"content" => content}, socket) when content != "" do
@@ -2168,4 +1729,18 @@ defmodule ApmV5Web.DashboardLive do
   defp status_dot_class("warning"), do: "bg-warning"
   defp status_dot_class("completed"), do: "bg-purple-400"
   defp status_dot_class(_), do: "bg-base-content/30"
+
+  defp upm_tone("registered"), do: "neutral"
+  defp upm_tone("running"), do: "info"
+  defp upm_tone("verifying"), do: "warning"
+  defp upm_tone("verified"), do: "success"
+  defp upm_tone("shipped"), do: "accent"
+  defp upm_tone(_), do: "neutral"
+
+  defp agent_status_tone("active"), do: "success"
+  defp agent_status_tone("idle"), do: "neutral"
+  defp agent_status_tone("error"), do: "danger"
+  defp agent_status_tone("discovered"), do: "info"
+  defp agent_status_tone("completed"), do: "accent"
+  defp agent_status_tone(_), do: "neutral"
 end

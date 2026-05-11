@@ -35,9 +35,9 @@ defmodule ApmV5Web.CoalesceLive do
 
     run_id = params["run"]
 
-    runs = CoalesceOrchestrator.list_runs()
-    active_run = if run_id, do: CoalesceOrchestrator.get_run(run_id), else: List.first(runs)
-    pending_gates = DecisionGateStore.list_pending()
+    runs = try do CoalesceOrchestrator.list_runs() rescue _ -> [] catch :exit, _ -> [] end
+    active_run = if run_id, do: (try do CoalesceOrchestrator.get_run(run_id) rescue _ -> nil catch :exit, _ -> nil end), else: List.first(runs)
+    pending_gates = try do DecisionGateStore.list_pending() rescue _ -> [] catch :exit, _ -> [] end
 
     {:ok,
      socket
@@ -198,216 +198,204 @@ defmodule ApmV5Web.CoalesceLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/coalesce" />
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Coalesce</h2>
-            <div class="badge badge-sm badge-ghost"><%= length(@runs) %> runs</div>
-            <div class="badge badge-sm badge-warning badge-outline"><%= length(@pending_gates) %> pending gates</div>
-          </div>
-        </header>
-
-        <div class="flex flex-1 overflow-hidden">
+    <.page_layout sidebar_collapsed={false} inspector_open={@selected_diff != nil}>
+      <:sidebar>
+        <.sidebar_nav current_path="/coalesce" />
+      </:sidebar>
+      <:topbar>
+        <.top_bar project_name="CCEM APM">
+          <:actions>
+            <.badge tone="neutral">{length(@runs)} runs</.badge>
+            <.badge tone={if length(@pending_gates) > 0, do: "warn", else: "neutral"} dot={length(@pending_gates) > 0}>
+              {length(@pending_gates)} pending gates
+            </.badge>
+          </:actions>
+        </.top_bar>
+      </:topbar>
+      <:main>
+        <div style="display: flex; height: 100%; overflow: hidden;">
           <!-- Left: Run List -->
-          <div class="w-72 border-r border-base-300 flex flex-col bg-base-200">
-            <div class="p-3 border-b border-base-300">
-              <h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider">Run History</h3>
+          <div style="width: 260px; flex-shrink: 0; border-right: 1px solid var(--ccem-line); display: flex; flex-direction: column; overflow: hidden;">
+            <div style="padding: 10px 14px; border-bottom: 1px solid var(--ccem-line); flex-shrink: 0;">
+              <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+                Run History
+              </span>
             </div>
-
-            <div class="flex-1 overflow-y-auto">
+            <div style="flex: 1; overflow-y: auto;">
               <%= for run <- @runs do %>
                 <button
                   phx-click="select_run"
                   phx-value-run_id={run.run_id}
-                  class={"w-full text-left px-4 py-3 border-b border-base-300/50 hover:bg-base-300/50 transition-colors #{if @active_run && @active_run.run_id == run.run_id, do: "bg-base-300 border-l-2 border-l-primary", else: ""}"}
+                  style={"width: 100%; text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line)); background: #{if @active_run && @active_run.run_id == run.run_id, do: "var(--ccem-bg-2)", else: "transparent"}; cursor: pointer;"}
                 >
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-mono text-base-content/60 truncate"><%= run.run_id %></span>
-                    <span class={"text-xs px-1.5 py-0.5 rounded #{_status_color(run.status)}"}>
-                      <%= run.status %>
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <span style="font-family: var(--ccem-font-mono); font-size: 11px; color: var(--ccem-fg-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      {run.run_id}
                     </span>
+                    <.badge tone={run_tone(run.status)}>{run.status}</.badge>
                   </div>
-                  <div class="text-xs text-base-content/40 mt-1 truncate"><%= run.scope %></div>
-                  <div class="text-xs text-base-content/30 mt-0.5">
-                    <%= length(run.affected_skills) %> skills · <%= length(run.diffs) %> diffs
+                  <div style="font-size: 11px; color: var(--ccem-fg-dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {run.scope}
+                  </div>
+                  <div style="font-size: 11px; color: var(--ccem-fg-dim); margin-top: 1px;">
+                    {length(run.affected_skills)} skills · {length(run.diffs)} diffs
                   </div>
                 </button>
               <% end %>
-
               <%= if Enum.empty?(@runs) do %>
-                <div class="px-4 py-8 text-center text-base-content/30 text-sm">
-                  No runs yet.<br/>
-                  Start one with <code class="text-primary">/coalesce</code>
+                <div style="padding: 32px 16px; text-align: center; color: var(--ccem-fg-dim); font-size: 13px;">
+                  No runs yet. Start one with <code>/coalesce</code>
                 </div>
               <% end %>
             </div>
           </div>
 
-      <!-- Center: Active Run -->
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%= if @active_run do %>
-          <!-- Run Header -->
-          <div class="p-4 border-b border-zinc-800 flex items-center justify-between">
-            <div>
-              <div class="flex items-center gap-3">
-                <h1 class="text-base font-semibold">
-                  <%= @active_run.run_id %>
-                  <%= if @active_run.dry_run do %>
-                    <span class="text-xs text-amber-400 ml-2">[DRY RUN]</span>
+          <!-- Center: Active Run -->
+          <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+            <%= if @active_run do %>
+              <!-- Run header -->
+              <div style="padding: 16px; border-bottom: 1px solid var(--ccem-line); display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0;">
+                <div>
+                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                    <span style="font-family: var(--ccem-font-mono); font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+                      {@active_run.run_id}
+                    </span>
+                    <%= if @active_run.dry_run do %>
+                      <.badge tone="warn">DRY RUN</.badge>
+                    <% end %>
+                    <.badge tone={run_tone(@active_run.status)}>{@active_run.status}</.badge>
+                  </div>
+                  <div style="font-size: 12px; color: var(--ccem-fg-dim);">
+                    Scope: <span style="color: var(--ccem-fg);">{@active_run.scope}</span>
+                    &nbsp;·&nbsp;
+                    Formation: <span style="font-family: var(--ccem-font-mono); font-size: 11px; color: var(--ccem-accent);">{@active_run.formation_id}</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <%= if @active_run.status == :awaiting_gate do %>
+                    <.btn variant="ok" size="sm" phx-click="apply_run" phx-value-run_id={@active_run.run_id}>
+                      Apply Diffs
+                    </.btn>
                   <% end %>
-                </h1>
-                <span class={"text-sm px-2 py-0.5 rounded #{_status_color(@active_run.status)}"}>
-                  <%= @active_run.status %>
-                </span>
+                  <%= if @active_run.status in [:intelligence, :analysis, :generation, :validation, :awaiting_gate] do %>
+                    <.btn variant="ghost" size="sm" phx-click="cancel_run" phx-value-run_id={@active_run.run_id}>
+                      Cancel
+                    </.btn>
+                  <% end %>
+                </div>
               </div>
-              <div class="text-sm text-zinc-400 mt-1">
-                Scope: <span class="text-zinc-300"><%= @active_run.scope %></span> ·
-                Formation: <span class="font-mono text-xs text-indigo-400"><%= @active_run.formation_id %></span>
-              </div>
-            </div>
 
-            <div class="flex gap-2">
-              <%= if @active_run.status == :awaiting_gate do %>
-                <button
-                  phx-click="apply_run"
-                  phx-value-run_id={@active_run.run_id}
-                  class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm rounded transition-colors"
-                >
-                  Apply Diffs
-                </button>
-              <% end %>
-
-              <%= if @active_run.status in [:intelligence, :analysis, :generation, :validation, :awaiting_gate] do %>
-                <button
-                  phx-click="cancel_run"
-                  phx-value-run_id={@active_run.run_id}
-                  class="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-sm rounded transition-colors"
-                >
-                  Cancel
-                </button>
-              <% end %>
-            </div>
-          </div>
-
-          <!-- Gate Panel -->
-          <%= if length(@active_run_gates) > 0 do %>
-            <div class="p-4 border-b border-zinc-800 bg-zinc-900/50">
-              <h3 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Decision Gates</h3>
-              <div class="flex gap-3 flex-wrap">
-                <%= for gate <- @active_run_gates do %>
-                  <div class={"flex items-center gap-2 px-3 py-2 rounded-lg border #{_gate_border_color(gate.status)}"}>
-                    <div class={"w-2 h-2 rounded-full #{_gate_dot_color(gate.status)}"}></div>
-                    <span class="text-sm font-mono"><%= gate.gate_id %></span>
-                    <span class="text-xs text-zinc-500"><%= gate.type %></span>
-
-                    <%= if gate.status == :pending and gate.type == :human do %>
-                      <div class="flex gap-1 ml-2">
-                        <button
-                          phx-click="gate_approve"
-                          phx-value-composite_id={gate.composite_id}
-                          class="text-xs px-2 py-0.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded"
-                        >Approve</button>
-                        <button
-                          phx-click="gate_reject"
-                          phx-value-composite_id={gate.composite_id}
-                          phx-value-reason="rejected from dashboard"
-                          class="text-xs px-2 py-0.5 bg-red-700 hover:bg-red-600 text-white rounded"
-                        >Reject</button>
-                        <button
-                          phx-click="gate_defer"
-                          phx-value-composite_id={gate.composite_id}
-                          class="text-xs px-2 py-0.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded"
-                        >Defer</button>
+              <!-- Gate panel -->
+              <%= if length(@active_run_gates) > 0 do %>
+                <div style="padding: 14px 16px; border-bottom: 1px solid var(--ccem-line); background: var(--ccem-bg-0); flex-shrink: 0;">
+                  <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim); margin-bottom: 10px;">
+                    Decision Gates
+                  </div>
+                  <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    <%= for gate <- @active_run_gates do %>
+                      <div style={"display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--ccem-line);"}>
+                        <.badge tone={gate_tone(gate.status)} dot={gate.status == :pending}>{gate.gate_id}</.badge>
+                        <span style="font-size: 11px; color: var(--ccem-fg-dim);">{gate.type}</span>
+                        <%= if gate.status == :pending and gate.type == :human do %>
+                          <div style="display: flex; gap: 4px; margin-left: 4px;">
+                            <.btn variant="ok" size="xs" phx-click="gate_approve" phx-value-composite_id={gate.composite_id}>
+                              Approve
+                            </.btn>
+                            <.btn variant="danger" size="xs" phx-click="gate_reject" phx-value-composite_id={gate.composite_id} phx-value-reason="rejected from dashboard">
+                              Reject
+                            </.btn>
+                            <.btn variant="ghost" size="xs" phx-click="gate_defer" phx-value-composite_id={gate.composite_id}>
+                              Defer
+                            </.btn>
+                          </div>
+                        <% end %>
                       </div>
                     <% end %>
                   </div>
+                </div>
+              <% end %>
+
+              <!-- Diffs list -->
+              <div style="flex: 1; overflow-y: auto; padding: 16px;">
+                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim); margin-bottom: 12px;">
+                  Proposed Skill Diffs ({length(@active_run.diffs)})
+                </div>
+                <%= if Enum.empty?(@active_run.diffs) do %>
+                  <div style="text-align: center; padding: 40px 0; color: var(--ccem-fg-dim); font-size: 13px;">
+                    <%= if @active_run.status in [:intelligence, :analysis] do %>
+                      Generation in progress...
+                    <% else %>
+                      No diffs generated
+                    <% end %>
+                  </div>
+                <% else %>
+                  <.data_table id="diffs-table" rows={@active_run.diffs}>
+                    <:col :let={diff} label="Impact">
+                      <.badge tone={impact_tone(diff.impact)}>{diff.impact}</.badge>
+                    </:col>
+                    <:col :let={diff} label="Skill">
+                      <span style="font-family: var(--ccem-font-mono); font-size: 12px;">{diff.skill_name}</span>
+                    </:col>
+                    <:col :let={diff} label="Additions">
+                      {length(diff.additions)}
+                    </:col>
+                    <:col :let={diff} label="Confidence">
+                      <span style={"font-family: var(--ccem-font-mono); font-size: 12px; #{confidence_style(diff.confidence)}"}>
+                        {diff.confidence |> Kernel.*(100) |> Float.round(0) |> trunc()}%
+                      </span>
+                    </:col>
+                    <:col :let={diff} label="Status">
+                      <.badge tone={if diff.approved, do: "ok", else: "warn"}>
+                        {if diff.approved, do: "approved", else: "pending"}
+                      </.badge>
+                    </:col>
+                    <:col :let={diff} label="">
+                      <.btn variant="ghost" size="xs" phx-click="select_diff" phx-value-skill={diff.skill_name}>
+                        View Diff
+                      </.btn>
+                    </:col>
+                  </.data_table>
                 <% end %>
               </div>
-            </div>
-          <% end %>
 
-          <!-- Diffs List -->
-          <div class="flex-1 overflow-y-auto p-4">
-            <h3 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-              Proposed Skill Diffs (<%= length(@active_run.diffs) %>)
-            </h3>
-
-            <div class="grid grid-cols-1 gap-2">
-              <%= for diff <- @active_run.diffs do %>
-                <div
-                  class="flex items-center justify-between px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-zinc-600 cursor-pointer transition-colors"
-                  phx-click="select_diff"
-                  phx-value-skill={diff.skill_name}
-                >
-                  <div class="flex items-center gap-3">
-                    <span class={"text-xs px-1.5 py-0.5 rounded #{_impact_color(diff.impact)}"}>
-                      <%= diff.impact %>
-                    </span>
-                    <span class="text-sm font-mono text-zinc-200"><%= diff.skill_name %></span>
-                    <span class="text-xs text-zinc-500"><%= length(diff.additions) %> additions</span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <span class="text-xs text-zinc-400">
-                      confidence: <span class={_confidence_color(diff.confidence)}><%= Float.round(diff.confidence * 100, 0) |> trunc() %>%</span>
-                    </span>
-                    <span class={"text-xs px-1.5 py-0.5 rounded #{if diff.approved, do: "bg-emerald-900/50 text-emerald-400", else: "bg-zinc-800 text-zinc-500"}"}>
-                      <%= if diff.approved, do: "approved", else: "pending" %>
-                    </span>
+            <% else %>
+              <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+                <div style="text-align: center; color: var(--ccem-fg-dim);">
+                  <div style="font-size: 32px; margin-bottom: 16px;">⟐</div>
+                  <div style="font-size: 15px; font-weight: 500; color: var(--ccem-fg);">No active run</div>
+                  <div style="font-size: 12px; margin-top: 6px;">
+                    Start one with <code style="color: var(--ccem-accent);">/coalesce</code>
                   </div>
                 </div>
-              <% end %>
-
-              <%= if Enum.empty?(@active_run.diffs) do %>
-                <div class="text-center py-8 text-zinc-600 text-sm">
-                  <%= if @active_run.status in [:intelligence, :analysis] do %>
-                    Generation in progress...
-                  <% else %>
-                    No diffs generated
-                  <% end %>
-                </div>
-              <% end %>
-            </div>
+              </div>
+            <% end %>
           </div>
-
-        <% else %>
-          <div class="flex-1 flex items-center justify-center">
-            <div class="text-center text-zinc-600">
-              <div class="text-4xl mb-4">⟐</div>
-              <div class="text-lg">No active run</div>
-              <div class="text-sm mt-2">Start one with <code class="text-indigo-400">/coalesce &lt;url&gt;</code></div>
+        </div>
+      </:main>
+      <:inspector>
+        <%= if @selected_diff do %>
+          <div style="padding: 16px; height: 100%; overflow-y: auto;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+              <span style="font-family: var(--ccem-font-mono); font-size: 13px; font-weight: 600; color: var(--ccem-accent);">
+                {@selected_diff.skill_name}
+              </span>
+              <.btn variant="ghost" size="xs" phx-click="close_diff">Close</.btn>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <%= for addition <- @selected_diff.additions do %>
+                <.card>
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <.badge tone="ok">{addition.type}</.badge>
+                    <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">{addition.section}</span>
+                  </div>
+                  <pre style="font-family: var(--ccem-font-mono); font-size: 11px; color: var(--ccem-fg-dim); white-space: pre-wrap; overflow-x: auto;">{addition.content}</pre>
+                </.card>
+              <% end %>
             </div>
           </div>
         <% end %>
-      </div>
-
-      <!-- Right: Diff Viewer -->
-      <%= if @selected_diff do %>
-        <div class="w-[480px] border-l border-zinc-800 flex flex-col">
-          <div class="p-4 border-b border-zinc-800 flex items-center justify-between">
-            <h3 class="text-sm font-semibold font-mono text-indigo-400"><%= @selected_diff.skill_name %></h3>
-            <button phx-click="close_diff" class="text-zinc-500 hover:text-zinc-300">✕</button>
-          </div>
-          <div class="flex-1 overflow-y-auto p-4">
-            <div class="space-y-4">
-              <%= for addition <- @selected_diff.additions do %>
-                <div class="bg-zinc-900 border border-zinc-700 rounded-lg p-3">
-                  <div class="flex items-center gap-2 mb-2">
-                    <span class="text-xs px-1.5 py-0.5 bg-emerald-900/50 text-emerald-400 rounded"><%= addition.type %></span>
-                    <span class="text-sm font-semibold text-zinc-200"><%= addition.section %></span>
-                  </div>
-                  <pre class="text-xs text-zinc-400 whitespace-pre-wrap font-mono overflow-x-auto"><%= addition.content %></pre>
-                </div>
-              <% end %>
-            </div>
-          </div>
-        </div>
-      <% end %>
-      </div>
-      </div>
-    </div>
+      </:inspector>
+    </.page_layout>
     """
   end
 
@@ -428,34 +416,29 @@ defmodule ApmV5Web.CoalesceLive do
     )
   end
 
-  defp _status_color(:intelligence), do: "bg-blue-900/60 text-blue-300"
-  defp _status_color(:analysis), do: "bg-purple-900/60 text-purple-300"
-  defp _status_color(:generation), do: "bg-indigo-900/60 text-indigo-300"
-  defp _status_color(:validation), do: "bg-amber-900/60 text-amber-300"
-  defp _status_color(:awaiting_gate), do: "bg-orange-900/60 text-orange-300"
-  defp _status_color(:applying), do: "bg-emerald-900/60 text-emerald-400"
-  defp _status_color(:complete), do: "bg-emerald-900/60 text-emerald-400"
-  defp _status_color(:cancelled), do: "bg-zinc-800 text-zinc-500"
-  defp _status_color(:failed), do: "bg-red-900/60 text-red-400"
-  defp _status_color(_), do: "bg-zinc-800 text-zinc-400"
+  defp run_tone(:intelligence), do: "info"
+  defp run_tone(:analysis), do: "iris"
+  defp run_tone(:generation), do: "accent"
+  defp run_tone(:validation), do: "warn"
+  defp run_tone(:awaiting_gate), do: "warn"
+  defp run_tone(:applying), do: "ok"
+  defp run_tone(:complete), do: "ok"
+  defp run_tone(:cancelled), do: "neutral"
+  defp run_tone(:failed), do: "err"
+  defp run_tone(_), do: "neutral"
 
-  defp _gate_border_color(:pending), do: "border-orange-700 bg-orange-900/20"
-  defp _gate_border_color(:approved), do: "border-emerald-700 bg-emerald-900/20"
-  defp _gate_border_color(:rejected), do: "border-red-700 bg-red-900/20"
-  defp _gate_border_color(:deferred), do: "border-zinc-600 bg-zinc-800/50"
-  defp _gate_border_color(_), do: "border-zinc-700 bg-zinc-800/50"
+  defp gate_tone(:pending), do: "warn"
+  defp gate_tone(:approved), do: "ok"
+  defp gate_tone(:rejected), do: "err"
+  defp gate_tone(:deferred), do: "neutral"
+  defp gate_tone(_), do: "neutral"
 
-  defp _gate_dot_color(:pending), do: "bg-orange-400 animate-pulse"
-  defp _gate_dot_color(:approved), do: "bg-emerald-400"
-  defp _gate_dot_color(:rejected), do: "bg-red-400"
-  defp _gate_dot_color(_), do: "bg-zinc-500"
+  defp impact_tone(:high), do: "err"
+  defp impact_tone(:medium), do: "warn"
+  defp impact_tone(:low), do: "ok"
+  defp impact_tone(_), do: "neutral"
 
-  defp _impact_color(:high), do: "bg-red-900/60 text-red-400"
-  defp _impact_color(:medium), do: "bg-amber-900/60 text-amber-400"
-  defp _impact_color(:low), do: "bg-zinc-800 text-zinc-400"
-  defp _impact_color(_), do: "bg-zinc-800 text-zinc-400"
-
-  defp _confidence_color(c) when c >= 0.85, do: "text-emerald-400"
-  defp _confidence_color(c) when c >= 0.70, do: "text-amber-400"
-  defp _confidence_color(_), do: "text-red-400"
+  defp confidence_style(c) when c >= 0.85, do: "color: var(--ccem-ok, #22c55e);"
+  defp confidence_style(c) when c >= 0.70, do: "color: var(--ccem-warn, #f59e0b);"
+  defp confidence_style(_), do: "color: var(--ccem-err, #ef4444);"
 end

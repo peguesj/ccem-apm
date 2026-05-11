@@ -1,6 +1,56 @@
 {
-  "latest": "9.0.0",
+  "latest": "9.1.3",
   "versions": [
+    {
+      "version": "9.1.3",
+      "date": "2026-05-11",
+      "label": "v9.1.3 — Wave 7-9 TDD Validation + Compile Fixes",
+      "summary": "TDD test suites for CP-190–198 (govern_intelligence + platform tags), conversation_monitor_live compile fixes (missing helper functions), auth API endpoint tests.",
+      "features": [
+        "PolicyRulesStore wildcard test suite (CP-191): 8 tests covering exact match, wildcard fallback, precedence, removal",
+        "Auth controller test suite (CP-191): 21 tests covering 8 apm-auth endpoints + decision field",
+        "Platform TDD suite (CP-198): 34 tests for Extend, Platform, AI Platform module verification",
+        "ConversationMonitorLive: add missing page_window/2, apply_filter/2, refresh_conversations/2 helpers",
+        "stream_configure dom_id for map-based conversation items (CCEM-567)"
+      ],
+      "breaking": false,
+      "migration_notes": null
+    },
+    {
+      "version": "9.1.2",
+      "date": "2026-05-05",
+      "label": "v9.1.2 — Claude Code Harness Plugin + Hook Repair",
+      "summary": "Claude Code Harness Plugin (CP-199–202) with HarnessLive /plugins/harness, HarnessMonitor GenServer, HookTelemetryBuffer ETS ring buffer, and 5 API endpoints. Hook filesystem repair action (CP-203–205). audit_hook_performance action with culprit detection. SessionManagerLive assign fix. Skills coalesced to v9.1.2.",
+      "features": [
+        "HarnessPlugin: :ccem scope, 3-tab LiveView at /plugins/harness (health/hooks/session)",
+        "HarnessMonitor GenServer: 15s session.json poll, PubSub harness:state",
+        "HookTelemetryBuffer: ETS ring buffer (500 cap), subscribes apm:hooks",
+        "HarnessController: /api/v2/harness/* — 5 endpoints with 503 on dead GenServer",
+        "repair_hooks action: idempotent scan, root-owned path detection, APM notification",
+        "audit_hook_performance action: culprit detection (npx cold-start, blocking curl, etc.)",
+        "SessionManagerLive: sidebar_collapsed + inspector_open assign fix, null-byte corruption repair",
+        "DocsLive: version selector with historical backfill v8.8.0–v9.1.2",
+        "Skills coalesced to v9.1.2 across ccem, apm, coalesce skill files"
+      ],
+      "breaking": false,
+      "migration_notes": null
+    },
+    {
+      "version": "9.1.1",
+      "date": "2026-04-22",
+      "label": "v9.1.1 — Hooks Max-Payload + Coalesce + Testmaxxing Formation v2",
+      "summary": "Hook payloads upgraded to max-payload schema (session_id, project, working_dir, git_branch, agent identity chain). Coalesce v9.1.1 skill sync across 15 skills. Testmaxxing Formation v2 with typed edges, pub/sub channel edges, DOT graph, notification channel filter.",
+      "features": [
+        "Max-payload hooks: session_id + project + working_dir + git_branch in all 9 hooks",
+        "Agent identity resolution chain: CLAUDE_AGENT_ID → PARENT_TOOL_USE_ID → CLAUDE_SESSION_ID",
+        "Memory write detection + skill invocation tracking in pre/post tool hooks",
+        "Pattern heartbeat every 10 tool calls, notification audit trail, session end summary",
+        "Coalesce: 15 skills synced — ccem-apm, apm-api-reference, apm-auth, apm-telemetry, formation, orchestrator, upm, ralph, ship, coalesce, doctor, elixir-expert, conversation-mgmt, live-all, showcase",
+        "Testmaxxing Formation v2: edge_type field, pub/sub channel edges, DOT endpoint, notification channel filter, legend"
+      ],
+      "breaking": false,
+      "migration_notes": null
+    },
     {
       "version": "9.0.0",
       "date": "2026-04-06",

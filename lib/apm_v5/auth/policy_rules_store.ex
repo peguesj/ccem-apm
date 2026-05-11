@@ -48,7 +48,8 @@ defmodule ApmV5.Auth.PolicyRulesStore do
     end
   end
 
-  @doc "Check if a tool has a permanent rule. Returns :always_allow | :always_deny | :none."
+  @doc "Check if a tool has a permanent rule. Returns :always_allow | :always_deny | :none.
+  Supports \"*\" wildcard stored under the literal key \"*\" — matches any tool when no exact rule exists."
   @spec check_rule(String.t()) :: :always_allow | :always_deny | :none
   def check_rule(tool_name) do
     case :ets.info(@table) do
@@ -56,7 +57,11 @@ defmodule ApmV5.Auth.PolicyRulesStore do
       _ ->
         case :ets.lookup(@table, tool_name) do
           [{^tool_name, action, _}] -> action
-          [] -> :none
+          [] ->
+            case :ets.lookup(@table, "*") do
+              [{"*", action, _}] -> action
+              [] -> :none
+            end
         end
     end
   end

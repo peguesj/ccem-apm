@@ -59,7 +59,9 @@ defmodule ApmV5Web.ShowcaseLive do
       |> assign(:tab_data, %{})
       |> assign(:tab_query, "")
 
-    {:ok, socket |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok, socket |> assign(:sidebar_collapsed, false)
+     |> assign(:inspector_open, false)
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
@@ -76,8 +78,11 @@ defmodule ApmV5Web.ShowcaseLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/showcase" />
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar>
+        <.sidebar_nav current_path="/showcase" />
+      </:sidebar>
+      <:main>
 
       <div class="flex-1 flex flex-col overflow-hidden">
         <%!-- Header --%>
@@ -279,7 +284,6 @@ defmodule ApmV5Web.ShowcaseLive do
           </div>
         </div>
       </div>
-    </div>
     <.wizard page="showcase" />
     <%!-- Showcase sync WebSocket bootstrap (v8.4.0) --%>
     <div
@@ -288,6 +292,8 @@ defmodule ApmV5Web.ShowcaseLive do
       data-project={@active_project || "ccem"}
       class="hidden"
     ></div>
+      </:main>
+    </.page_layout>
     """
   end
 

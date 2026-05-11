@@ -4,14 +4,15 @@ defmodule ApmV5.MixProject do
   def project do
     [
       app: :apm_v5,
-      version: "9.1.1",
+      version: "9.1.3",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      elixirc_options: [ignore_module_conflict: true]
     ]
   end
 
@@ -64,6 +65,9 @@ defmodule ApmV5.MixProject do
       {:earmark, "~> 1.4"},
       {:ag_ui_ex, "~> 0.1.0"},
       {:gun, "~> 2.2"},
+      {:exqlite, "~> 0.23", optional: true},
+      {:mox, "~> 1.2", only: :test},
+      {:bypass, "~> 2.1", only: :test},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false}

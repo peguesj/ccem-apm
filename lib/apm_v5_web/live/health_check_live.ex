@@ -8,8 +8,6 @@ defmodule ApmV5Web.HealthCheckLive do
 
   use ApmV5Web, :live_view
 
-  import ApmV5Web.Components.GettingStartedWizard
-
   require Logger
 
   @impl true
@@ -19,7 +17,11 @@ defmodule ApmV5Web.HealthCheckLive do
       # US-021: EventBus subscription for AG-UI health events
       ApmV5.AgUi.EventBus.subscribe("lifecycle:*")
     end
-    {:ok, socket |> assign_data() |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
+    {:ok,
+     socket
+     |> assign(sidebar_collapsed: false, inspector_open: false)
+     |> assign_data()
+     |> ApmV5Web.Components.SidebarNav.assign_sidebar_nav_data()}
   end
 
   @impl true
@@ -45,54 +47,63 @@ defmodule ApmV5Web.HealthCheckLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-300 overflow-hidden">
-      <.sidebar_nav current_path="/health" />
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Health Checks</h2>
-            <span class={["badge badge-sm", overall_badge_class(@overall)]}>
-              {@overall}
-            </span>
+    <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
+      <:sidebar><.sidebar_nav current_path="/health" /></:sidebar>
+      <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
+      <:main>
+        <%!-- Page header --%>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Health Checks</h1>
+            <.badge tone={overall_health_tone(@overall)}>{to_string(@overall)}</.badge>
           </div>
-          <div class="flex items-center gap-2">
-            <button phx-click="run_checks" class="btn btn-xs btn-ghost gap-1">
-              <.icon name="hero-arrow-path" class="size-3.5" /> Run Checks
-            </button>
-          </div>
-        </header>
-
-        <div class="flex-1 overflow-y-auto p-4">
-          <div :if={@checks == []} class="text-center py-8 text-base-content/40 text-sm">
-            Running health checks...
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div :for={check <- @checks} class={["bg-base-200 rounded-lg p-4 border-l-4", check_border_class(check.status)]}>
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-medium text-sm">{check.name}</span>
-                <span class={["badge badge-xs", check_badge_class(check.status)]}>{check.status}</span>
-              </div>
-              <div class="text-xs text-base-content/60 font-mono">{check.message}</div>
-            </div>
-          </div>
+          <.btn variant="ghost" size="xs" phx-click="run_checks">Run Checks</.btn>
         </div>
-      </div>
-    </div>
-    <.wizard page="welcome" dom_id="ccem-wizard-welcome-health" />
+
+        <%!-- Empty state --%>
+        <div :if={@checks == []}
+             style="text-align: center; padding: 32px; font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
+          Running health checks...
+        </div>
+
+        <%!-- Checks table --%>
+        <.card :if={@checks != []} padded={false}>
+          <.data_table id="health-checks-table" rows={@checks}>
+            <:col :let={row} label="Service">
+              <span style="font-size: var(--ccem-t-sm, 13px); font-weight: 500; color: var(--ccem-fg);">
+                {row.name}
+              </span>
+            </:col>
+            <:col :let={row} label="Status">
+              <.badge tone={check_tone(row.status)}>{to_string(row.status)}</.badge>
+            </:col>
+            <:col :let={row} label="Message">
+              <span style="font-family: monospace; font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
+                {row.message}
+              </span>
+            </:col>
+          </.data_table>
+        </.card>
+      </:main>
+    </.page_layout>
     """
   end
 
-  defp overall_badge_class(:healthy), do: "badge-success"
-  defp overall_badge_class(:degraded), do: "badge-warning"
-  defp overall_badge_class(:unhealthy), do: "badge-error"
-  defp overall_badge_class(_), do: "badge-ghost"
+  defp overall_health_tone("healthy"), do: "ok"
+  defp overall_health_tone(:healthy), do: "ok"
+  defp overall_health_tone("degraded"), do: "warn"
+  defp overall_health_tone(:degraded), do: "warn"
+  defp overall_health_tone("critical"), do: "err"
+  defp overall_health_tone(:critical), do: "err"
+  defp overall_health_tone("unhealthy"), do: "err"
+  defp overall_health_tone(:unhealthy), do: "err"
+  defp overall_health_tone(_), do: "neutral"
 
-  defp check_border_class(:ok), do: "border-success"
-  defp check_border_class(:error), do: "border-error"
-  defp check_border_class(_), do: "border-base-300"
-
-  defp check_badge_class(:ok), do: "badge-success"
-  defp check_badge_class(:error), do: "badge-error"
-  defp check_badge_class(_), do: "badge-ghost"
+  defp check_tone(:ok), do: "ok"
+  defp check_tone("ok"), do: "ok"
+  defp check_tone(:error), do: "err"
+  defp check_tone("error"), do: "err"
+  defp check_tone(:warning), do: "warn"
+  defp check_tone("warning"), do: "warn"
+  defp check_tone(_), do: "neutral"
 end
