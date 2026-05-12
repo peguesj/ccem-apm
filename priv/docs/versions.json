@@ -1,6 +1,24 @@
 {
-  "latest": "9.1.3",
+  "latest": "9.1.4",
   "versions": [
+    {
+      "version": "9.1.4",
+      "date": "2026-05-12",
+      "label": "v9.1.4 — Plugin Trifecta + Hook Health + Action Infra",
+      "summary": "Three new plugins (Builder, Composio, Open Design), HookHealthMonitor with persistent action run tracking, govern LiveView polish, story-refs API, and sidebar SSOT correction.",
+      "features": [
+        "Builder Plugin: interactive 5-step wizard for scaffolding new CCEM plugins from existing repos (GitHub URL, local path, .git path)",
+        "Composio Plugin: MCP server registry, tool store, account store, webhook handler integration",
+        "Open Design Plugin: design-handoff client, monitor, and JSX to LiveComponent ingestion",
+        "HookHealthMonitor: cross-project hook filesystem health scanning with async ETS-backed health state",
+        "ActionRunStore: persistent action execution run history with replay support",
+        "Govern LiveView polish: approvals/alignment/coalesce/dashboard/intake/skills layout refinements",
+        "Story-refs API: UpmStore + UpmController endpoints for cross-referencing stories with commits/PRs",
+        "Sidebar SSOT: replaced stale @app_version attribute with inline Application.spec(:apm_v5, :vsn) — removes the staleness footgun"
+      ],
+      "breaking": false,
+      "migration_notes": null
+    },
     {
       "version": "9.1.3",
       "date": "2026-05-11",

@@ -1,8 +1,32 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file. Latest: v9.1.3 — Wave 7-9 TDD Validation + Compile Fixes.
+All notable changes to CCEM APM are documented in this file. Latest: v9.1.4 — Plugin Trifecta + Hook Health + Action Infra.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [9.1.4] - 2026-05-12
+
+Three new plugins (Builder, Composio, Open Design), HookHealthMonitor, ActionRunStore, govern LiveView polish, story-refs API, sidebar SSOT correction.
+
+### Added
+- **Builder Plugin** — interactive 5-step wizard (`/plugins/builder`) for scaffolding new CCEM plugins from existing repos. BuilderEngine GenServer with ETS session storage and PubSub broadcasts; RepositoryAnalyzer for GitHub/local path/.git ingestion
+- **Composio Plugin** — MCP server registry, tool store, account store, webhook handler. ComposioClient HTTP integration with paginated tool fetching
+- **Open Design Plugin** — design-handoff client + monitor + JSX→LiveComponent ingestion path (`/plugins/open-design`)
+- **HookHealthMonitor** — cross-project hook filesystem health scanning. Async ETS state, `/api/v2/hook_health/*` endpoints, root-owned path detection
+- **ActionRunStore** — persistent action execution run history with replay support
+- **Story-refs API** — UpmStore + UpmController endpoints for cross-referencing stories with commits/PRs (extends 01605f4 work)
+- **v2 controllers** — `/api/v2/{action,builder,composio,hook_health,open_design}` controllers with corresponding test suites
+
+### Changed
+- **Govern LiveViews polish** — approvals, alignment, coalesce, dashboard, intake, skills layout refinements
+- **action_engine.ex** — execution context tracking + run store integration
+- **plugin_registry.ex** — auto-register Builder, Composio, Open Design, HookHealth plugins at boot
+- **design_system.ex** — minor refinements
+
+### Fixed
+- **Sidebar SSOT** — replaced `@app_version "9.1.3"` compile-time attribute (re-introduced in e1614d7) with inline `to_string(Application.spec(:apm_v5, :vsn))`. This removes the staleness footgun: `Application.spec/2` is stdlib (always loaded, sidesteps the original `UndefinedFunctionError` concern) while still reading from the `.app` manifest sourced from mix.exs
 
 ---
 

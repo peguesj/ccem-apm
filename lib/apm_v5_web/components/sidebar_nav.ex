@@ -24,8 +24,6 @@ defmodule ApmV5Web.Components.SidebarNav do
   use Phoenix.Component
   import ApmV5Web.CoreComponents, only: [icon: 1]
 
-  @app_version "9.1.3"
-
   attr :current_path, :string, required: true
   attr :notification_count, :integer, default: 0
   attr :skill_count, :integer, default: 0
@@ -445,5 +443,5 @@ defmodule ApmV5Web.Components.SidebarNav do
     |> Enum.map_join(" ", &String.capitalize/1)
   end
 
-  defp version, do: @app_version
+  defp version, do: to_string(Application.spec(:apm_v5, :vsn))
 end
