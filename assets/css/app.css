@@ -840,3 +840,11 @@
   padding: 1px 4px;
   color: var(--ccem-fg-dim);
 }
+
+/* Formation hierarchy container — stretch to fill available viewport height */
+.ccem-formation-hierarchy {
+  min-height: stretch;
+  min-height: -webkit-fill-available; /* Safari fallback */
+  display: flex;
+  flex-direction: column;
+}
