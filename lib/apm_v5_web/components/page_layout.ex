@@ -1,11 +1,24 @@
 defmodule ApmV5Web.Components.PageLayout do
   @moduledoc """
-  Three-zone CCEM page layout shell: sidebar + main + inspector.
+  CCEM page layout shell with full-width topbar above sidebar + main + inspector.
 
-  Used as the outer wrapper in redesigned LiveViews. The layout fills the full
-  viewport using a horizontal flex row. The sidebar zone collapses to a 48px
-  icon rail when `sidebar_collapsed` is true. The right inspector zone renders
-  only when both `inspector_open` and an `inspector` slot are provided.
+  v9.2.0 structural change: the `topbar` slot now renders as a full-width row
+  at the top of the viewport, ABOVE the sidebar + main + inspector row.
+  Previously the topbar was nested inside the center column (right of the
+  sidebar), which caused inconsistent rendering across pages and constrained
+  the project switcher visually to the center column.
+
+  ## Visual structure (v9.2.0)
+
+      ┌────────────────────────────────────────────────────┐
+      │ topbar (full width — project switcher, ⌘K, ...)    │
+      ├──────────┬─────────────────────────┬───────────────┤
+      │ sidebar  │ main                    │ inspector     │
+      └──────────┴─────────────────────────┴───────────────┘
+
+  The sidebar zone collapses to a 48px icon rail when `sidebar_collapsed` is
+  true. The right inspector zone renders only when both `inspector_open` and
+  an `inspector` slot are provided.
 
   ## Usage
 
@@ -71,7 +84,7 @@ defmodule ApmV5Web.Components.PageLayout do
     ~H"""
     <div
       style={
-        "display:flex; height:100vh; overflow:hidden; " <>
+        "display:flex; flex-direction:column; height:100vh; overflow:hidden; " <>
           "background:var(--ccem-bg-0); " <>
           "font-family:var(--ccem-font-sans); " <>
           "color:var(--ccem-fg);"
@@ -79,37 +92,40 @@ defmodule ApmV5Web.Components.PageLayout do
       class={@class}
       {@rest}
     >
-      <%!-- Sidebar zone --%>
-      <div
-        id="ccem-sidebar"
-        style={
-          "width:#{@sidebar_width}px; flex-shrink:0; " <>
-            "transition:width var(--ccem-dur-base,150ms) var(--ccem-ease-out,ease-out); " <>
-            "overflow:hidden; " <>
-            "border-right:1px solid var(--ccem-line-subtle);"
-        }
-      >
-        {render_slot(@sidebar)}
-      </div>
-
-      <%!-- Center column: topbar + main --%>
-      <div style="flex:1; display:flex; flex-direction:column; min-width:0; overflow:hidden;">
-        <%= if @topbar != [] do %>
-          <div style="flex-shrink:0; border-bottom:1px solid var(--ccem-line-subtle);">
-            {render_slot(@topbar)}
-          </div>
-        <% end %>
-        <div style="flex:1; overflow:auto; padding:var(--ccem-s-4,16px);">
-          {render_slot(@main)}
-        </div>
-      </div>
-
-      <%!-- Right inspector zone --%>
-      <%= if @inspector_open and @inspector != [] do %>
-        <div style="width:280px; flex-shrink:0; border-left:1px solid var(--ccem-line-subtle); overflow:hidden;">
-          {render_slot(@inspector)}
+      <%!-- Topbar zone: spans full width above sidebar/main/inspector --%>
+      <%= if @topbar != [] do %>
+        <div style="flex-shrink:0; border-bottom:1px solid var(--ccem-line-subtle);">
+          {render_slot(@topbar)}
         </div>
       <% end %>
+
+      <%!-- Body row: sidebar + main + inspector --%>
+      <div style="display:flex; flex:1; min-height:0; overflow:hidden;">
+        <%!-- Sidebar zone --%>
+        <div
+          id="ccem-sidebar"
+          style={
+            "width:#{@sidebar_width}px; flex-shrink:0; " <>
+              "transition:width var(--ccem-dur-base,150ms) var(--ccem-ease-out,ease-out); " <>
+              "overflow:hidden; " <>
+              "border-right:1px solid var(--ccem-line-subtle);"
+          }
+        >
+          {render_slot(@sidebar)}
+        </div>
+
+        <%!-- Main content area --%>
+        <div style="flex:1; overflow:auto; padding:var(--ccem-s-4,16px); min-width:0;">
+          {render_slot(@main)}
+        </div>
+
+        <%!-- Right inspector zone --%>
+        <%= if @inspector_open and @inspector != [] do %>
+          <div style="width:280px; flex-shrink:0; border-left:1px solid var(--ccem-line-subtle); overflow:hidden;">
+            {render_slot(@inspector)}
+          </div>
+        <% end %>
+      </div>
     </div>
     """
   end

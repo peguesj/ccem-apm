@@ -4,7 +4,7 @@ defmodule ApmV5.MixProject do
   def project do
     [
       app: :apm_v5,
-      version: "9.1.4",
+      version: "9.2.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
