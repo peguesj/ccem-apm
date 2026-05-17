@@ -60,6 +60,8 @@ defmodule ApmV5Web.AuthorizationLive do
          auth_dismissed: false,
          selected_ids: MapSet.new(),
          show_settings_modal: false,
+         approval_display_mode: load_persisted_display_mode(),
+         show_behavior_menu: false,
          risk_eval_mode: :automatic,
          risk_threshold: 50,
          timeout_seconds: 20,
@@ -146,16 +148,46 @@ defmodule ApmV5Web.AuthorizationLive do
      })}
   end
 
-  def handle_info({:auth_escalated, %{tool_name: tool}}, socket) do
-    {:noreply,
-     socket
-     |> assign(load_data())
-     |> push_event("show_toast", %{
-       type: "warning",
-       title: "AgentLock: #{tool} escalated",
-       message: "approval required",
-       category: "agentlock"
-     })}
+  def handle_info({:auth_escalated, %{tool_name: tool} = payload}, socket) do
+    socket = assign(socket, load_data())
+    mode = socket.assigns.approval_display_mode
+    pending = socket.assigns.pending
+    request_id = Map.get(payload, :request_id) || top_pending_request_id(pending)
+
+    socket =
+      case mode do
+        :always_modal ->
+          # Surface the blocking modal (un-dismiss + un-minimize).
+          assign(socket, auth_dismissed: false, modal_minimized: false)
+
+        :toast_actions ->
+          push_event(socket, "show_toast", %{
+            type: "warning",
+            title: "AgentLock: #{tool}",
+            message: "Approval required — Enter approve · Esc/D deny",
+            category: "agentlock",
+            duration: 20_000,
+            request_id: request_id,
+            actions: ["approve", "deny"]
+          })
+
+        _toast_click ->
+          push_event(socket, "show_toast", %{
+            type: "warning",
+            title: "AgentLock: #{tool}",
+            message: "Approval required — click to review",
+            category: "agentlock",
+            duration: 20_000,
+            request_id: request_id,
+            open_modal: true
+          })
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:auth_escalated, _}, socket) do
+    {:noreply, assign(socket, load_data())}
   end
 
   def handle_info({:auth_rate_limited, %{tool_name: tool, retry_after_ms: retry_ms}}, socket) do
@@ -594,6 +626,57 @@ defmodule ApmV5Web.AuthorizationLive do
   end
 
   @impl true
+  def handle_event("toggle_behavior_menu", _params, socket) do
+    {:noreply, assign(socket, show_behavior_menu: !socket.assigns.show_behavior_menu)}
+  end
+
+  @impl true
+  def handle_event("close_behavior_menu", _params, socket) do
+    {:noreply, assign(socket, show_behavior_menu: false)}
+  end
+
+  @impl true
+  def handle_event("set_display_mode", %{"mode" => mode}, socket) do
+    new_mode = safe_mode_atom(mode)
+
+    socket =
+      socket
+      |> assign(:approval_display_mode, new_mode)
+      |> assign(:show_behavior_menu, false)
+      # If the user switches to a non-modal mode, drop any open modal so the
+      # change is not flow-breaking; re-arm the toast for pending items.
+      |> assign(:auth_dismissed, new_mode != :always_modal)
+      |> push_event("show_toast", %{
+        type: "info",
+        title: "Approval behavior updated",
+        message: display_mode_label(new_mode),
+        category: "agentlock"
+      })
+
+    Task.start_link(fn -> persist_settings(socket.assigns) end)
+    {:noreply, socket}
+  end
+
+  # Open the full modal from a click-to-open toast.
+  @impl true
+  def handle_event("open_approval_modal", _params, socket) do
+    {:noreply, assign(socket, auth_dismissed: false, modal_minimized: false)}
+  end
+
+  # Approve/deny a specific request from a toast action button.
+  @impl true
+  def handle_event("toast_decide", %{"id" => request_id, "decision" => decision}, socket) do
+    dec = if decision == "approve", do: :approve, else: :deny
+    PendingDecisions.decide(request_id, dec)
+    pending = PendingDecisions.list_pending()
+
+    {:noreply,
+     socket
+     |> assign(:pending, pending)
+     |> assign(:ttl_remaining, if(pending != [], do: @ttl_max, else: 0))}
+  end
+
+  @impl true
   def handle_event("update_setting", params, socket) do
     socket =
       cond do
@@ -702,7 +785,48 @@ defmodule ApmV5Web.AuthorizationLive do
               {if @sidebar_collapsed, do: "Expand", else: "Collapse"}
             </.btn>
             <.btn variant="ghost" size="sm" phx-click="toggle_inspector">Inspector</.btn>
-            <.btn variant="ghost" size="sm" phx-click="toggle_settings_modal">Settings</.btn>
+            <.link navigate="/govern/settings">
+              <.btn variant="ghost" size="sm">Settings</.btn>
+            </.link>
+
+            <%!-- (...) overflow menu: approval Default behavior --%>
+            <div style="position:relative;">
+              <.btn variant="ghost" size="sm" phx-click="toggle_behavior_menu">
+                &#8943;
+              </.btn>
+              <%= if @show_behavior_menu do %>
+                <div
+                  phx-click-away="close_behavior_menu"
+                  style="position:absolute; right:0; top:36px; z-index:60; min-width:280px; background:var(--ccem-bg-1); border:1px solid var(--ccem-line); border-radius:8px; box-shadow:0 12px 40px rgba(0,0,0,0.45); padding:8px;"
+                >
+                  <div style="font-size:11px; font-weight:600; color:var(--ccem-fg-dim); text-transform:uppercase; letter-spacing:0.06em; padding:6px 10px 8px;">
+                    Default behavior
+                  </div>
+                  <%= for {mode, label, desc} <- [
+                    {:always_modal, "Always show modal", "Blocking overlay every time"},
+                    {:toast_actions, "Toaster with options", "Inline Approve / Deny buttons"},
+                    {:toast_click, "Toaster (click to open modal)", "Least interruptive — recommended"}
+                  ] do %>
+                    <button
+                      type="button"
+                      phx-click="set_display_mode"
+                      phx-value-mode={Atom.to_string(mode)}
+                      style={"display:flex; align-items:flex-start; gap:10px; width:100%; text-align:left; background:#{if @approval_display_mode == mode, do: "var(--ccem-bg-2)", else: "transparent"}; border:none; border-radius:6px; padding:8px 10px; cursor:pointer; color:var(--ccem-fg);"}
+                    >
+                      <span style={"margin-top:2px; width:14px; height:14px; border-radius:50%; border:2px solid #{if @approval_display_mode == mode, do: "var(--ccem-accent, #7c9eff)", else: "var(--ccem-line)"}; flex-shrink:0; display:flex; align-items:center; justify-content:center;"}>
+                        <%= if @approval_display_mode == mode do %>
+                          <span style="width:6px; height:6px; border-radius:50%; background:var(--ccem-accent, #7c9eff);"></span>
+                        <% end %>
+                      </span>
+                      <span style="display:flex; flex-direction:column; gap:2px;">
+                        <span style="font-size:13px; font-weight:500;">{label}</span>
+                        <span style="font-size:11px; color:var(--ccem-fg-muted);">{desc}</span>
+                      </span>
+                    </button>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
           </div>
         </div>
 
@@ -759,6 +883,58 @@ defmodule ApmV5Web.AuthorizationLive do
               </div>
             </div>
           </.card>
+        <% end %>
+
+        <%!-- Blocking approval modal — only in :always_modal mode --%>
+        <%= if @approval_display_mode == :always_modal and length(@pending) > 0 and not @auth_dismissed do %>
+          <% top = List.first(@pending) %>
+          <div style="position:fixed; inset:0; z-index:80; background:rgba(8,11,18,0.72); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; padding:24px;">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="AgentLock approval required"
+              style="width:100%; max-width:520px; background:var(--ccem-bg-1); border:1px solid var(--ccem-line); border-radius:12px; box-shadow:0 24px 64px rgba(0,0,0,0.55); overflow:hidden;"
+            >
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--ccem-line);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <.badge tone="warn" dot>Approval required</.badge>
+                  <span style="font-size:13px; color:var(--ccem-fg-muted); font-variant-numeric:tabular-nums;">
+                    {@ttl_remaining}s
+                  </span>
+                </div>
+                <.gauge value={round(@ttl_remaining / @ttl_max * 100)} size={44} />
+              </div>
+              <div style="padding:20px;">
+                <p style="font-size:15px; font-weight:600; color:var(--ccem-fg); margin:0 0 6px;">
+                  {Map.get(top, :tool_name, "Tool")} requires authorization
+                </p>
+                <p style="font-size:12px; color:var(--ccem-fg-muted); margin:0 0 16px; font-family:var(--ccem-font-mono);">
+                  {Map.get(top, :agent_id, "agent")} · risk {Map.get(top, :risk_level, "n/a")}
+                  <%= if length(@pending) > 1 do %>
+                    · +{length(@pending) - 1} more queued
+                  <% end %>
+                </p>
+                <div style="display:flex; gap:10px;">
+                  <.btn variant="primary" phx-click="approve" phx-value-id={Map.get(top, :request_id)}>
+                    Approve &nbsp;<kbd style="opacity:0.7;">&#8629;</kbd>
+                  </.btn>
+                  <.btn variant="destructive" phx-click="deny" phx-value-id={Map.get(top, :request_id)}>
+                    Deny &nbsp;<kbd style="opacity:0.7;">Esc</kbd>
+                  </.btn>
+                  <div style="flex:1;"></div>
+                  <.btn variant="ghost" phx-click="dismiss_auth">Dismiss</.btn>
+                </div>
+                <p style="font-size:11px; color:var(--ccem-fg-dim); margin:14px 0 0;">
+                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">&#8629;</kbd>
+                  Approve ·
+                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">Esc</kbd>
+                  /
+                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">D</kbd>
+                  Deny · change default via the &#8943; menu
+                </p>
+              </div>
+            </div>
+          </div>
         <% end %>
 
         <%!-- Tab navigation --%>
@@ -1385,7 +1561,8 @@ defmodule ApmV5Web.AuthorizationLive do
       risk_eval_mode: assigns.risk_eval_mode,
       risk_threshold: assigns.risk_threshold,
       timeout_seconds: assigns.timeout_seconds,
-      redaction_mode: assigns.redaction_mode
+      redaction_mode: assigns.redaction_mode,
+      approval_display_mode: assigns.approval_display_mode
     }
 
     try do
@@ -1404,4 +1581,52 @@ defmodule ApmV5Web.AuthorizationLive do
       _ -> :ok
     end
   end
+
+  # Approval surface preference. Default is :toast_click (least flow-breaking) —
+  # an always-on modal interrupts the user's work, so it is opt-in.
+  #   :always_modal  — full blocking modal overlay every time
+  #   :toast_actions — corner toaster with inline Approve/Deny buttons
+  #   :toast_click   — corner toaster; click it to open the modal (DEFAULT)
+  @valid_display_modes [:always_modal, :toast_actions, :toast_click]
+  @default_display_mode :toast_click
+
+  defp load_persisted_display_mode do
+    try do
+      config_path = Path.expand("~/Developer/ccem/apm/apm_config.json")
+
+      with {:ok, content} <- File.read(config_path),
+           {:ok, json} <- Jason.decode(content),
+           %{"agentlock_settings" => %{"approval_display_mode" => mode}} <- json,
+           atom <- safe_mode_atom(mode) do
+        atom
+      else
+        _ -> @default_display_mode
+      end
+    rescue
+      _ -> @default_display_mode
+    end
+  end
+
+  defp safe_mode_atom(mode) when is_binary(mode) do
+    case mode do
+      "always_modal" -> :always_modal
+      "toast_actions" -> :toast_actions
+      "toast_click" -> :toast_click
+      _ -> @default_display_mode
+    end
+  end
+
+  defp safe_mode_atom(mode) when is_atom(mode) do
+    if mode in @valid_display_modes, do: mode, else: @default_display_mode
+  end
+
+  defp safe_mode_atom(_), do: @default_display_mode
+
+  defp display_mode_label(:always_modal), do: "Always show modal"
+  defp display_mode_label(:toast_actions), do: "Toaster with Approve/Deny buttons"
+  defp display_mode_label(:toast_click), do: "Toaster (click to open modal)"
+  defp display_mode_label(_), do: "Toaster (click to open modal)"
+
+  defp top_pending_request_id([%{request_id: rid} | _]), do: rid
+  defp top_pending_request_id(_), do: nil
 end

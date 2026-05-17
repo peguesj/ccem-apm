@@ -22,7 +22,7 @@ const Toast = {
     })
   },
 
-  showToast({ type, title, message, duration, category, agent_id }) {
+  showToast({ type, title, message, duration, category, agent_id, request_id, actions, open_modal }) {
     const container = this.getOrCreateContainer()
     const toasts = container.querySelectorAll(".toast-item")
 
@@ -100,6 +100,51 @@ const Toast = {
       if (agent_id) parts.push(agent_id)
       metaEl.textContent = parts.join(" / ")
       body.appendChild(metaEl)
+    }
+
+    // Inline action buttons — :toast_actions mode (Approve / Deny)
+    if (Array.isArray(actions) && actions.length && request_id) {
+      const actionsRow = document.createElement("div")
+      actionsRow.style.cssText = "display:flex; gap:8px; margin-top:10px;"
+
+      actions.forEach((action) => {
+        const isApprove = action === "approve"
+        const btn = document.createElement("button")
+        btn.textContent = isApprove ? "Approve ↵" : "Deny ⎋"
+        btn.style.cssText = [
+          "flex:1",
+          "padding:6px 10px",
+          "font-size:12px",
+          "font-weight:600",
+          "border-radius:5px",
+          "cursor:pointer",
+          "font-family:inherit",
+          isApprove
+            ? "background:#1f7a3f; color:#dffbe6; border:1px solid #2c9c54"
+            : "background:#7a2424; color:#ffe0e0; border:1px solid #9c2c2c"
+        ].join(";")
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation()
+          this.pushEvent("toast_decide", { id: request_id, decision: action })
+          this.dismissToast(toast)
+        })
+        actionsRow.appendChild(btn)
+      })
+      body.appendChild(actionsRow)
+    }
+
+    // Click-to-open-modal — :toast_click mode
+    if (open_modal) {
+      toast.style.cursor = "pointer"
+      const hint = document.createElement("div")
+      hint.textContent = "Click to review →"
+      hint.style.cssText =
+        "margin-top:8px; font-size:11px; color:#9bb4ff; font-weight:600;"
+      body.appendChild(hint)
+      toast.addEventListener("click", () => {
+        this.pushEvent("open_approval_modal", {})
+        this.dismissToast(toast)
+      })
     }
 
     toast.appendChild(body)

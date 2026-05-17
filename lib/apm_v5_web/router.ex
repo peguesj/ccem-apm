@@ -124,6 +124,7 @@ defmodule ApmV5Web.Router do
       # Extension: agentlock
       live "/authorization", AuthorizationLive, :index
       live "/govern/authorization", AuthorizationLive, :index
+      live "/govern/settings", SettingsLive, :index
       live "/approvals-history", ApprovalHistoryLive, :index
       live "/routing", RoutingLive, :index
 
