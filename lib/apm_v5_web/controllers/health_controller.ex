@@ -108,6 +108,37 @@ defmodule ApmV5Web.HealthController do
   end
 
   @doc """
+  GET /startup — Kubernetes startup probe (CP-253 / US-485 / hc-s4).
+
+  Returns 200 `{"started": true, "phase": "running"}` when the OTP application
+  supervision tree has fully initialized:
+  - `:apm_v5` appears in `:application.which_applications/0`
+  - `ApmV5.Endpoint` process is alive (Phoenix is accepting requests)
+
+  Returns 503 `{"started": false, "phase": "initializing", "failed": [...]}` while
+  the application is still starting up.  Set `failureThreshold` high in the
+  Kubernetes probe spec (e.g. 60) to allow for the full ~30 s cold-boot sequence.
+
+  The startup probe distinguishes startup-in-progress from runtime failures, which
+  is the job of the liveness probe at `/healthz`.
+  """
+  @spec startup(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def startup(conn, _params) do
+    failed =
+      []
+      |> check_application_started(:apm_v5)
+      |> check_endpoint_alive()
+
+    if failed == [] do
+      json(conn, %{started: true, phase: "running"})
+    else
+      conn
+      |> put_status(503)
+      |> json(%{started: false, phase: "initializing", failed: failed})
+    end
+  end
+
+  @doc """
   GET /healthz — Kubernetes liveness probe.
 
   Returns 200 when the BEAM is up and Phoenix is responding. Kubernetes only
@@ -142,6 +173,25 @@ defmodule ApmV5Web.HealthController do
     case Process.whereis(module) do
       pid when is_pid(pid) -> acc
       nil -> [inspect(module) | acc]
+    end
+  end
+
+  @spec check_application_started([String.t()], atom()) :: [String.t()]
+  defp check_application_started(acc, app_name) do
+    running_apps = :application.which_applications()
+
+    if Enum.any?(running_apps, fn {name, _desc, _vsn} -> name == app_name end) do
+      acc
+    else
+      ["application:#{app_name}:not_started" | acc]
+    end
+  end
+
+  @spec check_endpoint_alive([String.t()]) :: [String.t()]
+  defp check_endpoint_alive(acc) do
+    case Process.whereis(ApmV5Web.Endpoint) do
+      pid when is_pid(pid) -> acc
+      nil -> ["ApmV5Web.Endpoint:not_alive" | acc]
     end
   end
 

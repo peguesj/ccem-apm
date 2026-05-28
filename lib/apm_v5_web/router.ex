@@ -704,6 +704,8 @@ defmodule ApmV5Web.Router do
     get "/healthz", HealthController, :liveness
     # Kubernetes readiness probe (CP-252 / US-484 / hc-s3) — GenServer + cache warm
     get "/ready", HealthController, :readiness
+    # Kubernetes startup probe (CP-253 / US-485 / hc-s4) — supervision tree init
+    get "/startup", HealthController, :startup
     # Per-agent card under /api/v2/agents — outside V2 scope to keep one controller.
     get "/api/v2/agents/:agent_id/agent-card.json",
         WellKnownController,
