@@ -11,6 +11,12 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   use ApmV5Web, :controller
   use OpenApiSpex.ControllerSpecs
 
+  # api-s5 Wave 1: validate requests for annotated actions only; non-annotated
+  # actions pass through because `open_api_operation/1` returns nil.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
+
   alias ApmV5.AgentRegistry
   alias ApmV5.MetricsCollector
   alias ApmV5.SloEngine
@@ -1939,4 +1945,7 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   defp parse_scope("fleet"), do: :fleet
   defp parse_scope(_), do: :fleet
 
+  # api-s5 Wave 1: catch-all for non-annotated actions — see auth_controller.ex
+  # for rationale.
+  def open_api_operation(_action), do: nil
 end

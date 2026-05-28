@@ -14,6 +14,13 @@ defmodule ApmV5Web.V2.AuthController do
   use ApmV5Web, :controller
   use OpenApiSpex.ControllerSpecs
 
+  # Validate requests for annotated actions only. open_api_spex's plug
+  # checks the controller's `open_api_operation/1` and skips silently
+  # when nil — so non-annotated actions pass through untouched.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
+
   alias ApmV5Web.Schemas
 
   alias ApmV5.Auth.{
@@ -1069,4 +1076,11 @@ defmodule ApmV5Web.V2.AuthController do
 
   defp parse_risk_limit(v) when is_integer(v), do: min(max(v, 1), 100)
   defp parse_risk_limit(_), do: 10
+
+  # api-s5 Wave 1: catch-all for non-annotated actions.
+  # OpenApiSpex.ControllerSpecs's `before_compile` callback otherwise emits
+  # `IO.warn` (returns `:ok`) which CastAndValidate misinterprets as a valid
+  # operation struct and crashes. Returning `nil` triggers the documented
+  # `{:skip_it, nil}` path so non-annotated actions pass through untouched.
+  def open_api_operation(_action), do: nil
 end

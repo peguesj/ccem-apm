@@ -13,6 +13,11 @@ defmodule ApmV5Web.V2.AgentControlController do
   use ApmV5Web, :controller
   use OpenApiSpex.ControllerSpecs
 
+  # api-s5 Wave 1: validate requests for annotated actions only.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
+
   alias ApmV5Web.Schemas
 
   @pubsub ApmV5.PubSub
@@ -212,4 +217,7 @@ defmodule ApmV5Web.V2.AgentControlController do
       (agent[:squadron_id] || agent["squadron_id"]) == squadron_id
     end)
   end
+
+  # api-s5 Wave 1: catch-all for non-annotated actions.
+  def open_api_operation(_action), do: nil
 end

@@ -39,6 +39,13 @@ defmodule ApmV5Web.V2.AuthControllerTest do
   # ── POST /api/v2/auth/authorize — decision field ─────────────────────────────
 
   describe "POST /api/v2/auth/authorize" do
+    # /authorize is annotated with @operation in api-s5 Wave 1, so
+    # open_api_spex's CastAndValidate requires application/json content-type
+    # on the request body. The Phoenix test conn defaults to multipart/mixed.
+    setup %{conn: conn} do
+      {:ok, conn: Plug.Conn.put_req_header(conn, "content-type", "application/json")}
+    end
+
     test "returns decision field in response", %{conn: conn} do
       PolicyRulesStore.add_rule("*", :always_allow)
 

@@ -17,6 +17,11 @@ defmodule ApmV5Web.V2.ApprovalController do
   use ApmV5Web, :controller
   use OpenApiSpex.ControllerSpecs
 
+  # api-s5 Wave 1: all 5 approval actions are annotated.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
+
   alias ApmV5Web.Schemas
   alias ApmV5.AgUi.ApprovalGate
 
@@ -130,4 +135,7 @@ defmodule ApmV5Web.V2.ApprovalController do
       {:error, :not_pending} -> conn |> put_status(409) |> json(%{error: "Gate is not pending"})
     end
   end
+
+  # api-s5 Wave 1: catch-all for non-annotated actions.
+  def open_api_operation(_action), do: nil
 end

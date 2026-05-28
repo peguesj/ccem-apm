@@ -55,11 +55,12 @@ defmodule ApmV5Web.Router do
     plug ApmV5Web.Plugs.RateLimit
     # RFC 6585 + IETF draft-ietf-httpapi-ratelimit-headers (CP-240 / US-472 / rl-s5)
     plug ApmV5Web.Plugs.RateLimitHeaders
-    # Request validation via open_api_spex (CP-228 / US-460).
-    # Only validates paths annotated with @operation on their controller action.
-    # replace_params: false ensures unannotated routes keep raw params unchanged,
-    # preserving full backward-compatibility while annotation migrates (api-s5/s7).
-    plug OpenApiSpex.Plug.CastAndValidate, replace_params: false, render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
+    # NOTE: OpenApiSpex.Plug.CastAndValidate is NOT in the router pipeline
+    # because it requires :phoenix_controller in conn.private (set only after
+    # the controller dispatcher resolves the route). Instead, annotated
+    # controllers (ApiV2Controller, AuthController, AgentControlController,
+    # ApprovalController) opt in via `plug OpenApiSpex.Plug.CastAndValidate`
+    # in their own module — CP-228 / US-460 / api-s5 Wave 1.
   end
 
   pipeline :api_flexible do
