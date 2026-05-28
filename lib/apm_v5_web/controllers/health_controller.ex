@@ -13,12 +13,15 @@ defmodule ApmV5Web.HealthController do
 
   ## Checks object
 
-  | Key              | componentType | Metric                         | pass threshold  |
-  |------------------|---------------|--------------------------------|-----------------|
-  | `ets:size`       | datastore     | `:erlang.memory(:ets)` / 1024  | < 1 000 MB      |
-  | `beam:memory_mb` | system        | `:erlang.memory(:total)` / 1M  | < 1 000 MB      |
-
-  Warn threshold: pass if < 1 000 MB, warn if < 4 000 MB, fail otherwise.
+  | Key                          | componentType | Metric                                    | pass threshold            |
+  |------------------------------|---------------|-------------------------------------------|---------------------------|
+  | `ets:size`                   | datastore     | `:erlang.memory(:ets)` / 1024             | < 1 000 MB                |
+  | `beam:memory_mb`             | system        | `:erlang.memory(:total)` / 1M             | < 1 000 MB                |
+  | `beam:memory_processes`      | system        | `:erlang.memory(:processes_used)` / 1M    | informational             |
+  | `beam:process_count`         | system        | `:erlang.system_info(:process_count)`     | warn ≥50% limit, fail ≥80%|
+  | `beam:run_queue`             | system        | `:erlang.statistics(:run_queue)`          | warn > 10, fail > 100     |
+  | `ets:audit_log_size`         | datastore     | `:ets.info(:apm_audit_log, :size)`        | informational             |
+  | `ets:agent_registry_size`    | datastore     | `:ets.info(:apm_agents, :size)`           | informational             |
   """
 
   use ApmV5Web, :controller
@@ -28,18 +31,41 @@ defmodule ApmV5Web.HealthController do
   @warn_threshold_mb 1_000
   @fail_threshold_mb 4_000
 
+  # beam:process_count thresholds as fraction of :process_limit
+  @process_warn_fraction 0.50
+  @process_fail_fraction 0.80
+
+  # beam:run_queue thresholds
+  @run_queue_warn 10
+  @run_queue_fail 100
+
   @doc """
   GET /health and GET /.well-known/health
 
-  Returns RFC 8615 health+json. The LiveView at `/health` (browser route) is
-  unaffected — this controller only handles JSON API requests.
+  Returns RFC 8615 health+json with extended Erlang VM and ETS checks.
+  The LiveView at `/health` (browser route) is unaffected — this controller
+  only handles JSON API requests.
   """
   @spec health(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def health(conn, _params) do
     {ets_mb, ets_status} = ets_check()
     {beam_mb, beam_status} = beam_memory_check()
+    {proc_mb, _proc_status} = beam_memory_processes_check()
+    {proc_count, proc_limit, proc_count_status} = beam_process_count_check()
+    {run_queue, run_queue_status} = beam_run_queue_check()
+    {audit_log_size, audit_log_status} = ets_table_size_check(:apm_audit_log)
+    {agent_registry_size, agent_registry_status} = ets_table_size_check(:apm_agents)
 
-    overall = aggregate_status([ets_status, beam_status])
+    all_statuses = [
+      ets_status,
+      beam_status,
+      proc_count_status,
+      run_queue_status,
+      audit_log_status,
+      agent_registry_status
+    ]
+
+    overall = aggregate_status(all_statuses)
     version = AppVersion.current()
     now_iso = DateTime.utc_now() |> DateTime.to_iso8601()
 
@@ -65,6 +91,52 @@ defmodule ApmV5Web.HealthController do
             observedValue: beam_mb,
             observedUnit: "MB",
             status: beam_status,
+            time: now_iso
+          }
+        ],
+        "beam:memory_processes" => [
+          %{
+            componentType: "system",
+            observedValue: proc_mb,
+            observedUnit: "MB",
+            status: "pass",
+            time: now_iso
+          }
+        ],
+        "beam:process_count" => [
+          %{
+            componentType: "system",
+            observedValue: proc_count,
+            observedUnit: "processes",
+            status: proc_count_status,
+            time: now_iso,
+            processLimit: proc_limit
+          }
+        ],
+        "beam:run_queue" => [
+          %{
+            componentType: "system",
+            observedValue: run_queue,
+            observedUnit: "processes",
+            status: run_queue_status,
+            time: now_iso
+          }
+        ],
+        "ets:audit_log_size" => [
+          %{
+            componentType: "datastore",
+            observedValue: audit_log_size,
+            observedUnit: "entries",
+            status: audit_log_status,
+            time: now_iso
+          }
+        ],
+        "ets:agent_registry_size" => [
+          %{
+            componentType: "datastore",
+            observedValue: agent_registry_size,
+            observedUnit: "entries",
+            status: agent_registry_status,
             time: now_iso
           }
         ]
@@ -118,9 +190,6 @@ defmodule ApmV5Web.HealthController do
   Returns 503 `{"started": false, "phase": "initializing", "failed": [...]}` while
   the application is still starting up.  Set `failureThreshold` high in the
   Kubernetes probe spec (e.g. 60) to allow for the full ~30 s cold-boot sequence.
-
-  The startup probe distinguishes startup-in-progress from runtime failures, which
-  is the job of the liveness probe at `/healthz`.
   """
   @spec startup(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def startup(conn, _params) do
@@ -155,7 +224,7 @@ defmodule ApmV5Web.HealthController do
   end
 
   # ---------------------------------------------------------------------------
-  # Private helpers
+  # Private helpers — readiness checks
   # ---------------------------------------------------------------------------
 
   @spec check_status_cache_warm([String.t()]) :: [String.t()]
@@ -195,6 +264,10 @@ defmodule ApmV5Web.HealthController do
     end
   end
 
+  # ---------------------------------------------------------------------------
+  # Private helpers — /api/health checks
+  # ---------------------------------------------------------------------------
+
   @spec ets_check() :: {integer(), String.t()}
   defp ets_check do
     mb = div(:erlang.memory(:ets), 1_024)
@@ -205,6 +278,52 @@ defmodule ApmV5Web.HealthController do
   defp beam_memory_check do
     mb = div(:erlang.memory(:total), 1_024 * 1_024)
     {mb, memory_status(mb)}
+  end
+
+  @spec beam_memory_processes_check() :: {integer(), String.t()}
+  defp beam_memory_processes_check do
+    mb = div(:erlang.memory(:processes_used), 1_024 * 1_024)
+    {mb, "pass"}
+  end
+
+  @spec beam_process_count_check() :: {integer(), integer(), String.t()}
+  defp beam_process_count_check do
+    count = :erlang.system_info(:process_count)
+    limit = :erlang.system_info(:process_limit)
+    fraction = count / limit
+
+    status =
+      cond do
+        fraction >= @process_fail_fraction -> "fail"
+        fraction >= @process_warn_fraction -> "warn"
+        true -> "pass"
+      end
+
+    {count, limit, status}
+  end
+
+  @spec beam_run_queue_check() :: {integer(), String.t()}
+  defp beam_run_queue_check do
+    run_queue = :erlang.statistics(:run_queue)
+
+    status =
+      cond do
+        run_queue > @run_queue_fail -> "fail"
+        run_queue > @run_queue_warn -> "warn"
+        true -> "pass"
+      end
+
+    {run_queue, status}
+  end
+
+  @spec ets_table_size_check(atom()) :: {integer() | nil, String.t()}
+  defp ets_table_size_check(table_name) do
+    case :ets.info(table_name, :size) do
+      size when is_integer(size) -> {size, "pass"}
+      :undefined -> {nil, "pass"}
+    end
+  rescue
+    _ -> {nil, "pass"}
   end
 
   @spec memory_status(integer()) :: String.t()
