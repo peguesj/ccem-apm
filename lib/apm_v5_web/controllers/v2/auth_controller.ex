@@ -26,7 +26,9 @@ defmodule ApmV5Web.V2.AuthController do
     RateLimiter,
     PolicyRulesStore,
     PendingDecisions,
-    ApprovalAuditLog
+    ApprovalAuditLog,
+    PolicyDecisionStore,
+    RiskScoreAggregator
   }
 
   # ---------------------------------------------------------------------------
@@ -507,6 +509,106 @@ defmodule ApmV5Web.V2.AuthController do
     json(conn, %{ok: true, removed: tool_name})
   end
 
+  @doc """
+  GET /api/v2/auth/policy/decisions — Query authorization decisions (NIST AI RMF GOVERN evidence)
+
+  Query params (all optional):
+  - `agent_id` — substring match
+  - `session_id` — exact match
+  - `formation_id` — exact match
+  - `outcome` — allow | deny | ask
+  - `since` — ISO 8601 lower bound
+  - `until` — ISO 8601 upper bound
+  - `limit` — integer (default 200)
+  - `stats` — if "true", return outcome stats summary only
+  """
+  def list_policy_decisions(conn, params) do
+    if Map.get(params, "stats") == "true" do
+      s = PolicyDecisionStore.stats()
+      json(conn, %{ok: true, stats: s, total: PolicyDecisionStore.count()})
+    else
+      filter = build_decision_filter(params)
+      decisions = PolicyDecisionStore.query(filter) |> Enum.map(&decision_to_json/1)
+      json(conn, %{ok: true, decisions: decisions, count: length(decisions), total: PolicyDecisionStore.count()})
+    end
+  end
+
+  defp build_decision_filter(params) do
+    filter = %{}
+
+    filter =
+      case Map.get(params, "agent_id") do
+        nil -> filter
+        v -> Map.put(filter, :agent_id, v)
+      end
+
+    filter =
+      case Map.get(params, "session_id") do
+        nil -> filter
+        v -> Map.put(filter, :session_id, v)
+      end
+
+    filter =
+      case Map.get(params, "formation_id") do
+        nil -> filter
+        v -> Map.put(filter, :formation_id, v)
+      end
+
+    filter =
+      case Map.get(params, "outcome") do
+        nil -> filter
+        v -> Map.put(filter, :outcome, parse_outcome(v))
+      end
+
+    filter =
+      case Map.get(params, "since") do
+        nil -> filter
+        v -> case DateTime.from_iso8601(v) do
+          {:ok, dt, _} -> Map.put(filter, :since, dt)
+          _ -> filter
+        end
+      end
+
+    filter =
+      case Map.get(params, "until") do
+        nil -> filter
+        v -> case DateTime.from_iso8601(v) do
+          {:ok, dt, _} -> Map.put(filter, :until, dt)
+          _ -> filter
+        end
+      end
+
+    case Map.get(params, "limit") do
+      nil -> filter
+      v ->
+        case Integer.parse(v) do
+          {n, _} when n > 0 -> Map.put(filter, :limit, n)
+          _ -> filter
+        end
+    end
+  end
+
+  defp parse_outcome("allow"), do: :allow
+  defp parse_outcome("deny"), do: :deny
+  defp parse_outcome("ask"), do: :ask
+  defp parse_outcome(_), do: nil
+
+  defp decision_to_json(%{} = r) do
+    %{
+      id: r.id,
+      policy_id: r[:policy_id],
+      agent_id: r.agent_id,
+      session_id: r.session_id,
+      formation_id: r[:formation_id],
+      tool_name: r.tool_name,
+      risk_level: r.risk_level,
+      outcome: r.outcome,
+      trust_level: r[:trust_level],
+      latency_ms: r[:latency_ms],
+      timestamp: if(r[:timestamp], do: DateTime.to_iso8601(r.timestamp))
+    }
+  end
+
   # ---------------------------------------------------------------------------
   # apm-auth skill spec aliases (CCEM-565)
   # The 8 paths documented in the apm-auth skill but missing from the original
@@ -908,4 +1010,63 @@ defmodule ApmV5Web.V2.AuthController do
     :ok = ApmV5.ApiKeyStore.revoke_key(key)
     json(conn, %{ok: true, revoked: true})
   end
+
+  # ---------------------------------------------------------------------------
+  # Risk Score Aggregator (CP-231 / comp-map2)
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  GET /api/v2/auth/risk-scores?scope=session|formation&limit=N
+
+  Returns paginated composite risk aggregates sorted by score descending.
+
+  Query params:
+  - `scope` — `"session"` (default) or `"formation"`
+  - `limit` — max results (default 10, max 100)
+  """
+  def list_risk_scores(conn, params) do
+    scope = Map.get(params, "scope", "session")
+    limit = params |> Map.get("limit", "10") |> parse_risk_limit()
+
+    {results, items_key} =
+      case scope do
+        "formation" ->
+          {RiskScoreAggregator.top_formations(limit), "formations"}
+
+        _ ->
+          {RiskScoreAggregator.top_sessions(limit), "sessions"}
+      end
+
+    items =
+      Enum.map(results, fn {id, agg} ->
+        %{
+          "id" => id,
+          "score" => Float.round(agg.score, 4),
+          "level" => to_string(agg.level),
+          "tool_call_count" => agg.tool_call_count,
+          "critical_count" => agg.critical_count,
+          "denial_rate" => Float.round(agg.denial_rate, 4),
+          "last_updated" => DateTime.to_iso8601(agg.last_updated)
+        }
+      end)
+
+    body = %{
+      "ok" => true,
+      "scope" => scope,
+      "count" => length(items),
+      "limit" => limit
+    }
+
+    json(conn, Map.put(body, items_key, items))
+  end
+
+  defp parse_risk_limit(v) when is_binary(v) do
+    case Integer.parse(v) do
+      {n, ""} -> min(max(n, 1), 100)
+      _ -> 10
+    end
+  end
+
+  defp parse_risk_limit(v) when is_integer(v), do: min(max(v, 1), 100)
+  defp parse_risk_limit(_), do: 10
 end

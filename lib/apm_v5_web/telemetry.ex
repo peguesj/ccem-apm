@@ -10,6 +10,19 @@ defmodule ApmV5Web.Telemetry do
   `ApmV5.Metrics` is started here as a supervised `Peep` reporter child.
   The peep ETS storage backing `:ccem_apm_metrics` is scraped via
   `Peep.Plug` mounted at `/metrics` in the router.
+
+  ## Governance KRI metrics (comp-ms1 / CP-232 / US-464)
+
+  Six `ccem_governance_*` counters and a last_value metric are declared below.
+  They correspond to `:telemetry.execute/3` call sites in:
+
+    - `ApmV5.Auth.AuthorizationGate`   — denial_rate, escalation_rate
+    - `ApmV5.Auth.PolicyEngine`        — critical_command_rate
+    - `ApmV5.Auth.ContextTracker`      — trust_degradation_events
+    - `ApmV5.Auth.PolicyRulesStore`    — policy_rule_changes
+    - `ApmV5.Governance.GovernanceKriPoller` — risk_score_p95 (60s periodic)
+
+  These metrics flow through Peep and are exposed at `/metrics`.
   """
 
   use Supervisor
@@ -69,7 +82,55 @@ defmodule ApmV5Web.Telemetry do
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),
       summary("vm.total_run_queue_lengths.cpu"),
-      summary("vm.total_run_queue_lengths.io")
+      summary("vm.total_run_queue_lengths.io"),
+
+      # ── Governance KRI metrics (comp-ms1 / CP-232 / US-464) ─────────────────
+      # Counter: total policy denials across the lifetime of the node.
+      counter("apm_v5.governance.denial_rate",
+        event_name: [:apm_v5, :governance, :denial_rate],
+        measurement: :count,
+        description: "ccem_governance_denial_rate — tool-call denials by PolicyEngine",
+        tags: [:tool_name, :agent_id]
+      ),
+
+      # Counter: total escalations queued for human approval.
+      counter("apm_v5.governance.escalation_rate",
+        event_name: [:apm_v5, :governance, :escalation_rate],
+        measurement: :count,
+        description: "ccem_governance_escalation_rate — approvals queued (no auto-policy match)",
+        tags: [:tool_name, :agent_id]
+      ),
+
+      # Counter: total Bash commands classified as :critical risk.
+      counter("apm_v5.governance.critical_command_rate",
+        event_name: [:apm_v5, :governance, :critical_command_rate],
+        measurement: :count,
+        description: "ccem_governance_critical_command_rate — destructive / :critical Bash commands",
+        tags: [:tool_name, :agent_id]
+      ),
+
+      # Counter: total trust degradation events across all sessions.
+      counter("apm_v5.governance.trust_degradation_events",
+        event_name: [:apm_v5, :governance, :trust_degradation_events],
+        measurement: :count,
+        description: "ccem_governance_trust_degradation_events — session trust ceiling downgrades",
+        tags: [:session_id]
+      ),
+
+      # Counter: total policy rule create/update/delete mutations.
+      counter("apm_v5.governance.policy_rule_changes",
+        event_name: [:apm_v5, :governance, :policy_rule_changes],
+        measurement: :count,
+        description: "ccem_governance_policy_rule_changes — PolicyRulesStore mutations",
+        tags: [:tool_name, :change_type]
+      ),
+
+      # Last value: p95 risk severity score (0.0 – 4.0), updated every 60s.
+      last_value("apm_v5.governance.risk_score_p95",
+        event_name: [:apm_v5, :governance, :risk_score_p95],
+        measurement: :value,
+        description: "ccem_governance_risk_score_p95 — p95 risk severity across PolicyDecisionStore (60s window)"
+      )
     ]
   end
 

@@ -228,6 +228,13 @@ defmodule ApmV5.Auth.AuthorizationGate do
               case auto_approval_policy do
                 nil ->
                   # No matching auto-approval policy — escalate to human
+                  # KRI: escalation_rate
+                  :telemetry.execute(
+                    [:apm_v5, :governance, :escalation_rate],
+                    %{count: 1},
+                    %{tool_name: tool_name, agent_id: agent_id, session_id: session_id}
+                  )
+
                   {:ok, request_id} =
                     PendingDecisions.add(tool_name, session_id, decision.risk_level, agent_id, params)
 
@@ -307,7 +314,14 @@ defmodule ApmV5.Auth.AuthorizationGate do
               end
 
             {false, false} ->
-              # Denied
+              # Denied — KRI: denial_rate
+              :telemetry.execute(
+                [:apm_v5, :governance, :denial_rate],
+                %{count: 1},
+                %{tool_name: tool_name, agent_id: agent_id, session_id: session_id,
+                  reason: decision.reason}
+              )
+
               SessionStore.increment_denied(session_id)
 
               broadcast({:auth_denied, %{

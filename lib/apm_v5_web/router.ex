@@ -51,6 +51,11 @@ defmodule ApmV5Web.Router do
     plug :accepts, ["json"]
     plug ApmV5Web.Plugs.CORS
     plug ApmV5Web.Plugs.ApiAuth
+    # Request validation via open_api_spex (CP-228 / US-460).
+    # Only validates paths annotated with @operation on their controller action.
+    # replace_params: false ensures unannotated routes keep raw params unchanged,
+    # preserving full backward-compatibility while annotation migrates (api-s5/s7).
+    plug OpenApiSpex.Plug.CastAndValidate, replace_params: false, render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
   end
 
   pipeline :api_flexible do
@@ -128,6 +133,9 @@ defmodule ApmV5Web.Router do
       live "/showcase", ShowcaseLive, :index
       live "/showcase/:project", ShowcaseLive, :project
       live "/ccem", CcemOverviewLive, :index
+
+      # Extension: governance posture (CP-236 / US-468 — auth-comp TRACK COMPLETE)
+      live "/governance", GovernanceLive, :index
 
       # Extension: agentlock
       live "/authorization", AuthorizationLive, :index
@@ -515,6 +523,12 @@ defmodule ApmV5Web.Router do
     post "/auth/policy/rules", AuthController, :add_policy_rule
     delete "/auth/policy/rules/:tool_name", AuthController, :remove_policy_rule
 
+    # Policy decision store — NIST AI RMF GOVERN evidence (CP-227)
+    get "/auth/policy/decisions", AuthController, :list_policy_decisions
+
+    # Risk score aggregator — composite session/formation risk (CP-231)
+    get "/auth/risk-scores", AuthController, :list_risk_scores
+
     # Aliases matching the apm-auth skill spec (CCEM-565)
     post "/auth/session/start", AuthController, :session_start
     post "/auth/session/heartbeat", AuthController, :session_heartbeat
@@ -678,6 +692,13 @@ defmodule ApmV5Web.Router do
     get "/library/learnings", LibraryController, :learnings
     get "/library/graph", LibraryController, :graph
     post "/library/refresh", LibraryController, :refresh
+
+    # ── EXTENSION: governance (CP-229 / US-461 · CP-233/US-465 · CP-234/US-466) ──
+    get "/governance/controls", GovernanceController, :list_controls
+    get "/governance/report", GovernanceController, :report
+    post "/governance/report/refresh", GovernanceController, :refresh_report
+    get "/governance/circuit-breakers", GovernanceController, :list_circuit_breakers
+    post "/governance/circuit-breakers/:session_id/close", GovernanceController, :close_circuit
   end
 
   # A2UI flexible format endpoint

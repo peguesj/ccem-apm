@@ -29,7 +29,7 @@ config :opentelemetry,
   resource: [
     service: [
       name: "ccem_apm",
-      version: System.get_env("RELEASE_VSN", "9.2.1")
+      version: System.get_env("RELEASE_VSN", "9.3.0")
     ]
   ]
 
@@ -42,6 +42,20 @@ config :opentelemetry,
     otel_batch_processor: %{
       exporter: {:opentelemetry_exporter, %{}}
     }
+  ]
+
+# ── Cloak AES-256-GCM vault (comp-mg2 / CP-235) ─────────────────────────────
+# CCEM_CLOAK_KEY must be a base64-encoded 32-byte key.
+# In dev/test a random key is generated if the env var is absent.
+# In production, always set CCEM_CLOAK_KEY to a stable value — changing it
+# invalidates previously-encrypted audit log entries.
+cloak_key_b64 =
+  System.get_env("CCEM_CLOAK_KEY") ||
+    Base.encode64(:crypto.strong_rand_bytes(32))
+
+config :apm_v5, ApmV5.Governance.Vault,
+  ciphers: [
+    default: {Cloak.Ciphers.AES.GCM, tag: "AES.GCM.V1", key: Base.decode64!(cloak_key_b64)}
   ]
 
 if config_env() == :prod do

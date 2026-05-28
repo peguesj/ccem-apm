@@ -65,5 +65,12 @@ defmodule ApmV5Web.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
+
+  # Cache the OpenAPI spec at startup so CastAndValidate can introspect it.
+  # Wave 1 (CP-228): no paths are annotated yet, so CastAndValidate is a
+  # no-op for all existing routes. Annotation migrates incrementally in Wave 2
+  # (api-s5 / api-s7). See ApmV5Web.ApiSpec for details.
+  plug OpenApiSpex.Plug.PutApiSpec, module: ApmV5Web.ApiSpec
+
   plug ApmV5Web.Router
 end

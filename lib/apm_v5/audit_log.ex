@@ -283,6 +283,8 @@ defmodule ApmV5.AuditLog do
     result = Keyword.get(opts, :result)
     # v3 cursor filter (audit-s8)
     after_cursor = Keyword.get(opts, :after)
+    # v3 cloak decryption (comp-mg2 / CP-235)
+    include_decrypted = Keyword.get(opts, :include_decrypted, false)
 
     results =
       fetch_after_cursor(@ets_table, after_cursor)
@@ -296,6 +298,7 @@ defmodule ApmV5.AuditLog do
       |> maybe_filter_since(since)
       |> maybe_filter_until(until_ts)
       |> Enum.take(limit)
+      |> maybe_decrypt(include_decrypted)
 
     {:reply, results, state}
   end
@@ -460,6 +463,16 @@ defmodule ApmV5.AuditLog do
     tool_name = Map.get(context, :tool_name) || Map.get(context, "tool_name")
     causation_id = Map.get(context, :causation_id) || Map.get(context, "causation_id")
 
+    # comp-mg2: encrypt PII/sensitive fields BEFORE canonical event composition.
+    # The self_hash chain therefore covers ciphertext, not plaintext —
+    # tamper-evident without leaking raw PII into the hash chain.
+    stored_details =
+      if is_map(details) and ApmV5.Governance.Vault.sensitive?(details) do
+        ApmV5.Governance.Vault.encrypt_details(details)
+      else
+        details
+      end
+
     # Canonical event — hash input. EXCLUDES self_hash so the hash is not
     # self-referential. All new v2 fields are included so agent attribution
     # participates in the chain (tampering them after the fact is detectable).
@@ -471,7 +484,7 @@ defmodule ApmV5.AuditLog do
       event_type: event_type,
       actor: actor,
       resource: resource,
-      details: details,
+      details: stored_details,
       correlation_id: correlation_id,
       causation_id: causation_id,
       # v2 attribution
@@ -724,5 +737,19 @@ defmodule ApmV5.AuditLog do
 
   defp log_dir do
     Application.get_env(:apm_v5, :audit_log_dir, @log_dir)
+  end
+
+  # comp-mg2: decrypt details when include_decrypted: true is requested.
+  # Only decrypts events whose details map has encrypted __enc__ wrappers.
+  defp maybe_decrypt(events, false), do: events
+
+  defp maybe_decrypt(events, true) do
+    Enum.map(events, fn event ->
+      if is_map(event.details) do
+        Map.put(event, :details, ApmV5.Governance.Vault.decrypt_details(event.details))
+      else
+        event
+      end
+    end)
   end
 end

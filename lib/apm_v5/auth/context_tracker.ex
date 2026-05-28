@@ -111,6 +111,13 @@ defmodule ApmV5.Auth.ContextTracker do
     new_session_state = %{ceiling: new_ceiling, seq: new_seq}
 
     if new_ceiling != session_state.ceiling do
+      # KRI: trust_degradation_events
+      :telemetry.execute(
+        [:apm_v5, :governance, :trust_degradation_events],
+        %{count: 1, from_level: session_state.ceiling, to_level: new_ceiling},
+        %{session_id: session_id}
+      )
+
       broadcast({:trust_ceiling_changed, session_id, new_ceiling})
 
       # Also update SessionStore if available

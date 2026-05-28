@@ -43,7 +43,8 @@ defmodule ApmV5.AgUi.A2A.AgentCard do
           defaultInputModes: [String.t()],
           defaultOutputModes: [String.t()],
           skills: [AgentSkill.t()],
-          authentication: map()
+          authentication: map(),
+          metadata: map()
         }
 
   @derive Jason.Encoder
@@ -57,7 +58,8 @@ defmodule ApmV5.AgUi.A2A.AgentCard do
             defaultInputModes: ["text/plain"],
             defaultOutputModes: ["application/json"],
             skills: [],
-            authentication: %{schemes: ["Bearer"]}
+            authentication: %{schemes: ["Bearer"]},
+            metadata: %{}
 
   @doc """
   Returns the AgentCard for the APM server itself — what gets served at
@@ -137,9 +139,41 @@ defmodule ApmV5.AgUi.A2A.AgentCard do
       description: identity.agent_description || identity.display_name || "",
       version: identity.agent_version || ApmV5.AppVersion.current(),
       url: "#{base_url}/api/v2/agents/#{identity.agent_id}",
-      skills: identity_to_skills(identity)
+      skills: identity_to_skills(identity),
+      metadata: build_metadata(identity)
     }
   end
+
+  # ---------------------------------------------------------------------------
+  # Private — metadata helpers
+  # ---------------------------------------------------------------------------
+
+  # Builds the metadata map. The `governance` key is only injected when at
+  # least one governance field is present on the identity, keeping standard
+  # A2A card surface clean for agents that have no governance declaration.
+  defp build_metadata(%AgentIdentity{} = identity) do
+    governance = build_governance(identity)
+
+    if map_size(governance) == 0 do
+      %{}
+    else
+      %{governance: governance}
+    end
+  end
+
+  defp build_governance(%AgentIdentity{
+         asl_tier: asl_tier,
+         ai_act_risk_class: ai_act_risk_class,
+         disclosure_text: disclosure_text
+       }) do
+    %{}
+    |> maybe_put(:asl_tier, asl_tier)
+    |> maybe_put(:ai_act_risk_class, ai_act_risk_class)
+    |> maybe_put(:disclosure_text, disclosure_text)
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp identity_to_skills(%AgentIdentity{skills: skills})
        when is_list(skills) and skills != [] do
