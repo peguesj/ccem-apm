@@ -49,6 +49,33 @@ defmodule ApmV5Web.V2.ProvenanceController do
     })
   end
 
+  # ── GET /api/v2/agents/:agent_id/lineage ───────────────────────────────────
+
+  @doc """
+  Returns role appearance lineage for the given `agent_id` (treated as a role name).
+
+  Response: `{"agent_id": "...", "appearances": [...]}`
+  """
+  @spec agent_lineage(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def agent_lineage(conn, %{"agent_id" => agent_id}) do
+    alias ApmV5.Identity.AgentRoleIndex
+
+    appearances = AgentRoleIndex.role_appearances(agent_id)
+
+    json(conn, %{
+      "agent_id" => agent_id,
+      "appearances" => Enum.map(appearances, fn a ->
+        %{
+          "role_id" => Map.get(a, :role_id) || Map.get(a, "role_id"),
+          "formation_id" => Map.get(a, :formation_id) || Map.get(a, "formation_id"),
+          "normalized_formation" =>
+            Map.get(a, :normalized_formation) || Map.get(a, "normalized_formation"),
+          "touched_at" => Map.get(a, :touched_at) || Map.get(a, "touched_at")
+        }
+      end)
+    })
+  end
+
   # ── GET /api/v2/provenance/lineage ──────────────────────────────────────────
 
   @doc """

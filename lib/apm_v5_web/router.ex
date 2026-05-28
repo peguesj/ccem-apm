@@ -402,6 +402,8 @@ defmodule ApmV5Web.Router do
     # Core: agents, sessions, metrics, SLOs, alerts, audit
     get "/agents", ApiV2Controller, :list_agents
     get "/agents/:id", ApiV2Controller, :get_agent
+    # prov-w2-s5: agent lineage (role appearances across sessions)
+    get "/agents/:agent_id/lineage", ProvenanceController, :agent_lineage
     get "/sessions", ApiV2Controller, :list_sessions
     get "/metrics", ApiV2Controller, :fleet_metrics
     get "/metrics/:agent_id", ApiV2Controller, :agent_metrics

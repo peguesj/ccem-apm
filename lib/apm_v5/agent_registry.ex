@@ -240,6 +240,14 @@ defmodule ApmV5.AgentRegistry do
     # Broadcast agent registration to LiveView clients
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:agents", {:agent_registered, agent})
 
+    # prov-w2-s5: record role appearance in AgentRoleIndex if available
+    role = Map.get(metadata, :role) || Map.get(metadata, "role")
+    formation_id = Map.get(metadata, :formation_id) || Map.get(metadata, "formation_id")
+
+    if role && formation_id && Process.whereis(ApmV5.Identity.AgentRoleIndex) do
+      ApmV5.Identity.AgentRoleIndex.touch(role, formation_id)
+    end
+
     {:reply, :ok, state}
   end
 
