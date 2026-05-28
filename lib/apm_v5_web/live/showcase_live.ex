@@ -18,6 +18,9 @@ defmodule ApmV5Web.ShowcaseLive do
   alias ApmV5.ShowcaseDataStore
   alias ApmV5.UpmStore
 
+  # IPC event_type prefix patterns that trigger re-render
+  @ipc_event_prefixes ["upm.", "formation.", "wave.", "version."]
+
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
@@ -27,6 +30,7 @@ defmodule ApmV5Web.ShowcaseLive do
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "ag_ui:events")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:showcase")
       Phoenix.PubSub.subscribe(ApmV5.PubSub, "apm:activity_log")
+      Phoenix.PubSub.subscribe(ApmV5.PubSub, "ccem:ipc:events")
 
       :timer.send_interval(5_000, self(), :heartbeat_push)
     end
@@ -431,9 +435,30 @@ defmodule ApmV5Web.ShowcaseLive do
     end
   end
 
+  def handle_info({:ccem_ipc, event}, socket) do
+    event_type = Map.get(event, "event_type", "")
+
+    if ipc_event_matches?(event_type) do
+      payload = Map.get(event, "payload", %{})
+
+      {:noreply,
+       push_event(socket, "showcase:ipc_event", %{
+         event_type: event_type,
+         payload: payload
+       })}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   # --- Private ---
+
+  @spec ipc_event_matches?(String.t()) :: boolean()
+  defp ipc_event_matches?(event_type) do
+    Enum.any?(@ipc_event_prefixes, &String.starts_with?(event_type, &1))
+  end
 
   defp load_project(project, socket) do
     showcase_data = ShowcaseDataStore.get_showcase_data(project)
