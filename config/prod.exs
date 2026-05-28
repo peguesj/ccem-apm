@@ -20,5 +20,14 @@ config :apm_v5, ApmV5Web.Endpoint,
 # Do not print debug messages in production
 config :logger, level: :info
 
+# --- v9.3.0 Audit: structured JSON logging (audit-s5 / CP-223) ---
+# In production, replace the default text formatter with LoggerJSON ECS output.
+# `agent_id`, `session_id`, and `formation_id` are emitted automatically when
+# set via `Logger.metadata/1` (e.g. in session_init or APM session start).
+config :logger, :default_handler,
+  formatter:
+    {LoggerJSON.Formatters.Elastic,
+     metadata: [:agent_id, :session_id, :formation_id, :request_id, :remote_ip]}
+
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

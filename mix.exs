@@ -79,7 +79,9 @@ defmodule ApmV5.MixProject do
       {:opentelemetry_bandit, "~> 0.3"},
       {:opentelemetry_phoenix, "~> 2.0"},
       {:opentelemetry_process_propagator, "~> 0.3"},
-      {:peep, "~> 5.0"}
+      {:peep, "~> 5.0"},
+      # --- v9.3.0 Audit: structured Logger backend (audit-s5 / CP-223) ---
+      {:logger_json, "~> 7.0"}
     ]
   end
 
