@@ -202,78 +202,57 @@ defmodule ApmV5.AgentRegistry do
 
   @impl true
   def handle_call({:register_agent, agent_id, metadata, project_name}, _from, state) do
-    now = DateTime.utc_now() |> DateTime.to_iso8601()
+    formation_id =
+      Map.get(metadata, :formation_id, Map.get(metadata, "formation_id"))
 
-    # Build canonical identity via AgentIdentity (OTel gen_ai.agent.* + CCEM extensions)
-    params_with_project = Map.put(metadata, :project_name, project_name || Map.get(metadata, :project_name))
-    identity = ApmV5.AgentIdentity.build(agent_id, params_with_project)
-    identity_map = ApmV5.AgentIdentity.to_map(identity)
+    agent_name = Map.get(metadata, :agent_name, Map.get(metadata, "agent_name"))
+    agent_description = Map.get(metadata, :agent_description, Map.get(metadata, "agent_description"))
+    agent_version = Map.get(metadata, :agent_version, Map.get(metadata, "agent_version"))
 
-    # Extract optional W3C trace context (obs-s3 / CP-218).
-    # Persisted alongside agent metadata so formation tree builders can
-    # reconstruct parent-child span chains across the agent hierarchy.
-    trace_context = build_trace_context(metadata)
+    span_opts =
+      [provider_name: "ccem"]
+      |> maybe_add_opt(:agent_name, agent_name)
+      |> maybe_add_opt(:agent_description, agent_description)
+      |> maybe_add_opt(:agent_version, agent_version)
 
-    agent =
-      identity_map
-      |> Map.merge(%{
-        id: agent_id,
-        tier: Map.get(metadata, :tier, Map.get(metadata, "tier", 1)),
-        status: Map.get(metadata, :status, Map.get(metadata, "status", "idle")),
-        deps: Map.get(metadata, :deps, Map.get(metadata, "deps", [])),
-        metadata: Map.get(metadata, :metadata, Map.get(metadata, "metadata", %{})),
-        namespace: Map.get(metadata, :namespace, Map.get(metadata, "namespace", nil)),
-        member_count: Map.get(metadata, :member_count, Map.get(metadata, "member_count", nil)),
-        wave_total: Map.get(metadata, :wave_total, Map.get(metadata, "wave_total", nil)),
-        trace_context: trace_context,
-        registered_at: now,
-        last_seen: now
-      })
+    result =
+      ApmV5.Tracing.with_agent_span(agent_id, formation_id, fn ->
+        do_register_agent(agent_id, metadata, project_name)
+      end, span_opts)
 
-    :ets.insert(@agents_table, {agent_id, agent})
-
-    # Emit AG-UI RUN_STARTED event if EventStream is running
-    if Process.whereis(ApmV5.EventStream) do
-      ApmV5.EventStream.emit_run_started(agent_id, Map.get(metadata, :metadata, %{}))
-    end
-
-    # Broadcast agent registration to LiveView clients
-    Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:agents", {:agent_registered, agent})
-
-    # prov-w2-s5: record role appearance in AgentRoleIndex if available
-    role = Map.get(metadata, :role) || Map.get(metadata, "role")
-    formation_id = Map.get(metadata, :formation_id) || Map.get(metadata, "formation_id")
-
-    if role && formation_id && Process.whereis(ApmV5.Identity.AgentRoleIndex) do
-      ApmV5.Identity.AgentRoleIndex.touch(role, formation_id)
-    end
-
-    {:reply, :ok, state}
+    {:reply, result, state}
   end
 
   def handle_call({:update_status, agent_id, status}, _from, state) do
-    case :ets.lookup(@agents_table, agent_id) do
-      [{^agent_id, agent}] ->
-        now = DateTime.utc_now() |> DateTime.to_iso8601()
-        updated = %{agent | status: status, last_seen: now}
-        :ets.insert(@agents_table, {agent_id, updated})
+    result =
+      case :ets.lookup(@agents_table, agent_id) do
+        [{^agent_id, agent}] ->
+          formation_id = Map.get(agent, :formation_id)
 
-        # Emit AG-UI events for status transitions
-        if Process.whereis(ApmV5.EventStream) do
-          if status in ["completed", "finished"] do
-            run_id = Map.get(agent.metadata, "run_id", "run-#{agent_id}")
-            ApmV5.EventStream.emit_run_finished(agent_id, run_id)
-          end
-        end
+          ApmV5.Tracing.with_agent_span(agent_id, formation_id, fn ->
+            now = DateTime.utc_now() |> DateTime.to_iso8601()
+            updated = %{agent | status: status, last_seen: now}
+            :ets.insert(@agents_table, {agent_id, updated})
 
-        # Broadcast status change to LiveView clients
-        Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:agents", {:agent_updated, updated})
+            # Emit AG-UI events for status transitions
+            if Process.whereis(ApmV5.EventStream) do
+              if status in ["completed", "finished"] do
+                run_id = Map.get(agent.metadata, "run_id", "run-#{agent_id}")
+                ApmV5.EventStream.emit_run_finished(agent_id, run_id)
+              end
+            end
 
-        {:reply, :ok, state}
+            # Broadcast status change to LiveView clients
+            Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:agents", {:agent_updated, updated})
 
-      [] ->
-        {:reply, {:error, :not_found}, state}
-    end
+            :ok
+          end, provider_name: "ccem")
+
+        [] ->
+          {:error, :not_found}
+      end
+
+    {:reply, result, state}
   end
 
   def handle_call({:register_session, session_data}, _from, state) do
@@ -442,6 +421,59 @@ defmodule ApmV5.AgentRegistry do
     :ok
   end
 
+  # Core agent registration logic, extracted so it can be wrapped in an OTel
+  # span by handle_call({:register_agent, ...}) (prov-w3-s8 / CP-282).
+  @spec do_register_agent(String.t(), map(), String.t() | nil) :: :ok
+  defp do_register_agent(agent_id, metadata, project_name) do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    # Build canonical identity via AgentIdentity (OTel gen_ai.agent.* + CCEM extensions)
+    params_with_project = Map.put(metadata, :project_name, project_name || Map.get(metadata, :project_name))
+    identity = ApmV5.AgentIdentity.build(agent_id, params_with_project)
+    identity_map = ApmV5.AgentIdentity.to_map(identity)
+
+    # Extract optional W3C trace context (obs-s3 / CP-218).
+    trace_context = build_trace_context(metadata)
+
+    # Build delegation chain when parent_agent_id is present (prov-w3-s7 / CP-281).
+    parent_agent_id =
+      Map.get(metadata, :parent_agent_id, Map.get(metadata, "parent_agent_id"))
+
+    session_id =
+      Map.get(metadata, :session_id, Map.get(metadata, "session_id", "unknown"))
+
+    delegation_chain = build_delegation_chain(agent_id, parent_agent_id, session_id)
+
+    agent =
+      identity_map
+      |> Map.merge(%{
+        id: agent_id,
+        tier: Map.get(metadata, :tier, Map.get(metadata, "tier", 1)),
+        status: Map.get(metadata, :status, Map.get(metadata, "status", "idle")),
+        deps: Map.get(metadata, :deps, Map.get(metadata, "deps", [])),
+        metadata: Map.get(metadata, :metadata, Map.get(metadata, "metadata", %{})),
+        namespace: Map.get(metadata, :namespace, Map.get(metadata, "namespace", nil)),
+        member_count: Map.get(metadata, :member_count, Map.get(metadata, "member_count", nil)),
+        wave_total: Map.get(metadata, :wave_total, Map.get(metadata, "wave_total", nil)),
+        trace_context: trace_context,
+        delegation_chain: delegation_chain,
+        registered_at: now,
+        last_seen: now
+      })
+
+    :ets.insert(@agents_table, {agent_id, agent})
+
+    # Emit AG-UI RUN_STARTED event if EventStream is running
+    if Process.whereis(ApmV5.EventStream) do
+      ApmV5.EventStream.emit_run_started(agent_id, Map.get(metadata, :metadata, %{}))
+    end
+
+    # Broadcast agent registration to LiveView clients
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:agents", {:agent_registered, agent})
+
+    :ok
+  end
+
   @doc "List agents belonging to a formation."
   @spec list_formation(String.t()) :: [map()]
   def list_formation(formation_id) do
@@ -600,6 +632,51 @@ defmodule ApmV5.AgentRegistry do
     end)
   end
   defp normalize_actions(_), do: []
+
+  # Build a JWT-encoded delegation chain for a new agent.
+  # When parent_agent_id is present, looks up the parent's existing chain and
+  # appends a new hop.  If the parent has no chain or cannot be found, a fresh
+  # 1-hop chain is created with the parent's DID as authorizer.
+  # Returns nil when no parent is specified.
+  @spec build_delegation_chain(String.t(), String.t() | nil, String.t()) :: String.t() | nil
+  defp build_delegation_chain(_agent_id, nil, _session_id), do: nil
+
+  defp build_delegation_chain(agent_id, parent_agent_id, session_id) do
+    parent_did = "did:key:ccem-" <> parent_agent_id
+    agent_did = "did:key:ccem-" <> agent_id
+
+    # Resolve the chain to extend: prefer the persistent_term-stored struct from
+    # a previously registered parent, fall back to fresh single-hop chain.
+    {:ok, chain} =
+      case :persistent_term.get({__MODULE__, :delegation_chain, parent_agent_id}, nil) do
+        nil ->
+          # No parent chain stored yet — start a fresh 1-hop chain
+          ApmV5.Provenance.DelegationChain.new_chain(parent_did, agent_did, session_id)
+
+        existing_chain ->
+          # Extend the parent's chain; fall back to fresh chain if tampered
+          case ApmV5.Provenance.DelegationChain.append_hop(existing_chain, agent_did, session_id) do
+            {:ok, _} = ok ->
+              ok
+
+            {:error, _} ->
+              # Parent chain is tampered — start fresh from parent DID
+              ApmV5.Provenance.DelegationChain.new_chain(parent_did, agent_did, session_id)
+          end
+      end
+
+    jwt = ApmV5.Provenance.DelegationChain.to_jwt(chain)
+    # Store the struct under this agent's key so its children can extend the chain.
+    :persistent_term.put({__MODULE__, :delegation_chain, agent_id}, chain)
+    jwt
+  rescue
+    _ -> nil
+  end
+
+  # Append `{key, value}` to a keyword list only when value is non-nil.
+  @spec maybe_add_opt(keyword(), atom(), term()) :: keyword()
+  defp maybe_add_opt(opts, _key, nil), do: opts
+  defp maybe_add_opt(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp atomize_safe(map) when is_map(map) do
     Map.new(map, fn

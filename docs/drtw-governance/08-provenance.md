@@ -41,15 +41,26 @@
 - **S6** `LineageTracker` GenServer + lineage DAG API — M (2 days)
 
 ### Wave 3 (depends on Wave 1, parallel)
-- **S7** `DelegationChain` module — pure functional, `:crypto` only — M (2 days)
-- **S8** OTel GenAI `gen_ai.agent.*` span emission in `AgentRegistry` — M (2 days)
+- [x] **S7** `DelegationChain` module — pure functional, `:crypto` only — M (prov-w3-s7 / CP-281 / SHIPPED)
+- [x] **S8** OTel GenAI `gen_ai.agent.*` span emission in `AgentRegistry` — M (prov-w3-s8 / CP-282 / SHIPPED)
 
 ### Wave 4 (depends on Waves 1-3)
 - **S9** Provenance REST API (6 new endpoints) — M (2 days)
 - **S10** `ProvenanceLive` at `/intelligence/provenance` (Artifact/Lineage/Bundle tabs) — L (3 days)
 
 ## New Deps Summary
-5 new packages: `joken`, `joken_jwks`, `ex_did`, `prov`/`rdf`/`grax`, plus OTel already coming from observability report. All MIT/Apache-2.0, no CVEs.
+5 new packages (originally planned): `joken`, `joken_jwks`, `ex_did`, `prov`/`rdf`/`grax`, plus OTel already coming from observability report. All MIT/Apache-2.0, no CVEs.
+
+### Wave 3 S7 DRTW Decision — DelegationChain JWT encoding
+**Decision**: No `joken` dep for `DelegationChain.to_jwt/1`.
+**Rationale**: `DelegationChain.to_jwt/1` is a transport-envelope function producing a
+`delegation_chain` JWT claim for downstream validators.  Full EdDSA JWT (`alg: EdDSA`)
+requires JOSE/JWKS infrastructure.  The JWT payload's trust anchor is the Ed25519 hop
+signatures already embedded in the chain; the JWT wrapper uses HS256 with the APM's
+private key bytes as a shared secret, which is adequate for intra-CCEM wire transport.
+**Stack used**: `:crypto` (OTP native) + `Base.url_encode64/2` (stdlib) + `Jason.encode!/1`
+(existing dep, `~> 1.2`).  Zero new dependencies.  Joken will be evaluated when JWKS
+distribution (`GET /api/v2/identity/jwks`) is implemented in Wave 4.
 
 ## EU AI Act Note
 Enforcement begins August 2, 2026. `AuditLog` hash chain satisfies lightweight Article 13 transparency for internal tooling. C2PA has no Elixir implementation — defer. `Co-Authored-By` git trailer already partially satisfies Article 52 disclosure.
