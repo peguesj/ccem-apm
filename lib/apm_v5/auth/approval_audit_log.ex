@@ -1,78 +1,140 @@
 defmodule ApmV5.Auth.ApprovalAuditLog do
   @moduledoc """
-  Stores authorization decisions with full context for audit trail.
+  Thin shim over `ApmV5.AuditLog` for approval decision records.
 
-  ETS-backed GenServer that records every approve/deny decision from
-  PendingDecisions, including agent context, tool name, timestamps,
-  and a snapshot of the request at decision time.
+  audit-s4 (CP-222 / v9.3.0): merged into the unified AuditLog hash chain.
+  All writes delegate to `AuditLog.log_sync_with_context/6` with
+  `event_type: :approval_decision` so approval events participate in the
+  single tamper-evident chain and the dual-GenServer schema divergence is closed.
 
-  Part of US-326 — approval history log with audit trail.
+  ## Public API — unchanged from v1
+  - `log_decision/1` — record an approve/deny entry
+  - `list_entries/1` — query entries (delegates to AuditLog.query/1)
+  - `tail/1` — last N entries (delegates to AuditLog.tail/1, filtered)
+  - `count/0` — total :approval_decision events in AuditLog
+  - `clear/0` — test-only; clears the unified AuditLog
+
+  ## Backward-Compatibility
+  All existing callers (`PendingDecisions`, `AuthController`,
+  `ApprovalHistoryLive`, `ApprovalsLive`) continue to work unchanged.
+  The separate `:approval_audit_log` ETS table no longer exists; the
+  `ApprovalAuditLog` GenServer is no longer started in the supervision tree
+  (removed from `AuthSupervisor`).  The module itself requires no process to
+  be alive — all functions are direct calls to AuditLog.
   """
 
-  use GenServer
   require Logger
 
-  @table :approval_audit_log
-  @max_entries 10_000
-
   # ── Client API ──────────────────────────────────────────────────────────────
-
-  @spec start_link(keyword()) :: GenServer.on_start()
-  def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
 
   @doc """
   Record an authorization decision.
 
-  Entry must include: agent_id, tool_name, decision (:approve | :deny),
+  Entry should include: agent_id, tool_name, decision (:approve | :deny),
   and optionally context_snapshot, request_id, session_id, risk_level.
-  Timestamp is added automatically if not provided.
+  Delegates synchronously to AuditLog so the record lands in the hash chain
+  before this function returns.
   """
   @spec log_decision(map()) :: :ok
   def log_decision(entry) when is_map(entry) do
-    GenServer.cast(__MODULE__, {:log, entry})
+    decision = Map.get(entry, :decision)
+
+    result_atom =
+      case decision do
+        :approve -> :success
+        :deny -> :denied
+        _ -> nil
+      end
+
+    context = %{
+      agent_id: Map.get(entry, :agent_id),
+      session_id: Map.get(entry, :session_id),
+      tool_name: Map.get(entry, :tool_name),
+      severity: :info,
+      result: result_atom
+    }
+
+    # Sync write so the caller gets chain-ordering guarantees.
+    ApmV5.AuditLog.log_sync_with_context(
+      :approval_decision,
+      Map.get(entry, :agent_id) || "approval_system",
+      Map.get(entry, :tool_name) || "unknown",
+      entry,
+      Map.get(entry, :request_id),
+      context
+    )
+
+    # Broadcast on the legacy topic so existing LiveView subscribers continue
+    # to receive live updates (ApprovalsLive subscribes to "agentlock:audit").
+    Phoenix.PubSub.broadcast(
+      ApmV5.PubSub,
+      "agentlock:audit",
+      {:audit_entry_added, entry}
+    )
+
+    Logger.debug(
+      "[ApprovalAuditLog] Recorded: #{entry[:agent_id]} / #{entry[:tool_name]} -> #{entry[:decision]}"
+    )
+
+    :ok
   end
 
   @doc """
-  List audit log entries with optional filters.
+  List approval audit entries with optional filters.
+
+  Delegates to `AuditLog.query/1` with `event_type: :approval_decision`
+  pre-applied.  All v1 filter options (agent_id, tool_name, decision, since,
+  limit) are supported via the unified query layer.
 
   Options:
-  - `agent_id:` — filter by agent ID (substring match)
-  - `tool_name:` — filter by tool name (exact match)
-  - `decision:` — filter by decision (:approve | :deny)
-  - `since:` — only entries after this DateTime
-  - `limit:` — max entries to return (default 200)
+  - `agent_id:` — filter by agent ID (exact match via AuditLog.query)
+  - `tool_name:` — filter by tool name (post-filter on details field)
+  - `decision:` — filter by decision (:approve | :deny) (post-filter)
+  - `since:` — only entries after this DateTime (ISO 8601 string)
+  - `limit:` — max entries (default 200)
   """
   @spec list_entries(keyword()) :: [map()]
   def list_entries(opts \\ []) do
-    case :ets.info(@table) do
-      :undefined ->
-        []
+    limit = Keyword.get(opts, :limit, 200)
+    agent_id = Keyword.get(opts, :agent_id)
+    tool_name = Keyword.get(opts, :tool_name)
+    decision = Keyword.get(opts, :decision)
+    since = Keyword.get(opts, :since)
 
-      _ ->
-        agent_id = Keyword.get(opts, :agent_id)
-        tool_name = Keyword.get(opts, :tool_name)
-        decision = Keyword.get(opts, :decision)
-        since = Keyword.get(opts, :since)
-        limit = Keyword.get(opts, :limit, 200)
+    query_opts =
+      [event_type: :approval_decision, limit: limit]
+      |> maybe_append(:agent_id, agent_id)
+      |> maybe_append(:since, since && to_string(since))
 
-        :ets.tab2list(@table)
-        |> Enum.map(fn {_id, entry} -> entry end)
-        |> maybe_filter(:agent_id, agent_id)
-        |> maybe_filter(:tool_name, tool_name)
-        |> maybe_filter(:decision, decision)
-        |> maybe_filter_since(since)
-        |> Enum.sort_by(& &1.timestamp, {:desc, DateTime})
-        |> Enum.take(limit)
-    end
+    ApmV5.AuditLog.query(query_opts)
+    |> post_filter(:tool_name, tool_name)
+    |> post_filter(:decision, decision)
+    |> Enum.map(&normalize_entry/1)
   end
 
   @doc """
-  Clear all entries. Test-only.
+  Last N approval audit entries, newest first.
 
-  Raises in non-test environments to prevent accidental approval-audit
-  destruction in dev/prod (audit-s2 v9.2.1 hardening).
+  Because AuditLog.tail/1 returns the last N events across all event types,
+  we query by :approval_decision specifically.
+  """
+  @spec tail(non_neg_integer()) :: [map()]
+  def tail(n \\ 20) do
+    list_entries(limit: n)
+  end
+
+  @doc "Count of :approval_decision entries in the unified AuditLog."
+  @spec count() :: non_neg_integer()
+  def count do
+    ApmV5.AuditLog.query(event_type: :approval_decision, limit: 100_000)
+    |> length()
+  end
+
+  @doc """
+  Clear all audit log entries.
+
+  Test-only: raises in non-test environments. Clears the unified AuditLog
+  (same guard as `AuditLog.clear_all/0`).
   """
   @spec clear() :: :ok
   def clear do
@@ -80,124 +142,51 @@ defmodule ApmV5.Auth.ApprovalAuditLog do
       raise "ApprovalAuditLog.clear/0 is test-only. Refusing to clear in #{Mix.env()}."
     end
 
-    GenServer.call(__MODULE__, :clear)
-  end
-
-  @doc "Count of entries in the log."
-  @spec count() :: non_neg_integer()
-  def count do
-    case :ets.info(@table) do
-      :undefined -> 0
-      _ -> :ets.info(@table, :size)
-    end
-  end
-
-  # ── GenServer Callbacks ──────────────────────────────────────────────────────
-
-  @impl true
-  def init(_opts) do
-    # :protected — only the GenServer can write; all processes can read.
-    # Prevents tamper surface where any process could mutate approval audit
-    # entries bypassing the GenServer (audit-s2 v9.2.1 hardening).
-    :ets.new(@table, [:named_table, :set, :protected, read_concurrency: true])
-    {:ok, %{counter: 0}}
-  end
-
-  @impl true
-  def handle_cast({:log, entry}, %{counter: counter} = state) do
-    id = "audit-#{counter}"
-
-    record =
-      entry
-      |> Map.put_new(:id, id)
-      |> Map.put_new(:timestamp, DateTime.utc_now())
-      |> Map.put_new(:request_id, nil)
-      |> Map.put_new(:session_id, nil)
-      |> Map.put_new(:risk_level, nil)
-      |> Map.put_new(:context_snapshot, %{})
-
-    :ets.insert(@table, {id, record})
-
-    # Evict oldest if over capacity
-    if counter >= @max_entries do
-      evict_id = "audit-#{counter - @max_entries}"
-      :ets.delete(@table, evict_id)
-    end
-
-    Phoenix.PubSub.broadcast(
-      ApmV5.PubSub,
-      "agentlock:audit",
-      {:audit_entry_added, record}
-    )
-
-    # audit-s3: mirror to AuditLog with typed attribution so approval decisions
-    # participate in the hash chain (CP-221 / US-453).
-    mirror_to_audit_log(record)
-
-    Logger.debug("[ApprovalAuditLog] Recorded: #{entry[:agent_id]} / #{entry[:tool_name]} -> #{entry[:decision]}")
-
-    {:noreply, %{state | counter: counter + 1}}
-  end
-
-  # Mirror an approval decision record to the main AuditLog for chain inclusion.
-  # Uses log_with_context so agent_id + session_id participate in the hash.
-  defp mirror_to_audit_log(record) do
-    try do
-      decision = Map.get(record, :decision)
-      result_atom = case decision do
-        :approve -> :success
-        :deny    -> :denied
-        _        -> nil
-      end
-
-      context = %{
-        agent_id: Map.get(record, :agent_id),
-        session_id: Map.get(record, :session_id),
-        tool_name: Map.get(record, :tool_name),
-        severity: :info,
-        result: result_atom
-      }
-
-      ApmV5.AuditLog.log_with_context(
-        :approval_decision,
-        Map.get(record, :agent_id) || "approval_system",
-        Map.get(record, :tool_name) || "unknown",
-        Map.drop(record, [:id]),
-        Map.get(record, :request_id),
-        context
-      )
-    rescue
-      _ -> :ok
-    catch
-      :exit, _ -> :ok
-    end
-  end
-
-  @impl true
-  def handle_call(:clear, _from, _state) do
-    :ets.delete_all_objects(@table)
-    {:reply, :ok, %{counter: 0}}
+    ApmV5.AuditLog.clear_all()
   end
 
   # ── Private ──────────────────────────────────────────────────────────────────
 
-  defp maybe_filter(entries, :agent_id, nil), do: entries
-  defp maybe_filter(entries, :agent_id, agent_id) do
-    Enum.filter(entries, &String.contains?(to_string(&1.agent_id), agent_id))
+  defp maybe_append(opts, _key, nil), do: opts
+  defp maybe_append(opts, key, value), do: Keyword.put(opts, key, value)
+
+  # Post-filter on the details map inside the AuditLog entry.
+  # AuditLog stores the original entry map as `details`, so approval-specific
+  # fields (tool_name, decision) live under event.details.
+  defp post_filter(entries, _field, nil), do: entries
+
+  defp post_filter(entries, :tool_name, tool_name) do
+    Enum.filter(entries, fn e ->
+      Map.get(e, :resource) == tool_name ||
+        Map.get(e.details || %{}, :tool_name) == tool_name
+    end)
   end
 
-  defp maybe_filter(entries, :tool_name, nil), do: entries
-  defp maybe_filter(entries, :tool_name, tool_name) do
-    Enum.filter(entries, &(&1.tool_name == tool_name))
+  defp post_filter(entries, :decision, decision) do
+    Enum.filter(entries, fn e ->
+      Map.get(e.details || %{}, :decision) == decision
+    end)
   end
 
-  defp maybe_filter(entries, :decision, nil), do: entries
-  defp maybe_filter(entries, :decision, decision) do
-    Enum.filter(entries, &(&1.decision == decision))
-  end
+  # Normalize an AuditLog event record back into the shape that callers of
+  # list_entries/1 expected from the old ApprovalAuditLog ETS records:
+  # a flat map with :agent_id, :tool_name, :decision, :timestamp, etc.
+  defp normalize_entry(event) do
+    details = Map.get(event, :details) || %{}
 
-  defp maybe_filter_since(entries, nil), do: entries
-  defp maybe_filter_since(entries, since) do
-    Enum.filter(entries, &(DateTime.compare(&1.timestamp, since) != :lt))
+    %{
+      id: Map.get(event, :event_id) || Map.get(event, :id),
+      agent_id: Map.get(event, :agent_id) || Map.get(details, :agent_id),
+      session_id: Map.get(event, :session_id) || Map.get(details, :session_id),
+      tool_name: Map.get(event, :tool_name) || Map.get(details, :tool_name),
+      decision: Map.get(details, :decision),
+      risk_level: Map.get(details, :risk_level),
+      request_id: Map.get(event, :correlation_id) || Map.get(details, :request_id),
+      context_snapshot: Map.get(details, :context_snapshot) || %{},
+      timestamp: Map.get(event, :timestamp),
+      # Expose chain fields for transparency
+      self_hash: Map.get(event, :self_hash),
+      causation_id: Map.get(event, :causation_id)
+    }
   end
 end
