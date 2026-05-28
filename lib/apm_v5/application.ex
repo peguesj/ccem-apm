@@ -22,6 +22,9 @@ defmodule ApmV5.Application do
     # Initialize LifecycleMapper ETS tables before supervision tree starts
     ApmV5.AgUi.LifecycleMapper.init_tables()
 
+    # Initialize artifact attestation ETS ring buffer before AuditLog starts
+    ApmV5.Provenance.ArtifactAttestation.init_table()
+
     children = [
       # PlugAttack ETS storage -- must start before the endpoint to ensure the
       # table exists when the first request hits ApmV5Web.Plugs.RateLimit.
