@@ -14,6 +14,7 @@ defmodule ApmV5Web.FormationApiController do
 
   alias ApmV5.UpmStore
   alias ApmV5.AgentRegistry
+  alias ApmV5.Upm.FormationStateMachine
 
   @pubsub ApmV5.PubSub
   @topic "apm:formations"
@@ -86,21 +87,64 @@ defmodule ApmV5Web.FormationApiController do
   def update_formation(conn, %{"id" => id} = params) do
     attrs = Map.drop(params, ["id"])
 
-    case UpmStore.update_formation(id, attrs) do
-      :ok ->
-        formation = UpmStore.get_formation(id)
+    # If a status transition is requested, validate it via FormationStateMachine
+    attrs_with_validated_status =
+      case Map.get(attrs, "status") || Map.get(attrs, :status) do
+        nil ->
+          attrs
 
-        Phoenix.PubSub.broadcast(@pubsub, @topic, {:formation_updated, %{
-          id: id,
-          attrs: attrs
-        }})
+        requested_status ->
+          with {:parse_new, {:ok, new_state}} <- {:parse_new, FormationStateMachine.parse(requested_status)},
+               formation when not is_nil(formation) <- UpmStore.get_formation(id),
+               current_raw = Map.get(formation, :status) || Map.get(formation, "status") || "registered",
+               {:parse_current, {:ok, current_state}} <- {:parse_current, FormationStateMachine.parse(current_raw)},
+               {:transition, {:ok, _}} <- {:transition, FormationStateMachine.transition(current_state, new_state)} do
+            # Normalize status to string for backward compat storage
+            Map.put(attrs, "status", Atom.to_string(new_state))
+          else
+            {:parse_new, _} ->
+              # Unknown target state — pass through unchanged (API backward compat)
+              attrs
 
-        json(conn, formation)
+            {:parse_current, _} ->
+              # Current state unrecognized — allow update
+              Map.put(attrs, "status", to_string(requested_status))
 
-      {:error, :not_found} ->
+            {:transition, {:error, :invalid_transition}} ->
+              # Encode invalid_transition sentinel — controller will return 422
+              Map.put(attrs, "__fsm_error__", :invalid_transition)
+
+            nil ->
+              # Formation not found — let update_formation handle 404
+              attrs
+          end
+      end
+
+    case Map.get(attrs_with_validated_status, "__fsm_error__") do
+      :invalid_transition ->
         conn
-        |> put_status(404)
-        |> json(%{error: "Formation not found", id: id})
+        |> put_status(422)
+        |> json(%{error: "Invalid state transition", id: id})
+
+      _ ->
+        clean_attrs = Map.delete(attrs_with_validated_status, "__fsm_error__")
+
+        case UpmStore.update_formation(id, clean_attrs) do
+          :ok ->
+            formation = UpmStore.get_formation(id)
+
+            Phoenix.PubSub.broadcast(@pubsub, @topic, {:formation_updated, %{
+              id: id,
+              attrs: clean_attrs
+            }})
+
+            json(conn, formation)
+
+          {:error, :not_found} ->
+            conn
+            |> put_status(404)
+            |> json(%{error: "Formation not found", id: id})
+        end
     end
   end
 
