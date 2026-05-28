@@ -102,6 +102,7 @@ defmodule ApmV5.AuditLog do
     actor = Keyword.get(opts, :actor)
     since = Keyword.get(opts, :since)
     until_ts = Keyword.get(opts, :until)
+    include_decrypted = Keyword.get(opts, :include_decrypted, false)
 
     results =
       :ets.tab2list(@ets_table)
@@ -111,6 +112,7 @@ defmodule ApmV5.AuditLog do
       |> maybe_filter_since(since)
       |> maybe_filter_until(until_ts)
       |> Enum.take(limit)
+      |> maybe_decrypt(include_decrypted)
 
     {:reply, results, state}
   end
@@ -147,6 +149,16 @@ defmodule ApmV5.AuditLog do
     now = DateTime.utc_now()
     today = Date.utc_today()
 
+    # comp-mg2: encrypt PII/sensitive fields BEFORE canonical event composition.
+    # The self_hash chain therefore covers ciphertext, not plaintext —
+    # tamper-evident without leaking raw PII into the hash chain.
+    stored_details =
+      if is_map(details) and ApmV5.Governance.Vault.sensitive?(details) do
+        ApmV5.Governance.Vault.encrypt_details(details)
+      else
+        details
+      end
+
     # Canonical event — hash input. EXCLUDES self_hash so the hash is not
     # self-referential. The chain links: hash(event_N) = prev_hash of event_N+1.
     canonical_event = %{
@@ -155,7 +167,7 @@ defmodule ApmV5.AuditLog do
       event_type: event_type,
       actor: actor,
       resource: resource,
-      details: details,
+      details: stored_details,
       correlation_id: correlation_id,
       prev_hash: state.prev_hash
     }
@@ -290,5 +302,19 @@ defmodule ApmV5.AuditLog do
 
   defp log_dir do
     Application.get_env(:apm_v5, :audit_log_dir, @log_dir)
+  end
+
+  # comp-mg2: decrypt details when include_decrypted: true is requested.
+  # Only decrypts events whose details map has encrypted __enc__ wrappers.
+  defp maybe_decrypt(events, false), do: events
+
+  defp maybe_decrypt(events, true) do
+    Enum.map(events, fn event ->
+      if is_map(event.details) do
+        Map.put(event, :details, ApmV5.Governance.Vault.decrypt_details(event.details))
+      else
+        event
+      end
+    end)
   end
 end

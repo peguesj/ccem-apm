@@ -177,6 +177,19 @@ defmodule ApmV5.Governance.ControlRegistry do
       status: :partial,
       eu_ai_act: ["Article 13", "Article 52"],
       nist_ai_rmf: ["MAP-1.5"]
+    },
+    audit_encryption_at_rest: %{
+      name: "AuditEncryptionAtRest",
+      description:
+        "AES-256-GCM encryption of PII and sensitive fields in the AuditLog via " <>
+          "Cloak vault (comp-mg2 / CP-235). Fields keyed `:pii`, `:sensitive`, or " <>
+          "carrying `__cloak__: true` are encrypted before canonical event " <>
+          "composition, ensuring the SHA-256 self-hash chain covers only ciphertext. " <>
+          "Decrypt-on-demand available to admin callers via `include_decrypted: true` " <>
+          "query option. Key rotation requires CCEM_CLOAK_KEY env var update and " <>
+          "re-index of affected log entries (gap: automated rotation not yet built).",
+      status: :satisfied,
+      iso_27001: ["A.8.24"]
     }
   }
 

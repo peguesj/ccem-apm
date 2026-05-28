@@ -111,6 +111,8 @@ defmodule ApmV5.Application do
       {Task.Supervisor, name: ApmV5.ActionRunStore.TaskSupervisor},
       ApmV5.ActionRunStore,
       ApmV5.HookHealthMonitor,
+      # Cloak AES-256-GCM vault — audit PII encryption at rest (comp-mg2 / CP-235)
+      ApmV5.Governance.Vault,
       # Governance KRI poller — emits risk_score_p95 telemetry every 60s (comp-ms1 / CP-232)
       ApmV5.Governance.GovernanceKriPoller,
       # Start to serve requests, typically the last entry
