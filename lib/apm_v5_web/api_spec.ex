@@ -8,30 +8,24 @@ defmodule ApmV5Web.ApiSpec do
 
   ## Design
 
-  Two sources are merged:
+  All routes annotated with `open_api_spex` ControllerSpecs as of api-s7 Wave 2b
+  (CP-288, v9.4.0). `build_spec/0` has been deleted from `ApiV2Controller`.
 
-    1. `open_api_spex` annotations from controllers using `ControllerSpecs`
-       (Wave 1: ApiV2Controller, AuthController, ApprovalController,
-        AgentControlController — partial annotation)
-    2. The existing `build_spec/0` output from `ApiV2Controller` for all
-       non-annotated routes (fallback until api-s7 Wave 2 in v9.4.0)
+  Annotated controllers:
+  - Wave 1 (api-s5): ApiV2Controller, AuthController, ApprovalController, AgentControlController
+  - Wave 2a (api-s7): All 37 v2 controllers + 22 Legacy<Name> schemas
+  - Wave 2b (api-s7): All v1 controllers (ApiController, SkillsController, UpmApiController,
+    UpmController, FormationApiController, ShowcaseApiController, UsageController,
+    AgUiController, A2uiController, HealthController, MetricsController)
 
   The live spec endpoint remains at `GET /api/v2/openapi.json` served by
-  `ApiV2Controller.openapi/2`. The `spec/0` function here is the canonical
-  `open_api_spex` entry point used by `CastAndValidate` plug and
-  `OpenApiSpex.TestAssertions` (api-s6).
-
-  ## Migration Plan
-  - api-s5 (this story): annotate 4 core controllers, ~20 actions total
-  - api-s6: add `OpenApiSpex.TestAssertions` response contract tests
-  - api-s7 (v9.4.0): annotate all remaining 20+ controllers, delete `build_spec/0`
+  `ApiV2Controller.openapi/2`, which now delegates to `ApmV5Web.ApiSpec.spec/0`.
 
   ## Why `replace_params: false`
 
   `CastAndValidate` defaults to replacing `conn.params` with cast values when
-  an operation is matched. Setting `replace_params: false` means unannotated
-  routes keep their raw params unchanged, which is essential while annotation
-  is in progress.
+  an operation is matched. Setting `replace_params: false` preserves raw params
+  for backward compatibility with existing controller action heads.
   """
 
   alias OpenApiSpex.{Info, OpenApi, Paths, Server}
@@ -50,9 +44,9 @@ defmodule ApmV5Web.ApiSpec do
         CCEM Agent Performance & Management — real-time monitoring, AgentLock
         authorization, Plugin Engine, and formation orchestration.
 
-        Annotated routes use open_api_spex ControllerSpecs (Wave 1: 4 controllers).
-        Remaining routes are served by the existing build_spec/0 (full hand-authored
-        spec at GET /api/v2/openapi.json) until api-s7 (v9.4.0).
+        All routes annotated with open_api_spex ControllerSpecs (api-s7 Wave 2b / CP-288).
+        build_spec/0 deleted. This module is the single source of truth for the
+        OpenAPI 3.0.3 spec served at GET /api/v2/openapi.json.
         """
       },
       servers: [

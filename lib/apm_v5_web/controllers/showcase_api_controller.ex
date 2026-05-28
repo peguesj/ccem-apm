@@ -12,9 +12,95 @@ defmodule ApmV5Web.ShowcaseApiController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
 
+  alias ApmV5Web.Schemas
   alias ApmV5.ShowcaseDataStore
   alias ApmV5.ConfigLoader
+
+  operation :index,
+    summary: "List showcase projects",
+    description: "Returns all showcase-eligible projects from the APM config.",
+    tags: ["CCEM Management"],
+    responses: [
+      ok: {"Showcase project list", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :show,
+    summary: "Get showcase data",
+    description: "Returns showcase data for a specific project.",
+    tags: ["CCEM Management"],
+    parameters: [
+      project: [in: :path, type: :string, required: true, description: "Project name"]
+    ],
+    responses: [
+      ok: {"Showcase project data", "application/json", Schemas.OkResponse},
+      not_found: {"No data found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :reload,
+    summary: "Reload showcase data",
+    description: "Reloads showcase data for a project from disk and broadcasts via PubSub.",
+    tags: ["CCEM Management"],
+    parameters: [
+      project: [in: :path, type: :string, required: true, description: "Project name"]
+    ],
+    responses: [
+      ok: {"Reload result", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :diagrams,
+    summary: "List diagrams",
+    description: "Returns diagram metadata (without content) for a showcase project.",
+    tags: ["CCEM Management"],
+    parameters: [
+      project: [in: :path, type: :string, required: true, description: "Project name"]
+    ],
+    responses: [
+      ok: {"Diagram list", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :diagram,
+    summary: "Get diagram",
+    description: "Returns a single diagram with full content for a showcase project.",
+    tags: ["CCEM Management"],
+    parameters: [
+      project: [in: :path, type: :string, required: true, description: "Project name"],
+      id: [in: :path, type: :string, required: true, description: "Diagram ID"]
+    ],
+    responses: [
+      ok: {"Diagram detail", "application/json", Schemas.OkResponse},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :tabs,
+    summary: "List showcase tabs",
+    description: "Returns tab metadata (without data) for a showcase project.",
+    tags: ["CCEM Management"],
+    parameters: [
+      project: [in: :path, type: :string, required: true, description: "Project name"]
+    ],
+    responses: [
+      ok: {"Tab list", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :tab_data,
+    summary: "Get tab data",
+    description: "Returns data for a specific tab in a showcase project, with optional search/filter/sort.",
+    tags: ["CCEM Management"],
+    parameters: [
+      project: [in: :path, type: :string, required: true, description: "Project name"],
+      tab_id: [in: :path, type: :string, required: true, description: "Tab ID"],
+      search: [in: :query, type: :string, required: false, description: "Search query"],
+      filter: [in: :query, type: :string, required: false, description: "Filter expression"],
+      sort: [in: :query, type: :string, required: false, description: "Sort field"]
+    ],
+    responses: [
+      ok: {"Tab data", "application/json", Schemas.OkResponse}
+    ]
+
+  # Catch-all for any action not explicitly annotated above.
+  def open_api_operation(_action), do: nil
 
   @pubsub ApmV5.PubSub
   @topic "apm:showcase"

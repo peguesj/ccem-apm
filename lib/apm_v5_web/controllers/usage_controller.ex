@@ -13,8 +13,82 @@ defmodule ApmV5Web.UsageController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
 
+  alias ApmV5Web.Schemas
+  alias OpenApiSpex.Schema
   alias ApmV5.ClaudeUsageStore
+
+  operation :index,
+    summary: "Get all usage data",
+    description: "Returns all Claude model/token usage data keyed by project then model.",
+    tags: ["Usage"],
+    responses: [
+      ok: {"Usage data", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :summary,
+    summary: "Usage summary",
+    description: "Returns aggregated totals, model breakdown, and per-project effort levels.",
+    tags: ["Usage"],
+    responses: [
+      ok: {"Usage summary", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :project,
+    summary: "Per-project usage",
+    description: "Returns usage data and effort level for a single project.",
+    tags: ["Usage"],
+    parameters: [
+      name: [in: :path, type: :string, required: true, description: "Project name"]
+    ],
+    responses: [
+      ok: {"Project usage", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :record,
+    summary: "Record usage event",
+    description: "Records a Claude model usage event (tokens, tool_calls) for a project.",
+    tags: ["Usage"],
+    request_body: {"Usage event payload", "application/json", %Schema{
+      type: :object,
+      properties: %{
+        project: %Schema{type: :string, description: "Project name", default: "unknown"},
+        model: %Schema{type: :string, description: "Model ID", example: "claude-sonnet-4-6"},
+        input_tokens: %Schema{type: :integer, description: "Input token count"},
+        output_tokens: %Schema{type: :integer, description: "Output token count"},
+        cache_tokens: %Schema{type: :integer, description: "Cache token count"},
+        tool_calls: %Schema{type: :integer, description: "Number of tool calls"}
+      }
+    }, required: true},
+    responses: [
+      created: {"Usage recorded", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :limits,
+    summary: "Model capability limits",
+    description: "Returns model capability limits with optional utilization data if `project` is specified.",
+    tags: ["Usage"],
+    parameters: [
+      project: [in: :query, type: :string, required: false, description: "Project name for utilization data"]
+    ],
+    responses: [
+      ok: {"Model limits", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :reset,
+    summary: "Reset project usage",
+    description: "Resets all usage counters for a project.",
+    tags: ["Usage"],
+    parameters: [
+      name: [in: :path, type: :string, required: true, description: "Project name"]
+    ],
+    responses: [
+      ok: {"Usage reset", "application/json", Schemas.OkResponse}
+    ]
+
+  # Catch-all for any action not explicitly annotated above.
+  def open_api_operation(_action), do: nil
 
   @pubsub ApmV5.PubSub
   @topic "apm:usage"
