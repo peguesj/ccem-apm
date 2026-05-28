@@ -701,8 +701,9 @@ defmodule ApmV5Web.Router do
     # RFC 8615 well-known health URI — alias to /api/health (CP-250 / US-482 / hc-s1)
     get "/.well-known/health", HealthController, :health
     # Kubernetes liveness probe (CP-251 / US-483 / hc-s2) — minimal 200/503
-    # Paves the way for /ready (hc-s3) and /startup (hc-s4)
     get "/healthz", HealthController, :liveness
+    # Kubernetes readiness probe (CP-252 / US-484 / hc-s3) — GenServer + cache warm
+    get "/ready", HealthController, :readiness
     # Per-agent card under /api/v2/agents — outside V2 scope to keep one controller.
     get "/api/v2/agents/:agent_id/agent-card.json",
         WellKnownController,

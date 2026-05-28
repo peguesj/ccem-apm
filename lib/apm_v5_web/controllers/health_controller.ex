@@ -77,15 +77,44 @@ defmodule ApmV5Web.HealthController do
   end
 
   @doc """
+  GET /ready — Kubernetes readiness probe (CP-252 / US-484 / hc-s3).
+
+  Returns 200 `{"ready": true}` when:
+  - `StatusCache` ETS table (`:apm_status_cache`) has at least one warm entry
+  - Critical GenServers are alive: `PolicyRulesStore`, `AuthorizationGate`,
+    `AgentRegistry`, `SessionStore`
+
+  Returns 503 with `{"ready": false, "failed": [...]}` listing each failed check
+  by name, allowing operators and Kubernetes health-check dashboards to diagnose
+  which component has not yet started.
+  """
+  @spec readiness(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def readiness(conn, _params) do
+    failed =
+      []
+      |> check_status_cache_warm()
+      |> check_genserver(ApmV5.Auth.PolicyRulesStore)
+      |> check_genserver(ApmV5.Auth.AuthorizationGate)
+      |> check_genserver(ApmV5.AgentRegistry)
+      |> check_genserver(ApmV5.Auth.SessionStore)
+
+    if failed == [] do
+      json(conn, %{ready: true})
+    else
+      conn
+      |> put_status(503)
+      |> json(%{ready: false, failed: failed})
+    end
+  end
+
+  @doc """
   GET /healthz — Kubernetes liveness probe.
 
   Returns 200 when the BEAM is up and Phoenix is responding. Kubernetes only
   checks the HTTP status code, so the body is kept minimal.
 
   Returns 503 only in the (theoretically unreachable) case where a fatal
-  startup error condition is detected. Paves the way for hc-s3 /ready and
-  hc-s4 /startup which add GenServer readiness and supervision-tree startup
-  checks respectively.
+  startup error condition is detected.
   """
   @spec liveness(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def liveness(conn, _params) do
@@ -97,6 +126,24 @@ defmodule ApmV5Web.HealthController do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  @spec check_status_cache_warm([String.t()]) :: [String.t()]
+  defp check_status_cache_warm(acc) do
+    case :ets.info(:apm_status_cache, :size) do
+      size when is_integer(size) and size > 0 -> acc
+      _ -> ["status_cache:empty" | acc]
+    end
+  rescue
+    _ -> ["status_cache:unavailable" | acc]
+  end
+
+  @spec check_genserver([String.t()], module()) :: [String.t()]
+  defp check_genserver(acc, module) do
+    case Process.whereis(module) do
+      pid when is_pid(pid) -> acc
+      nil -> [inspect(module) | acc]
+    end
+  end
 
   @spec ets_check() :: {integer(), String.t()}
   defp ets_check do
