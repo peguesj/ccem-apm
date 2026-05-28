@@ -52,4 +52,15 @@
 5 new packages: `joken`, `joken_jwks`, `ex_did`, `prov`/`rdf`/`grax`, plus OTel already coming from observability report. All MIT/Apache-2.0, no CVEs.
 
 ## EU AI Act Note
-Enforcement begins August 2, 2026. `AuditLog` hash chain satisfies lightweight Article 13 transparency for internal tooling. C2PA has no Elixir implementation — defer. `Co-Authored-By` git trailer already partially satisfies Article 52 disclosure.
+Enforcement begins August 2, 2026.
+
+**v10.3.0 update (CP-300)**: `ApmV5.Governance.VerifiableCredential` now provides
+machine-readable capability disclosure per agent via W3C VC 2.0 JWT-VCs. The
+`credentialSubject.capabilities` field satisfies Article 13 (transparency about
+AI system capabilities), and the `type: ["VerifiableCredential", "CCEMAgentCredential"]`
+assertion satisfies Article 52 (cryptographically verifiable agent disclosure).
+`ControlRegistry` entry `:verifiable_credentials` records this as `:satisfied`.
+
+`AuditLog` hash chain provides supplementary Article 13 transparency for internal
+tooling. C2PA has no Elixir implementation — defer. `Co-Authored-By` git trailer
+partially satisfies Article 52 for human-facing audit trails.

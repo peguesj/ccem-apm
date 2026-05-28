@@ -220,6 +220,26 @@ defmodule ApmV5.Governance.ControlRegistry do
       status: :satisfied,
       nist_ai_rmf: ["MG-1.1"],
       nist_csf: ["RESPOND"]
+    },
+    verifiable_credentials: %{
+      name: "VerifiableCredential",
+      description:
+        "W3C Verifiable Credentials Data Model 2.0 — JWT-VC issuance for CCEM agents " <>
+          "(CP-300 / comp-v10.3-s2). Issues cryptographically signed VCs that document " <>
+          "what an agent IS AUTHORIZED TO DO (capabilities, risk_level, formation_id), " <>
+          "complementing the v10.0.0 JWT identity token (WHO the agent is). " <>
+          "Each VC is an EdDSA-signed JWT-VC: header `{alg: EdDSA, typ: JWT, kid: <DID>}`, " <>
+          "payload includes a `vc` claim with a W3C VC 2.0 document. " <>
+          "Revocation via ETS `:vc_revocations` table; `verify_credential/2` checks " <>
+          "signature, expiry, and revocation in a single pass. " <>
+          "Satisfies EU AI Act Article 13 (transparency) and Article 52 " <>
+          "(disclosure for AI systems interacting with humans) by providing " <>
+          "machine-readable capability disclosure per registered agent. " <>
+          "Zero new dependencies — reuses OTP `:crypto` (EdDSA) consistent with " <>
+          "v9.4.0 identity-foundation and v10.0.0 JwtAssertion disciplines.",
+      status: :satisfied,
+      eu_ai_act: ["Article 13", "Article 52"],
+      nist_ai_rmf: ["GV-1.1", "MAP-1.5"]
     }
   }
 

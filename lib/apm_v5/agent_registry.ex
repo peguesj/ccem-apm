@@ -232,6 +232,12 @@ defmodule ApmV5.AgentRegistry do
 
     :ets.insert(@agents_table, {agent_id, agent})
 
+    # Issue a W3C Verifiable Credential alongside registration (CP-300 / comp-v10.3-s2).
+    # The VC documents WHAT the agent is authorized to do (capabilities); the JWT
+    # identity token (v10.0.0) documents WHO the agent is (identity). Fire-and-forget
+    # in a spawned Task so VC issuance never blocks the registration reply.
+    spawn(fn -> maybe_issue_vc(agent_id, identity_map, metadata) end)
+
     # Emit AG-UI RUN_STARTED event if EventStream is running
     if Process.whereis(ApmV5.EventStream) do
       ApmV5.EventStream.emit_run_started(agent_id, Map.get(metadata, :metadata, %{}))
@@ -617,5 +623,52 @@ defmodule ApmV5.AgentRegistry do
         _other -> true
       end)
     end)
+  end
+
+  # ── Verifiable Credential issuance on registration (CP-300) ─────────────────
+
+  # Fire-and-forget VC issuance. Runs in its own process so KeyStore latency
+  # never delays the :register_agent reply. The issued JWT-VC is broadcast on
+  # `apm:agents` for LiveView consumers that track VC issuance.
+  defp maybe_issue_vc(agent_id, identity_map, metadata) do
+    if Code.ensure_loaded?(ApmV5.Governance.VerifiableCredential) and
+         Process.whereis(ApmV5.Identity.KeyStore) != nil do
+      try do
+        did = Map.get(identity_map, :did, Map.get(identity_map, "did"))
+
+        agent_identity = %{
+          did: did || "did:key:unknown",
+          agent_id: agent_id
+        }
+
+        credential_subject = %{
+          "agent_id" => agent_id,
+          "formation_id" => Map.get(metadata, :formation_id, Map.get(metadata, "formation_id")),
+          "invoked_by" => Map.get(metadata, :invoked_by, Map.get(metadata, "invoked_by")),
+          "capabilities" =>
+            Map.get(metadata, :capabilities, Map.get(metadata, "capabilities", [])),
+          "risk_level" =>
+            Map.get(metadata, :risk_level, Map.get(metadata, "risk_level", "low")),
+          "session_id" =>
+            Map.get(metadata, :session_id, Map.get(metadata, "session_id"))
+        }
+
+        jwt_vc =
+          ApmV5.Governance.VerifiableCredential.issue_agent_credential(
+            agent_identity,
+            credential_subject
+          )
+
+        Phoenix.PubSub.broadcast(
+          ApmV5.PubSub,
+          "apm:agents",
+          {:agent_vc_issued, %{agent_id: agent_id, jwt_vc: jwt_vc}}
+        )
+      rescue
+        err ->
+          require Logger
+          Logger.warning("[AgentRegistry] VC issuance failed for #{agent_id}: #{inspect(err)}")
+      end
+    end
   end
 end
