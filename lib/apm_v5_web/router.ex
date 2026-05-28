@@ -507,6 +507,9 @@ defmodule ApmV5Web.Router do
     post "/auth/policy/rules", AuthController, :add_policy_rule
     delete "/auth/policy/rules/:tool_name", AuthController, :remove_policy_rule
 
+    # Policy decision store — NIST AI RMF GOVERN evidence (CP-227)
+    get "/auth/policy/decisions", AuthController, :list_policy_decisions
+
     # Aliases matching the apm-auth skill spec (CCEM-565)
     post "/auth/session/start", AuthController, :session_start
     post "/auth/session/heartbeat", AuthController, :session_heartbeat
