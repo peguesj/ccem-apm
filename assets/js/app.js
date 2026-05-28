@@ -54,6 +54,7 @@ import DashboardGrid from "./hooks/dashboard_grid"
 import ScrollBottom from "./hooks/scroll_bottom"
 import DrawerResize from "./hooks/drawer_resize"
 import { CommandBarHook } from "./hooks/command_bar"
+import ProvenanceLineageGraph from "./hooks/provenance_lineage_graph"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -115,7 +116,8 @@ const Hooks = {
   DashboardGrid,
   ScrollBottom,
   DrawerResize,
-  CommandBar: CommandBarHook
+  CommandBar: CommandBarHook,
+  ProvenanceLineageGraph
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

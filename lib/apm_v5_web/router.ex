@@ -183,6 +183,9 @@ defmodule ApmV5Web.Router do
       # Extension: memory
       live "/memory", MemoryLive, :index
 
+      # Extension: provenance (prov-w4-s10 / CP-284)
+      live "/intelligence/provenance", ProvenanceLive, :index
+
       # Extension: library
       live "/library", LibraryLive, :index
 
@@ -739,9 +742,13 @@ defmodule ApmV5Web.Router do
     # ── EXTENSION: identity (prov-w1-s2 / CP-276) ────────────────────────────
     get "/identity/did-document", IdentityController, :did_document
 
-    # ── EXTENSION: provenance (prov-w2-s4 / CP-278) ───────────────────────────
+    # ── EXTENSION: provenance (prov-w2-s4 / CP-278 + prov-w4-s9 / CP-283) ───
     get "/provenance/bundle", ProvenanceController, :bundle
     get "/provenance/lineage", ProvenanceController, :lineage
+    # prov-w4-s9: new endpoints — agent record, artifacts, verify
+    get "/provenance/agents/:id", ProvenanceController, :agent_provenance
+    get "/provenance/artifacts", ProvenanceController, :artifacts
+    post "/provenance/verify", ProvenanceController, :verify
   end
 
   # A2UI flexible format endpoint

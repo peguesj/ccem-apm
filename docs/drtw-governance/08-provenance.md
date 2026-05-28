@@ -44,9 +44,28 @@
 - [x] **S7** `DelegationChain` module — pure functional, `:crypto` only — M (prov-w3-s7 / CP-281 / SHIPPED)
 - [x] **S8** OTel GenAI `gen_ai.agent.*` span emission in `AgentRegistry` — M (prov-w3-s8 / CP-282 / SHIPPED)
 
-### Wave 4 (depends on Waves 1-3)
-- **S9** Provenance REST API (6 new endpoints) — M (2 days)
-- **S10** `ProvenanceLive` at `/intelligence/provenance` (Artifact/Lineage/Bundle tabs) — L (3 days)
+### Wave 4 (depends on Waves 1-3) — SHIPPED prov-w4 / CP-283 + CP-284
+- [x] **S9** Provenance REST API — 3 new endpoints (agents/:id, artifacts, verify) — SHIPPED
+  - `GET /api/v2/provenance/agents/:id` — full provenance record
+  - `GET /api/v2/provenance/artifacts` — paginated ETS attestations with sig verify
+  - `POST /api/v2/provenance/verify` — sign+verify roundtrip
+  - OpenApiSpex annotations, no new deps, 12 TDD tests green
+- [x] **S10** `ProvenanceLive` at `/intelligence/provenance` — SHIPPED
+  - 3 tabs: Artifact Attestations, Lineage Graph (D3.js), PROV Bundle
+  - PubSub `"apm:artifacts"` live updates + 30s tick refresh
+  - `ProvenanceLineageGraph` JS hook (D3 lazy CDN, force DAG)
+  - Sidebar nav item under Intelligence section
+  - 11 TDD tests green
+
+### Wave 4 DRTW Decisions
+
+**ProvenanceLive D3 graph**: Reused existing CDN lazy-load pattern from
+`FormationGraph` hook rather than introducing a new bundled dependency.
+`ProvenanceLineageGraph` is a new 120-LOC hook, not a new npm package.
+
+**Verify endpoint**: `:crypto.verify(:eddsa, :none, ...)` (OTP native) used for
+Ed25519 signature verification — no jose/joken dep required.  All provenance
+signing uses `ApmV5.Identity.KeyStore` (already in the supervision tree).
 
 ## New Deps Summary
 5 new packages (originally planned): `joken`, `joken_jwks`, `ex_did`, `prov`/`rdf`/`grax`, plus OTel already coming from observability report. All MIT/Apache-2.0, no CVEs.
