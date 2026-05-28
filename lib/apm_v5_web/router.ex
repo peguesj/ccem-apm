@@ -540,6 +540,9 @@ defmodule ApmV5Web.Router do
     post "/auth/policy/rules", AuthController, :add_policy_rule
     delete "/auth/policy/rules/:tool_name", AuthController, :remove_policy_rule
 
+    # CP-285: versioned policy changelog
+    get "/auth/policy/history", AuthController, :policy_history
+
     # Policy decision store — NIST AI RMF GOVERN evidence (CP-227)
     get "/auth/policy/decisions", AuthController, :list_policy_decisions
 

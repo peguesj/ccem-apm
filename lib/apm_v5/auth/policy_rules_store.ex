@@ -6,14 +6,33 @@ defmodule ApmV5.Auth.PolicyRulesStore do
   - `:always_allow` — skip all risk checks, immediately grant token
   - `:always_deny`  — immediately deny regardless of role/context
 
-  ETS table `:agentlock_policy_rules` is public so PolicyEngine can
-  read it directly without a GenServer call (hot path).
+  ## v9.4.0 — Versioning + Attestation (CP-285)
+
+  Each rule now carries a monotonic `version` counter, `created_by` (required),
+  `approved_by` (optional), and `expires_at` (optional `DateTime`).
+
+  - `version` increments on every `add_rule/3` call for the same tool.
+  - Rules with a past `expires_at` are auto-demoted to `:none` by `check_rule/1`.
+  - `policy_history/1` returns the full ordered changelog for a given tool.
+
+  ## ETS layout
+
+  Primary table `:agentlock_policy_rules` (public, `read_concurrency: true`):
+  ```
+  {tool_name, action, version, created_by, approved_by, expires_at, inserted_at}
+  ```
+
+  History table `:agentlock_policy_rules_history` (protected):
+  ```
+  {{tool_name, version}, action, created_by, approved_by, expires_at, inserted_at}
+  ```
   """
 
   use GenServer
   require Logger
 
   @table :agentlock_policy_rules
+  @history_table :agentlock_policy_rules_history
 
   # ── Client API ──────────────────────────────────────────────────────────────
 
@@ -22,10 +41,17 @@ defmodule ApmV5.Auth.PolicyRulesStore do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @doc "Add or overwrite a permanent rule for a tool."
-  @spec add_rule(String.t(), :always_allow | :always_deny) :: :ok
-  def add_rule(tool_name, action) when action in [:always_allow, :always_deny] do
-    GenServer.call(__MODULE__, {:add_rule, tool_name, action})
+  @doc """
+  Add or overwrite a permanent rule for a tool.
+
+  ## Options
+  - `:created_by` — string identity of the operator adding the rule (default `"system"`)
+  - `:approved_by` — string identity of the approver (default `nil`)
+  - `:expires_at`  — `DateTime` after which the rule auto-demotes to `:none` (default `nil`)
+  """
+  @spec add_rule(String.t(), :always_allow | :always_deny, keyword()) :: :ok
+  def add_rule(tool_name, action, opts \\ []) when action in [:always_allow, :always_deny] do
+    GenServer.call(__MODULE__, {:add_rule, tool_name, action, opts})
   end
 
   @doc "Remove a permanent rule for a tool (reverts to normal policy)."
@@ -34,35 +60,136 @@ defmodule ApmV5.Auth.PolicyRulesStore do
     GenServer.call(__MODULE__, {:remove_rule, tool_name})
   end
 
-  @doc "List all active rules as JSON-safe maps."
+  @doc "List all active rules as JSON-safe maps (excludes expired entries)."
   @spec list_rules() :: [map()]
   def list_rules do
     case :ets.info(@table) do
-      :undefined -> []
+      :undefined ->
+        []
+
       _ ->
+        now = DateTime.utc_now()
+
         :ets.tab2list(@table)
-        |> Enum.map(fn {name, action, inserted_at} ->
-          %{tool_name: name, action: action, inserted_at: DateTime.to_iso8601(inserted_at)}
+        |> Enum.reject(fn {_name, _action, _version, _created_by, _approved_by, expires_at, _inserted_at} ->
+          expired?(expires_at, now)
+        end)
+        |> Enum.map(fn {name, action, version, created_by, approved_by, expires_at, inserted_at} ->
+          %{
+            tool_name: name,
+            action: action,
+            version: version,
+            created_by: created_by,
+            approved_by: approved_by,
+            expires_at: if(expires_at, do: DateTime.to_iso8601(expires_at)),
+            inserted_at: DateTime.to_iso8601(inserted_at)
+          }
         end)
         |> Enum.sort_by(& &1.tool_name)
     end
   end
 
-  @doc "Check if a tool has a permanent rule. Returns :always_allow | :always_deny | :none.
-  Supports \"*\" wildcard stored under the literal key \"*\" — matches any tool when no exact rule exists."
+  @doc """
+  Check if a tool has a permanent rule.
+
+  Returns `:always_allow | :always_deny | :none`.
+
+  Supports `"*"` wildcard stored under the literal key `"*"` — matches any tool
+  when no exact rule exists. Rules with a past `expires_at` are auto-demoted
+  to `:none` without modifying ETS (lazy expiry).
+  """
   @spec check_rule(String.t()) :: :always_allow | :always_deny | :none
   def check_rule(tool_name) do
     case :ets.info(@table) do
-      :undefined -> :none
+      :undefined ->
+        :none
+
       _ ->
+        now = DateTime.utc_now()
+
         case :ets.lookup(@table, tool_name) do
-          [{^tool_name, action, _}] -> action
+          [{^tool_name, action, _version, _created_by, _approved_by, expires_at, _inserted_at}] ->
+            if expired?(expires_at, now), do: :none, else: action
+
           [] ->
             case :ets.lookup(@table, "*") do
-              [{"*", action, _}] -> action
-              [] -> :none
+              [{"*", action, _version, _created_by, _approved_by, expires_at, _inserted_at}] ->
+                if expired?(expires_at, now), do: :none, else: action
+
+              [] ->
+                :none
             end
         end
+    end
+  end
+
+  @doc """
+  Return the full entry for a tool, or `nil` if not found.
+
+  The returned map includes: `tool_name`, `action`, `version`, `created_by`,
+  `approved_by`, `expires_at`, `inserted_at`.
+  """
+  @spec get_rule_entry(String.t()) :: map() | nil
+  def get_rule_entry(tool_name) do
+    case :ets.info(@table) do
+      :undefined ->
+        nil
+
+      _ ->
+        case :ets.lookup(@table, tool_name) do
+          [{^tool_name, action, version, created_by, approved_by, expires_at, inserted_at}] ->
+            %{
+              tool_name: tool_name,
+              action: action,
+              version: version,
+              created_by: created_by,
+              approved_by: approved_by,
+              expires_at: expires_at,
+              inserted_at: inserted_at
+            }
+
+          [] ->
+            nil
+        end
+    end
+  end
+
+  @doc """
+  Delete all history entries for a tool. Intended for test teardown only.
+  Routes through the GenServer so the protected ETS table can be modified.
+  """
+  @spec clear_tool_history(String.t()) :: :ok
+  def clear_tool_history(tool_name) do
+    GenServer.call(__MODULE__, {:clear_tool_history, tool_name})
+  end
+
+  @doc """
+  Return the versioned changelog for a specific tool, ordered ascending by version.
+
+  Each entry is a map with: `version`, `action`, `created_by`, `approved_by`,
+  `expires_at`, `inserted_at` (ISO 8601 string).
+  Returns `[]` if no history exists.
+  """
+  @spec policy_history(String.t()) :: [map()]
+  def policy_history(tool_name) do
+    case :ets.info(@history_table) do
+      :undefined ->
+        []
+
+      _ ->
+        # Collect all history entries whose key matches {tool_name, _version}
+        :ets.match_object(@history_table, {{tool_name, :_}, :_, :_, :_, :_, :_})
+        |> Enum.map(fn {{_name, version}, action, created_by, approved_by, expires_at, inserted_at} ->
+          %{
+            version: version,
+            action: action,
+            created_by: created_by,
+            approved_by: approved_by,
+            expires_at: if(expires_at, do: DateTime.to_iso8601(expires_at)),
+            inserted_at: DateTime.to_iso8601(inserted_at)
+          }
+        end)
+        |> Enum.sort_by(& &1.version)
     end
   end
 
@@ -71,26 +198,55 @@ defmodule ApmV5.Auth.PolicyRulesStore do
   @impl true
   def init(_opts) do
     :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
+    :ets.new(@history_table, [:named_table, :bag, :protected, read_concurrency: true])
     {:ok, %{}}
   end
 
   @impl true
-  def handle_call({:add_rule, tool_name, action}, _from, state) do
-    :ets.insert(@table, {tool_name, action, DateTime.utc_now()})
-    Logger.info("[PolicyRulesStore] Rule set: #{tool_name} → #{action}")
+  def handle_call({:add_rule, tool_name, action, opts}, _from, state) do
+    created_by = Keyword.get(opts, :created_by, "system")
+    approved_by = Keyword.get(opts, :approved_by, nil)
+    expires_at = Keyword.get(opts, :expires_at, nil)
+    now = DateTime.utc_now()
+
+    # Determine next version (monotonic per tool)
+    version =
+      case :ets.lookup(@table, tool_name) do
+        [{^tool_name, _action, prev_version, _cb, _ab, _exp, _ins}] -> prev_version + 1
+        [] -> 1
+      end
+
+    :ets.insert(@table, {tool_name, action, version, created_by, approved_by, expires_at, now})
+
+    # Append to history
+    :ets.insert(@history_table, {{tool_name, version}, action, created_by, approved_by, expires_at, now})
+
+    Logger.info("[PolicyRulesStore] Rule set: #{tool_name} → #{action} (v#{version}, by: #{created_by})")
 
     # KRI: policy_rule_changes (create or update)
     :telemetry.execute(
       [:apm_v5, :governance, :policy_rule_changes],
       %{count: 1},
-      %{tool_name: tool_name, action: action, change_type: :upsert}
+      %{tool_name: tool_name, action: action, change_type: :upsert, version: version}
     )
 
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:policy_rule_added, %{
       tool_name: tool_name,
       action: action,
-      inserted_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      version: version,
+      created_by: created_by,
+      inserted_at: DateTime.to_iso8601(now)
     }})
+
+    {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_call({:clear_tool_history, tool_name}, _from, state) do
+    case :ets.info(@history_table) do
+      :undefined -> :ok
+      _ -> :ets.match_delete(@history_table, {{tool_name, :_}, :_, :_, :_, :_, :_})
+    end
 
     {:reply, :ok, state}
   end
@@ -113,4 +269,9 @@ defmodule ApmV5.Auth.PolicyRulesStore do
 
     {:reply, :ok, state}
   end
+
+  # ── Private helpers ──────────────────────────────────────────────────────────
+
+  defp expired?(nil, _now), do: false
+  defp expired?(expires_at, now), do: DateTime.compare(expires_at, now) == :lt
 end
