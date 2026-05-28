@@ -386,9 +386,19 @@ defmodule ApmV5.Auth.AuthorizationGate do
     end
   end
 
+  # audit-s3: forward agent_id and session_id from details as typed context
+  # so they're included in the hash chain. Falls back to log/4 if AuditLog
+  # rejects the call (shouldn't happen; defensive catch).
   defp log_audit(event_type, resource, details) do
     try do
-      ApmV5.AuditLog.log(event_type, "agentlock", resource, details)
+      context = %{
+        agent_id: Map.get(details, :agent_id),
+        session_id: Map.get(details, :session_id),
+        tool_name: resource,
+        severity: :info
+      }
+
+      ApmV5.AuditLog.log_with_context(event_type, "agentlock", resource, details, nil, context)
     rescue
       _ -> :ok
     catch

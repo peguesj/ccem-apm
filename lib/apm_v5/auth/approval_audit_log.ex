@@ -130,9 +130,47 @@ defmodule ApmV5.Auth.ApprovalAuditLog do
       {:audit_entry_added, record}
     )
 
+    # audit-s3: mirror to AuditLog with typed attribution so approval decisions
+    # participate in the hash chain (CP-221 / US-453).
+    mirror_to_audit_log(record)
+
     Logger.debug("[ApprovalAuditLog] Recorded: #{entry[:agent_id]} / #{entry[:tool_name]} -> #{entry[:decision]}")
 
     {:noreply, %{state | counter: counter + 1}}
+  end
+
+  # Mirror an approval decision record to the main AuditLog for chain inclusion.
+  # Uses log_with_context so agent_id + session_id participate in the hash.
+  defp mirror_to_audit_log(record) do
+    try do
+      decision = Map.get(record, :decision)
+      result_atom = case decision do
+        :approve -> :success
+        :deny    -> :denied
+        _        -> nil
+      end
+
+      context = %{
+        agent_id: Map.get(record, :agent_id),
+        session_id: Map.get(record, :session_id),
+        tool_name: Map.get(record, :tool_name),
+        severity: :info,
+        result: result_atom
+      }
+
+      ApmV5.AuditLog.log_with_context(
+        :approval_decision,
+        Map.get(record, :agent_id) || "approval_system",
+        Map.get(record, :tool_name) || "unknown",
+        Map.drop(record, [:id]),
+        Map.get(record, :request_id),
+        context
+      )
+    rescue
+      _ -> :ok
+    catch
+      :exit, _ -> :ok
+    end
   end
 
   @impl true

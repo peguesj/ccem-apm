@@ -99,10 +99,19 @@ defmodule ApmV5.AgUi.AuditBridge do
 
   defp log_audit_event(_event), do: :ok
 
+  # audit-s3: forward agent_id and session_id as typed context so they
+  # participate in the hash chain (CP-221 / US-453).
   defp write_audit(action, details) do
     actor = details[:agent_id] || "system"
     resource = details[:run_id] || details[:agent_id] || "ag-ui"
-    ApmV5.AuditLog.log(action, actor, resource, details)
+
+    context = %{
+      agent_id: details[:agent_id],
+      session_id: details[:session_id],
+      severity: :info
+    }
+
+    ApmV5.AuditLog.log_with_context(action, actor, resource, details, nil, context)
   rescue
     _ -> :ok
   end
