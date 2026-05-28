@@ -730,6 +730,9 @@ defmodule ApmV5Web.Router do
 
     # ── EXTENSION: identity (prov-w1-s2 / CP-276) ────────────────────────────
     get "/identity/did-document", IdentityController, :did_document
+
+    # ── EXTENSION: SLSA Provenance (comp-v10.3-s1 / CP-299) ──────────────────
+    get "/provenance/slsa/:attestation_id", ProvenanceController, :show
   end
 
   # A2UI flexible format endpoint
