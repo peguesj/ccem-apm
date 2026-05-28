@@ -51,6 +51,11 @@ defmodule ApmV5Web.Router do
     plug :accepts, ["json"]
     plug ApmV5Web.Plugs.CORS
     plug ApmV5Web.Plugs.ApiAuth
+    # Request validation via open_api_spex (CP-228 / US-460).
+    # Only validates paths annotated with @operation on their controller action.
+    # replace_params: false ensures unannotated routes keep raw params unchanged,
+    # preserving full backward-compatibility while annotation migrates (api-s5/s7).
+    plug OpenApiSpex.Plug.CastAndValidate, replace_params: false, render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
   end
 
   pipeline :api_flexible do
