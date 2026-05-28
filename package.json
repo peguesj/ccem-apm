@@ -1,3 +1,11 @@
 {
-  "type": "commonjs"
+  "type": "commonjs",
+  "scripts": {
+    "lint:openapi": "spectral lint priv/static/openapi.base.json",
+    "lint:openapi:live": "spectral lint http://localhost:3032/api/v2/openapi.json"
+  },
+  "devDependencies": {
+    "@stoplight/spectral-cli": "^6.16.0",
+    "@stoplight/spectral-owasp-ruleset": "^2.0.1"
+  }
 }

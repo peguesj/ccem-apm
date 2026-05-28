@@ -89,7 +89,11 @@ defmodule ApmV5.AgentIdentity do
     upm_context:       map(),
 
     # AgentLock
-    authorization:     map()
+    authorization:     map(),
+
+    # A2A v0.3.0 — Skills declaration for AgentCard (coord-a1 v9.2.1).
+    # Each skill: %{id, name, description, inputModes, outputModes, tags, examples}
+    skills:            [map()]
   }
 
   defstruct [
@@ -116,7 +120,8 @@ defmodule ApmV5.AgentIdentity do
     :work_item_title,
     :upm_session_id,
     upm_context: %{},
-    authorization: %{}
+    authorization: %{},
+    skills: []
   ]
 
   @doc """

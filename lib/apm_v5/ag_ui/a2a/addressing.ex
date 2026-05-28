@@ -33,12 +33,11 @@ defmodule ApmV5.AgUi.A2A.Addressing do
     end
   end
 
-  def resolve({:topic, _topic}) do
-    # Topic-based addressing: all agents subscribed to the topic
-    # For now, return all registered agents
+  def resolve({:topic, topic}) when is_binary(topic) do
+    # Topic-based addressing: only agents explicitly subscribed via TopicRegistry.
+    # Previously returned ALL agents (silent broadcast amplification — coord-a2 fix).
     try do
-      ApmV5.AgentRegistry.list_agents()
-      |> Enum.map(& &1[:agent_id])
+      ApmV5.AgUi.A2A.TopicRegistry.get_subscribers(topic)
     rescue
       _ -> []
     end

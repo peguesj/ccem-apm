@@ -20,9 +20,18 @@ defmodule ApmV5.AuditLog do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @doc "Clear all in-memory audit log entries. Used in tests."
+  @doc """
+  Clear all in-memory audit log entries.
+
+  Test-only: raises in non-test environments to prevent accidental audit log
+  destruction in dev/prod (audit-s2 v9.2.1 hardening).
+  """
   @spec clear_all() :: :ok
   def clear_all do
+    unless Mix.env() == :test do
+      raise "AuditLog.clear_all/0 is test-only. Refusing to clear audit log in #{Mix.env()}."
+    end
+
     GenServer.call(__MODULE__, :clear_all)
   end
 
@@ -60,8 +69,11 @@ defmodule ApmV5.AuditLog do
 
   @impl true
   def init(_opts) do
-    :ets.new(@ets_table, [:ordered_set, :named_table, :public, read_concurrency: true])
-    :ets.new(@ring_table, [:set, :named_table, :public, read_concurrency: true])
+    # :protected — only the AuditLog GenServer can write; all processes can read.
+    # Prevents tamper surface where any process could :ets.delete/2 audit entries
+    # bypassing the GenServer (audit-s2 v9.2.1 hardening).
+    :ets.new(@ets_table, [:ordered_set, :named_table, :protected, read_concurrency: true])
+    :ets.new(@ring_table, [:set, :named_table, :protected, read_concurrency: true])
     log_dir = log_dir()
     {:ok, %{counter: 0, prev_hash: "genesis", log_dir: log_dir, today: Date.utc_today()}, {:continue, :init_log_dir}}
   end
@@ -135,7 +147,9 @@ defmodule ApmV5.AuditLog do
     now = DateTime.utc_now()
     today = Date.utc_today()
 
-    event = %{
+    # Canonical event — hash input. EXCLUDES self_hash so the hash is not
+    # self-referential. The chain links: hash(event_N) = prev_hash of event_N+1.
+    canonical_event = %{
       id: id,
       timestamp: DateTime.to_iso8601(now),
       event_type: event_type,
@@ -146,8 +160,13 @@ defmodule ApmV5.AuditLog do
       prev_hash: state.prev_hash
     }
 
-    json = Jason.encode!(event)
-    hash = :crypto.hash(:sha256, json) |> Base.encode16(case: :lower)
+    canonical_json = Jason.encode!(canonical_event)
+    self_hash = :crypto.hash(:sha256, canonical_json) |> Base.encode16(case: :lower)
+
+    # Full event — what gets stored. INCLUDES self_hash so consumers can
+    # forward-verify the chain from the JSONL files alone (audit-s1 v9.2.1).
+    event = Map.put(canonical_event, :self_hash, self_hash)
+    event_json = Jason.encode!(event)
 
     # ETS ordered set
     :ets.insert(@ets_table, {id, event})
@@ -156,13 +175,96 @@ defmodule ApmV5.AuditLog do
     ring_key = rem(id - 1, @ring_cap)
     :ets.insert(@ring_table, {ring_key, event})
 
-    # Disk persistence
-    append_to_file(json, today, state.log_dir)
+    # Disk persistence — write the event WITH self_hash so chain verification
+    # is possible from the JSONL file alone.
+    append_to_file(event_json, today, state.log_dir)
 
     # PubSub broadcast
     Phoenix.PubSub.broadcast(@pubsub, @topic, {:audit_event, event})
 
-    {event, %{state | counter: id, prev_hash: hash, today: today}}
+    {event, %{state | counter: id, prev_hash: self_hash, today: today}}
+  end
+
+  # ── Chain verification API (audit-s1 v9.2.1) ─────────────────────────────
+
+  defmodule AuditIntegrityError do
+    @moduledoc "Raised when the audit log hash chain fails verification."
+    defexception [:message, :event_id, :expected_hash, :actual_hash]
+  end
+
+  @doc """
+  Verifies the hash chain of a JSONL audit log file by re-computing each
+  event's `self_hash` and checking that each event's `prev_hash` matches the
+  previous event's `self_hash`.
+
+  Returns `:ok` on success, raises `AuditIntegrityError` on first mismatch.
+  """
+  @spec verify_chain!(Path.t()) :: :ok | no_return()
+  def verify_chain!(path) do
+    path
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+    |> Stream.reject(&(&1 == ""))
+    |> Stream.map(&Jason.decode!/1)
+    |> Enum.reduce(nil, &verify_event!/2)
+
+    :ok
+  end
+
+  @doc """
+  Verifies the hash chain of in-memory ETS audit log entries.
+
+  Returns `:ok` on success, raises `AuditIntegrityError` on first mismatch.
+  """
+  @spec verify_memory_chain() :: :ok | no_return()
+  def verify_memory_chain do
+    @ets_table
+    |> :ets.tab2list()
+    |> Enum.sort_by(fn {id, _event} -> id end)
+    |> Enum.map(fn {_id, event} -> event end)
+    |> Enum.reduce(nil, &verify_event!/2)
+
+    :ok
+  end
+
+  defp verify_event!(event, prev_self_hash) do
+    expected_prev = get_either(event, :prev_hash)
+    stored_self_hash = get_either(event, :self_hash)
+    event_id = get_either(event, :id)
+
+    # Check chain link
+    if prev_self_hash != nil and expected_prev != prev_self_hash do
+      raise AuditIntegrityError,
+        message: "prev_hash mismatch at event #{event_id}",
+        event_id: event_id,
+        expected_hash: prev_self_hash,
+        actual_hash: expected_prev
+    end
+
+    # Recompute self_hash by removing self_hash field (both possible key types)
+    # and re-encoding via Jason. Jason's output is deterministic for a given
+    # map, regardless of atom vs string keys at the top level.
+    canonical =
+      event
+      |> Map.delete(:self_hash)
+      |> Map.delete("self_hash")
+
+    canonical_json = Jason.encode!(canonical)
+    recomputed = :crypto.hash(:sha256, canonical_json) |> Base.encode16(case: :lower)
+
+    if stored_self_hash != recomputed do
+      raise AuditIntegrityError,
+        message: "self_hash mismatch at event #{event_id} — event tampered",
+        event_id: event_id,
+        expected_hash: recomputed,
+        actual_hash: stored_self_hash
+    end
+
+    stored_self_hash
+  end
+
+  defp get_either(map, atom_key) do
+    Map.get(map, atom_key) || Map.get(map, to_string(atom_key))
   end
 
   defp append_to_file(json, date, log_dir) do

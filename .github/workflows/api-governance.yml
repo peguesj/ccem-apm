@@ -1,0 +1,88 @@
+name: API Governance
+
+on:
+  pull_request:
+    paths:
+      - 'lib/apm_v5_web/controllers/v2/**'
+      - 'lib/apm_v5/openapi_spec.ex'
+      - 'priv/static/openapi.base.json'
+      - '.spectral.yaml'
+      - 'package.json'
+      - '.github/workflows/api-governance.yml'
+
+jobs:
+  spectral-lint:
+    name: Spectral OpenAPI Lint + OWASP API Top 10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Spectral
+        run: npm install --no-save @stoplight/spectral-cli@^6.16 @stoplight/spectral-owasp-ruleset@^2.0.1
+
+      - name: Lint baseline OpenAPI spec
+        run: npx spectral lint priv/static/openapi.base.json --fail-severity error
+
+  oasdiff-breaking-check:
+    name: OpenAPI Breaking Change Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.19.5'
+          otp-version: '28.0'
+
+      - name: Cache deps
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-
+
+      - name: Install deps
+        run: mix deps.get
+
+      - name: Compile
+        run: mix compile
+
+      - name: Boot APM and snapshot live spec
+        run: |
+          mix phx.server &
+          APM_PID=$!
+          for i in {1..30}; do
+            curl -fsS http://localhost:3032/api/status > /dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://localhost:3032/api/v2/openapi.json -o /tmp/openapi.head.json
+          kill $APM_PID || true
+
+      - name: Install oasdiff
+        run: |
+          curl -L https://github.com/oasdiff/oasdiff/releases/latest/download/oasdiff_linux_amd64.tar.gz | tar xz
+          sudo mv oasdiff /usr/local/bin/
+
+      - name: Detect breaking changes
+        run: |
+          oasdiff breaking \
+            priv/static/openapi.base.json \
+            /tmp/openapi.head.json \
+            --fail-on ERR \
+            --format text
+
+      - name: Full diff report (informational)
+        if: always()
+        run: |
+          oasdiff diff \
+            priv/static/openapi.base.json \
+            /tmp/openapi.head.json \
+            --format text || true

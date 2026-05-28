@@ -18,7 +18,7 @@ defmodule ApmV5Web.V2.A2AController do
 
   use ApmV5Web, :controller
 
-  alias ApmV5.AgUi.A2A.{Router, Patterns}
+  alias ApmV5.AgUi.A2A.{Router, Patterns, TopicRegistry}
   alias ApmV5.AgUi.EventBus
 
   # -- REST Endpoints (US-032) ------------------------------------------------
@@ -86,6 +86,50 @@ defmodule ApmV5Web.V2.A2AController do
 
     {:ok, result} = Patterns.fan_out(params, from, targets)
     json(conn, %{ok: true, sent: result.sent, results: result.results})
+  end
+
+  # -- Topic Subscription (coord-a2 hotfix, v9.2.1) ---------------------------
+
+  @doc "POST /api/v2/a2a/topics/subscribe — subscribe an agent to a topic"
+  def subscribe_topic(conn, %{"agent_id" => agent_id, "topic" => topic})
+      when is_binary(agent_id) and is_binary(topic) do
+    :ok = TopicRegistry.subscribe(agent_id, topic)
+    json(conn, %{ok: true, agent_id: agent_id, topic: topic})
+  end
+
+  def subscribe_topic(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{ok: false, error: "agent_id and topic required"})
+  end
+
+  @doc "DELETE /api/v2/a2a/topics/subscribe — unsubscribe agent from topic(s)"
+  def unsubscribe_topic(conn, %{"agent_id" => agent_id, "topic" => topic})
+      when is_binary(agent_id) and is_binary(topic) do
+    :ok = TopicRegistry.unsubscribe(agent_id, topic)
+    json(conn, %{ok: true, agent_id: agent_id, topic: topic})
+  end
+
+  def unsubscribe_topic(conn, %{"agent_id" => agent_id}) when is_binary(agent_id) do
+    :ok = TopicRegistry.unsubscribe_all(agent_id)
+    json(conn, %{ok: true, agent_id: agent_id, unsubscribed: :all})
+  end
+
+  def unsubscribe_topic(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{ok: false, error: "agent_id required"})
+  end
+
+  @doc "GET /api/v2/a2a/topics — list all topics with subscriber counts"
+  def list_topics(conn, _params) do
+    json(conn, %{topics: TopicRegistry.list_topics()})
+  end
+
+  @doc "GET /api/v2/a2a/topics/:topic/subscribers — list agents subscribed to topic"
+  def topic_subscribers(conn, %{"topic" => topic}) do
+    subscribers = TopicRegistry.get_subscribers(topic)
+    json(conn, %{topic: topic, subscribers: subscribers, count: length(subscribers)})
   end
 
   # -- SSE Streaming (US-033) -------------------------------------------------

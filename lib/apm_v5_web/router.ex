@@ -285,6 +285,15 @@ defmodule ApmV5Web.Router do
     post "/skills/track", ApiController, :track_skill
     get "/skills/registry", SkillsController, :registry
     post "/skills/audit", SkillsController, :audit
+    # Remote repositories (mcpmarket / skillfish)
+    get "/skills/repositories", SkillsController, :list_repositories
+    post "/skills/repositories", SkillsController, :add_repository
+    delete "/skills/repositories/:id", SkillsController, :remove_repository
+    post "/skills/repositories/:id/sync", SkillsController, :sync_repository
+    # Permissive skill list (bypass AgentLock for named skills)
+    get "/skills/permissive", SkillsController, :list_permissive
+    post "/skills/permissive", SkillsController, :add_permissive
+    delete "/skills/permissive/:name", SkillsController, :remove_permissive
     get "/skills/:name/health", SkillsController, :health
     get "/skills/:name", SkillsController, :show
 
@@ -421,6 +430,11 @@ defmodule ApmV5Web.Router do
     get "/a2a/history/:agent_id", A2AController, :history
     post "/a2a/broadcast", A2AController, :broadcast_message
     post "/a2a/fan-out", A2AController, :fan_out
+    # Topic subscription (coord-a2 hotfix, v9.2.1)
+    get "/a2a/topics", A2AController, :list_topics
+    post "/a2a/topics/subscribe", A2AController, :subscribe_topic
+    delete "/a2a/topics/subscribe", A2AController, :unsubscribe_topic
+    get "/a2a/topics/:topic/subscribers", A2AController, :topic_subscribers
     get "/a2a/stream/:agent_id", A2AController, :stream
 
     # Core: approvals
@@ -668,6 +682,18 @@ defmodule ApmV5Web.Router do
   # ── WEBHOOKS (no auth pipeline — validated internally by handler) ──────────
   scope "/", ApmV5Web do
     post "/webhooks/composio", ComposioWebhookController, :receive
+  end
+
+  # ── A2A v0.3.0 Well-Known URIs (coord-a1 v9.2.1) ────────────────────────────
+  # RFC 8615 well-known URI for industry-standard agent discovery.
+  scope "/", ApmV5Web do
+    pipe_through :api
+
+    get "/.well-known/agent-card.json", WellKnownController, :agent_card
+    # Per-agent card under /api/v2/agents — outside V2 scope to keep one controller.
+    get "/api/v2/agents/:agent_id/agent-card.json",
+        WellKnownController,
+        :agent_card_for_agent
   end
 
   # Enable LiveDashboard in development

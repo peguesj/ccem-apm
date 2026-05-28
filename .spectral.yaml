@@ -1,0 +1,83 @@
+# CCEM APM — Spectral OpenAPI Linting
+# Story `api-s2` from v9.2.1 hotfix sprint. See docs/drtw-governance/10-api-schema-governance.md
+#
+# Inherits:
+#   - spectral:oas      — OpenAPI 3.x baseline rules (operation IDs, schema refs, etc.)
+#   - OWASP API Top 10 — security ruleset for AI agent governance product
+#
+# Usage:
+#   npx @stoplight/spectral-cli lint priv/static/openapi.base.json
+extends:
+  - spectral:oas
+  - "@stoplight/spectral-owasp-ruleset"
+
+rules:
+  # ── CCEM API conventions ────────────────────────────────────────────────
+
+  # Every operation MUST have an operationId (Spectral baseline warns; we error)
+  operation-operationId:
+    severity: error
+
+  # Every operation MUST have at least one tag (governance + dashboard grouping)
+  operation-tag-defined:
+    severity: error
+
+  operation-tags:
+    severity: error
+    given: "$.paths[*][get,post,put,patch,delete]"
+    then:
+      field: tags
+      function: truthy
+
+  # Every operation MUST document at least one success response
+  operation-success-response:
+    severity: error
+
+  # Every operation MUST document at least one 4xx or 5xx response
+  ccem-operation-error-response:
+    description: "Operations should document at least one 4xx response"
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete].responses"
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          patternProperties:
+            "^(4[0-9]{2}|5[0-9]{2})$": {}
+          minProperties: 1
+
+  # operationId kebab-case (CCEM convention; consistent dashboard rendering)
+  ccem-operation-id-kebab:
+    description: "operationId should be kebab-case (CCEM convention)"
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete].operationId"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-z0-9-]*$"
+
+  # Servers MUST be defined
+  oas3-api-servers:
+    severity: error
+
+  # Schema example consistency — tighten Spectral baseline
+  oas3-valid-schema-example:
+    severity: error
+
+  # ── OWASP overrides — tune for AI agent governance context ──────────────
+
+  # API1: BOLA — agentic systems regularly fetch by ID with proper authorization
+  # via AgentLock. Don't error on path-param IDs without object-level auth schema.
+  owasp:api1:2023-no-numeric-ids:
+    severity: hint
+
+  # API3: Property-level auth — CCEM uses RedactionEngine, not field-level scopes.
+  # Treat as advisory.
+  owasp:api3:2023-no-additionalProperties:
+    severity: warn
+
+  # API4: Resource consumption — we WANT to error here. Rate limits are critical
+  # for an agentic governance product (rl-* stories address this).
+  owasp:api4:2023-rate-limit:
+    severity: error

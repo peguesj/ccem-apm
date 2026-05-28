@@ -26,6 +26,7 @@ defmodule ApmV5.Supervisors.AgUiSupervisorGroup do
       ApmV5.AgUi.EventBusHealth,
       ApmV5.AgUi.GenerativeUI.Registry,
       ApmV5.AgUi.ApprovalGate,
+      ApmV5.AgUi.A2A.TopicRegistry,
       ApmV5.AgUi.A2A.Router,
       ApmV5.ChatStore
     ]

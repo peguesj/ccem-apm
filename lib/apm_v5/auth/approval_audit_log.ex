@@ -68,9 +68,18 @@ defmodule ApmV5.Auth.ApprovalAuditLog do
     end
   end
 
-  @doc "Clear all entries. For testing only."
+  @doc """
+  Clear all entries. Test-only.
+
+  Raises in non-test environments to prevent accidental approval-audit
+  destruction in dev/prod (audit-s2 v9.2.1 hardening).
+  """
   @spec clear() :: :ok
   def clear do
+    unless Mix.env() == :test do
+      raise "ApprovalAuditLog.clear/0 is test-only. Refusing to clear in #{Mix.env()}."
+    end
+
     GenServer.call(__MODULE__, :clear)
   end
 
@@ -87,7 +96,10 @@ defmodule ApmV5.Auth.ApprovalAuditLog do
 
   @impl true
   def init(_opts) do
-    :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
+    # :protected — only the GenServer can write; all processes can read.
+    # Prevents tamper surface where any process could mutate approval audit
+    # entries bypassing the GenServer (audit-s2 v9.2.1 hardening).
+    :ets.new(@table, [:named_table, :set, :protected, read_concurrency: true])
     {:ok, %{counter: 0}}
   end
 
