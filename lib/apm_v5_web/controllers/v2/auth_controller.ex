@@ -557,6 +557,19 @@ defmodule ApmV5Web.V2.AuthController do
         _ -> nil
       end
 
+    created_by = Map.get(params, "created_by", "api")
+    approved_by = Map.get(params, "approved_by", nil)
+
+    expires_at =
+      case Map.get(params, "expires_at") do
+        nil -> nil
+        v ->
+          case DateTime.from_iso8601(v) do
+            {:ok, dt, _} -> dt
+            _ -> nil
+          end
+      end
+
     cond do
       tool_name == "" ->
         conn |> put_status(400) |> json(%{ok: false, error: "tool_name required"})
@@ -565,7 +578,12 @@ defmodule ApmV5Web.V2.AuthController do
         conn |> put_status(400) |> json(%{ok: false, error: "action must be 'always_allow' or 'always_deny'"})
 
       true ->
-        PolicyRulesStore.add_rule(tool_name, action)
+        rule_opts =
+          [created_by: created_by]
+          |> Keyword.put(:approved_by, approved_by)
+          |> then(fn opts -> if expires_at, do: Keyword.put(opts, :expires_at, expires_at), else: opts end)
+
+        PolicyRulesStore.add_rule(tool_name, action, rule_opts)
         json(conn, %{ok: true, tool_name: tool_name, action: raw_action})
     end
   end
@@ -574,6 +592,34 @@ defmodule ApmV5Web.V2.AuthController do
   def remove_policy_rule(conn, %{"tool_name" => tool_name}) do
     PolicyRulesStore.remove_rule(tool_name)
     json(conn, %{ok: true, removed: tool_name})
+  end
+
+  @doc """
+  GET /api/v2/auth/policy/history — Versioned changelog for all rules or a single tool.
+
+  ## Query parameters
+  - `tool_name` — (optional) filter history to a single tool; returns all-tools
+    history when omitted (sorted by tool_name then version)
+  """
+  def policy_history(conn, params) do
+    case Map.get(params, "tool_name") do
+      nil ->
+        # Aggregate history across all tools
+        rules = PolicyRulesStore.list_rules()
+        all_history =
+          rules
+          |> Enum.flat_map(fn %{tool_name: name} ->
+            PolicyRulesStore.policy_history(name)
+            |> Enum.map(&Map.put(&1, :tool_name, name))
+          end)
+          |> Enum.sort_by(&{&1.tool_name, &1.version})
+
+        json(conn, %{ok: true, history: all_history, count: length(all_history)})
+
+      tool_name ->
+        history = PolicyRulesStore.policy_history(tool_name)
+        json(conn, %{ok: true, tool_name: tool_name, history: history, count: length(history)})
+    end
   end
 
   @doc """

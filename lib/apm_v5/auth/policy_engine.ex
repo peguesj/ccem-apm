@@ -16,6 +16,7 @@ defmodule ApmV5.Auth.PolicyEngine do
 
   alias ApmV5.Auth.Types
   alias ApmV5.Auth.Types.{AuthTool, PolicyDecision}
+  alias ApmV5.Auth.PolicyPredicate
 
   # Default risk mapping for Claude Code tools
   @default_risk_map %{
@@ -65,8 +66,22 @@ defmodule ApmV5.Auth.PolicyEngine do
   """
   @spec evaluate(String.t(), String.t(), map()) :: PolicyDecision.t()
   def evaluate(tool_name, role, context \\ %{}) do
-    # Permanent policy rule takes absolute priority over all other checks.
-    case Map.get(context, :policy_rule, :none) do
+    # CP-286: evaluate contextual predicates before permanent-rule shortcuts.
+    # Predicates in context[:predicates] (list of %PolicyPredicate{}) gate
+    # whether an active permanent rule fires. A :no_match falls through to
+    # normal risk-based evaluation.
+    predicates = Map.get(context, :predicates, [])
+    predicate_gate = PolicyPredicate.evaluate_all(predicates, context)
+
+    # Permanent policy rule takes absolute priority — but only when predicates
+    # (if any) all match.
+    effective_rule =
+      case predicate_gate do
+        :match -> Map.get(context, :policy_rule, :none)
+        :no_match -> :none
+      end
+
+    case effective_rule do
       :always_allow ->
         %PolicyDecision{
           allowed: true,
