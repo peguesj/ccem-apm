@@ -1,0 +1,94 @@
+name: Schemathesis Nightly Fuzz
+
+on:
+  schedule:
+    # Run at 03:00 UTC every night
+    - cron: '0 3 * * *'
+  # Allow manual trigger for debugging
+  workflow_dispatch:
+
+jobs:
+  schemathesis-fuzz:
+    name: Schemathesis OpenAPI Fuzz — /api/v2
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.19.5'
+          otp-version: '28.0'
+
+      - name: Cache deps
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-
+
+      - name: Install Elixir deps
+        run: mix deps.get
+
+      - name: Compile
+        run: mix compile
+
+      - name: Boot CCEM APM server
+        run: |
+          MIX_ENV=prod mix phx.server &
+          echo $! > /tmp/apm.pid
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:3032/api/status > /dev/null 2>&1 && echo "APM ready" && break
+            echo "Waiting for APM... (${i}/30)"
+            sleep 1
+          done
+          curl -fsS http://localhost:3032/api/status > /dev/null 2>&1 || (echo "APM failed to start" && exit 1)
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Schemathesis
+        run: pip install schemathesis
+
+      - name: Run Schemathesis fuzz
+        run: |
+          schemathesis run \
+            http://localhost:3032/api/v2/openapi.json \
+            --checks all \
+            --hypothesis-max-examples 25 \
+            --timeout 120 \
+            --report-dir /tmp/schemathesis-report \
+            --junit-xml /tmp/schemathesis-results.xml \
+            --show-trace \
+            --max-response-time 5000
+
+      - name: Upload Schemathesis report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: schemathesis-report-${{ github.run_id }}
+          path: |
+            /tmp/schemathesis-report/
+            /tmp/schemathesis-results.xml
+          retention-days: 30
+
+      - name: Publish JUnit test results
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: /tmp/schemathesis-results.xml
+          check_name: Schemathesis Fuzz Results
+          fail_on_failure: true
+
+      - name: Stop APM server
+        if: always()
+        run: |
+          if [ -f /tmp/apm.pid ]; then
+            kill "$(cat /tmp/apm.pid)" 2>/dev/null || true
+          fi
+          pkill -f "mix phx.server" 2>/dev/null || true
