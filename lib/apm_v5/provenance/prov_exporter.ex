@@ -228,7 +228,15 @@ defmodule ApmV5.Provenance.ProvExporter do
       _tid ->
         load_lineage_edges_for_formation(formation_id)
         |> Enum.with_index()
-        |> Enum.map(fn {{from_id, to_id, agent_id, _ts}, idx} ->
+        |> Enum.map(fn {edge, idx} ->
+          from_id =
+            Map.get(edge, :from_invocation_id) || Map.get(edge, "from_invocation_id") || "?"
+
+          to_id =
+            Map.get(edge, :to_invocation_id) || Map.get(edge, "to_invocation_id") || "?"
+
+          agent_id = Map.get(edge, :agent_id) || Map.get(edge, "agent_id") || "unknown"
+
           key = "ccem:wdf/#{idx}"
 
           value = %{
