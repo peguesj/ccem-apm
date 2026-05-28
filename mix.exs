@@ -61,8 +61,13 @@ defmodule ApmV5.MixProject do
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
+      # coord-v10.0-d2 (CP-289) [BREAKING]: Horde distributed supervisor + libcluster
+      {:horde, "~> 0.10"},
+      {:libcluster, "~> 3.5"},
       {:bandit, "~> 1.5"},
       {:hammer, "~> 7.0"},
+      # auth-v10.2-s1 (CP-296): Redis backend for Hammer — optional, CI uses ETS
+      {:hammer_backend_redis, "~> 7.0", optional: true},
       {:fuse, "~> 2.5"},
       {:plug_attack, "~> 0.4"},
       {:earmark, "~> 1.4"},

@@ -26,9 +26,21 @@ defmodule ApmV5.Application do
       # PlugAttack ETS storage -- must start before the endpoint to ensure the
       # table exists when the first request hits ApmV5Web.Plugs.RateLimit.
       {PlugAttack.Storage.Ets, name: ApmV5.RateLimit.ETS, clean_period: 60_000},
+      # auth-v10.2-s1 (CP-296): Explicit ETS backend submodule (always started regardless of backend config)
+      ApmV5.RateLimit.EtsBackend,
       ApmV5Web.Telemetry,
       {DNSCluster, query: Application.get_env(:apm_v5, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ApmV5.PubSub},
+      # coord-v10.0-d2 (CP-289) [BREAKING]: libcluster topology supervisor
+      # Starts the configured cluster strategy (DNS/Gossip/etc.). Default topology
+      # is [] (no-op) so existing single-node deployments are unaffected.
+      {Cluster.Supervisor,
+       [Application.get_env(:libcluster, :topologies, []), [name: ApmV5.ClusterSupervisor]]},
+      # coord-v10.0-d2 (CP-289): Horde.Registry as a SIBLING to AgentRegistry (ETS).
+      # Does NOT replace ApmV5.AgentRegistry. Both run concurrently.
+      # Config flag :agent_registry_backend selects which backend the public API uses.
+      # Full ETS→Horde migration is a separate breaking story for the v10.0.0 ship.
+      ApmV5.AgentRegistry.Horde,
       # Unified concurrency layer -- supervised fire-and-forget task pool (v8.12.1)
       ApmV5.ConcurrencyLayer,
       # Priority job queue with exponential backoff retry (v8.12.1)
