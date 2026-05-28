@@ -70,6 +70,47 @@ config :apm_v5, ApmV5.AuditLog.Sinks.HttpSink,
   timeout_ms: 500,
   max_retries: 0
 
+# ── coord-v10.0-d2 (CP-289): Horde + libcluster configuration skeleton ────────
+#
+# Backend selection: :ets (default, single-node) or :horde (multi-node).
+# Set to :horde in production when running a multi-node cluster.
+config :apm_v5, :agent_registry_backend, :ets
+
+# libcluster topology skeleton — DNS strategy (multi-node production default).
+# Override in prod.exs or runtime.exs with actual service/namespace values.
+#
+# Example for Kubernetes headless service:
+#
+#   config :libcluster, :topologies, [
+#     k8s_dns: [
+#       strategy: Cluster.Strategy.Kubernetes.DNS,
+#       config: [
+#         service: "apm-v5-headless",
+#         application_name: "apm_v5",
+#         polling_interval: 5_000
+#       ]
+#     ]
+#   ]
+#
+# Example for Gossip (development/VM cluster):
+#
+#   config :libcluster, :topologies, [
+#     dev_gossip: [
+#       strategy: Cluster.Strategy.Gossip
+#     ]
+#   ]
+config :libcluster, :topologies, []
+
+# OPA sidecar client defaults (auth-v10.1-s1 / CP-291)
+# Override base_url in dev.exs / prod.exs if sidecar runs on a different host.
+config :apm_v5, ApmV5.Auth.OpaClient,
+  base_url: "http://localhost:8181",
+  timeout_ms: 2_000
+
+# PolicyPriorityResolver strategy (auth-v10.1-s4 / CP-294)
+# :deny_wins | :most_specific | :first_match
+config :apm_v5, ApmV5.Auth.PolicyPriorityResolver, strategy: :deny_wins
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
