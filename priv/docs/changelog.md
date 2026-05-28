@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to CCEM APM are documented in this file. Latest: v9.1.4 — Plugin Trifecta + Hook Health + Action Infra.
+All notable changes to CCEM APM are documented in this file. Latest: v9.1.3 — Wave 7-9 TDD Validation + Compile Fixes.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
