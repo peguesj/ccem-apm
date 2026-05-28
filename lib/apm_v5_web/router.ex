@@ -181,6 +181,9 @@ defmodule ApmV5Web.Router do
       # Extension: memory
       live "/memory", MemoryLive, :index
 
+      # Extension: provenance (prov-w4-s10 / CP-284)
+      live "/intelligence/provenance", ProvenanceLive, :index
+
       # Extension: library
       live "/library", LibraryLive, :index
 

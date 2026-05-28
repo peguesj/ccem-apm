@@ -147,6 +147,7 @@ defmodule ApmV5Web.Components.SidebarNav do
     <.nav_item icon="hero-arrow-path-rounded-square" label="Orchestration" href="/orchestration" current_path={@current_path} />
     <.nav_item icon="hero-inbox"                    label="Intake"       href="/intake"        current_path={@current_path} />
     <.nav_item icon="hero-adjustments-horizontal"   label="Alignment"    href="/alignment"     current_path={@current_path} />
+    <.nav_item icon="hero-document-check"           label="Provenance"   href="/intelligence/provenance" current_path={@current_path} />
     """
   end
 
