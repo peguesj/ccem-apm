@@ -271,24 +271,64 @@ defmodule ApmV5Web.V2.AuthController do
   # Audit
   # ---------------------------------------------------------------------------
 
-  @doc "GET /api/v2/auth/audit — Query authorization audit log"
-  def audit_log(conn, params) do
-    limit = params |> Map.get("limit", "50") |> to_integer()
+  @doc """
+  GET /api/v2/auth/audit — Query authorization audit log with cursor pagination.
 
-    # Delegate to AuditLog with auth-specific filter
-    entries =
-      try do
-        ApmV5.AuditLog.tail(limit)
-        |> Enum.filter(fn entry ->
-          event_type = Map.get(entry, :event_type, "")
-          String.starts_with?(event_type, "auth:")
-        end)
-        |> Enum.map(&audit_to_json/1)
-      rescue
-        _ -> []
+  ## Query parameters
+  - `after`  — integer id cursor (exclusive); return only events with id > after
+  - `limit`  — page size (default 50, max 500)
+
+  ## Response envelope
+      %{
+        ok: true,
+        data: [audit_entry, ...],
+        meta: %{next_cursor: integer | nil, has_more: boolean, count: integer}
+      }
+  """
+  def audit_log(conn, params) do
+    limit = params |> Map.get("limit", "50") |> parse_integer(50) |> min(500)
+    after_cursor = params |> Map.get("after") |> parse_cursor()
+
+    page_opts =
+      if is_integer(after_cursor) do
+        [limit: limit, after: after_cursor]
+      else
+        [limit: limit]
       end
 
-    json(conn, %{ok: true, entries: entries, count: length(entries)})
+    {data, next_cursor} =
+      try do
+        # Fetch a page of events (cursor-filtered server-side in ETS).
+        {raw_events, _page_cursor} = ApmV5.AuditLog.query_page(page_opts)
+
+        # Apply auth: event_type prefix filter on the client side.
+        auth_events =
+          Enum.filter(raw_events, fn entry ->
+            event_type = Map.get(entry, :event_type, "")
+            is_binary(event_type) and String.starts_with?(event_type, "auth:")
+          end)
+
+        # next_cursor is the raw integer id of the last matching event.
+        cursor =
+          case auth_events do
+            [] -> nil
+            _ -> auth_events |> List.last() |> Map.get(:id)
+          end
+
+        {Enum.map(auth_events, &audit_to_json/1), cursor}
+      rescue
+        _ -> {[], nil}
+      end
+
+    json(conn, %{
+      ok: true,
+      data: data,
+      meta: %{
+        next_cursor: next_cursor,
+        has_more: not is_nil(next_cursor),
+        count: length(data)
+      }
+    })
   end
 
   # ---------------------------------------------------------------------------
@@ -763,6 +803,31 @@ defmodule ApmV5Web.V2.AuthController do
 
   defp to_integer(val) when is_integer(val), do: val
   defp to_integer(_), do: 50
+
+  # parse_integer/2 — like to_integer/1 but with a configurable default.
+  defp parse_integer(val, _default) when is_integer(val), do: val
+
+  defp parse_integer(val, default) when is_binary(val) do
+    case Integer.parse(val) do
+      {n, _} when n > 0 -> n
+      _ -> default
+    end
+  end
+
+  defp parse_integer(_val, default), do: default
+
+  # parse_cursor/1 — parses an "after" query param to an integer cursor or nil.
+  defp parse_cursor(nil), do: nil
+  defp parse_cursor(val) when is_integer(val) and val > 0, do: val
+
+  defp parse_cursor(val) when is_binary(val) do
+    case Integer.parse(val) do
+      {n, _} when n > 0 -> n
+      _ -> nil
+    end
+  end
+
+  defp parse_cursor(_), do: nil
 
   defp audit_to_json(%{} = entry) do
     raw_id = Map.get(entry, :id)

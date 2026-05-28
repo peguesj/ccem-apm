@@ -173,10 +173,34 @@ defmodule ApmV5.AuditLog do
   - `formation_id:` - exact match
   - `severity:` - atom exact match
   - `result:` - atom exact match
+
+  ## v3 cursor pagination (audit-s8)
+  - `after:` - integer cursor; return only events with `id > after`
   """
   @spec query(keyword()) :: [map()]
   def query(opts \\ []) do
     GenServer.call(__MODULE__, {:query, opts})
+  end
+
+  @doc """
+  Paginated query returning a `{events, next_cursor}` tuple.
+
+  `next_cursor` is the integer id of the last returned event, or `nil` when
+  the result set is empty. Pass `next_cursor` back as `after:` to advance the
+  page.
+
+  Accepts all filters supported by `query/1` plus:
+  - `after:` — integer id cursor (exclusive lower bound)
+  - `limit:` — page size (default 50, max 500)
+
+  ## Example
+
+      iex> {page1, cursor} = ApmV5.AuditLog.query_page(limit: 10)
+      iex> {page2, _cursor2} = ApmV5.AuditLog.query_page(after: cursor, limit: 10)
+  """
+  @spec query_page(keyword()) :: {[map()], integer() | nil}
+  def query_page(opts \\ []) do
+    GenServer.call(__MODULE__, {:query_page, opts})
   end
 
   @doc "Get last N events from ring buffer."
@@ -257,10 +281,11 @@ defmodule ApmV5.AuditLog do
     formation_id = Keyword.get(opts, :formation_id)
     severity = Keyword.get(opts, :severity)
     result = Keyword.get(opts, :result)
+    # v3 cursor filter (audit-s8)
+    after_cursor = Keyword.get(opts, :after)
 
     results =
-      :ets.tab2list(@ets_table)
-      |> Enum.map(fn {_k, event} -> event end)
+      fetch_after_cursor(@ets_table, after_cursor)
       |> maybe_filter(:event_type, event_type)
       |> maybe_filter(:actor, actor)
       |> maybe_filter(:agent_id, agent_id)
@@ -273,6 +298,41 @@ defmodule ApmV5.AuditLog do
       |> Enum.take(limit)
 
     {:reply, results, state}
+  end
+
+  def handle_call({:query_page, opts}, _from, state) do
+    limit = opts |> Keyword.get(:limit, 50) |> min(500)
+    after_cursor = Keyword.get(opts, :after)
+    event_type = Keyword.get(opts, :event_type)
+    actor = Keyword.get(opts, :actor)
+    since = Keyword.get(opts, :since)
+    until_ts = Keyword.get(opts, :until)
+    agent_id = Keyword.get(opts, :agent_id)
+    session_id = Keyword.get(opts, :session_id)
+    formation_id = Keyword.get(opts, :formation_id)
+    severity = Keyword.get(opts, :severity)
+    result = Keyword.get(opts, :result)
+
+    events =
+      fetch_after_cursor(@ets_table, after_cursor)
+      |> maybe_filter(:event_type, event_type)
+      |> maybe_filter(:actor, actor)
+      |> maybe_filter(:agent_id, agent_id)
+      |> maybe_filter(:session_id, session_id)
+      |> maybe_filter(:formation_id, formation_id)
+      |> maybe_filter(:severity, severity)
+      |> maybe_filter(:result, result)
+      |> maybe_filter_since(since)
+      |> maybe_filter_until(until_ts)
+      |> Enum.take(limit)
+
+    next_cursor =
+      case events do
+        [] -> nil
+        _ -> List.last(events).id
+      end
+
+    {:reply, {events, next_cursor}, state}
   end
 
   def handle_call({:tail, n}, _from, state) do
@@ -577,6 +637,22 @@ defmodule ApmV5.AuditLog do
 
   defp maybe_filter_until(events, until_ts) do
     Enum.filter(events, &(&1.timestamp <= until_ts))
+  end
+
+  # Returns events from @ets_table with id > cursor (or all events when cursor
+  # is nil). The ETS table is an :ordered_set keyed by integer id — we use
+  # :ets.select/2 with a match spec to filter server-side, avoiding a full
+  # tab2list when a cursor is given.
+  defp fetch_after_cursor(_table, nil) do
+    :ets.tab2list(@ets_table)
+    |> Enum.map(fn {_k, event} -> event end)
+  end
+
+  defp fetch_after_cursor(_table, cursor) when is_integer(cursor) do
+    # Match spec: match all entries {Key, Value} where Key > cursor,
+    # returning the Value (the event map).
+    match_spec = [{{:"$1", :"$2"}, [{:>, :"$1", cursor}], [:"$2"]}]
+    :ets.select(@ets_table, match_spec)
   end
 
   # Returns milliseconds from now until the next UTC midnight.
