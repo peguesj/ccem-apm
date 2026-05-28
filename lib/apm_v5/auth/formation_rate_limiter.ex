@@ -141,6 +141,108 @@ defmodule ApmV5.Auth.FormationRateLimiter do
   @spec risk_limits() :: map()
   def risk_limits, do: @risk_limits
 
+  @doc """
+  Return the top `n` agents in `formation_id` ordered by descending Hammer
+  bucket usage for the current 60-second window.
+
+  Each entry is a map with keys `:agent_id`, `:tool_name`, and `:used`.
+
+  Agents whose bucket count is zero (no hits in the current window) are
+  excluded from the result.
+
+  ## Two-arity form (registry-backed)
+
+      FormationRateLimiter.top_n_agents("fmn-abc", 10)
+
+  Resolves agents via `AgentRegistry.list_formation/1` and queries each
+  agent's bucket across all tools they have used.  Because Hammer's ETS
+  backend does not expose a native full-scan API, this overload falls back
+  to inspecting the `:hammer_ets` table directly.
+
+  ## Three-arity form (explicit agent/tool pairs — preferred in tests)
+
+      FormationRateLimiter.top_n_agents("fmn-abc", 10, [{"agent-1", "Bash"}, ...])
+
+  Skips registry lookup and queries Hammer for each `{agent_id, tool_name}`
+  pair provided.  Useful when the caller already knows which tools agents
+  are using.
+  """
+  @spec top_n_agents(String.t(), pos_integer()) :: [
+          %{agent_id: String.t(), tool_name: String.t(), used: non_neg_integer()}
+        ]
+  def top_n_agents(formation_id, n \\ 10) do
+    agents =
+      try do
+        case AgentRegistry.list_formation(formation_id) do
+          list when is_list(list) -> list
+          _ -> []
+        end
+      rescue
+        _ -> []
+      catch
+        :exit, _ -> []
+      end
+
+    pairs =
+      Enum.flat_map(agents, fn agent ->
+        agent_id = if is_map(agent), do: agent[:id] || agent[:agent_id], else: to_string(agent)
+        # Probe all known risk-level tools as well as a wildcard scan
+        for tool <- probe_tools_for_agent(agent_id), do: {agent_id, tool}
+      end)
+
+    top_n_agents(formation_id, n, pairs)
+  end
+
+  @spec top_n_agents(String.t(), pos_integer(), [{String.t(), String.t()}]) :: [
+          %{agent_id: String.t(), tool_name: String.t(), used: non_neg_integer()}
+        ]
+  def top_n_agents(_formation_id, n, agent_tool_pairs) do
+    agent_tool_pairs
+    |> Enum.map(fn {agent_id, tool_name} ->
+      used = get_bucket_count(agent_id, tool_name)
+      %{agent_id: agent_id, tool_name: tool_name, used: used}
+    end)
+    |> Enum.filter(fn %{used: used} -> used > 0 end)
+    |> Enum.sort_by(fn %{used: used} -> used end, :desc)
+    |> Enum.take(n)
+  end
+
+  @doc """
+  Return a utilization heat-map for `formation_id`.
+
+  For each `tool_name` that has accumulated hits against the formation-level
+  Hammer key (`"formation:<formation_id>:<tool_name>"`), returns the
+  percentage of the current formation budget that has been consumed:
+
+      utilization_pct = min(used / budget, 1.0) * 100.0
+
+  The budget is computed with `formation_budget/2` using the `:low` risk
+  level default and the current `agent_count/1` for the formation.
+
+  Returns a map of `%{tool_name => float()}` where values are in `[0.0, 100.0]`.
+  An empty map is returned when no hits have been recorded for the formation.
+
+  ## Example
+
+      iex> ApmV5.Auth.FormationRateLimiter.heatmap_data("fmn-abc")
+      %{"Bash" => 45.0, "Write" => 12.0}
+  """
+  @spec heatmap_data(String.t()) :: %{String.t() => float()}
+  def heatmap_data(formation_id) do
+    per_agent_limit = Map.get(@risk_limits, :low)
+    count = agent_count(formation_id)
+    budget = formation_budget(per_agent_limit, count)
+
+    formation_prefix = "formation:#{formation_id}:"
+
+    scan_formation_keys(formation_prefix)
+    |> Enum.reduce(%{}, fn {key, used}, acc ->
+      tool_name = String.replace_prefix(key, formation_prefix, "")
+      pct = min(used / budget, 1.0) * 100.0
+      Map.put(acc, tool_name, Float.round(pct, 2))
+    end)
+  end
+
   # ---------------------------------------------------------------------------
   # Private
   # ---------------------------------------------------------------------------
@@ -152,6 +254,108 @@ defmodule ApmV5.Auth.FormationRateLimiter do
 
       _ ->
         :ok
+    end
+  end
+
+  # Returns the current used count for `agent_id:tool_name` from Hammer's
+  # sliding-window bucket without recording a new hit.
+  # `ApmV5.RateLimit.get/2` returns the current counter value for the key.
+  @spec get_bucket_count(String.t(), String.t()) :: non_neg_integer()
+  defp get_bucket_count(agent_id, tool_name) do
+    key = "#{agent_id}:#{tool_name}"
+
+    try do
+      ApmV5.RateLimit.get(key, @window_ms)
+    rescue
+      _ -> 0
+    catch
+      _, _ -> 0
+    end
+  end
+
+  # Scan the Hammer ETS table for all keys matching `prefix`.
+  # Returns `[{key_string, used}]` pairs.
+  #
+  # Hammer 7.x with the `:ets` backend names the ETS table after the module
+  # that called `use Hammer`.  In this project that module is `ApmV5.RateLimit`,
+  # so the table atom is `ApmV5.RateLimit`.
+  #
+  # Sliding-window ETS entries have shape: `{key, window_id, count}` where
+  # `window_id` is an integer sub-bucket index.  Fixed-window entries may use
+  # a tuple key `{key, bucket}`.  We handle both shapes defensively.
+  #
+  # This scan is only called for dashboard/reporting purposes (not on the hot
+  # authorization path), so a linear ETS scan is acceptable.
+  @hammer_table ApmV5.RateLimit
+
+  @spec scan_formation_keys(String.t()) :: [{String.t(), non_neg_integer()}]
+  defp scan_formation_keys(prefix) do
+    scan_ets_keys(prefix)
+  end
+
+  @spec scan_ets_keys(String.t()) :: [{String.t(), non_neg_integer()}]
+  defp scan_ets_keys(prefix) do
+    case :ets.info(@hammer_table) do
+      :undefined ->
+        []
+
+      _ ->
+        :ets.tab2list(@hammer_table)
+        |> extract_key_counts(prefix)
+    end
+  end
+
+  # Extract `{key_string, count}` from raw ETS entries whose string key
+  # starts with `prefix`.
+  #
+  # Hammer 7.x sliding-window ETS entry shape:
+  #   `{{key_string, timestamp_us}, expires_at_us}`
+  # Each individual hit is its own row.  We count the number of rows per
+  # key_string (equivalent to what `get/3` does via `select_count`), but
+  # only for rows that have not yet expired.
+  @spec extract_key_counts(list(), String.t()) :: [{String.t(), non_neg_integer()}]
+  defp extract_key_counts(entries, prefix) do
+    # Hammer sliding window uses System.system_time(:microsecond) for timestamps.
+    now_us = System.system_time(:microsecond)
+
+    entries
+    |> Enum.flat_map(fn
+      # Sliding-window: {{key_string, _ts_us}, expires_at_us}
+      {{key, _ts}, expires_at}
+      when is_binary(key) and is_integer(expires_at) and expires_at > now_us ->
+        if String.starts_with?(key, prefix), do: [key], else: []
+
+      _ ->
+        []
+    end)
+    |> Enum.frequencies()
+    |> Enum.to_list()
+  end
+
+  # Returns a list of tool names to probe for a given agent_id when
+  # no explicit pairs are provided (two-arity top_n_agents fallback).
+  # Scans the Hammer ETS table for any key matching `"agent_id:*"`.
+  @spec probe_tools_for_agent(String.t()) :: [String.t()]
+  defp probe_tools_for_agent(agent_id) do
+    prefix = "#{agent_id}:"
+
+    case :ets.info(@hammer_table) do
+      :undefined ->
+        []
+
+      _ ->
+        @hammer_table
+        |> :ets.tab2list()
+        |> Enum.flat_map(fn
+          {{key, _ts}, _expires_at} when is_binary(key) ->
+            if String.starts_with?(key, prefix),
+              do: [String.replace_prefix(key, prefix, "")],
+              else: []
+
+          _ ->
+            []
+        end)
+        |> Enum.uniq()
     end
   end
 end

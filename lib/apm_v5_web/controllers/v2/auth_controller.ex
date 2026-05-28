@@ -31,6 +31,7 @@ defmodule ApmV5Web.V2.AuthController do
     MemoryGate,
     RedactionEngine,
     RateLimiter,
+    FormationRateLimiter,
     PolicyRulesStore,
     PendingDecisions,
     ApprovalAuditLog,
@@ -275,6 +276,65 @@ defmodule ApmV5Web.V2.AuthController do
   def rate_limits(conn, _params) do
     stats = RateLimiter.stats()
     json(conn, %{ok: true, rate_limits: stats})
+  end
+
+  @doc """
+  GET /api/v2/auth/rate-limits/top-agents?formation_id=X&limit=N
+
+  Returns the top-N agents within a formation ordered by descending Hammer
+  bucket usage for the current 60-second sliding window.
+
+  ## Query params
+  - `formation_id` (required) — formation to query
+  - `limit` — number of results (default 10, max 100)
+
+  ## Response
+      %{ok: true, formation_id: "...", agents: [%{agent_id, tool_name, used}], count: N}
+  """
+  def top_agents(conn, params) do
+    case Map.get(params, "formation_id") do
+      nil ->
+        conn |> put_status(400) |> json(%{ok: false, error: "formation_id required"})
+
+      formation_id ->
+        limit = params |> Map.get("limit", "10") |> parse_integer(10) |> min(100)
+        agents = FormationRateLimiter.top_n_agents(formation_id, limit)
+
+        json(conn, %{
+          ok: true,
+          formation_id: formation_id,
+          agents: Enum.map(agents, &agent_usage_to_json/1),
+          count: length(agents)
+        })
+    end
+  end
+
+  @doc """
+  GET /api/v2/auth/rate-limits/heatmap?formation_id=X
+
+  Returns per-tool utilization percentages for a formation.
+
+  ## Query params
+  - `formation_id` (required) — formation to query
+
+  ## Response
+      %{ok: true, formation_id: "...", heatmap: %{tool_name => float()}, tool_count: N}
+  """
+  def rate_limit_heatmap(conn, params) do
+    case Map.get(params, "formation_id") do
+      nil ->
+        conn |> put_status(400) |> json(%{ok: false, error: "formation_id required"})
+
+      formation_id ->
+        heatmap = FormationRateLimiter.heatmap_data(formation_id)
+
+        json(conn, %{
+          ok: true,
+          formation_id: formation_id,
+          heatmap: heatmap,
+          tool_count: map_size(heatmap)
+        })
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -1076,6 +1136,10 @@ defmodule ApmV5Web.V2.AuthController do
 
   defp parse_risk_limit(v) when is_integer(v), do: min(max(v, 1), 100)
   defp parse_risk_limit(_), do: 10
+
+  defp agent_usage_to_json(%{agent_id: agent_id, tool_name: tool_name, used: used}) do
+    %{agent_id: agent_id, tool_name: tool_name, used: used}
+  end
 
   # api-s5 Wave 1: catch-all for non-annotated actions.
   # OpenApiSpex.ControllerSpecs's `before_compile` callback otherwise emits

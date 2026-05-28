@@ -521,6 +521,8 @@ defmodule ApmV5Web.Router do
     post "/auth/memory/authorize-write", AuthController, :authorize_memory_write
     post "/auth/memory/authorize-read", AuthController, :authorize_memory_read
     get "/auth/rate-limits", AuthController, :rate_limits
+    get "/auth/rate-limits/top-agents", AuthController, :top_agents
+    get "/auth/rate-limits/heatmap", AuthController, :rate_limit_heatmap
     post "/auth/redact", AuthController, :redact
     get "/auth/audit", AuthController, :audit_log
     get "/auth/pending", AuthController, :list_pending
