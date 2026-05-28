@@ -25,6 +25,9 @@ defmodule ApmV5.Application do
     # Initialize artifact attestation ETS ring buffer before AuditLog starts
     ApmV5.Provenance.ArtifactAttestation.init_table()
 
+    # Initialize WebAuthn credentials ETS (v10.3.0 auth-v10.3-s1 / CP-298)
+    ApmV5.Auth.WebAuthnAttestation.init_table()
+
     children = [
       # PlugAttack ETS storage -- must start before the endpoint to ensure the
       # table exists when the first request hits ApmV5Web.Plugs.RateLimit.

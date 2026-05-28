@@ -24,6 +24,7 @@ defmodule ApmV5Web.V2.ApprovalController do
 
   alias ApmV5Web.Schemas
   alias ApmV5.AgUi.ApprovalGate
+  alias ApmV5.Auth.WebAuthnAttestation
 
   operation :index,
     summary: "List approval gates",
@@ -119,10 +120,48 @@ defmodule ApmV5Web.V2.ApprovalController do
   def approve(conn, %{"id" => id} = params) do
     approver = params["approver"] || %{}
 
-    case ApprovalGate.approve(id, approver) do
-      :ok -> json(conn, %{status: "approved"})
-      {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "Gate not found"})
-      {:error, :not_pending} -> conn |> put_status(409) |> json(%{error: "Gate is not pending"})
+    # v10.3.0 auth-v10.3-s1 / CP-298 — enforce FIDO2 WebAuthn assertion when
+    # the operator has opted in via `:require_webauthn_for_approval`. Backward
+    # compatible default is `false` so existing deployments keep working.
+    case verify_webauthn(approver, params) do
+      :ok ->
+        case ApprovalGate.approve(id, approver) do
+          :ok -> json(conn, %{status: "approved"})
+          {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "Gate not found"})
+          {:error, :not_pending} -> conn |> put_status(409) |> json(%{error: "Gate is not pending"})
+        end
+
+      {:error, reason} ->
+        conn
+        |> put_status(401)
+        |> json(%{error: "webauthn attestation required", reason: to_string(reason)})
+    end
+  end
+
+  # Returns `:ok` when the request is allowed to proceed (either because the
+  # policy gate is off, or because a valid assertion accompanies the request).
+  defp verify_webauthn(approver, params) do
+    if WebAuthnAttestation.require_webauthn?() do
+      with %{"credential_id" => cred_id_b64, "signature" => sig_b64,
+             "authenticator_data" => auth_data_b64,
+             "client_data_json" => client_data_b64} <- params["webauthn_assertion"] || %{},
+           user_id when is_binary(user_id) <- approver["user_id"] || params["user_id"],
+           {:ok, cred_id} <- Base.url_decode64(cred_id_b64, padding: false),
+           {:ok, sig} <- Base.url_decode64(sig_b64, padding: false),
+           {:ok, auth_data} <- Base.url_decode64(auth_data_b64, padding: false),
+           {:ok, client_data} <- Base.url_decode64(client_data_b64, padding: false) do
+        case WebAuthnAttestation.verify_assertion(user_id, cred_id, sig, auth_data, client_data) do
+          {:ok, _} -> :ok
+          {:error, reason} -> {:error, reason}
+        end
+      else
+        nil -> {:error, :missing_user_id}
+        %{} -> {:error, :missing_assertion}
+        :error -> {:error, :malformed_base64}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      :ok
     end
   end
 
