@@ -81,6 +81,19 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
     GenServer.call(__MODULE__, {:cancel_run, run_id})
   end
 
+  @doc """
+  Return a deterministic topological ordering of step IDs for the given edges.
+
+  Uses `:digraph_utils.topsort/1` so that parallel steps can be dispatched in
+  dependency order without relying on list insertion order.
+
+  Returns `{:ok, [step_id]}` or `{:error, :cycle}` if the graph has cycles.
+  """
+  @spec step_order([edge()]) :: {:ok, [String.t()]} | {:error, :cycle}
+  def step_order(edges) do
+    topo_sort(edges)
+  end
+
   @doc "Get a run by id."
   @spec get_run(String.t()) :: {:ok, run()} | {:error, :not_found}
   def get_run(run_id) do
@@ -189,36 +202,64 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
 
   defp validate_type(_params), do: :ok
 
+  # Detect cycles using OTP's built-in :digraph_utils.is_acyclic/1.
+  #
+  # Replaces 34-LOC custom DFS (detect_cycle/1 + has_cycle_from?/4) with a
+  # single stdlib call. :digraph/:digraph_utils are part of the Erlang stdlib
+  # (stdlib application) — no additional dependency required.
+  #
+  # The :digraph is created, used, and deleted within a try/after block to
+  # guarantee the ETS tables backing the digraph are always cleaned up.
   @spec detect_cycle([edge()]) :: boolean()
   defp detect_cycle(edges) do
-    # Build adjacency list then do DFS cycle detection
-    graph =
-      Enum.reduce(edges, %{}, fn %{source: s, target: t}, acc ->
-        Map.update(acc, s, [t], &[t | &1])
+    dg = :digraph.new()
+
+    try do
+      # Collect all unique vertex IDs from both source and target sides
+      vertex_ids =
+        edges
+        |> Enum.flat_map(fn %{source: s, target: t} -> [s, t] end)
+        |> Enum.uniq()
+
+      Enum.each(vertex_ids, &:digraph.add_vertex(dg, &1))
+
+      Enum.each(edges, fn %{source: s, target: t} ->
+        :digraph.add_edge(dg, s, t)
       end)
 
-    nodes = Map.keys(graph)
-
-    Enum.any?(nodes, fn node ->
-      has_cycle_from?(node, graph, MapSet.new(), MapSet.new())
-    end)
+      not :digraph_utils.is_acyclic(dg)
+    after
+      :digraph.delete(dg)
+    end
   end
 
-  defp has_cycle_from?(node, graph, visited, in_stack) do
-    if MapSet.member?(in_stack, node) do
-      true
-    else
-      if MapSet.member?(visited, node) do
-        false
-      else
-        new_visited = MapSet.put(visited, node)
-        new_in_stack = MapSet.put(in_stack, node)
-        neighbors = Map.get(graph, node, [])
+  # Return a topologically sorted list of step IDs for deterministic scheduling.
+  #
+  # Uses :digraph_utils.topsort/1 which returns vertices in topological order
+  # (dependencies before dependents) or `false` if the graph has cycles.
+  # Returns {:ok, [step_id]} or {:error, :cycle} to mirror detect_cycle semantics.
+  @spec topo_sort([edge()]) :: {:ok, [String.t()]} | {:error, :cycle}
+  defp topo_sort(edges) do
+    dg = :digraph.new()
 
-        Enum.any?(neighbors, fn neighbor ->
-          has_cycle_from?(neighbor, graph, new_visited, new_in_stack)
-        end)
+    try do
+      vertex_ids =
+        edges
+        |> Enum.flat_map(fn %{source: s, target: t} -> [s, t] end)
+        |> Enum.uniq()
+
+      Enum.each(vertex_ids, &:digraph.add_vertex(dg, &1))
+
+      Enum.each(edges, fn %{source: s, target: t} ->
+        :digraph.add_edge(dg, s, t)
+      end)
+
+      case :digraph_utils.topsort(dg) do
+        false -> {:error, :cycle}
+        order -> {:ok, order}
       end
+    after
+      :digraph.delete(dg)
     end
   end
 
