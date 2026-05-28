@@ -1,191 +1,123 @@
 defmodule ApmV5.Auth.RateLimiter do
   @moduledoc """
-  GenServer implementing sliding window rate limiting for AgentLock.
+  AgentLock rate limiter — thin compatibility wrapper over `ApmV5.RateLimit`.
 
-  Tracks tool call frequency per `{user_id, tool_name}` tuple with
-  configurable limits per tool. Uses ETS for O(1) lookups.
+  Preserves the original public API (`check/2`, `record/2`, `configure/3`,
+  `get_tool_config/1`, `stats/0`, `default_limits/0`) so all callers
+  (`AuthorizationGate`, `MemoryGate`, `AgentlockIntegration`) are unaffected.
 
-  ## Algorithm
-  Sliding window: maintains list of timestamps, prunes older than
-  window_seconds on each check. If remaining count >= max_calls,
-  returns rate limit error with retry_after_ms.
+  ## Migration notes
 
-  ## ETS Table
-  `:agentlock_rate_limits` — keyed by `{user_id, tool_name}` tuple
+  The former implementation maintained per-key timestamp lists in ETS and pruned
+  them every 30 s via a `Process.send_after` loop.  That created an O(n) check
+  cost whenever the prune had not yet run.  `ApmV5.RateLimit` (Hammer 7.x
+  sliding window, ETS backend) performs an atomic check-and-record in O(1)
+  amortized time.
+
+  This module is **no longer a GenServer**.  `ApmV5.RateLimit` owns the ETS
+  table and cleanup timer; `ApmV5.Auth.RateLimiter` is removed from
+  `AuthSupervisor` children and replaced by `ApmV5.RateLimit`.
+
+  ## check/2 semantics change
+
+  Previously `check/2` was read-only and callers were expected to follow up with
+  `record/2`.  Now `check/2` atomically checks **and** records (Hammer's `hit/3`
+  semantics).  Standalone `record/2` calls are tolerated for backward
+  compatibility but are no-ops — they do not double-count because the
+  check-and-record already happened in `check/2`.
   """
-
-  use GenServer
 
   require Logger
 
-  @table :agentlock_rate_limits
-  @config_table :agentlock_rate_configs
-  @prune_interval_ms 30_000
-
-  # Default rate limits per risk level
+  # Per-risk-level defaults — identical to the old implementation so that callers
+  # relying on `default_limits/0` or `get_tool_config/1` see no change.
   @default_limits %{
-    none: %{max_calls: 1000, window_seconds: 60},
+    none: %{max_calls: 1_000, window_seconds: 60},
     low: %{max_calls: 200, window_seconds: 60},
     medium: %{max_calls: 50, window_seconds: 60},
     high: %{max_calls: 20, window_seconds: 60},
     critical: %{max_calls: 5, window_seconds: 60}
   }
 
-  # ---------------------------------------------------------------------------
-  # Client API
-  # ---------------------------------------------------------------------------
+  # Per-tool overrides written by `configure/3`. Stored in :persistent_term for
+  # zero-copy reads from any process without a GenServer round-trip.
+  @tool_config_key {__MODULE__, :tool_configs}
 
-  @spec start_link(keyword()) :: GenServer.on_start()
-  def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
+  # ---------------------------------------------------------------------------
+  # Public API (unchanged from original GenServer implementation)
+  # ---------------------------------------------------------------------------
 
   @doc """
-  Check if a tool call is within rate limits.
+  Check whether `tool_name` is within rate limits for `user_id`.
 
-  Returns `:ok` if allowed, `{:error, :rate_limited, retry_after_ms}` if exceeded.
+  Returns `:ok` when allowed; `{:error, :rate_limited, retry_after_ms}` when
+  the bucket is exhausted.
+
+  This call is now **atomic** — `check/2` and `record/2` are unified into a
+  single `Hammer.hit/3` invocation, eliminating the TOCTOU gap in the old API.
   """
   @spec check(String.t(), String.t()) :: :ok | {:error, :rate_limited, non_neg_integer()}
   def check(user_id, tool_name) do
-    key = {user_id, tool_name}
     config = get_tool_config(tool_name)
-    now_ms = System.system_time(:millisecond)
-    window_ms = config.window_seconds * 1000
-    cutoff = now_ms - window_ms
+    key = "#{user_id}:#{tool_name}"
+    scale_ms = config.window_seconds * 1_000
 
-    timestamps =
-      case :ets.lookup(@table, key) do
-        [{^key, ts_list}] -> Enum.filter(ts_list, &(&1 > cutoff))
-        [] -> []
-      end
-
-    if length(timestamps) >= config.max_calls do
-      # Calculate retry_after from oldest timestamp in window
-      oldest = Enum.min(timestamps)
-      retry_after = oldest + window_ms - now_ms
-      {:error, :rate_limited, max(retry_after, 1000)}
-    else
-      :ok
+    case ApmV5.RateLimit.hit(key, scale_ms, config.max_calls) do
+      {:allow, _count} -> :ok
+      {:deny, retry_after_ms} -> {:error, :rate_limited, max(retry_after_ms, 1_000)}
     end
   end
 
   @doc """
-  Record a tool call event (advances the sliding window).
+  No-op shim retained for backward compatibility.
+
+  `check/2` now atomically records the hit via Hammer; calling `record/2`
+  separately would double-count.  This function intentionally does nothing.
+  Callers should remove standalone `record/2` calls over time.
   """
   @spec record(String.t(), String.t()) :: :ok
-  def record(user_id, tool_name) do
-    GenServer.cast(__MODULE__, {:record, user_id, tool_name})
-  end
+  def record(_user_id, _tool_name), do: :ok
 
   @doc """
-  Configure rate limits for a specific tool.
+  Configure rate limits for a specific tool at runtime.
+
+  Stored in `:persistent_term` so reads are zero-copy from any process.
   """
   @spec configure(String.t(), non_neg_integer(), non_neg_integer()) :: :ok
   def configure(tool_name, max_calls, window_seconds) do
-    GenServer.call(__MODULE__, {:configure, tool_name, max_calls, window_seconds})
+    configs = get_all_configs()
+    updated = Map.put(configs, tool_name, %{max_calls: max_calls, window_seconds: window_seconds})
+    :persistent_term.put(@tool_config_key, updated)
+    :ok
   end
 
-  @doc "Get current rate limit config for a tool."
-  @spec get_tool_config(String.t()) :: map()
+  @doc "Return the rate limit config for `tool_name`, falling back to :low defaults."
+  @spec get_tool_config(String.t()) :: %{max_calls: pos_integer(), window_seconds: pos_integer()}
   def get_tool_config(tool_name) do
-    case :ets.lookup(@config_table, tool_name) do
-      [{^tool_name, config}] -> config
-      [] -> @default_limits[:low]
-    end
+    Map.get(get_all_configs(), tool_name, @default_limits[:low])
   end
 
-  @doc "Get rate limit utilization stats for all active keys."
+  @doc """
+  Return utilization stats for all active rate-limit buckets.
+
+  NOTE: Hammer 7.x ETS sliding window does not expose a public enumeration API
+  for the raw timestamp store, so this returns an empty list.  Per-key
+  utilization will be surfaced through the dashboard widget introduced in rl-s8.
+  """
   @spec stats() :: [map()]
-  def stats do
-    now_ms = System.system_time(:millisecond)
+  def stats, do: []
 
-    :ets.tab2list(@table)
-    |> Enum.map(fn {{user_id, tool_name}, timestamps} ->
-      config = get_tool_config(tool_name)
-      cutoff = now_ms - config.window_seconds * 1000
-      active = Enum.count(timestamps, &(&1 > cutoff))
-
-      %{
-        user_id: user_id,
-        tool_name: tool_name,
-        current_calls: active,
-        max_calls: config.max_calls,
-        window_seconds: config.window_seconds,
-        utilization: if(config.max_calls > 0, do: active / config.max_calls, else: 0.0)
-      }
-    end)
-    |> Enum.filter(&(&1.current_calls > 0))
-    |> Enum.sort_by(& &1.utilization, :desc)
-  end
-
-  @doc "Returns the default rate limits map."
+  @doc "Return the default risk-level rate limit map."
   @spec default_limits() :: map()
   def default_limits, do: @default_limits
 
   # ---------------------------------------------------------------------------
-  # GenServer Callbacks
+  # Private helpers
   # ---------------------------------------------------------------------------
 
-  @impl true
-  def init(_opts) do
-    :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
-    :ets.new(@config_table, [:named_table, :set, :public, read_concurrency: true])
-    schedule_prune()
-    Logger.info("[RateLimiter] Started — tables #{@table}, #{@config_table}")
-    {:ok, %{}}
-  end
-
-  @impl true
-  def handle_call({:configure, tool_name, max_calls, window_seconds}, _from, state) do
-    config = %{max_calls: max_calls, window_seconds: window_seconds}
-    :ets.insert(@config_table, {tool_name, config})
-    {:reply, :ok, state}
-  end
-
-  @impl true
-  def handle_cast({:record, user_id, tool_name}, state) do
-    key = {user_id, tool_name}
-    now_ms = System.system_time(:millisecond)
-
-    existing =
-      case :ets.lookup(@table, key) do
-        [{^key, ts_list}] -> ts_list
-        [] -> []
-      end
-
-    :ets.insert(@table, {key, [now_ms | existing]})
-    {:noreply, state}
-  end
-
-  @impl true
-  def handle_info(:prune_stale, state) do
-    prune_stale_entries()
-    schedule_prune()
-    {:noreply, state}
-  end
-
-  # ---------------------------------------------------------------------------
-  # Private
-  # ---------------------------------------------------------------------------
-
-  defp prune_stale_entries do
-    now_ms = System.system_time(:millisecond)
-    # Remove timestamps older than the maximum window (60s default)
-    max_window_ms = 120_000
-
-    :ets.tab2list(@table)
-    |> Enum.each(fn {key, timestamps} ->
-      pruned = Enum.filter(timestamps, &(&1 > now_ms - max_window_ms))
-
-      if pruned == [] do
-        :ets.delete(@table, key)
-      else
-        :ets.insert(@table, {key, pruned})
-      end
-    end)
-  end
-
-  defp schedule_prune do
-    Process.send_after(self(), :prune_stale, @prune_interval_ms)
+  defp get_all_configs do
+    :persistent_term.get(@tool_config_key, %{})
+  rescue
+    ArgumentError -> %{}
   end
 end

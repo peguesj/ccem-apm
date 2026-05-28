@@ -3,6 +3,9 @@ defmodule ApmV5.Supervisors.AuthSupervisor do
   Supervises AgentLock authorization GenServers: session management,
   token issuance/validation, rate limiting, context tracking, and
   the authorization gate.
+
+  `ApmV5.RateLimit` (Hammer 7.x ETS sliding window) replaces the former
+  `ApmV5.Auth.RateLimiter` GenServer as the rate-limiting child (rl-s2).
   """
   use Supervisor
 
@@ -16,7 +19,8 @@ defmodule ApmV5.Supervisors.AuthSupervisor do
     children = [
       ApmV5.Auth.SessionStore,
       ApmV5.Auth.TokenStore,
-      ApmV5.Auth.RateLimiter,
+      # Hammer 7.x ETS sliding window — replaces the former custom RateLimiter GenServer (rl-s2)
+      {ApmV5.RateLimit, clean_period: :timer.minutes(2)},
       ApmV5.Auth.ContextTracker,
       # Policy rules must start before AuthorizationGate (hot-path read)
       ApmV5.Auth.PolicyRulesStore,
