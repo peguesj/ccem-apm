@@ -214,7 +214,6 @@ defmodule ApmV5.Auth.AuthorizationGate do
               # Permitted — issue token
               case TokenStore.generate(agent_id, session_id, tool_name, params) do
                 {:ok, token_id} ->
-                  RateLimiter.record(agent_id, tool_name)
                   SessionStore.increment_tool_calls(session_id)
 
                   broadcast({:auth_granted, %{
@@ -296,7 +295,6 @@ defmodule ApmV5.Auth.AuthorizationGate do
                   # Auto-approval policy matched — auto-approve and issue token
                   case TokenStore.generate(agent_id, session_id, tool_name, params) do
                     {:ok, token_id} ->
-                      RateLimiter.record(agent_id, tool_name)
                       SessionStore.increment_tool_calls(session_id)
                       ApmV5.Auth.AutoApprovalStore.increment_approval_count(policy.policy_id)
 
