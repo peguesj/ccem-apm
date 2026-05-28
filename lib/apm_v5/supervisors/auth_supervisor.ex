@@ -32,7 +32,9 @@ defmodule ApmV5.Supervisors.AuthSupervisor do
       ApmV5.Auth.ApprovalQueue,
       # Pending decisions queue for human-in-the-loop approvals
       ApmV5.Auth.PendingDecisions,
-      ApmV5.Auth.AuthorizationGate
+      ApmV5.Auth.AuthorizationGate,
+      # Adaptive load-aware rate limiter — samples AgentRegistry queue every 5 s (rl-s7)
+      ApmV5.Auth.AdaptiveRateLimiter
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
