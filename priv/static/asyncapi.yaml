@@ -1,0 +1,623 @@
+asyncapi: '3.0.0'
+
+info:
+  title: CCEM APM Event Streams
+  version: '9.3.1'
+  description: >
+    AsyncAPI 3.0 specification documenting all Phoenix.PubSub topics
+    used by CCEM APM v9.3.1 for real-time agent monitoring, governance,
+    and orchestration event streams.
+  contact:
+    name: Jeremiah Pegues
+    url: https://plane.lgtm.build/lgtm/projects/a20e1d2e-3139-406e-ae03-dc6d1d8cb995/
+  license:
+    name: Proprietary
+
+defaultContentType: application/json
+
+servers:
+  apm:
+    host: 'localhost:3032'
+    protocol: ws
+    description: CCEM APM WebSocket server (Phoenix.PubSub via Phoenix.Channels)
+
+channels:
+  apm_agents:
+    address: apm:agents
+    description: >
+      Agent lifecycle events — registration, status updates, and heartbeats.
+      Broadcast by AgentRegistry on agent_registered and agent_updated.
+    messages:
+      agentRegistered:
+        $ref: '#/components/messages/AgentRegistered'
+      agentUpdated:
+        $ref: '#/components/messages/AgentUpdated'
+
+  apm_hooks:
+    address: apm:hooks
+    description: >
+      Hook telemetry payloads from pre_tool_use, post_tool_use, and
+      session_init hooks. Enriched with v9 max-payload fields.
+    messages:
+      hookEvent:
+        $ref: '#/components/messages/HookEvent'
+
+  apm_formations:
+    address: apm:formations
+    description: >
+      Formation topology changes — new formations, wave transitions,
+      squadron completions, and DAG updates.
+    messages:
+      formationEvent:
+        $ref: '#/components/messages/FormationEvent'
+
+  apm_notifications:
+    address: apm:notifications
+    description: >
+      System-wide notification stream — info, warning, error, and success
+      notifications from all agents and subsystems.
+    messages:
+      notificationAdded:
+        $ref: '#/components/messages/NotificationEvent'
+
+  apm_sessions:
+    address: apm:sessions
+    description: >
+      Claude Code session lifecycle events — new sessions, status changes,
+      and session teardowns. Used by SessionManagerLive.
+    messages:
+      sessionEvent:
+        $ref: '#/components/messages/SessionEvent'
+
+  apm_metrics:
+    address: apm:metrics
+    description: >
+      Fleet-wide metrics snapshots — token counts, tool call rates,
+      health scores, and system resource utilisation.
+    messages:
+      metricsSnapshot:
+        $ref: '#/components/messages/MetricsSnapshot'
+
+  apm_approvals:
+    address: apm:approvals
+    description: >
+      Approval gate lifecycle — gate creation, approval, rejection, and
+      timeout events from ApprovalGate.
+    messages:
+      approvalEvent:
+        $ref: '#/components/messages/ApprovalEvent'
+
+  apm_decisions:
+    address: apm:decisions
+    description: >
+      Authorization decision events from PolicyEngine — allow, deny, ask
+      decisions for tool invocations.
+    messages:
+      decisionEvent:
+        $ref: '#/components/messages/DecisionEvent'
+
+  auth_decisions:
+    address: auth:decisions
+    description: >
+      AgentLock authorization decisions broadcast by AuthController and
+      PolicyRulesStore. Consumed by AuthorizationLive and AgentLockDashboard.
+    messages:
+      authDecision:
+        $ref: '#/components/messages/AuthDecision'
+
+  auth_pending:
+    address: auth:pending
+    description: >
+      Pending authorization requests waiting for human-in-the-loop approval.
+      Consumed by ApprovalModal and AgentLock dashboard.
+    messages:
+      pendingRequest:
+        $ref: '#/components/messages/PendingAuthRequest'
+
+  auth_risks:
+    address: auth:risks
+    description: >
+      Risk assessment events from RiskEngine for tool invocations that
+      exceed configured thresholds.
+    messages:
+      riskEvent:
+        $ref: '#/components/messages/RiskEvent'
+
+  agentlock_pending:
+    address: agentlock:pending
+    description: >
+      Debounced approval batches from ApprovalQueue (200ms debounce window).
+      Carries an {:approval_batch, entries} tuple.
+    messages:
+      approvalBatch:
+        $ref: '#/components/messages/ApprovalBatch'
+
+  agentlock_approval:
+    address: agentlock:approval
+    description: >
+      Individual approval decisions (approve/reject) from the dashboard.
+      Consumed by agents waiting on :agentlock decisions.
+    messages:
+      approvalDecision:
+        $ref: '#/components/messages/ApprovalDecision'
+
+  agentlock_authorization:
+    address: agentlock:authorization
+    description: >
+      Authorization context updates — policy changes and rule additions
+      broadcast to all connected AgentLock subscribers.
+    messages:
+      authorizationUpdate:
+        $ref: '#/components/messages/AuthorizationUpdate'
+
+  agentlock_sessions:
+    address: agentlock:sessions
+    description: >
+      Session registration and lifecycle events specific to AgentLock
+      session tracking and trust establishment.
+    messages:
+      sessionUpdate:
+        $ref: '#/components/messages/SessionUpdate'
+
+  agentlock_audit:
+    address: agentlock:audit
+    description: >
+      Immutable audit trail events from ApprovalAuditLog. Every approval
+      decision is appended and broadcast for compliance dashboards.
+    messages:
+      auditEntry:
+        $ref: '#/components/messages/AuditEntry'
+
+  agentlock_trust:
+    address: agentlock:trust
+    description: >
+      Trust level changes for agents — trust established, revoked, or
+      escalated based on behaviour patterns.
+    messages:
+      trustEvent:
+        $ref: '#/components/messages/TrustEvent'
+
+  governance_circuits:
+    address: governance:circuits
+    description: >
+      Circuit breaker state transitions (closed → open → half-open) from
+      GovernanceEngine. Used by GovernanceLive for real-time circuit status.
+    messages:
+      circuitEvent:
+        $ref: '#/components/messages/CircuitEvent'
+
+  orchestration_runs:
+    address: orchestration:runs
+    description: >
+      Orchestration run lifecycle — DAG step completions, run started,
+      run finished, and replay events from OrchestrationManager.
+    messages:
+      orchestrationEvent:
+        $ref: '#/components/messages/OrchestrationEvent'
+
+  apm_orchestration:
+    address: apm:orchestration
+    description: >
+      High-level orchestration topology updates consumed by OrchestrationLive
+      and the D3.js DAG visualisation.
+    messages:
+      topologyUpdate:
+        $ref: '#/components/messages/TopologyUpdate'
+
+  apm_coalesce:
+    address: apm:coalesce
+    description: >
+      Coalesce run events — skill sweep started, gate passed/failed,
+      coalesce_applied emitted on successful completion.
+    messages:
+      coalesceEvent:
+        $ref: '#/components/messages/CoalesceEvent'
+
+  apm_memory:
+    address: apm:memory
+    description: >
+      Memory plugin observation events from MemoryClientBridge and
+      ObservationCache — new observations, TTL evictions, correlations.
+    messages:
+      memoryEvent:
+        $ref: '#/components/messages/MemoryEvent'
+
+  apm_agentlock:
+    address: apm:agentlock
+    description: >
+      Consolidated AgentLock state broadcast consumed by the AgentLock
+      dashboard widget and notification badge.
+    messages:
+      agentlockState:
+        $ref: '#/components/messages/AgentLockState'
+
+  apm_rate_limits:
+    address: apm:rate_limits
+    description: >
+      Rate limit hit events broadcast by RateLimit plug when a client
+      exceeds their configured quota.
+    messages:
+      rateLimitEvent:
+        $ref: '#/components/messages/RateLimitEvent'
+
+  apm_control:
+    address: apm:control
+    description: >
+      Agent control events — connect, disconnect, restart, stop, pause,
+      resume actions broadcast by AgentControlController.
+    messages:
+      controlEvent:
+        $ref: '#/components/messages/ControlEvent'
+
+  apm_hooks_events:
+    address: apm:hooks
+    description: >
+      Hook payload stream from the hook telemetry buffer. Same address as
+      apm_hooks — referenced here for the HookTelemetryBuffer consumer.
+    messages:
+      hookPayload:
+        $ref: '#/components/messages/HookEvent'
+
+  ag_ui_events:
+    address: ag_ui:events
+    description: >
+      AG-UI protocol event stream — RUN_STARTED, RUN_FINISHED, TEXT_MESSAGE_*,
+      TOOL_CALL_*, STEP_*, STATE_SNAPSHOT events per ag_ui_ex.
+    messages:
+      agUiEvent:
+        $ref: '#/components/messages/AgUiEvent'
+
+  dashboard_updates:
+    address: dashboard:updates
+    description: >
+      Dashboard-wide update broadcasts — layout changes, widget pin/unpin,
+      scope changes. Consumed by DashboardLive.
+    messages:
+      dashboardUpdate:
+        $ref: '#/components/messages/DashboardUpdate'
+
+  upm_status:
+    address: upm:status
+    description: >
+      UPM session status updates — project sync, work item completions,
+      and PM integration events.
+    messages:
+      upmStatus:
+        $ref: '#/components/messages/UpmStatus'
+
+  upm_work_items:
+    address: upm:work_items
+    description: >
+      Work item lifecycle events from UPM — issue created, updated,
+      state transitions from Plane/Linear integration.
+    messages:
+      workItemEvent:
+        $ref: '#/components/messages/WorkItemEvent'
+
+  upm_decisions:
+    address: upm:decisions
+    description: >
+      UPM decision events from UpmDecisionController — PRD gates,
+      story approvals, and checkpoint completions.
+    messages:
+      upmDecision:
+        $ref: '#/components/messages/UpmDecision'
+
+  plane_sync:
+    address: plane:sync
+    description: >
+      Plane PM sync events — issue state updates propagated from
+      PlaneController and the PlaneSync background worker.
+    messages:
+      planeSyncEvent:
+        $ref: '#/components/messages/PlaneSyncEvent'
+
+  global:
+    address: global
+    description: >
+      Global broadcast channel for cross-cutting APM events that do not
+      fit into a more specific topic.
+    messages:
+      globalEvent:
+        $ref: '#/components/messages/GlobalEvent'
+
+  intake_events:
+    address: intake:events
+    description: >
+      Intake workflow events from IntakeLive — new intake submissions,
+      prioritisation updates, and triage completions.
+    messages:
+      intakeEvent:
+        $ref: '#/components/messages/IntakeEvent'
+
+  alignment_update:
+    address: alignment:update
+    description: >
+      Skill alignment update events from AlignmentLive — drift detected,
+      coalesce triggered, alignment resolved.
+    messages:
+      alignmentEvent:
+        $ref: '#/components/messages/AlignmentEvent'
+
+components:
+  messages:
+    AgentRegistered:
+      payload:
+        type: object
+        properties:
+          agent_id: {type: string}
+          status: {type: string}
+          role: {type: string}
+          project_name: {type: string}
+          registered_at: {type: string, format: date-time}
+
+    AgentUpdated:
+      payload:
+        type: object
+        properties:
+          agent_id: {type: string}
+          status: {type: string}
+          last_seen: {type: string, format: date-time}
+
+    HookEvent:
+      payload:
+        type: object
+        properties:
+          hook_version: {type: string}
+          tool_name: {type: string}
+          session_id: {type: string}
+          project: {type: string}
+          git_branch: {type: string}
+          timestamp: {type: string, format: date-time}
+
+    FormationEvent:
+      payload:
+        type: object
+        properties:
+          formation_id: {type: string}
+          event: {type: string}
+          wave: {type: integer}
+
+    NotificationEvent:
+      payload:
+        type: object
+        properties:
+          id: {type: integer}
+          title: {type: string}
+          message: {type: string}
+          type: {type: string}
+          timestamp: {type: string, format: date-time}
+
+    SessionEvent:
+      payload:
+        type: object
+        properties:
+          session_id: {type: string}
+          status: {type: string}
+          project: {type: string}
+
+    MetricsSnapshot:
+      payload:
+        type: object
+        properties:
+          total_agents: {type: integer}
+          active_agents: {type: integer}
+          total_sessions: {type: integer}
+
+    ApprovalEvent:
+      payload:
+        type: object
+        properties:
+          gate_id: {type: string}
+          agent_id: {type: string}
+          status: {type: string, enum: [pending, approved, rejected, timeout]}
+
+    DecisionEvent:
+      payload:
+        type: object
+        properties:
+          agent_id: {type: string}
+          tool_name: {type: string}
+          decision: {type: string, enum: [allow, deny, ask]}
+
+    AuthDecision:
+      payload:
+        type: object
+        properties:
+          ok: {type: boolean}
+          allowed: {type: boolean}
+          decision: {type: string, enum: [allow, deny, ask]}
+          agent_id: {type: string}
+
+    PendingAuthRequest:
+      payload:
+        type: object
+        properties:
+          agent_id: {type: string}
+          tool_name: {type: string}
+          session_id: {type: string}
+
+    RiskEvent:
+      payload:
+        type: object
+        properties:
+          agent_id: {type: string}
+          risk_level: {type: string}
+          tool_name: {type: string}
+
+    ApprovalBatch:
+      payload:
+        type: object
+        properties:
+          entries:
+            type: array
+            items: {type: object}
+
+    ApprovalDecision:
+      payload:
+        type: object
+        properties:
+          gate_id: {type: string}
+          decision: {type: string, enum: [approved, rejected]}
+          approver: {type: object}
+
+    AuthorizationUpdate:
+      payload:
+        type: object
+        properties:
+          rule: {type: string}
+          action: {type: string}
+
+    SessionUpdate:
+      payload:
+        type: object
+        properties:
+          session_id: {type: string}
+          status: {type: string}
+
+    AuditEntry:
+      payload:
+        type: object
+        properties:
+          gate_id: {type: string}
+          action: {type: string}
+          actor: {type: string}
+          timestamp: {type: string, format: date-time}
+
+    TrustEvent:
+      payload:
+        type: object
+        properties:
+          agent_id: {type: string}
+          trust_level: {type: string}
+          reason: {type: string}
+
+    CircuitEvent:
+      payload:
+        type: object
+        properties:
+          circuit_id: {type: string}
+          state: {type: string, enum: [closed, open, half_open]}
+
+    OrchestrationEvent:
+      payload:
+        type: object
+        properties:
+          run_id: {type: string}
+          status: {type: string}
+          step: {type: string}
+
+    TopologyUpdate:
+      payload:
+        type: object
+        properties:
+          formation_id: {type: string}
+          nodes: {type: array, items: {type: object}}
+          edges: {type: array, items: {type: object}}
+
+    CoalesceEvent:
+      payload:
+        type: object
+        properties:
+          run_id: {type: string}
+          gate: {type: string}
+          result: {type: string}
+
+    MemoryEvent:
+      payload:
+        type: object
+        properties:
+          observation_id: {type: string}
+          session_id: {type: string}
+          event: {type: string}
+
+    AgentLockState:
+      payload:
+        type: object
+        properties:
+          pending_count: {type: integer}
+          active_sessions: {type: integer}
+
+    RateLimitEvent:
+      payload:
+        type: object
+        properties:
+          client_id: {type: string}
+          limit: {type: integer}
+          remaining: {type: integer}
+
+    ControlEvent:
+      payload:
+        type: object
+        properties:
+          resource_type: {type: string}
+          resource_id: {type: string}
+          action: {type: string}
+          timestamp: {type: string, format: date-time}
+
+    AgUiEvent:
+      payload:
+        type: object
+        properties:
+          type: {type: string}
+          agent_id: {type: string}
+          run_id: {type: string}
+
+    DashboardUpdate:
+      payload:
+        type: object
+        properties:
+          type: {type: string}
+          payload: {type: object}
+
+    UpmStatus:
+      payload:
+        type: object
+        properties:
+          session_id: {type: string}
+          status: {type: string}
+          project: {type: string}
+
+    WorkItemEvent:
+      payload:
+        type: object
+        properties:
+          issue_id: {type: string}
+          state: {type: string}
+          title: {type: string}
+
+    UpmDecision:
+      payload:
+        type: object
+        properties:
+          decision_id: {type: string}
+          gate: {type: string}
+          result: {type: string}
+
+    PlaneSyncEvent:
+      payload:
+        type: object
+        properties:
+          issue_id: {type: string}
+          state: {type: string}
+          project: {type: string}
+
+    GlobalEvent:
+      payload:
+        type: object
+        additionalProperties: true
+
+    IntakeEvent:
+      payload:
+        type: object
+        properties:
+          intake_id: {type: string}
+          status: {type: string}
+
+    AlignmentEvent:
+      payload:
+        type: object
+        properties:
+          skill: {type: string}
+          drift_level: {type: string}
+          action: {type: string}

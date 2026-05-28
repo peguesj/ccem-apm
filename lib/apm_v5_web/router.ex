@@ -414,6 +414,8 @@ defmodule ApmV5Web.Router do
     post "/alerts/rules", ApiV2Controller, :create_alert_rule
     get "/audit", ApiV2Controller, :list_audit
     get "/openapi.json", ApiV2Controller, :openapi
+    # AsyncAPI 3.0 PubSub event stream documentation (api-s9 / CP-268)
+    get "/asyncapi.yaml", AsyncApiController, :show
 
     # Core: manifest (this endpoint — API architecture overview)
     get "/manifest", ApiV2Controller, :manifest
