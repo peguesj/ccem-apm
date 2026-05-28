@@ -51,17 +51,78 @@ defmodule ApmV5.Auth.AuthorizationGate do
   Authorize a tool call. Returns `{:ok, token_id}` or `{:error, reason, detail}`.
 
   This is the main entry point called by hooks and API endpoints.
+
+  ## v10.0.0 — JWT Bearer verification (CP-289)
+
+  Callers MAY pass `:identity_token` (a JWT Bearer assertion) in `params`. When
+  present, `JwtAssertion.verify_assertion/2` is invoked and the **verified**
+  `agent_id` from JWT claims replaces the payload-supplied `agent_id`.
+
+  When absent, the gate falls back to legacy behavior and adds an
+  `:agent_id_unverified` flag in the params (used downstream by audit logging
+  for v10.0 deprecation tracking).
+
+  When a malformed Bearer token is supplied, authorization is denied with
+  `{:error, :invalid_token, ...}` — we never silently fall through to legacy
+  behavior if the caller explicitly asserted an identity.
   """
   @spec authorize(String.t(), String.t(), String.t(), String.t(), map()) ::
           {:ok, String.t()} | {:error, atom(), String.t()}
   def authorize(agent_id, session_id, tool_name, role \\ "agent", params \\ %{}) do
-    ApmV5.Instrumentation.span(
-      [:apm_v5, :auth, :authorization_gate, :evaluate],
-      %{tool: tool_name, agent_id: agent_id, session_id: session_id, role: role},
-      fn ->
-        GenServer.call(__MODULE__, {:authorize, agent_id, session_id, tool_name, role, params})
-      end
-    )
+    case verify_identity(agent_id, params) do
+      {:ok, verified_agent_id, enriched_params} ->
+        ApmV5.Instrumentation.span(
+          [:apm_v5, :auth, :authorization_gate, :evaluate],
+          %{tool: tool_name, agent_id: verified_agent_id, session_id: session_id, role: role},
+          fn ->
+            GenServer.call(
+              __MODULE__,
+              {:authorize, verified_agent_id, session_id, tool_name, role, enriched_params}
+            )
+          end
+        )
+
+      {:error, reason} ->
+        {:error, :invalid_token, "JWT Bearer assertion invalid: #{reason}"}
+    end
+  end
+
+  # v10.0.0/s1 (CP-289): JWT Bearer verification.
+  #
+  # Three paths:
+  #   1. `:identity_token` present + verifies → use claims["agent_id"] (verified)
+  #   2. `:identity_token` present + bad → {:error, reason} (refuse to fall through)
+  #   3. `:identity_token` absent → legacy mode, flag :agent_id_unverified=true
+  @spec verify_identity(String.t(), map()) ::
+          {:ok, String.t(), map()} | {:error, atom()}
+  defp verify_identity(payload_agent_id, params) do
+    token =
+      Map.get(params, :identity_token) ||
+        Map.get(params, "identity_token")
+
+    case token do
+      nil ->
+        {:ok, payload_agent_id, Map.put(params, :agent_id_unverified, true)}
+
+      token when is_binary(token) ->
+        case ApmV5.Auth.JwtAssertion.verify_assertion(token) do
+          {:ok, claims} ->
+            verified_agent_id = Map.get(claims, "agent_id") || payload_agent_id
+
+            enriched =
+              params
+              |> Map.put(:agent_id_verified, true)
+              |> Map.put(:jwt_claims, claims)
+
+            {:ok, verified_agent_id, enriched}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      _ ->
+        {:error, :malformed_token}
+    end
   end
 
   @doc """

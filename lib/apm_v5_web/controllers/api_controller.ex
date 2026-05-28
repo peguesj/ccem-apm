@@ -375,9 +375,38 @@ defmodule ApmV5Web.ApiController do
       display_name = if registered, do: Map.get(registered, :display_name, agent_id), else: agent_id
       resolved_name = if registered, do: Map.get(registered, :agent_name, agent_id), else: agent_id
 
+      # v10.0.0/s1 (CP-289): RFC 7523 JWT Bearer Assertion — issue identity token.
+      # Caller is expected to attach it as `Authorization: Bearer <token>` on
+      # subsequent calls so AuthorizationGate can cryptographically verify
+      # agent_id rather than trust the payload-supplied string.
+      identity_token =
+        try do
+          ApmV5.Auth.JwtAssertion.sign_assertion(%{
+            agent_id: agent_id,
+            formation_id: metadata.formation_id,
+            invoked_by: metadata.invoked_by,
+            parent_agent_id: metadata.parent_agent_id,
+            session_id: metadata.session_id
+          })
+        rescue
+          # Backward-compat: if KeyStore isn't running (test env, etc.) skip.
+          _ -> nil
+        catch
+          :exit, _ -> nil
+        end
+
+      response = %{
+        ok: true,
+        agent_id: agent_id,
+        agent_name: resolved_name,
+        display_name: display_name
+      }
+
+      response = if identity_token, do: Map.put(response, :identity_token, identity_token), else: response
+
       conn
       |> put_status(201)
-      |> json(%{ok: true, agent_id: agent_id, agent_name: resolved_name, display_name: display_name})
+      |> json(response)
     end
   end
 
