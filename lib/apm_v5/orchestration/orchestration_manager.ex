@@ -27,7 +27,7 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
   @type step :: %{
           id: String.t(),
           label: String.t(),
-          type: :action | :gate | :decision | :terminal
+          type: :action | :gate | :decision | :terminal | :approval
         }
 
   @type edge :: %{source: String.t(), target: String.t()}
@@ -92,6 +92,22 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
   @spec step_order([edge()]) :: {:ok, [String.t()]} | {:error, :cycle}
   def step_order(edges) do
     topo_sort(edges)
+  end
+
+  @doc """
+  Grant approval for an `:approval`-type step, advancing the run.
+
+  When a run is paused at an `:approval` step, it will not advance
+  automatically.  Call this function with optional `approver_info` to
+  unblock the run and transition it to the next step (via `advance_step/2`).
+
+  Emits `{:run_step_approved, run_id, step_id}` on `"apm:orchestration"`.
+
+  Returns `{:ok, run}` or `{:error, reason}`.
+  """
+  @spec grant_approval(String.t(), String.t(), map()) :: {:ok, run()} | {:error, term()}
+  def grant_approval(run_id, step_id, approver_info \\ %{}) do
+    GenServer.call(__MODULE__, {:grant_approval, run_id, step_id, approver_info})
   end
 
   @doc "Get a run by id."
@@ -168,6 +184,50 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
         OrchestrationRunStore.put(updated)
         broadcast_run_event(:run_cancelled, updated)
         {:reply, :ok, state}
+
+      [] ->
+        {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  def handle_call({:grant_approval, run_id, step_id, approver_info}, _from, state) do
+    case :ets.lookup(@table, run_id) do
+      [{^run_id, run}] ->
+        # Verify current step is an :approval type
+        current_step = Enum.find(run.steps, &(&1.id == step_id))
+
+        cond do
+          is_nil(current_step) ->
+            {:reply, {:error, :step_not_found}, state}
+
+          Map.get(current_step, :type) != :approval ->
+            {:reply, {:error, :not_an_approval_step}, state}
+
+          true ->
+            # Broadcast approval event before advancing
+            Phoenix.PubSub.broadcast(
+              ApmV5.PubSub,
+              "apm:orchestration",
+              {:run_step_approved, run_id, step_id, approver_info}
+            )
+
+            # Advance to the next step in topo order
+            next_step_id = next_step_after(run, step_id)
+
+            updated =
+              run
+              |> Map.put(:current_step, next_step_id)
+              |> Map.put(:metadata, Map.put(run.metadata, :last_approval, %{
+                  step_id: step_id,
+                  approver_info: approver_info,
+                  approved_at: DateTime.utc_now()
+                }))
+
+            :ets.insert(@table, {run_id, updated})
+            OrchestrationRunStore.put(updated)
+            broadcast_run_event(:run_advanced, updated)
+            {:reply, {:ok, updated}, state}
+        end
 
       [] ->
         {:reply, {:error, :not_found}, state}
@@ -296,7 +356,26 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
     :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
   end
 
+  # Determine the next step ID after the given step_id using topo order.
+  # Returns nil if the step is the last in the DAG.
+  defp next_step_after(run, step_id) do
+    case topo_sort(run.edges) do
+      {:ok, order} ->
+        idx = Enum.find_index(order, &(&1 == step_id))
+
+        if is_nil(idx) do
+          nil
+        else
+          Enum.at(order, idx + 1)
+        end
+
+      {:error, :cycle} ->
+        nil
+    end
+  end
+
   defp broadcast_run_event(event, run) do
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "orchestration:runs", {event, run})
+    Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:orchestration", {event, run})
   end
 end

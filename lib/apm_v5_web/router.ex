@@ -616,6 +616,8 @@ defmodule ApmV5Web.Router do
     delete "/orchestrations/:id", OrchestrationController, :delete
     post "/orchestrations/:id/steps/:step_id/advance", OrchestrationController, :advance_step
     post "/orchestrations/:id/replay", OrchestrationController, :replay
+    # Approval step grant (wf-s5)
+    post "/orchestration/runs/:run_id/steps/:step_id/approve", OrchestrationController, :approve_step
 
     # ── EXTENSION: memory ─────────────────────────────────────────────────
     get "/memory/observations", MemoryController, :list_observations
