@@ -727,6 +727,9 @@ defmodule ApmV5Web.Router do
     post "/governance/report/refresh", GovernanceController, :refresh_report
     get "/governance/circuit-breakers", GovernanceController, :list_circuit_breakers
     post "/governance/circuit-breakers/:session_id/close", GovernanceController, :close_circuit
+
+    # ── EXTENSION: identity (prov-w1-s2 / CP-276) ────────────────────────────
+    get "/identity/did-document", IdentityController, :did_document
   end
 
   # A2UI flexible format endpoint
