@@ -14,6 +14,25 @@ defmodule ApmV5Web.MetricsController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  operation :index,
+    summary: "Prometheus metrics",
+    description: """
+    Renders all registered CCEM APM metrics in Prometheus text exposition format
+    (`text/plain; version=0.0.4`). Returns `503` if the peep reporter is unavailable.
+
+    This endpoint is intentionally outside the `:api` pipeline — restrict at the
+    load-balancer or firewall in production.
+    """,
+    tags: ["Health"],
+    responses: [
+      ok: {"Prometheus text format", "text/plain", %OpenApiSpex.Schema{type: :string}},
+      service_unavailable: {"Metrics unavailable", "text/plain", %OpenApiSpex.Schema{type: :string}}
+    ]
+
+  # Catch-all for any action not explicitly annotated above.
+  def open_api_operation(_action), do: nil
 
   require Logger
 

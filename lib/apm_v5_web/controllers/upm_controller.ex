@@ -4,8 +4,238 @@ defmodule ApmV5Web.UpmController do
   work items, and sync operations. 22 endpoints total.
   """
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
 
+  alias ApmV5Web.Schemas
+  alias OpenApiSpex.Schema
   alias ApmV5.UPM.{ProjectRegistry, PMIntegrationStore, VCSIntegrationStore, WorkItemStore, SyncEngine}
+
+  operation :list_projects,
+    summary: "List UPM projects",
+    description: "Returns all registered UPM projects.",
+    tags: ["UPM"],
+    responses: [ok: {"Project list", "application/json", Schemas.OkResponse}]
+
+  operation :create_project,
+    summary: "Create UPM project",
+    description: "Creates or upserts a UPM project.",
+    tags: ["UPM"],
+    request_body: {"Project payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"Project created", "application/json", Schemas.OkResponse},
+      unprocessable_entity: {"Validation error", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :scan_projects,
+    summary: "Scan and sync UPM projects",
+    description: "Scans project directories and syncs discovered projects.",
+    tags: ["UPM"],
+    responses: [
+      ok: {"Scan result", "application/json", Schemas.OkResponse},
+      internal_server_error: {"Scan error", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :get_project,
+    summary: "Get UPM project",
+    description: "Returns a single UPM project by ID.",
+    tags: ["UPM"],
+    parameters: [id: [in: :path, type: :string, required: true, description: "Project ID"]],
+    responses: [
+      ok: {"Project detail", "application/json", Schemas.OkResponse},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :update_project,
+    summary: "Update UPM project",
+    description: "Updates an existing UPM project.",
+    tags: ["UPM"],
+    parameters: [id: [in: :path, type: :string, required: true, description: "Project ID"]],
+    request_body: {"Project update payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"Project updated", "application/json", Schemas.OkResponse},
+      unprocessable_entity: {"Validation error", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :delete_project,
+    summary: "Delete UPM project",
+    description: "Removes a UPM project by ID.",
+    tags: ["UPM"],
+    parameters: [id: [in: :path, type: :string, required: true, description: "Project ID"]],
+    responses: [
+      ok: {"Deleted", "application/json", Schemas.OkResponse},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :list_pm_integrations,
+    summary: "List PM integrations",
+    description: "Returns all PM integrations, optionally filtered by project.",
+    tags: ["UPM"],
+    parameters: [project_id: [in: :query, type: :string, required: false, description: "Filter by project ID"]],
+    responses: [ok: {"PM integration list", "application/json", Schemas.OkResponse}]
+
+  operation :create_pm_integration,
+    summary: "Create PM integration",
+    description: "Creates or upserts a PM integration.",
+    tags: ["UPM"],
+    request_body: {"PM integration payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"PM integration created", "application/json", Schemas.OkResponse},
+      unprocessable_entity: {"Validation error", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :get_pm_integration,
+    summary: "Get PM integration",
+    description: "Returns a single PM integration by ID.",
+    tags: ["UPM"],
+    parameters: [id: [in: :path, type: :string, required: true, description: "Integration ID"]],
+    responses: [
+      ok: {"PM integration detail", "application/json", Schemas.OkResponse},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :update_pm_integration,
+    summary: "Update PM integration",
+    description: "Updates an existing PM integration.",
+    tags: ["UPM"],
+    parameters: [id: [in: :path, type: :string, required: true, description: "Integration ID"]],
+    request_body: {"PM integration update payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"PM integration updated", "application/json", Schemas.OkResponse},
+      unprocessable_entity: {"Validation error", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :delete_pm_integration,
+    summary: "Delete PM integration",
+    description: "Removes a PM integration by ID.",
+    tags: ["UPM"],
+    parameters: [id: [in: :path, type: :string, required: true, description: "Integration ID"]],
+    responses: [
+      ok: {"Deleted", "application/json", Schemas.OkResponse},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :test_pm_integration,
+    summary: "Test PM integration",
+    description: "Tests the connection for a PM integration.",
+    tags: ["UPM"],
+    parameters: [id: [in: :path, type: :string, required: true, description: "Integration ID"]],
+    responses: [
+      ok: {"Connection test result", "application/json", Schemas.OkResponse},
+      unprocessable_entity: {"Connection failed", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :list_vcs_integrations,
+    summary: "List VCS integrations",
+    description: "Returns all VCS integrations, optionally filtered by project.",
+    tags: ["UPM"],
+    parameters: [project_id: [in: :query, type: :string, required: false, description: "Filter by project ID"]],
+    responses: [ok: {"VCS integration list", "application/json", Schemas.OkResponse}]
+
+  operation :create_vcs_integration,
+    summary: "Create VCS integration",
+    description: "Creates or upserts a VCS integration.",
+    tags: ["UPM"],
+    request_body: {"VCS integration payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"VCS integration created", "application/json", Schemas.OkResponse},
+      unprocessable_entity: {"Validation error", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :get_vcs_integration,
+    summary: "Get VCS integration",
+    description: "Returns a single VCS integration by ID.",
+    tags: ["UPM"],
+    parameters: [id: [in: :path, type: :string, required: true, description: "Integration ID"]],
+    responses: [
+      ok: {"VCS integration detail", "application/json", Schemas.OkResponse},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :update_vcs_integration,
+    summary: "Update VCS integration",
+    description: "Updates an existing VCS integration.",
+    tags: ["UPM"],
+    parameters: [id: [in: :path, type: :string, required: true, description: "Integration ID"]],
+    request_body: {"VCS integration update payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"VCS integration updated", "application/json", Schemas.OkResponse},
+      unprocessable_entity: {"Validation error", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :delete_vcs_integration,
+    summary: "Delete VCS integration",
+    description: "Removes a VCS integration by ID.",
+    tags: ["UPM"],
+    parameters: [id: [in: :path, type: :string, required: true, description: "Integration ID"]],
+    responses: [
+      ok: {"Deleted", "application/json", Schemas.OkResponse},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :test_vcs_integration,
+    summary: "Test VCS integration",
+    description: "Tests the connection for a VCS integration.",
+    tags: ["UPM"],
+    parameters: [id: [in: :path, type: :string, required: true, description: "Integration ID"]],
+    responses: [
+      ok: {"Connection test result", "application/json", Schemas.OkResponse},
+      unprocessable_entity: {"Connection failed", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :list_work_items,
+    summary: "List work items",
+    description: "Returns all work items, optionally filtered by project.",
+    tags: ["UPM"],
+    parameters: [project_id: [in: :query, type: :string, required: false, description: "Filter by project ID"]],
+    responses: [ok: {"Work item list", "application/json", Schemas.OkResponse}]
+
+  operation :drift_report,
+    summary: "Work item drift report",
+    description: "Detects drift between UPM stories and PM system work items.",
+    tags: ["UPM"],
+    responses: [ok: {"Drift report", "application/json", Schemas.OkResponse}]
+
+  operation :sync_all,
+    summary: "Sync all projects",
+    description: "Runs SyncEngine.sync_project/1 for every registered project.",
+    tags: ["UPM"],
+    responses: [ok: {"Sync results", "application/json", Schemas.OkResponse}]
+
+  operation :sync_project,
+    summary: "Sync single project",
+    description: "Runs SyncEngine.sync_project/1 for a single project.",
+    tags: ["UPM"],
+    parameters: [project_id: [in: :path, type: :string, required: true, description: "Project ID"]],
+    responses: [
+      ok: {"Sync result", "application/json", Schemas.OkResponse},
+      internal_server_error: {"Sync error", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :sync_status,
+    summary: "Sync history / status",
+    description: "Returns the most recent 10 sync results and total sync count.",
+    tags: ["UPM"],
+    responses: [ok: {"Sync history", "application/json", Schemas.OkResponse}]
+
+  operation :update_story,
+    summary: "Update UPM story",
+    description: "Updates tracking fields (todo_ref, commit_sha, worktree_ref, etc.) for a story.",
+    tags: ["UPM"],
+    request_body: {"Story update payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"Story updated", "application/json", Schemas.OkResponse},
+      not_found: {"Session or story not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :write_manifest,
+    summary: "Write formation manifest",
+    description: "Persists a formation manifest to the :upm_manifests ETS table.",
+    tags: ["UPM"],
+    request_body: {"Manifest payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [ok: {"Manifest written", "application/json", Schemas.OkResponse}]
+
+  # Catch-all for any action not explicitly annotated above.
+  def open_api_operation(_action), do: nil
 
   # ── Projects ──────────────────────────────────────────────────────────────
 

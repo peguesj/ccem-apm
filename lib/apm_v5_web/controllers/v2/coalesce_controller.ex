@@ -13,10 +13,25 @@ defmodule ApmV5Web.V2.CoalesceController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.Coalesce.{CoalesceOrchestrator, DecisionGateStore, SkillLogicEngine, SwarmCoordinator, SourceFetcher}
+  alias ApmV5Web.Schemas
 
   # POST /api/v2/coalesce/start
+  operation :start,
+    summary: "Start",
+    tags: ["Coalesce"],
+    responses: [
+      ok: {"OK", "application/json", Schemas.CoalesceRunSummary}
+    ]
+
   def start(conn, params) do
     sources = params["sources"] || []
     scope = params["scope"] || params["context"] || "all skills"
@@ -59,6 +74,13 @@ defmodule ApmV5Web.V2.CoalesceController do
   end
 
   # GET /api/v2/coalesce
+  operation :index,
+    summary: "List",
+    tags: ["Coalesce"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def index(conn, _params) do
     runs = CoalesceOrchestrator.list_runs()
     pending_gates = DecisionGateStore.pending_count()
@@ -71,6 +93,13 @@ defmodule ApmV5Web.V2.CoalesceController do
   end
 
   # GET /api/v2/coalesce/:id
+  operation :show,
+    summary: "Get one",
+    tags: ["Coalesce"],
+    responses: [
+      ok: {"OK", "application/json", Schemas.CoalesceRunSummary}
+    ]
+
   def show(conn, %{"id" => run_id}) do
     case CoalesceOrchestrator.get_run(run_id) do
       nil ->
@@ -88,6 +117,13 @@ defmodule ApmV5Web.V2.CoalesceController do
   end
 
   # GET /api/v2/coalesce/:id/diff
+  operation :diff,
+    summary: "Diff",
+    tags: ["Coalesce"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def diff(conn, %{"id" => run_id}) do
     case CoalesceOrchestrator.get_diffs(run_id) do
       {:ok, diffs} ->
@@ -103,6 +139,13 @@ defmodule ApmV5Web.V2.CoalesceController do
   end
 
   # POST /api/v2/coalesce/:id/gate/:gate_id/decide
+  operation :gate_decide,
+    summary: "Gate decide",
+    tags: ["Coalesce"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def gate_decide(conn, %{"id" => run_id, "gate_id" => gate_id} = params) do
     composite_id = "#{run_id}:#{gate_id}"
     decision = params["decision"] || "approve"
@@ -137,6 +180,13 @@ defmodule ApmV5Web.V2.CoalesceController do
   end
 
   # POST /api/v2/coalesce/:id/apply
+  operation :apply_run,
+    summary: "Apply run",
+    tags: ["Coalesce"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def apply_run(conn, %{"id" => run_id}) do
     case CoalesceOrchestrator.apply_run(run_id) do
       {:ok, result} ->
@@ -165,6 +215,13 @@ defmodule ApmV5Web.V2.CoalesceController do
   end
 
   # DELETE /api/v2/coalesce/:id
+  operation :cancel,
+    summary: "Cancel",
+    tags: ["Coalesce"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def cancel(conn, %{"id" => run_id}) do
     case CoalesceOrchestrator.cancel_run(run_id) do
       :ok ->
@@ -181,6 +238,13 @@ defmodule ApmV5Web.V2.CoalesceController do
   # ── Dry-Run Preview Endpoint ───────────────────────────────────────────────
 
   # POST /api/v2/coalesce/preview
+  operation :preview,
+    summary: "Preview",
+    tags: ["Coalesce"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def preview(conn, params) do
     sources = params["sources"] || []
     scope = params["scope"] || params["context"] || "product management"

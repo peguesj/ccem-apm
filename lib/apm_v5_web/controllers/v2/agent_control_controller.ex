@@ -85,6 +85,13 @@ defmodule ApmV5Web.V2.AgentControlController do
   end
 
   @doc "POST /api/v2/formations/:id/control — control a formation"
+  operation :control_formation,
+    summary: "Control formation",
+    tags: ["Agents"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def control_formation(conn, %{"id" => formation_id, "action" => action}) when action in @valid_actions do
     agents = get_formation_agents(formation_id)
     results = Enum.map(agents, fn agent ->
@@ -102,6 +109,13 @@ defmodule ApmV5Web.V2.AgentControlController do
   end
 
   @doc "POST /api/v2/squadrons/:id/control — control a squadron"
+  operation :control_squadron,
+    summary: "Control squadron",
+    tags: ["Agents"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def control_squadron(conn, %{"id" => squadron_id, "action" => action}) when action in @valid_actions do
     agents = get_squadron_agents(squadron_id)
     results = Enum.map(agents, fn agent ->

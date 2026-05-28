@@ -10,8 +10,30 @@ defmodule ApmV5Web.A2uiController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
 
   alias ApmV5.A2ui.ComponentBuilder
+
+  operation :components,
+    summary: "A2UI component specifications",
+    description: """
+    Returns A2UI declarative component specifications per the Google A2UI protocol.
+    Supports content negotiation via Accept header:
+    - `application/jsonl` (default): JSONL stream, one JSON object per line
+    - `application/json`: single JSON array response
+    """,
+    tags: ["A2UI"],
+    responses: [
+      ok: {"A2UI components (JSONL or JSON)", "application/json", %OpenApiSpex.Schema{
+        type: :object,
+        properties: %{
+          components: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :object, additionalProperties: true}}
+        }
+      }}
+    ]
+
+  # Catch-all for any action not explicitly annotated above.
+  def open_api_operation(_action), do: nil
 
   @doc """
   Returns A2UI component specifications.

@@ -12,6 +12,13 @@ defmodule ApmV5Web.V2.HarnessController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.Plugins.Harness.HarnessMonitor
   alias ApmV5.Plugins.Harness.HookTelemetryBuffer
@@ -25,6 +32,13 @@ defmodule ApmV5Web.V2.HarnessController do
 
   @doc "Health check for the HarnessMonitor GenServer."
   @spec health(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :health,
+    summary: "Health check",
+    tags: ["Harness"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def health(conn, _params) do
     case safe_call(fn -> HarnessMonitor.health_check() end) do
       {:ok, result} ->
@@ -41,6 +55,13 @@ defmodule ApmV5Web.V2.HarnessController do
 
   @doc "Recent hook telemetry events with per-event-type stats."
   @spec hooks(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :hooks,
+    summary: "Hooks",
+    tags: ["Harness"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def hooks(conn, params) do
     limit =
       params
@@ -62,6 +83,13 @@ defmodule ApmV5Web.V2.HarnessController do
 
   @doc "Raw session state from HarnessMonitor."
   @spec session(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :session,
+    summary: "Session",
+    tags: ["Harness"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def session(conn, _params) do
     case safe_call(fn -> HarnessMonitor.current_state() end) do
       {:ok, state} ->
@@ -78,6 +106,13 @@ defmodule ApmV5Web.V2.HarnessController do
 
   @doc "List plan files under ~/.claude/plans/."
   @spec plans(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :plans,
+    summary: "Plans",
+    tags: ["Harness"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def plans(conn, _params) do
     plans_dir = Path.expand(@plans_dir)
 
@@ -99,6 +134,13 @@ defmodule ApmV5Web.V2.HarnessController do
 
   @doc "Sanitized settings.json keys and hook count (env values stripped)."
   @spec settings(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :settings,
+    summary: "Settings",
+    tags: ["Harness"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def settings(conn, _params) do
     settings_path = Path.expand(@settings_path)
 

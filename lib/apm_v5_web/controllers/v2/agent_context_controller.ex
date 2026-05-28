@@ -8,17 +8,39 @@ defmodule ApmV5Web.V2.AgentContextController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.AgUi.AgentContextStore
   alias ApmV5.AgUi.ToolCallTracker
+  alias ApmV5Web.Schemas
 
   @doc "Returns all agent contexts."
+  operation :index,
+    summary: "List",
+    tags: ["Agent Context"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def index(conn, _params) do
     contexts = AgentContextStore.list_contexts()
     json(conn, %{contexts: contexts})
   end
 
   @doc "Returns context for a specific agent."
+  operation :show,
+    summary: "Get one",
+    tags: ["Agent Context"],
+    responses: [
+      ok: {"OK", "application/json", Schemas.AgentContext}
+    ]
+
   def show(conn, %{"id" => agent_id}) do
     context = AgentContextStore.get_context(agent_id)
     tool_calls = ToolCallTracker.list_by_agent(agent_id) |> Enum.take(10)
@@ -32,6 +54,13 @@ defmodule ApmV5Web.V2.AgentContextController do
   end
 
   @doc "Returns recent AG-UI events for a specific agent."
+  operation :events,
+    summary: "Events",
+    tags: ["Agent Context"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def events(conn, %{"id" => agent_id} = params) do
     limit = Map.get(params, "limit", "10") |> String.to_integer() |> min(50)
     events = AgentContextStore.recent_events(agent_id, limit)

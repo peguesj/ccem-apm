@@ -11,10 +11,83 @@ defmodule ApmV5Web.FormationApiController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
 
+  alias ApmV5Web.Schemas
+  alias OpenApiSpex.Schema
   alias ApmV5.UpmStore
   alias ApmV5.AgentRegistry
   alias ApmV5.Upm.FormationStateMachine
+
+  operation :list_formations,
+    summary: "List formations",
+    description: "Returns all formations from UpmStore.",
+    tags: ["Formations"],
+    responses: [
+      ok: {"Formation list", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :get_formation,
+    summary: "Get formation",
+    description: "Returns a single formation by ID with its agents.",
+    tags: ["Formations"],
+    parameters: [
+      id: [in: :path, type: :string, required: true, description: "Formation ID"]
+    ],
+    responses: [
+      ok: {"Formation detail", "application/json", Schemas.OkResponse},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :create_formation,
+    summary: "Create formation",
+    description: "Creates a new formation from a template or raw params. Broadcasts via PubSub.",
+    tags: ["Formations"],
+    request_body: {"Formation payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      created: {"Formation created", "application/json", Schemas.OkResponse},
+      unprocessable_entity: {"Unknown template", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :update_formation,
+    summary: "Update formation",
+    description: "Updates a formation's attributes. Validates state transitions via FormationStateMachine.",
+    tags: ["Formations"],
+    parameters: [
+      id: [in: :path, type: :string, required: true, description: "Formation ID"]
+    ],
+    request_body: {"Formation update payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"Formation updated", "application/json", Schemas.OkResponse},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse},
+      unprocessable_entity: {"Invalid state transition", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :get_formation_agents,
+    summary: "List formation agents",
+    description: "Returns all agents belonging to a formation.",
+    tags: ["Formations"],
+    parameters: [
+      id: [in: :path, type: :string, required: true, description: "Formation ID"]
+    ],
+    responses: [
+      ok: {"Formation agents", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :dot,
+    summary: "Formation DOT graph",
+    description: "Returns a Graphviz DOT source string for the formation's agent graph.",
+    tags: ["Formations"],
+    parameters: [
+      id: [in: :path, type: :string, required: true, description: "Formation ID"]
+    ],
+    responses: [
+      ok: {"DOT source (text/plain)", "text/plain", %Schema{type: :string}},
+      not_found: {"Formation not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  # Catch-all for any action not explicitly annotated above.
+  def open_api_operation(_action), do: nil
 
   @pubsub ApmV5.PubSub
   @topic "apm:formations"

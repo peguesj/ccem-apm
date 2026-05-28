@@ -16,10 +16,24 @@ defmodule ApmV5Web.V2.LibraryController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.LibraryStore
 
   @doc "GET /api/v2/library -- full catalog summary"
+  operation :index,
+    summary: "List",
+    tags: ["Library"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def index(conn, _params) do
     summary = LibraryStore.summary()
 
@@ -31,54 +45,117 @@ defmodule ApmV5Web.V2.LibraryController do
   end
 
   @doc "GET /api/v2/library/agents -- all agents"
+  operation :agents,
+    summary: "Agents",
+    tags: ["Library"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def agents(conn, _params) do
     items = LibraryStore.list_agents()
     json(conn, %{data: items, count: length(items)})
   end
 
   @doc "GET /api/v2/library/skills -- all skills"
+  operation :skills,
+    summary: "Skills",
+    tags: ["Library"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def skills(conn, _params) do
     items = LibraryStore.list_skills()
     json(conn, %{data: items, count: length(items)})
   end
 
   @doc "GET /api/v2/library/commands -- all commands"
+  operation :commands,
+    summary: "Commands",
+    tags: ["Library"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def commands(conn, _params) do
     items = LibraryStore.list_commands()
     json(conn, %{data: items, count: length(items)})
   end
 
   @doc "GET /api/v2/library/mcp -- all MCP servers"
+  operation :mcp,
+    summary: "Mcp",
+    tags: ["Library"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def mcp(conn, _params) do
     items = LibraryStore.list_mcp_servers()
     json(conn, %{data: items, count: length(items)})
   end
 
   @doc "GET /api/v2/library/tools -- all tools and hooks"
+  operation :tools,
+    summary: "Tools",
+    tags: ["Library"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def tools(conn, _params) do
     items = LibraryStore.list_tools()
     json(conn, %{data: items, count: length(items)})
   end
 
   @doc "GET /api/v2/library/hooks -- all hooks"
+  operation :hooks,
+    summary: "Hooks",
+    tags: ["Library"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def hooks(conn, _params) do
     items = LibraryStore.list_hooks()
     json(conn, %{data: items, count: length(items)})
   end
 
   @doc "GET /api/v2/library/patterns -- all reusable patterns"
+  operation :patterns,
+    summary: "Patterns",
+    tags: ["Library"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def patterns(conn, _params) do
     items = LibraryStore.list_patterns()
     json(conn, %{data: items, count: length(items)})
   end
 
   @doc "GET /api/v2/library/learnings -- all learnings"
+  operation :learnings,
+    summary: "Learnings",
+    tags: ["Library"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def learnings(conn, _params) do
     items = LibraryStore.list_learnings()
     json(conn, %{data: items, count: length(items)})
   end
 
   @doc "POST /api/v2/library/refresh -- trigger a rescan"
+  operation :refresh,
+    summary: "Refresh",
+    tags: ["Library"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def refresh(conn, _params) do
     LibraryStore.refresh()
     json(conn, %{status: "refresh_triggered"})
@@ -92,6 +169,13 @@ defmodule ApmV5Web.V2.LibraryController do
     * `depth` — neighborhood radius (default 2)
     * `types` — comma-separated node types to include (e.g. `skill,agent`)
   """
+  operation :graph,
+    summary: "Graph",
+    tags: ["Library"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def graph(conn, params) do
     opts =
       []

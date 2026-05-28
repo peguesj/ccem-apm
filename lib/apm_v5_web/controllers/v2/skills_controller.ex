@@ -1,7 +1,21 @@
 defmodule ApmV5Web.V2.SkillsController do
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   @doc "GET /api/v2/skills/graph — Complete dependency graph"
+  operation :graph,
+    summary: "Graph",
+    tags: ["Skills"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def graph(conn, _params) do
     graph = ApmV5.Skills.SkillAnalyzer.get_graph()
 
@@ -26,6 +40,13 @@ defmodule ApmV5Web.V2.SkillsController do
   end
 
   @doc "GET /api/v2/skills/dependencies/:id — Get skill's dependencies and dependents"
+  operation :dependencies,
+    summary: "Dependencies",
+    tags: ["Skills"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def dependencies(conn, %{"id" => skill_id}) do
     graph = ApmV5.Skills.SkillAnalyzer.get_graph()
     skill = ApmV5.Skills.SkillAnalyzer.get_skill(skill_id)
@@ -51,6 +72,13 @@ defmodule ApmV5Web.V2.SkillsController do
   end
 
   @doc "GET /api/v2/skills/cycles — Detect circular dependencies"
+  operation :cycles,
+    summary: "Cycles",
+    tags: ["Skills"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def cycles(conn, _params) do
     graph = ApmV5.Skills.SkillAnalyzer.get_graph()
     cycles = ApmV5.Skills.DependencyGraph.detect_cycles(graph)
@@ -66,6 +94,13 @@ defmodule ApmV5Web.V2.SkillsController do
   end
 
   @doc "GET /api/v2/skills/stats — Graph statistics"
+  operation :stats,
+    summary: "Statistics",
+    tags: ["Skills"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def stats(conn, _params) do
     graph = ApmV5.Skills.SkillAnalyzer.get_graph()
     stats = ApmV5.Skills.DependencyGraph.stats(graph)
@@ -77,6 +112,13 @@ defmodule ApmV5Web.V2.SkillsController do
   end
 
   @doc "GET /api/v2/skills/health — All skill health scores"
+  operation :health,
+    summary: "Health check",
+    tags: ["Skills"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def health(conn, _params) do
     scores = ApmV5.Skills.SkillHealthScorer.all_scores()
     summary = ApmV5.Skills.SkillHealthScorer.summary()
@@ -89,6 +131,13 @@ defmodule ApmV5Web.V2.SkillsController do
   end
 
   @doc "GET /api/v2/skills/health/:id — Single skill health score"
+  operation :health_single,
+    summary: "Health single",
+    tags: ["Skills"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def health_single(conn, %{"id" => skill_id}) do
     score = ApmV5.Skills.SkillHealthScorer.score_skill(skill_id)
 
@@ -103,6 +152,13 @@ defmodule ApmV5Web.V2.SkillsController do
   end
 
   @doc "POST /api/v2/skills/rescore — Manually trigger health rescoring"
+  operation :rescore,
+    summary: "Rescore",
+    tags: ["Skills"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def rescore(conn, _params) do
     ApmV5.Skills.SkillHealthScorer.rescore()
 
@@ -113,6 +169,13 @@ defmodule ApmV5Web.V2.SkillsController do
   end
 
   @doc "POST /api/v2/skills/analyze — Full skill analysis"
+  operation :analyze,
+    summary: "Analyze",
+    tags: ["Skills"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def analyze(conn, _params) do
     case ApmV5.Skills.SkillAnalyzer.analyze() do
       {:ok, stats} ->

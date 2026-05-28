@@ -7,8 +7,22 @@ defmodule ApmV5Web.V2.ChatController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   @doc "GET /api/v2/chat/:scope — list messages for a scope"
+  operation :index,
+    summary: "List",
+    tags: ["Chat"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def index(conn, %{"scope" => scope} = params) do
     limit = params |> Map.get("limit", "50") |> String.to_integer() |> min(500)
     messages = ApmV5.ChatStore.list_messages(scope, limit)
@@ -16,6 +30,13 @@ defmodule ApmV5Web.V2.ChatController do
   end
 
   @doc "POST /api/v2/chat/:scope/send — send a message to a scope"
+  operation :send_message,
+    summary: "Send message",
+    tags: ["Chat"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def send_message(conn, %{"scope" => scope, "content" => content} = params) do
     metadata = Map.take(params, ["role", "agent_id"])
 
@@ -30,6 +51,13 @@ defmodule ApmV5Web.V2.ChatController do
   end
 
   @doc "DELETE /api/v2/chat/:scope — clear messages for a scope"
+  operation :clear,
+    summary: "Clear",
+    tags: ["Chat"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def clear(conn, %{"scope" => scope}) do
     ApmV5.ChatStore.clear_scope(scope)
     json(conn, %{ok: true, scope: scope})

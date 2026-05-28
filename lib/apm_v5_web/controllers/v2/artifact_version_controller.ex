@@ -15,11 +15,25 @@ defmodule ApmV5Web.V2.ArtifactVersionController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.A2A.ArtifactVersionStore
 
   @doc "GET /api/v2/a2a/artifacts/:key/version"
   @spec get_version(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :get_version,
+    summary: "Get version",
+    tags: ["A2A Artifacts"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_version(conn, %{"key" => key}) do
     version = ArtifactVersionStore.get_version(key)
     json(conn, %{key: key, version: version})
@@ -27,6 +41,13 @@ defmodule ApmV5Web.V2.ArtifactVersionController do
 
   @doc "POST /api/v2/a2a/artifacts/:key/cas"
   @spec cas(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :cas,
+    summary: "Cas",
+    tags: ["A2A Artifacts"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def cas(conn, %{"key" => key} = params) do
     expected = Map.get(params, "expected", 0)
     agent_id = Map.get(params, "agent_id", "unknown")

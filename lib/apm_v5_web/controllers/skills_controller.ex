@@ -11,8 +11,121 @@ defmodule ApmV5Web.SkillsController do
   Broadcasts PubSub events on mutations to `"apm:skills"` topic.
   """
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
 
+  alias ApmV5Web.Schemas
+  alias OpenApiSpex.Schema
   alias ApmV5.SkillsRegistryStore
+
+  operation :registry,
+    summary: "List skill registry",
+    description: "Returns all skills with health scores and aggregate counts.",
+    tags: ["Skills"],
+    responses: [
+      ok: {"Skills registry", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :show,
+    summary: "Get skill by name",
+    description: "Returns detail for a single skill by name.",
+    tags: ["Skills"],
+    parameters: [
+      name: [in: :path, type: :string, required: true, description: "Skill name"]
+    ],
+    responses: [
+      ok: {"Skill detail", "application/json", Schemas.OkResponse},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :health,
+    summary: "Skill health score",
+    description: "Returns a breakdown of the health score for a skill.",
+    tags: ["Skills"],
+    parameters: [
+      name: [in: :path, type: :string, required: true, description: "Skill name"]
+    ],
+    responses: [
+      ok: {"Health breakdown", "application/json", Schemas.OkResponse},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :audit,
+    summary: "Trigger skills audit",
+    description: "Triggers a full rescan of all skills and broadcasts an audit event.",
+    tags: ["Skills"],
+    responses: [
+      ok: {"Audit started", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :list_repositories,
+    summary: "List skill repositories",
+    description: "Returns all registered remote skill repositories (mcpmarket/skillfish).",
+    tags: ["Skills"],
+    responses: [
+      ok: {"Repository list", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :add_repository,
+    summary: "Add skill repository",
+    description: "Registers a new remote skill repository.",
+    tags: ["Skills"],
+    request_body: {"Repository payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"Repository added", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :remove_repository,
+    summary: "Remove skill repository",
+    description: "Removes a registered remote skill repository by ID.",
+    tags: ["Skills"],
+    parameters: [
+      id: [in: :path, type: :string, required: true, description: "Repository ID"]
+    ],
+    responses: [
+      ok: {"Repository removed", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :sync_repository,
+    summary: "Sync skill repository",
+    description: "Triggers a sync of a remote skill repository.",
+    tags: ["Skills"],
+    parameters: [
+      id: [in: :path, type: :string, required: true, description: "Repository ID"]
+    ],
+    responses: [
+      ok: {"Sync result", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :list_permissive,
+    summary: "List permissive skills",
+    description: "Returns the permissive skill list (bypasses AgentLock for named skills).",
+    tags: ["Skills"],
+    responses: [
+      ok: {"Permissive skill list", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :add_permissive,
+    summary: "Add permissive skill",
+    description: "Adds a skill to the permissive list.",
+    tags: ["Skills"],
+    request_body: {"Skill name payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"Skill added to permissive list", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :remove_permissive,
+    summary: "Remove permissive skill",
+    description: "Removes a skill from the permissive list by name.",
+    tags: ["Skills"],
+    parameters: [
+      name: [in: :path, type: :string, required: true, description: "Skill name"]
+    ],
+    responses: [
+      ok: {"Skill removed from permissive list", "application/json", Schemas.OkResponse}
+    ]
+
+  # Catch-all for any action not explicitly annotated above.
+  def open_api_operation(_action), do: nil
 
   @pubsub ApmV5.PubSub
   @topic "apm:skills"

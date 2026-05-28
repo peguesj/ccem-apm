@@ -12,11 +12,25 @@ defmodule ApmV5Web.WellKnownController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.AgUi.A2A.AgentCard
   alias ApmV5.AgentRegistry
 
   @doc "GET /.well-known/agent-card.json — APM's own AgentCard"
+  operation :agent_card,
+    summary: "Agent card",
+    tags: ["Well Known"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def agent_card(conn, _params) do
     base_url = build_base_url(conn)
     card = AgentCard.apm_card(base_url)
@@ -27,6 +41,13 @@ defmodule ApmV5Web.WellKnownController do
   end
 
   @doc "GET /api/v2/agents/:agent_id/agent-card.json — per-agent AgentCard"
+  operation :agent_card_for_agent,
+    summary: "Agent card for agent",
+    tags: ["Well Known"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def agent_card_for_agent(conn, %{"agent_id" => agent_id}) do
     base_url = build_base_url(conn)
 

@@ -13,11 +13,25 @@ defmodule ApmV5Web.V2.FileLockController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.A2A.FileLockRegistry
 
   @doc "GET /api/v2/locks"
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :index,
+    summary: "List",
+    tags: ["File Locks"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def index(conn, _params) do
     locks =
       FileLockRegistry.list_locks()
@@ -28,6 +42,13 @@ defmodule ApmV5Web.V2.FileLockController do
 
   @doc "POST /api/v2/locks/acquire"
   @spec acquire(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :acquire,
+    summary: "Acquire",
+    tags: ["File Locks"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def acquire(conn, params) do
     agent_id = Map.get(params, "agent_id")
     file_path = Map.get(params, "file_path")
@@ -74,6 +95,13 @@ defmodule ApmV5Web.V2.FileLockController do
 
   @doc "DELETE /api/v2/locks/:lock_id"
   @spec release(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :release,
+    summary: "Release",
+    tags: ["File Locks"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def release(conn, %{"lock_id" => lock_id}) do
     FileLockRegistry.release(lock_id)
     send_resp(conn, 204, "")

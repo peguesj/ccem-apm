@@ -11,6 +11,13 @@ defmodule ApmV5Web.V2.MigrationController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   @deprecated_topics %{
     "agent_update" => "lifecycle:RUN_STARTED, lifecycle:RUN_FINISHED, lifecycle:RUN_ERROR",
@@ -44,6 +51,13 @@ defmodule ApmV5Web.V2.MigrationController do
   ]
 
   @doc "GET /api/v2/ag-ui/migration — migration guide and status"
+  operation :migration_status,
+    summary: "Migration status",
+    tags: ["AG-UI"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def migration_status(conn, _params) do
     v4_compat_enabled = Application.get_env(:apm_v5, :ag_ui_native_events, false) == false
 

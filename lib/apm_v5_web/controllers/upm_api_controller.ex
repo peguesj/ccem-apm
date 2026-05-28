@@ -10,8 +10,69 @@ defmodule ApmV5Web.UpmApiController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
 
+  alias ApmV5Web.Schemas
+  alias OpenApiSpex.Schema
   alias ApmV5.UpmStore
+
+  operation :upm_register,
+    summary: "Register UPM session",
+    description: "Registers a new UPM execution session and broadcasts via PubSub.",
+    tags: ["UPM"],
+    request_body: {"UPM session payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      created: {"Session registered", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :upm_agent,
+    summary: "Register UPM agent",
+    description: "Registers an agent with work-item binding in a UPM session.",
+    tags: ["UPM"],
+    request_body: {"UPM agent payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"Agent registered", "application/json", Schemas.OkResponse},
+      not_found: {"UPM session not found", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :upm_event,
+    summary: "Record UPM event",
+    description: "Reports a UPM lifecycle event for an agent in a session.",
+    tags: ["UPM"],
+    request_body: {"UPM event payload", "application/json", %Schema{type: :object}, required: true},
+    responses: [
+      ok: {"Event recorded", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :upm_status,
+    summary: "Get UPM status",
+    description: "Returns the current UPM execution state from UpmStore.",
+    tags: ["UPM"],
+    responses: [
+      ok: {"UPM status", "application/json", Schemas.OkResponse}
+    ]
+
+  operation :from_design_handoff,
+    summary: "Create UPM session from design handoff",
+    description: "Creates a UPM session by parsing a design handoff README for implementation order.",
+    tags: ["UPM"],
+    request_body: {"Design handoff payload", "application/json", %Schema{
+      type: :object,
+      properties: %{
+        readme_content: %Schema{type: :string, description: "Raw README.md string from design handoff package"},
+        project: %Schema{type: :string, description: "Project name"},
+        prd_branch: %Schema{type: :string, description: "Feature branch (e.g. ralph/design-system-v2)"},
+        plane_project_id: %Schema{type: :string, nullable: true, description: "Plane project UUID"}
+      },
+      required: ["readme_content", "project", "prd_branch"]
+    }, required: true},
+    responses: [
+      created: {"Session created", "application/json", Schemas.OkResponse},
+      unprocessable_entity: {"Validation error", "application/json", Schemas.ErrorResponse}
+    ]
+
+  # Catch-all for any action not explicitly annotated above.
+  def open_api_operation(_action), do: nil
 
   @pubsub ApmV5.PubSub
   @topic "apm:upm"

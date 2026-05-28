@@ -7,6 +7,13 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.AgUi.{EventRouter, StateManager, HookBridge}
   alias ApmV5.EventStream
@@ -20,6 +27,13 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
   - `data` (required): Event payload map
   - `legacy_bridge` (optional): If true, translates as legacy hook payload
   """
+  operation :emit,
+    summary: "Emit",
+    tags: ["AG-UI"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def emit(conn, %{"type" => type, "data" => data}) do
     if EventType.valid?(type) do
       event = EventRouter.emit_and_route(type, atomize_keys(data))
@@ -58,6 +72,13 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
   - `since`: sequence number to replay from (optional)
   - `types`: comma-separated event type filter (optional)
   """
+  operation :stream_events,
+    summary: "Stream events",
+    tags: ["AG-UI"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def stream_events(conn, params) do
     types_filter = parse_types_filter(params["types"])
     since = parse_int(params["since"])
@@ -84,6 +105,13 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
 
   SSE endpoint streaming events for a specific agent.
   """
+  operation :stream_agent_events,
+    summary: "Stream agent events",
+    tags: ["AG-UI"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def stream_agent_events(conn, %{"agent_id" => agent_id} = params) do
     types_filter = parse_types_filter(params["types"])
 
@@ -112,6 +140,13 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
 
   Returns the current state for an agent.
   """
+  operation :get_state,
+    summary: "Get state",
+    tags: ["AG-UI"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_state(conn, %{"agent_id" => agent_id}) do
     case StateManager.get_state_versioned(agent_id) do
       {state, version} ->
@@ -129,6 +164,13 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
 
   Sets the full state for an agent (snapshot).
   """
+  operation :set_state,
+    summary: "Set state",
+    tags: ["AG-UI"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def set_state(conn, %{"agent_id" => agent_id, "state" => state}) when is_map(state) do
     :ok = StateManager.set_state(agent_id, state)
     json(conn, %{ok: true, agent_id: agent_id})
@@ -145,6 +187,13 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
 
   Applies JSON Patch operations to an agent's state.
   """
+  operation :patch_state,
+    summary: "Patch state",
+    tags: ["AG-UI"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def patch_state(conn, %{"agent_id" => agent_id, "operations" => ops}) when is_list(ops) do
     case StateManager.apply_delta(agent_id, ops) do
       {:ok, new_state} ->
@@ -178,6 +227,13 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
   - `result_type` (optional, end only): "text" | "error" | "empty"
   - `args` (optional, start only): tool input arguments
   """
+  operation :tool_call,
+    summary: "Tool call",
+    tags: ["AG-UI"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def tool_call(conn, %{"agent_id" => _agent_id, "tool_name" => _tool_name, "action" => _action} = params) do
     events = HookBridge.translate_tool_use(params)
     json(conn, %{ok: true, events: events})
@@ -194,6 +250,13 @@ defmodule ApmV5Web.V2.AgUiV2Controller do
 
   Returns event routing statistics.
   """
+  operation :router_stats,
+    summary: "Router stats",
+    tags: ["AG-UI"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def router_stats(conn, _params) do
     stats = EventRouter.stats()
     json(conn, stats)

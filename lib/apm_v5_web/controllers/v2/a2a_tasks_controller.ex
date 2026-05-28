@@ -9,6 +9,13 @@ defmodule ApmV5Web.V2.A2ATasksController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.AgUi.A2A.TaskStore
 
@@ -16,6 +23,13 @@ defmodule ApmV5Web.V2.A2ATasksController do
 
   @doc "Return a single A2A task by id."
   @spec show(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :show,
+    summary: "Get one",
+    tags: ["A2A Tasks"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def show(conn, %{"task_id" => task_id}) do
     case TaskStore.get_task(task_id) do
       nil ->
@@ -32,6 +46,13 @@ defmodule ApmV5Web.V2.A2ATasksController do
 
   @doc "List A2A tasks, optionally filtered by agent_id and/or status."
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :index,
+    summary: "List",
+    tags: ["A2A Tasks"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def index(conn, params) do
     tasks =
       cond do

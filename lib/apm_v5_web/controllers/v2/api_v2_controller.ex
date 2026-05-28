@@ -3,9 +3,9 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   v2 REST API with standardized envelope responses and cursor-based pagination.
   Phase 3.1 of CCEM APM v5.
 
-  ## open_api_spex annotations (api-s5 Wave 1 / CP-262)
-  Actions annotated: status, list_agents, get_agent (3 of many)
-  Remaining actions documented via build_spec/0 fallback until api-s7 (v9.4.0).
+  ## open_api_spex annotations (api-s7 Wave 2b / CP-288)
+  All actions annotated. build_spec/0 deleted. ApmV5Web.ApiSpec is now the SSOT
+  for the OpenAPI 3.0.3 spec served at GET /api/v2/openapi.json.
   """
 
   use ApmV5Web, :controller
@@ -31,9 +31,9 @@ defmodule ApmV5Web.V2.ApiV2Controller do
 
   operation :openapi,
     summary: "OpenAPI 3.0.3 spec",
-    description: "Returns the full OpenAPI 3.0.3 spec for the CCEM APM v2 API (113 paths). " <>
-      "During Wave 1 (api-s5) most routes are documented via build_spec/0. " <>
-      "Full open_api_spex annotation completes in api-s7 (v9.4.0).",
+    description: "Returns the full OpenAPI 3.0.3 spec for the CCEM APM API. " <>
+      "Served by ApmV5Web.ApiSpec (open_api_spex SSOT). " <>
+      "build_spec/0 deleted in api-s7 Wave 2b (CP-288).",
     tags: ["Health"],
     responses: [
       ok: {"OpenAPI 3.0.3 JSON document", "application/json", %OpenApiSpex.Schema{type: :object}}
@@ -150,6 +150,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/metrics/:agent_id - per-agent metrics with since param"
+  operation :agent_metrics,
+    summary: "Agent metrics",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def agent_metrics(conn, %{"agent_id" => agent_id} = params) do
     opts =
       case params["since"] do
@@ -170,6 +177,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   # ========== SLOs ==========
 
   @doc "GET /api/v2/slos - all SLIs with error budgets"
+  operation :list_slos,
+    summary: "List slos",
+    tags: ["Core"],
+    responses: [
+      ok: {"List of SLOs", "application/json", Schemas.SLO}
+    ]
+
   def list_slos(conn, _params) do
     slis = SloEngine.get_all_slis()
 
@@ -186,6 +200,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/slos/:name - single SLI with history"
+  operation :get_slo,
+    summary: "Get slo",
+    tags: ["Core"],
+    responses: [
+      ok: {"Single SLO", "application/json", Schemas.SLO}
+    ]
+
   def get_slo(conn, %{"name" => name_str}) do
     name = safe_to_existing_atom(name_str)
 
@@ -211,6 +232,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   # ========== Alerts ==========
 
   @doc "GET /api/v2/alerts - alert history with cursor pagination and filters"
+  operation :list_alerts,
+    summary: "List alerts",
+    tags: ["Core"],
+    responses: [
+      ok: {"Alert history", "application/json", Schemas.Alert}
+    ]
+
   def list_alerts(conn, params) do
     limit = ApiV2JSON.parse_limit(params)
 
@@ -236,12 +264,26 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/alerts/rules - list alert rules"
+  operation :list_alert_rules,
+    summary: "List alert rules",
+    tags: ["Core"],
+    responses: [
+      ok: {"Alert rules", "application/json", Schemas.AlertRule}
+    ]
+
   def list_alert_rules(conn, _params) do
     rules = AlertRulesEngine.list_rules()
     json(conn, ApiV2JSON.envelope(rules, %{total: length(rules)}))
   end
 
   @doc "POST /api/v2/alerts/rules - create alert rule"
+  operation :create_alert_rule,
+    summary: "Create alert rule",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def create_alert_rule(conn, params) do
     rule_params = %{
       name: params["name"] || "unnamed",
@@ -267,6 +309,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   # ========== Audit ==========
 
   @doc "GET /api/v2/audit - audit log with cursor pagination and filters"
+  operation :list_audit,
+    summary: "List audit",
+    tags: ["Core"],
+    responses: [
+      ok: {"Audit log entries", "application/json", Schemas.AuditEntry}
+    ]
+
   def list_audit(conn, params) do
     limit = ApiV2JSON.parse_limit(params)
 
@@ -283,1455 +332,45 @@ defmodule ApmV5Web.V2.ApiV2Controller do
 
   # ========== OpenAPI ==========
 
-  @doc "GET /api/v2/openapi.json - OpenAPI 3.0.3 spec (full coverage)"
+  @doc """
+  GET /api/v2/openapi.json — OpenAPI 3.0.3 spec (full coverage, api-s7 Wave 2b).
+
+  Delegates entirely to `ApmV5Web.ApiSpec.spec/0` — the open_api_spex
+  introspected spec that sources all paths from the router and all schema
+  definitions from typed `OpenApiSpex.schema/2` modules.
+
+  `build_spec/0` deleted in api-s7 Wave 2b (CP-288). ApiSpec is now SSOT.
+  """
   def openapi(conn, _params) do
-    json(conn, build_spec())
+    spec_map = ApmV5Web.ApiSpec.spec() |> OpenApiSpex.OpenApi.to_map()
+    json(conn, spec_map)
   end
 
-  defp build_spec do
-    %{
-      "openapi" => "3.0.3",
-      "info" => %{
-        "title" => "CCEM APM API",
-        "version" => Mix.Project.config()[:version],
-        "description" => "Complete REST API for CCEM Agent Performance & Management v#{Mix.Project.config()[:version]}. AgentLock authorization protocol, Plugin Engine, domain-split controllers, CCEM Management routes. Also available at /api/openapi.json."
-      },
-      "servers" => [%{"url" => "http://localhost:3032", "description" => "Local APM server"}],
-      "tags" => [
-        # Core tags
-        %{"name" => "Health", "description" => "Server health and status"},
-        %{"name" => "Agents", "description" => "Agent registration and management"},
-        %{"name" => "Sessions", "description" => "Session tracking"},
-        %{"name" => "Notifications", "description" => "Notification management"},
-        %{"name" => "Data", "description" => "Aggregated data and master state"},
-        %{"name" => "Ralph", "description" => "Ralph methodology integration"},
-        %{"name" => "Commands", "description" => "Slash command registry"},
-        %{"name" => "Tasks", "description" => "Task synchronization and input"},
-        %{"name" => "Ports", "description" => "Port registry and clash detection"},
-        %{"name" => "Environments", "description" => "CCEM environment management"},
-        %{"name" => "Config", "description" => "Server configuration"},
-        %{"name" => "Projects", "description" => "Multi-project management"},
-        %{"name" => "A2UI", "description" => "A2UI declarative component specs"},
-        %{"name" => "Metrics", "description" => "Performance metrics (v2)"},
-        %{"name" => "SLOs", "description" => "Service Level Objectives (v2)"},
-        %{"name" => "Alerts", "description" => "Alert rules and history (v2)"},
-        %{"name" => "Audit", "description" => "Audit log (v2)"},
-        %{"name" => "Export", "description" => "Data export and import (v2)"},
-        %{"name" => "Manifest", "description" => "API architecture manifest — core vs extension surface area"},
-        # Extension tags (x-extension: true on all operations)
-        %{"name" => "Skills", "description" => "[extension:skills] Skill registry, health scoring, and audit", "x-extension" => true},
-        %{"name" => "UPM", "description" => "[extension:upm] Unified Project Management execution tracking", "x-extension" => true},
-        %{"name" => "UPM Decision Gate", "description" => "[extension:upm] Human-in-the-loop approval gates for UPM formation deployments", "x-extension" => true},
-        %{"name" => "Formations", "description" => "[extension:formations] Formation domain controller", "x-extension" => true},
-        %{"name" => "AG-UI", "description" => "[extension:ag_ui] AG-UI SSE event stream, state, and tool calls", "x-extension" => true},
-        %{"name" => "Agent Context", "description" => "[extension:ag_ui] Real-time AG-UI context per agent — activity, events, tool calls", "x-extension" => true},
-        %{"name" => "CCEM Management", "description" => "[extension:showcase] Showcase LiveView pages (Showcase, Ports, CCEM overview)", "x-extension" => true},
-        %{"name" => "AgentLock Authorization", "description" => "[extension:agentlock] Authorization protocol — session, token, policy, context, memory, rate-limit management", "x-extension" => true},
-        %{"name" => "Coalesce", "description" => "[extension:coalesce] Skill Logic Engine — ingest sources, plan skill diffs, gate-controlled apply", "x-extension" => true},
-        %{"name" => "Plugins", "description" => "[extension:plugins] Plugin Engine — modular capability extensions", "x-extension" => true},
-        %{"name" => "Integrations", "description" => "[extension:plugins] Integration Engine — symbiosis between plugins and native features", "x-extension" => true},
-        %{"name" => "Usage", "description" => "[extension:usage] Claude usage tracking — token/model/cost per project and session", "x-extension" => true},
-        %{"name" => "Plane", "description" => "[extension:plane] Plane PM alignment agent — sync status and manual sync trigger", "x-extension" => true},
-        %{"name" => "Approvals", "description" => "[extension:agentlock] Grouped approval workflow with execution context, audit logging, and keyboard shortcuts", "x-extension" => true},
-        %{"name" => "Memory", "description" => "[extension:memory] Claude-Mem integration — observation browsing, semantic search, timeline queries, and health checks", "x-extension" => true}
-      ],
-      "paths" => build_paths(),
-      "components" => %{
-        "schemas" => build_schemas(),
-        "parameters" => build_parameters()
-      }
-    }
-  end
-
-  defp build_paths do
-    Map.merge(build_v1_paths(), build_v2_paths())
-  end
-
-  defp build_v1_paths do
-    %{
-      "/health" => %{
-        "get" => %{"operationId" => "healthCheck", "summary" => "Server health check", "tags" => ["Health"],
-          "responses" => %{"200" => %{"description" => "Server is healthy",
-            "content" => %{"application/json" => %{"schema" => %{"type" => "object",
-              "properties" => %{"status" => %{"type" => "string"}, "timestamp" => %{"type" => "string", "format" => "date-time"}}}}}}}}
-      },
-      "/api/status" => %{
-        "get" => %{"operationId" => "getStatus", "summary" => "APM server status", "tags" => ["Health"],
-          "responses" => %{"200" => %{"description" => "Status info"}}}
-      },
-      "/api/agents" => %{
-        "get" => %{"operationId" => "listAgents", "summary" => "List all agents", "tags" => ["Agents"],
-          "parameters" => [%{"$ref" => "#/components/parameters/ProjectParam"}],
-          "responses" => %{"200" => %{"description" => "Agent list",
-            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Agent"}}}}}}}
-      },
-      "/api/register" => %{
-        "post" => %{"operationId" => "registerAgent", "summary" => "Register an agent", "tags" => ["Agents"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["agent_id"],
-            "properties" => %{"agent_id" => %{"type" => "string"}, "project" => %{"type" => "string"},
-              "role" => %{"type" => "string"}, "status" => %{"type" => "string"}}}}}},
-          "responses" => %{"200" => %{"description" => "Registered"}, "400" => %{"$ref" => "#/components/schemas/Error"}}}
-      },
-      "/api/heartbeat" => %{
-        "post" => %{"operationId" => "sendHeartbeat", "summary" => "Update agent heartbeat", "tags" => ["Agents"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["agent_id"],
-            "properties" => %{"agent_id" => %{"type" => "string"}, "status" => %{"type" => "string"},
-              "message" => %{"type" => "string"}}}}}},
-          "responses" => %{"200" => %{"description" => "Heartbeat recorded"}}}
-      },
-      "/api/agents/register" => %{
-        "post" => %{"operationId" => "registerAgentV3", "summary" => "Register agent (v3-compat alias)", "tags" => ["Agents"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/Agent"}}}},
-          "responses" => %{"200" => %{"description" => "Registered"}}}
-      },
-      "/api/agents/update" => %{
-        "post" => %{"operationId" => "updateAgentV3", "summary" => "Full agent update (v3-compat)", "tags" => ["Agents"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/Agent"}}}},
-          "responses" => %{"200" => %{"description" => "Updated"}}}
-      },
-      "/api/agents/discover" => %{
-        "get" => %{"operationId" => "discoverAgents", "summary" => "Trigger agent discovery scan", "tags" => ["Agents"],
-          "responses" => %{"200" => %{"description" => "Discovery results"}}}
-      },
-      "/api/data" => %{
-        "get" => %{"operationId" => "getMasterData", "summary" => "Master data aggregation (active project)", "tags" => ["Data"],
-          "responses" => %{"200" => %{"description" => "Aggregated APM state"}}}
-      },
-      "/api/notifications" => %{
-        "get" => %{"operationId" => "listNotifications", "summary" => "List notifications", "tags" => ["Notifications"],
-          "responses" => %{"200" => %{"description" => "Notification list",
-            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Notification"}}}}}}}
-      },
-      "/api/notify" => %{
-        "post" => %{"operationId" => "addNotification", "summary" => "Add a notification", "tags" => ["Notifications"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["message"],
-            "properties" => %{"message" => %{"type" => "string"}, "type" => %{"type" => "string"},
-              "agent_id" => %{"type" => "string"}}}}}},
-          "responses" => %{"200" => %{"description" => "Added"}}}
-      },
-      "/api/notifications/add" => %{
-        "post" => %{"operationId" => "addNotificationV3", "summary" => "Add notification (v3-compat)", "tags" => ["Notifications"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Added"}}}
-      },
-      "/api/notifications/read-all" => %{
-        "post" => %{"operationId" => "markAllNotificationsRead", "summary" => "Mark all notifications read", "tags" => ["Notifications"],
-          "responses" => %{"200" => %{"description" => "Marked read"}}}
-      },
-      "/api/ralph" => %{
-        "get" => %{"operationId" => "getRalph", "summary" => "Ralph data for active project", "tags" => ["Ralph"],
-          "responses" => %{"200" => %{"description" => "Ralph state"}}}
-      },
-      "/api/ralph/flowchart" => %{
-        "get" => %{"operationId" => "getRalphFlowchart", "summary" => "D3-compatible flowchart data", "tags" => ["Ralph"],
-          "responses" => %{"200" => %{"description" => "Flowchart nodes and edges"}}}
-      },
-      "/api/commands" => %{
-        "get" => %{"operationId" => "listCommands", "summary" => "List commands for active project", "tags" => ["Commands"],
-          "responses" => %{"200" => %{"description" => "Command list"}}},
-        "post" => %{"operationId" => "registerCommands", "summary" => "Register slash commands", "tags" => ["Commands"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Registered"}}}
-      },
-      "/api/tasks/sync" => %{
-        "post" => %{"operationId" => "syncTasks", "summary" => "Replace active project's task list", "tags" => ["Tasks"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "properties" => %{"tasks" => %{"type" => "array", "items" => %{"type" => "object"}}}}}}},
-          "responses" => %{"200" => %{"description" => "Synced"}}}
-      },
-      "/api/input/pending" => %{
-        "get" => %{"operationId" => "getPendingInput", "summary" => "Get pending input requests", "tags" => ["Tasks"],
-          "responses" => %{"200" => %{"description" => "Pending input requests"}}}
-      },
-      "/api/input/request" => %{
-        "post" => %{"operationId" => "createInputRequest", "summary" => "Create input request", "tags" => ["Tasks"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Created"}}}
-      },
-      "/api/input/respond" => %{
-        "post" => %{"operationId" => "respondToInput", "summary" => "Respond to input request", "tags" => ["Tasks"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Responded"}}}
-      },
-      "/api/skills" => %{
-        "get" => %{"operationId" => "listSkills", "summary" => "List tracked skills", "tags" => ["Skills"],
-          "parameters" => [%{"$ref" => "#/components/parameters/ProjectParam"},
-            %{"name" => "session_id", "in" => "query", "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Skill invocations"}}}
-      },
-      "/api/skills/track" => %{
-        "post" => %{"operationId" => "trackSkill", "summary" => "Track a skill invocation", "tags" => ["Skills"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["skill"],
-            "properties" => %{"skill" => %{"type" => "string"}, "session_id" => %{"type" => "string"},
-              "project" => %{"type" => "string"}}}}}},
-          "responses" => %{"200" => %{"description" => "Tracked"}}}
-      },
-      "/api/upm/register" => %{
-        "post" => %{"operationId" => "upmRegister", "summary" => "Register a UPM execution session", "tags" => ["UPM"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Registered"}}}
-      },
-      "/api/upm/agent" => %{
-        "post" => %{"operationId" => "upmAgent", "summary" => "Register agent with work-item binding", "tags" => ["UPM"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Registered"}}}
-      },
-      "/api/upm/event" => %{
-        "post" => %{"operationId" => "upmEvent", "summary" => "Report UPM lifecycle event", "tags" => ["UPM"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Recorded"}}}
-      },
-      "/api/upm/status" => %{
-        "get" => %{"operationId" => "upmStatus", "summary" => "Current UPM execution state", "tags" => ["UPM"],
-          "responses" => %{"200" => %{"description" => "UPM state"}}}
-      },
-      "/api/upm/sessions/from_design_handoff" => %{
-        "post" => %{
-          "operationId" => "upmSessionFromDesignHandoff",
-          "summary" => "Create UPM session from design handoff README",
-          "description" => "Parses a design handoff README.md and creates a UPM session with auto-generated stories from the Implementation Order section.",
-          "tags" => ["UPM"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object",
-            "required" => ["readme_content"],
-            "properties" => %{
-              "readme_content" => %{"type" => "string", "description" => "Raw README.md content from the design handoff"},
-              "project" => %{"type" => "string", "description" => "Project name"},
-              "prd_branch" => %{"type" => "string", "description" => "Git branch for the PRD"},
-              "plane_project_id" => %{"type" => "string", "description" => "Plane PM project ID"}
-            }}}}},
-          "responses" => %{
-            "200" => %{"description" => "UPM session created",
-              "content" => %{"application/json" => %{"schema" => %{
-                "type" => "object",
-                "properties" => %{
-                  "ok" => %{"type" => "boolean"},
-                  "upm_session_id" => %{"type" => "string"},
-                  "input_type" => %{"type" => "string", "enum" => ["design_handoff"]},
-                  "stories_count" => %{"type" => "integer"}
-                }}}}},
-            "422" => %{"description" => "Missing readme_content or no Implementation Order section found",
-              "content" => %{"application/json" => %{"schema" => %{
-                "type" => "object",
-                "properties" => %{"error" => %{"type" => "string"}}}}}}
-          }
-        }
-      },
-      "/api/formations" => %{
-        "get" => %{"operationId" => "listFormations", "summary" => "List all formations", "tags" => ["UPM"],
-          "responses" => %{"200" => %{"description" => "Formation list"}}},
-        "post" => %{"operationId" => "createFormation", "summary" => "Create a formation", "tags" => ["UPM"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"201" => %{"description" => "Created formation"}}}
-      },
-      "/api/formations/{id}" => %{
-        "get" => %{"operationId" => "getFormation", "summary" => "Get a formation by ID", "tags" => ["UPM"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Formation detail"}, "404" => %{"description" => "Not found"}}},
-        "patch" => %{"operationId" => "updateFormation", "summary" => "Update a formation", "tags" => ["UPM"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Updated formation"}, "404" => %{"description" => "Not found"}}}
-      },
-      "/api/formations/{id}/agents" => %{
-        "get" => %{"operationId" => "getFormationAgents", "summary" => "List agents in a formation", "tags" => ["UPM"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Agents list"}}}
-      },
-      "/api/showcase" => %{
-        "get" => %{"operationId" => "listShowcaseProjects", "summary" => "List showcase-eligible projects", "tags" => ["CCEM Management"],
-          "responses" => %{"200" => %{"description" => "Showcase project list"}}}
-      },
-      "/api/showcase/{project}" => %{
-        "get" => %{"operationId" => "getShowcaseData", "summary" => "Get showcase data for a project", "tags" => ["CCEM Management"],
-          "parameters" => [%{"name" => "project", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Showcase data"}, "404" => %{"description" => "Not found"}}}
-      },
-      "/api/showcase/{project}/reload" => %{
-        "post" => %{"operationId" => "reloadShowcaseData", "summary" => "Reload showcase data for a project", "tags" => ["CCEM Management"],
-          "parameters" => [%{"name" => "project", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Reloaded"}}}
-      },
-      "/api/ports" => %{
-        "get" => %{"operationId" => "listPorts", "summary" => "List registered ports", "tags" => ["Ports"],
-          "responses" => %{"200" => %{"description" => "Port registry"}}}
-      },
-      "/api/ports/scan" => %{
-        "post" => %{"operationId" => "scanPorts", "summary" => "Scan for active ports", "tags" => ["Ports"],
-          "responses" => %{"200" => %{"description" => "Scan results"}}}
-      },
-      "/api/ports/assign" => %{
-        "post" => %{"operationId" => "assignPort", "summary" => "Assign a port to a service", "tags" => ["Ports"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "properties" => %{"port" => %{"type" => "integer"}, "service" => %{"type" => "string"}}}}}},
-          "responses" => %{"200" => %{"description" => "Assigned"}}}
-      },
-      "/api/ports/clashes" => %{
-        "get" => %{"operationId" => "getPortClashes", "summary" => "Detect port clashes", "tags" => ["Ports"],
-          "responses" => %{"200" => %{"description" => "Clash list"}}}
-      },
-      "/api/ports/set-primary" => %{
-        "post" => %{"operationId" => "setPrimaryPort", "summary" => "Set primary port for a service", "tags" => ["Ports"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Set"}}}
-      },
-      "/api/projects" => %{
-        "get" => %{"operationId" => "listProjects", "summary" => "List all projects with agent counts", "tags" => ["Projects"],
-          "responses" => %{"200" => %{"description" => "Projects list"}}},
-        "patch" => %{"operationId" => "updateProject", "summary" => "Update project metadata", "tags" => ["Projects"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Updated"}}}
-      },
-      "/api/config/reload" => %{
-        "post" => %{"operationId" => "reloadConfig", "summary" => "Hot-reload multi-project config", "tags" => ["Config"],
-          "responses" => %{"200" => %{"description" => "Reloaded"}}}
-      },
-      "/api/reload" => %{
-        "post" => %{"operationId" => "reloadConfigAlias", "summary" => "Reload config (alias)", "tags" => ["Config"],
-          "responses" => %{"200" => %{"description" => "Reloaded"}}}
-      },
-      "/api/plane/update" => %{
-        "post" => %{"operationId" => "updatePlane", "summary" => "Update Plane PM context", "tags" => ["Projects"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Updated"}}}
-      },
-      "/api/environments" => %{
-        "get" => %{"operationId" => "listEnvironments", "summary" => "List all Claude Code environments", "tags" => ["Environments"],
-          "responses" => %{"200" => %{"description" => "Environment list"}}}
-      },
-      "/api/environments/{name}" => %{
-        "get" => %{"operationId" => "getEnvironment", "summary" => "Full environment detail", "tags" => ["Environments"],
-          "parameters" => [%{"name" => "name", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Environment detail"}, "404" => %{"description" => "Not found"}}}
-      },
-      "/api/environments/{name}/exec" => %{
-        "post" => %{"operationId" => "execInEnvironment", "summary" => "Execute command in environment", "tags" => ["Environments"],
-          "parameters" => [%{"name" => "name", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["command"],
-            "properties" => %{"command" => %{"type" => "string"}}}}}},
-          "responses" => %{"200" => %{"description" => "Execution result"}}}
-      },
-      "/api/environments/{name}/session/start" => %{
-        "post" => %{"operationId" => "startEnvironmentSession", "summary" => "Launch Claude Code session", "tags" => ["Environments"],
-          "parameters" => [%{"name" => "name", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Session started"}}}
-      },
-      "/api/environments/{name}/session/stop" => %{
-        "post" => %{"operationId" => "stopEnvironmentSession", "summary" => "Kill Claude Code session", "tags" => ["Environments"],
-          "parameters" => [%{"name" => "name", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Session stopped"}}}
-      },
-      "/api/v2/export" => %{
-        "get" => %{"operationId" => "exportData", "summary" => "Export APM data (JSON or CSV)", "tags" => ["Export"],
-          "parameters" => [%{"name" => "format", "in" => "query", "schema" => %{"type" => "string", "enum" => ["json", "csv"]}}],
-          "responses" => %{"200" => %{"description" => "Export data"}}}
-      },
-      "/api/v2/import" => %{
-        "post" => %{"operationId" => "importData", "summary" => "Import APM data from JSON", "tags" => ["Export"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"type" => "object"}}}},
-          "responses" => %{"200" => %{"description" => "Imported"}}}
-      },
-      "/api/ag-ui/events" => %{
-        "get" => %{"operationId" => "agUiEventStream", "summary" => "AG-UI SSE event stream", "tags" => ["AG-UI"],
-          "parameters" => [%{"name" => "agent_id", "in" => "query", "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Server-sent events stream",
-            "content" => %{"text/event-stream" => %{"schema" => %{"type" => "string"}}}}}
-        }
-      },
-      "/api/a2ui/components" => %{
-        "get" => %{"operationId" => "a2uiComponents", "summary" => "A2UI declarative component specs", "tags" => ["A2UI"],
-          "responses" => %{"200" => %{"description" => "Component specifications"}}}
-      },
-      "/api/openapi.json" => %{
-        "get" => %{"operationId" => "getOpenApiV1", "summary" => "OpenAPI 3.0.3 spec (v1 alias)", "tags" => ["Health"],
-          "responses" => %{"200" => %{"description" => "OpenAPI specification"}}}
-      },
-      "/showcase" => %{
-        "get" => %{
-          "operationId" => "showcaseDashboard",
-          "summary" => "Showcase Dashboard",
-          "description" => "GIMME-style project showcase with live agent/UPM data, feature roadmap, and IP-safe architecture diagrams. Uses active project from apm_config.json.",
-          "tags" => ["CCEM Management"],
-          "responses" => %{"200" => %{"description" => "Showcase LiveView"}}
-        }
-      },
-      "/showcase/{project}" => %{
-        "get" => %{
-          "operationId" => "showcaseDashboardProject",
-          "summary" => "Showcase Dashboard — Named Project",
-          "description" => "Load the showcase for a specific project by name. Switches active showcase data without a full page reload.",
-          "tags" => ["CCEM Management"],
-          "parameters" => [%{"name" => "project", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Project name as registered in apm_config.json"}],
-          "responses" => %{"200" => %{"description" => "Showcase LiveView for named project"}}
-        }
-      },
-      "/ccem" => %{
-        "get" => %{
-          "operationId" => "ccemOverview",
-          "summary" => "CCEM Management Overview",
-          "description" => "CCEM Management hub — entry point for the CCEM section of the dual-section sidebar. Quick-access tiles to Showcase, Ports, Actions, and Scanner.",
-          "tags" => ["CCEM Management"],
-          "responses" => %{"200" => %{"description" => "CCEM Overview LiveView"}}
-        }
-      },
-      "/ports" => %{
-        "get" => %{
-          "operationId" => "portsDashboard",
-          "summary" => "Port Management Dashboard",
-          "description" => "CCEM port registry with conflict visualization, namespace filtering, active-port scanning, and one-click clash reassignment.",
-          "tags" => ["CCEM Management"],
-          "responses" => %{"200" => %{"description" => "Ports LiveView"}}
-        }
-      }
-    }
-  end
-
-  defp build_v2_paths do
-    %{
-      "/api/v2/agents" => %{
-        "get" => %{"operationId" => "v2ListAgents", "summary" => "Paginated agent list (cursor-based)", "tags" => ["Agents"],
-          "parameters" => [%{"$ref" => "#/components/parameters/CursorParam"}, %{"$ref" => "#/components/parameters/LimitParam"}],
-          "responses" => %{"200" => %{"description" => "Paginated agents",
-            "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/PaginatedAgents"}}}}}}
-      },
-      "/api/v2/agents/{id}" => %{
-        "get" => %{"operationId" => "v2GetAgent", "summary" => "Agent detail with health score", "tags" => ["Agents"],
-          "parameters" => [%{"$ref" => "#/components/parameters/AgentIdParam"}],
-          "responses" => %{"200" => %{"description" => "Agent detail",
-            "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/Agent"}}}},
-            "404" => %{"description" => "Not found"}}}
-      },
-      "/api/v2/sessions" => %{
-        "get" => %{"operationId" => "v2ListSessions", "summary" => "Paginated session list", "tags" => ["Sessions"],
-          "parameters" => [%{"$ref" => "#/components/parameters/CursorParam"}, %{"$ref" => "#/components/parameters/LimitParam"}],
-          "responses" => %{"200" => %{"description" => "Paginated sessions"}}}
-      },
-      "/api/v2/metrics" => %{
-        "get" => %{"operationId" => "v2FleetMetrics", "summary" => "Fleet-wide metrics summary", "tags" => ["Metrics"],
-          "responses" => %{"200" => %{"description" => "Fleet metrics"}}}
-      },
-      "/api/v2/metrics/{agent_id}" => %{
-        "get" => %{"operationId" => "v2AgentMetrics", "summary" => "Per-agent metrics", "tags" => ["Metrics"],
-          "parameters" => [%{"$ref" => "#/components/parameters/AgentIdParam"}, %{"$ref" => "#/components/parameters/SinceParam"}],
-          "responses" => %{"200" => %{"description" => "Agent metrics"}}}
-      },
-      "/api/v2/slos" => %{
-        "get" => %{"operationId" => "v2ListSlos", "summary" => "All SLIs with error budgets", "tags" => ["SLOs"],
-          "responses" => %{"200" => %{"description" => "SLO list",
-            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/SLO"}}}}}}}
-      },
-      "/api/v2/slos/{name}" => %{
-        "get" => %{"operationId" => "v2GetSlo", "summary" => "Single SLI with history", "tags" => ["SLOs"],
-          "parameters" => [%{"name" => "name", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "SLO detail"}, "404" => %{"description" => "Not found"}}}
-      },
-      "/api/v2/alerts" => %{
-        "get" => %{"operationId" => "v2ListAlerts", "summary" => "Alert history with filters", "tags" => ["Alerts"],
-          "parameters" => [%{"$ref" => "#/components/parameters/CursorParam"}, %{"$ref" => "#/components/parameters/LimitParam"},
-            %{"$ref" => "#/components/parameters/SeverityParam"},
-            %{"name" => "rule_id", "in" => "query", "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Alert history",
-            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Alert"}}}}}}}
-      },
-      "/api/v2/alerts/rules" => %{
-        "get" => %{"operationId" => "v2ListAlertRules", "summary" => "List alert rules", "tags" => ["Alerts"],
-          "responses" => %{"200" => %{"description" => "Alert rules",
-            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/AlertRule"}}}}}}},
-        "post" => %{"operationId" => "v2CreateAlertRule", "summary" => "Create alert rule", "tags" => ["Alerts"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["metric", "threshold"],
-            "properties" => %{"id" => %{"type" => "string"}, "name" => %{"type" => "string"},
-              "metric" => %{"type" => "string"}, "scope" => %{"type" => "string", "enum" => ["fleet", "agent"]},
-              "threshold" => %{"type" => "number"}, "comparator" => %{"type" => "string"},
-              "severity" => %{"type" => "string", "enum" => ["info", "warning", "critical"]},
-              "consecutive_breaches" => %{"type" => "integer"}}}}}},
-          "responses" => %{"201" => %{"description" => "Created"}, "400" => %{"description" => "Invalid rule"}}}
-      },
-      "/api/v2/audit" => %{
-        "get" => %{"operationId" => "v2ListAudit", "summary" => "Audit log with cursor pagination", "tags" => ["Audit"],
-          "parameters" => [%{"$ref" => "#/components/parameters/CursorParam"}, %{"$ref" => "#/components/parameters/LimitParam"},
-            %{"$ref" => "#/components/parameters/SinceParam"},
-            %{"name" => "event_type", "in" => "query", "schema" => %{"type" => "string"}},
-            %{"name" => "actor", "in" => "query", "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Audit entries",
-            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/AuditEntry"}}}}}}}
-      },
-      "/api/v2/openapi.json" => %{
-        "get" => %{"operationId" => "v2GetOpenApi", "summary" => "OpenAPI 3.0.3 specification", "tags" => ["Health"],
-          "responses" => %{"200" => %{"description" => "OpenAPI spec"}}}
-      },
-      "/api/v2/manifest" => %{
-        "get" => %{
-          "operationId" => "v2GetManifest",
-          "summary" => "API architecture manifest",
-          "description" => "Returns a machine-readable summary of the core API surface and all loaded extensions, including route counts and enabled status. Use x-extension flag in the OpenAPI spec to identify extension endpoints.",
-          "tags" => ["Manifest"],
-          "responses" => %{
-            "200" => %{
-              "description" => "Manifest payload",
-              "content" => %{
-                "application/json" => %{
-                  "schema" => %{
-                    "type" => "object",
-                    "properties" => %{
-                      "core_version" => %{"type" => "string"},
-                      "architecture" => %{"type" => "string"},
-                      "extensions" => %{
-                        "type" => "array",
-                        "items" => %{
-                          "type" => "object",
-                          "properties" => %{
-                            "name" => %{"type" => "string"},
-                            "version" => %{"type" => "string"},
-                            "enabled" => %{"type" => "boolean"},
-                            "routes" => %{"type" => "integer"},
-                            "description" => %{"type" => "string"},
-                            "path_prefix" => %{"type" => "string"}
-                          }
-                        }
-                      },
-                      "core_routes" => %{"type" => "integer"},
-                      "total_routes" => %{"type" => "integer"}
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      # AgentLock Authorization endpoints (v7.0.0)
-      "/api/v2/auth/authorize" => %{
-        "post" => %{"operationId" => "authAuthorize", "summary" => "Request authorization for a tool invocation", "tags" => ["AgentLock Authorization"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["agent_id", "session_id", "tool_name"],
-            "properties" => %{"agent_id" => %{"type" => "string"}, "session_id" => %{"type" => "string"},
-              "tool_name" => %{"type" => "string"}, "params" => %{"type" => "object"}}}}}},
-          "responses" => %{"200" => %{"description" => "Authorization decision (permit/deny/escalate)",
-            "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/AuthDecision"}}}},
-            "400" => %{"$ref" => "#/components/schemas/Error"}}}
-      },
-      "/api/v2/auth/execute" => %{
-        "post" => %{"operationId" => "authExecute", "summary" => "Execute a pre-authorized tool invocation using a token", "tags" => ["AgentLock Authorization"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["token_id"],
-            "properties" => %{"token_id" => %{"type" => "string"}, "result" => %{"type" => "object"}}}}}},
-          "responses" => %{"200" => %{"description" => "Execution recorded"}, "404" => %{"description" => "Token not found"}}}
-      },
-      "/api/v2/auth/summary" => %{
-        "get" => %{"operationId" => "authSummary", "summary" => "Authorization system summary — tools, sessions, tokens, risk distribution", "tags" => ["AgentLock Authorization"],
-          "responses" => %{"200" => %{"description" => "Authorization summary",
-            "content" => %{"application/json" => %{"schema" => %{"type" => "object",
-              "properties" => %{"registered_tools" => %{"type" => "integer"}, "active_sessions" => %{"type" => "integer"},
-                "tokens" => %{"type" => "object"}, "total_authorized" => %{"type" => "integer"},
-                "total_denied" => %{"type" => "integer"}, "total_escalated" => %{"type" => "integer"},
-                "risk_distribution" => %{"type" => "object"}}}}}}}}
-      },
-      "/api/v2/auth/tools" => %{
-        "get" => %{"operationId" => "authListTools", "summary" => "List registered tools with risk levels and policies", "tags" => ["AgentLock Authorization"],
-          "responses" => %{"200" => %{"description" => "Tool registry list",
-            "content" => %{"application/json" => %{"schema" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/AuthTool"}}}}}}},
-        "post" => %{"operationId" => "authRegisterTool", "summary" => "Register a new tool with risk level and policy", "tags" => ["AgentLock Authorization"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["name", "risk_level"],
-            "properties" => %{"name" => %{"type" => "string"},
-              "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]},
-              "description" => %{"type" => "string"}, "requires_approval" => %{"type" => "boolean"},
-              "metadata" => %{"type" => "object"}}}}}},
-          "responses" => %{"200" => %{"description" => "Tool registered"}, "400" => %{"$ref" => "#/components/schemas/Error"}}}
-      },
-      "/api/v2/auth/sessions" => %{
-        "post" => %{"operationId" => "authCreateSession", "summary" => "Create an authorization session", "tags" => ["AgentLock Authorization"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["user_id", "role"],
-            "properties" => %{"user_id" => %{"type" => "string"}, "role" => %{"type" => "string"},
-              "ttl_seconds" => %{"type" => "integer"}, "scope" => %{"type" => "string"},
-              "metadata" => %{"type" => "object"}}}}}},
-          "responses" => %{"200" => %{"description" => "Session created", "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "properties" => %{"ok" => %{"type" => "boolean"}, "session_id" => %{"type" => "string"}}}}}}}},
-        "get" => %{"operationId" => "authListSessions", "summary" => "List active authorization sessions", "tags" => ["AgentLock Authorization"],
-          "responses" => %{"200" => %{"description" => "Active sessions",
-            "content" => %{"application/json" => %{"schema" => %{"type" => "object",
-              "properties" => %{"ok" => %{"type" => "boolean"}, "sessions" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/AuthSession"}},
-                "count" => %{"type" => "integer"}}}}}}}}
-      },
-      "/api/v2/auth/sessions/{id}" => %{
-        "get" => %{"operationId" => "authGetSession", "summary" => "Get authorization session by ID", "tags" => ["AgentLock Authorization"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Session detail"}, "404" => %{"description" => "Session not found"}}},
-        "delete" => %{"operationId" => "authDestroySession", "summary" => "Destroy an authorization session", "tags" => ["AgentLock Authorization"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Session destroyed"}}}
-      },
-      "/api/v2/auth/tokens/{id}" => %{
-        "get" => %{"operationId" => "authGetToken", "summary" => "Get token status and metadata", "tags" => ["AgentLock Authorization"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Token detail"}, "404" => %{"description" => "Token not found"}}}
-      },
-      "/api/v2/auth/tokens/{id}/revoke" => %{
-        "post" => %{"operationId" => "authRevokeToken", "summary" => "Revoke an authorization token", "tags" => ["AgentLock Authorization"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Token revoked"}, "404" => %{"description" => "Token not found"}}}
-      },
-      "/api/v2/auth/context/write" => %{
-        "post" => %{"operationId" => "authRecordContext", "summary" => "Record a context write event for trust tracking", "tags" => ["AgentLock Authorization"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["session_id", "scope", "path"],
-            "properties" => %{"session_id" => %{"type" => "string"}, "scope" => %{"type" => "string"},
-              "path" => %{"type" => "string"}, "sensitivity" => %{"type" => "string"},
-              "metadata" => %{"type" => "object"}}}}}},
-          "responses" => %{"200" => %{"description" => "Context recorded"}}}
-      },
-      "/api/v2/auth/context/trust" => %{
-        "get" => %{"operationId" => "authGetTrust", "summary" => "Get trust state for a session", "tags" => ["AgentLock Authorization"],
-          "parameters" => [%{"name" => "session_id", "in" => "query", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Trust state with ceiling and write history"}}}
-      },
-      "/api/v2/auth/memory/authorize-write" => %{
-        "post" => %{"operationId" => "authMemoryAuthorizeWrite", "summary" => "Authorize a memory write operation", "tags" => ["AgentLock Authorization"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["session_id", "path"],
-            "properties" => %{"session_id" => %{"type" => "string"}, "path" => %{"type" => "string"},
-              "content_hash" => %{"type" => "string"}, "sensitivity" => %{"type" => "string"}}}}}},
-          "responses" => %{"200" => %{"description" => "Write authorization decision"}}}
-      },
-      "/api/v2/auth/memory/authorize-read" => %{
-        "post" => %{"operationId" => "authMemoryAuthorizeRead", "summary" => "Authorize a memory read operation", "tags" => ["AgentLock Authorization"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["session_id", "path"],
-            "properties" => %{"session_id" => %{"type" => "string"}, "path" => %{"type" => "string"},
-              "sensitivity" => %{"type" => "string"}}}}}},
-          "responses" => %{"200" => %{"description" => "Read authorization decision"}}}
-      },
-      "/api/v2/auth/rate-limits" => %{
-        "get" => %{"operationId" => "authRateLimits", "summary" => "Get current rate limit state for agents and tools", "tags" => ["AgentLock Authorization"],
-          "parameters" => [%{"name" => "agent_id", "in" => "query", "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Rate limit state"}}}
-      },
-      "/api/v2/auth/redact" => %{
-        "post" => %{"operationId" => "authRedact", "summary" => "Apply redaction rules to content", "tags" => ["AgentLock Authorization"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object", "required" => ["content"],
-            "properties" => %{"content" => %{"type" => "string"}, "rules" => %{"type" => "array", "items" => %{"type" => "string"}},
-              "sensitivity" => %{"type" => "string"}}}}}},
-          "responses" => %{"200" => %{"description" => "Redacted content",
-            "content" => %{"application/json" => %{"schema" => %{"type" => "object",
-              "properties" => %{"ok" => %{"type" => "boolean"}, "redacted" => %{"type" => "string"},
-                "redactions_applied" => %{"type" => "integer"}}}}}}}}
-      },
-      "/api/v2/auth/audit" => %{
-        "get" => %{"operationId" => "authAuditLog", "summary" => "AgentLock authorization audit log", "tags" => ["AgentLock Authorization"],
-          "parameters" => [
-            %{"name" => "limit", "in" => "query", "schema" => %{"type" => "integer"}},
-            %{"name" => "event_type", "in" => "query", "schema" => %{"type" => "string"}},
-            %{"name" => "agent_id", "in" => "query", "schema" => %{"type" => "string"}}],
-          "responses" => %{"200" => %{"description" => "Authorization audit entries"}}}
-      },
-
-      # UPM Decision Gate (v8.4.0) — human-in-the-loop approval before formation deploy
-      "/api/v2/upm/gate" => %{
-        "post" => %{
-          "operationId" => "upmCreateGate",
-          "summary" => "Create a blocking UPM decision gate",
-          "description" => "Creates a decision gate and blocks up to timeout_ms (default 120s) waiting for approval via CCEMHelper notification or osascript dialog.",
-          "tags" => ["UPM Decision Gate"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object",
-            "properties" => %{
-              "question" => %{"type" => "string", "description" => "Decision question shown to the user", "example" => "Proceed with formation deployment?"},
-              "context" => %{"type" => "string", "description" => "Additional context for the decision"},
-              "options" => %{"type" => "array", "items" => %{"type" => "string"}, "description" => "Response options", "example" => ["Deploy", "Cancel"]},
-              "timeout_ms" => %{"type" => "integer", "description" => "Maximum wait time in milliseconds", "default" => 120_000}
-            }}}}},
-          "responses" => %{
-            "200" => %{"description" => "Decision received", "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/GateDecision"}}}},
-            "408" => %{"description" => "Gate timed out without a decision"}
-          }
-        }
-      },
-      "/api/v2/upm/gates" => %{
-        "get" => %{
-          "operationId" => "upmListGates",
-          "summary" => "List all UPM decision gates (pending + resolved)",
-          "tags" => ["UPM Decision Gate"],
-          "responses" => %{"200" => %{"description" => "Gate list with pending count",
-            "content" => %{"application/json" => %{"schema" => %{
-              "type" => "object",
-              "properties" => %{
-                "gates" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Gate"}},
-                "pending_count" => %{"type" => "integer"}
-              }}}}}}
-        }
-      },
-      "/api/v2/upm/gate/{id}" => %{
-        "get" => %{
-          "operationId" => "upmGetGate",
-          "summary" => "Get a specific UPM decision gate by ID",
-          "tags" => ["UPM Decision Gate"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{
-            "200" => %{"description" => "Gate detail", "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/Gate"}}}},
-            "404" => %{"description" => "Gate not found"}
-          }
-        }
-      },
-      "/api/v2/upm/gate/{id}/approve" => %{
-        "post" => %{
-          "operationId" => "upmApproveGate",
-          "summary" => "Approve a pending UPM decision gate",
-          "tags" => ["UPM Decision Gate"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{
-            "200" => %{"description" => "Gate approved"},
-            "404" => %{"description" => "Gate not found"},
-            "409" => %{"description" => "Gate is not in pending state"}
-          }
-        }
-      },
-      "/api/v2/upm/gate/{id}/reject" => %{
-        "post" => %{
-          "operationId" => "upmRejectGate",
-          "summary" => "Reject a pending UPM decision gate",
-          "tags" => ["UPM Decision Gate"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "requestBody" => %{"required" => false, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object",
-            "properties" => %{"reason" => %{"type" => "string", "description" => "Rejection reason"}}}}}},
-          "responses" => %{
-            "200" => %{"description" => "Gate rejected"},
-            "404" => %{"description" => "Gate not found"},
-            "409" => %{"description" => "Gate is not in pending state"}
-          }
-        }
-      },
-
-      # Agent Context (v8.4.0) — real-time AG-UI context per agent
-      "/api/v2/agents/contexts" => %{
-        "get" => %{
-          "operationId" => "listAgentContexts",
-          "summary" => "List all agent AG-UI contexts",
-          "description" => "Returns a map of agent_id => context for all agents with active AG-UI context.",
-          "tags" => ["Agent Context"],
-          "responses" => %{"200" => %{"description" => "Agent context map",
-            "content" => %{"application/json" => %{"schema" => %{
-              "type" => "object",
-              "properties" => %{"contexts" => %{"type" => "object", "additionalProperties" => %{"$ref" => "#/components/schemas/AgentContext"}}}
-            }}}}}
-        }
-      },
-      "/api/v2/agents/{id}/context" => %{
-        "get" => %{
-          "operationId" => "getAgentContext",
-          "summary" => "Get AG-UI context for a specific agent",
-          "tags" => ["Agent Context"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Agent ID"}],
-          "responses" => %{"200" => %{"description" => "Agent context with activity label and recent tool calls",
-            "content" => %{"application/json" => %{"schema" => %{
-              "type" => "object",
-              "properties" => %{
-                "agent_id" => %{"type" => "string"},
-                "context" => %{"$ref" => "#/components/schemas/AgentContext"},
-                "activity_label" => %{"type" => "string"},
-                "recent_tool_calls" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/ToolCallSummary"}}
-              }}}}}}
-        }
-      },
-      "/api/v2/agents/{id}/context/events" => %{
-        "get" => %{
-          "operationId" => "getAgentContextEvents",
-          "summary" => "Get recent AG-UI events for a specific agent",
-          "tags" => ["Agent Context"],
-          "parameters" => [
-            %{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Agent ID"},
-            %{"name" => "limit", "in" => "query", "required" => false, "schema" => %{"type" => "integer", "default" => 10, "maximum" => 50}, "description" => "Max events to return"}
-          ],
-          "responses" => %{"200" => %{"description" => "Recent AG-UI events",
-            "content" => %{"application/json" => %{"schema" => %{
-              "type" => "object",
-              "properties" => %{
-                "agent_id" => %{"type" => "string"},
-                "events" => %{"type" => "array", "items" => %{"type" => "object"}},
-                "count" => %{"type" => "integer"}
-              }}}}}}
-        }
-      },
-
-      # Coalesce — Skill Logic Engine (v8.4.0)
-      "/api/v2/coalesce" => %{
-        "get" => %{
-          "operationId" => "coalesceListRuns",
-          "summary" => "List all Coalesce runs",
-          "description" => "Returns all runs with summary info and total pending gate count.",
-          "tags" => ["Coalesce"],
-          "responses" => %{"200" => %{"description" => "Run list with pending gate count",
-            "content" => %{"application/json" => %{"schema" => %{
-              "type" => "object",
-              "properties" => %{
-                "runs" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/CoalesceRunSummary"}},
-                "total" => %{"type" => "integer"},
-                "pending_gates" => %{"type" => "integer"}
-              }}}}}}
-        }
-      },
-      "/api/v2/coalesce/start" => %{
-        "post" => %{
-          "operationId" => "coalesceStartRun",
-          "summary" => "Start a new Coalesce run",
-          "description" => "Initiates source ingestion, skill analysis, formation deploy, diff generation, and gated apply. Returns run_id immediately (async). Monitor at /coalesce or poll GET /api/v2/coalesce/:id.",
-          "tags" => ["Coalesce"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object",
-            "properties" => %{
-              "sources" => %{"type" => "array", "items" => %{"type" => "string"}, "description" => "URLs, file paths, or VIKI keys to ingest"},
-              "scope" => %{"type" => "string", "description" => "Skill scope filter", "example" => "product management"},
-              "dry_run" => %{"type" => "boolean", "description" => "Preview diffs without writing files", "default" => false},
-              "auto_approve" => %{"type" => "boolean", "description" => "Skip human gates G2/G3 automatically", "default" => false},
-              "squadrons" => %{"type" => "integer", "description" => "Number of agent squadrons", "default" => 6},
-              "agent_count" => %{"type" => "integer", "description" => "Total agents in formation", "default" => 64}
-            }}}}},
-          "responses" => %{
-            "202" => %{"description" => "Run accepted and started",
-              "content" => %{"application/json" => %{"schema" => %{
-                "type" => "object",
-                "properties" => %{
-                  "run_id" => %{"type" => "string"},
-                  "status" => %{"type" => "string"},
-                  "formation_id" => %{"type" => "string"},
-                  "dry_run" => %{"type" => "boolean"},
-                  "scope" => %{"type" => "string"},
-                  "source_count" => %{"type" => "integer"},
-                  "dashboard_url" => %{"type" => "string"},
-                  "message" => %{"type" => "string"}
-                }}}}},
-            "422" => %{"description" => "Invalid run parameters"}
-          }
-        }
-      },
-      "/api/v2/coalesce/preview" => %{
-        "post" => %{
-          "operationId" => "coalescePreview",
-          "summary" => "Preview a Coalesce run without starting it",
-          "description" => "Analyzes sources and returns formation plan, affected skills, gate schedule, and estimated duration. No files are written.",
-          "tags" => ["Coalesce"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object",
-            "properties" => %{
-              "sources" => %{"type" => "array", "items" => %{"type" => "string"}},
-              "scope" => %{"type" => "string"}
-            }}}}},
-          "responses" => %{"200" => %{"description" => "Preview with formation plan and gate schedule"}}
-        }
-      },
-      "/api/v2/coalesce/{id}" => %{
-        "get" => %{
-          "operationId" => "coalesceGetRun",
-          "summary" => "Get Coalesce run status and gates",
-          "tags" => ["Coalesce"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{
-            "200" => %{"description" => "Run detail with gates"},
-            "404" => %{"description" => "Run not found"}
-          }
-        },
-        "delete" => %{
-          "operationId" => "coalesceCancelRun",
-          "summary" => "Cancel a Coalesce run",
-          "tags" => ["Coalesce"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{
-            "200" => %{"description" => "Run cancelled"},
-            "404" => %{"description" => "Run not found"},
-            "409" => %{"description" => "Run already completed or cancelled"}
-          }
-        }
-      },
-      "/api/v2/coalesce/{id}/diff" => %{
-        "get" => %{
-          "operationId" => "coalesceGetDiff",
-          "summary" => "Get proposed skill diffs for a Coalesce run",
-          "tags" => ["Coalesce"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{
-            "200" => %{"description" => "Diff list with skill impact and confidence"},
-            "404" => %{"description" => "Run not found"}
-          }
-        }
-      },
-      "/api/v2/coalesce/{id}/gate/{gate_id}/decide" => %{
-        "post" => %{
-          "operationId" => "coalesceGateDecide",
-          "summary" => "Approve, reject, or defer a Coalesce gate",
-          "tags" => ["Coalesce"],
-          "parameters" => [
-            %{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Run ID"},
-            %{"name" => "gate_id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Gate ID (e.g. G1, G2, G3, G4)"}
-          ],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object",
-            "properties" => %{
-              "decision" => %{"type" => "string", "enum" => ["approve", "reject", "defer"], "default" => "approve"},
-              "reason" => %{"type" => "string"},
-              "approver" => %{"type" => "string", "default" => "api"}
-            }}}}},
-          "responses" => %{
-            "200" => %{"description" => "Gate decision accepted"},
-            "404" => %{"description" => "Gate not found"},
-            "409" => %{"description" => "Gate is not in pending state"},
-            "422" => %{"description" => "Invalid decision value"}
-          }
-        }
-      },
-      "/api/v2/coalesce/{id}/apply" => %{
-        "post" => %{
-          "operationId" => "coalesceApplyRun",
-          "summary" => "Apply approved Coalesce diffs to skill files",
-          "description" => "Writes approved skill diff additions to disk. Run must be in :awaiting_gate status with G3 approved.",
-          "tags" => ["Coalesce"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{
-            "200" => %{"description" => "Diffs applied"},
-            "404" => %{"description" => "Run not found"},
-            "409" => %{"description" => "Run is not in correct state to apply"},
-            "422" => %{"description" => "Apply failed"}
-          }
-        }
-      },
-
-      # Approvals — grouped approval workflow with execution context (v9.0.0)
-      "/api/v2/approvals" => %{
-        "get" => %{
-          "operationId" => "listApprovals",
-          "summary" => "List approval requests with optional filters",
-          "description" => "Returns approval requests with execution context, supporting filters by status, agent_id, and tool_name. Supports grouped notification display.",
-          "tags" => ["Approvals"],
-          "parameters" => [
-            %{"name" => "status", "in" => "query", "required" => false, "schema" => %{"type" => "string", "enum" => ["pending", "approved", "rejected", "timeout"]}},
-            %{"name" => "agent_id", "in" => "query", "required" => false, "schema" => %{"type" => "string"}},
-            %{"name" => "tool_name", "in" => "query", "required" => false, "schema" => %{"type" => "string"}},
-            %{"$ref" => "#/components/parameters/LimitParam"}
-          ],
-          "responses" => %{"200" => %{"description" => "Approval request list",
-            "content" => %{"application/json" => %{"schema" => %{
-              "type" => "object",
-              "properties" => %{
-                "approvals" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/ApprovalRequest"}},
-                "pending_count" => %{"type" => "integer"},
-                "total" => %{"type" => "integer"}
-              }}}}}}
-        },
-        "post" => %{
-          "operationId" => "createApprovalRequest",
-          "summary" => "Create an approval request with execution context",
-          "description" => "Submits a new approval request including tool execution context for grouped notification display. Triggers CCEMHelper notification with keyboard shortcut support.",
-          "tags" => ["Approvals"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/ApprovalRequest"}}}},
-          "responses" => %{
-            "201" => %{"description" => "Approval request created",
-              "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/ApprovalRequest"}}}},
-            "400" => %{"$ref" => "#/components/schemas/Error"}
-          }
-        }
-      },
-      "/api/v2/approvals/{id}" => %{
-        "get" => %{
-          "operationId" => "getApproval",
-          "summary" => "Get a specific approval request with execution context",
-          "tags" => ["Approvals"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{
-            "200" => %{"description" => "Approval detail with execution context",
-              "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/ApprovalRequest"}}}},
-            "404" => %{"description" => "Approval not found"}
-          }
-        }
-      },
-      "/api/v2/approvals/{id}/approve" => %{
-        "post" => %{
-          "operationId" => "approveRequest",
-          "summary" => "Approve a pending approval request",
-          "description" => "Approves the request. Can be triggered via CCEMHelper keyboard shortcut (Cmd+Y).",
-          "tags" => ["Approvals"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "responses" => %{
-            "200" => %{"description" => "Approved"},
-            "404" => %{"description" => "Not found"},
-            "409" => %{"description" => "Not in pending state"}
-          }
-        }
-      },
-      "/api/v2/approvals/{id}/reject" => %{
-        "post" => %{
-          "operationId" => "rejectRequest",
-          "summary" => "Reject a pending approval request",
-          "description" => "Rejects the request with optional reason. Can be triggered via CCEMHelper keyboard shortcut (Cmd+N).",
-          "tags" => ["Approvals"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}}],
-          "requestBody" => %{"required" => false, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object",
-            "properties" => %{"reason" => %{"type" => "string", "description" => "Rejection reason"}}}}}},
-          "responses" => %{
-            "200" => %{"description" => "Rejected"},
-            "404" => %{"description" => "Not found"},
-            "409" => %{"description" => "Not in pending state"}
-          }
-        }
-      },
-      "/api/v2/approvals/log" => %{
-        "post" => %{
-          "operationId" => "logApprovalAudit",
-          "summary" => "Log an approval audit entry",
-          "description" => "Records an approval decision with full execution context snapshot for audit trail. Used by AgentLock and CCEMHelper to persist decision history.",
-          "tags" => ["Approvals"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/ApprovalAuditEntry"}}}},
-          "responses" => %{
-            "201" => %{"description" => "Audit entry recorded",
-              "content" => %{"application/json" => %{"schema" => %{"$ref" => "#/components/schemas/ApprovalAuditEntry"}}}},
-            "400" => %{"$ref" => "#/components/schemas/Error"}
-          }
-        }
-      },
-      # Memory Plugin — claude-mem observation API (CP-145 / US-420)
-      "/api/v2/memory/observations" => %{
-        "get" => %{
-          "operationId" => "memoryListObservations",
-          "summary" => "List cached observations",
-          "description" => "Returns observations from the ObservationCache ETS store with optional pagination. Source is the in-process cache; use the timeline endpoint for date-range queries via the claude-mem worker.",
-          "tags" => ["Memory"],
-          "parameters" => [
-            %{"name" => "limit", "in" => "query", "required" => false, "schema" => %{"type" => "integer", "default" => 50, "maximum" => 500}, "description" => "Maximum number of observations to return"},
-            %{"name" => "offset", "in" => "query", "required" => false, "schema" => %{"type" => "integer", "default" => 0}, "description" => "Number of observations to skip"}
-          ],
-          "responses" => %{
-            "200" => %{"description" => "Observation list with count",
-              "content" => %{"application/json" => %{"schema" => %{
-                "type" => "object",
-                "properties" => %{
-                  "observations" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Observation"}},
-                  "count" => %{"type" => "integer"}
-                }}}}}
-          }
-        }
-      },
-      "/api/v2/memory/observations/{id}" => %{
-        "get" => %{
-          "operationId" => "memoryGetObservation",
-          "summary" => "Get a single observation by ID",
-          "description" => "Fetches an observation by ID — checks ObservationCache first, then falls back to the claude-mem worker via MemoryClientBridge.",
-          "tags" => ["Memory"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Observation ID"}],
-          "responses" => %{
-            "200" => %{"description" => "Observation with source indicator",
-              "content" => %{"application/json" => %{"schema" => %{
-                "type" => "object",
-                "properties" => %{
-                  "observation" => %{"$ref" => "#/components/schemas/Observation"},
-                  "source" => %{"type" => "string", "enum" => ["cache", "bridge"], "description" => "Whether the observation was served from ETS cache or the claude-mem worker"}
-                }}}}},
-            "404" => %{"description" => "Observation not found"}
-          }
-        }
-      },
-      "/api/v2/memory/search" => %{
-        "get" => %{
-          "operationId" => "memorySearchObservations",
-          "summary" => "Semantic search across observations",
-          "description" => "Delegates to the claude-mem worker for semantic vector search. Falls back to ObservationCache ETS substring match when the worker is unreachable.",
-          "tags" => ["Memory"],
-          "parameters" => [
-            %{"name" => "query", "in" => "query", "required" => true, "schema" => %{"type" => "string"}, "description" => "Search query string"}
-          ],
-          "responses" => %{
-            "200" => %{"description" => "Search results with result count and source indicator",
-              "content" => %{"application/json" => %{"schema" => %{
-                "type" => "object",
-                "properties" => %{
-                  "results" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Observation"}},
-                  "count" => %{"type" => "integer"},
-                  "source" => %{"type" => "string", "enum" => ["bridge", "cache"], "description" => "bridge = semantic search via claude-mem worker; cache = ETS substring fallback"}
-                }}}}},
-            "400" => %{"description" => "query parameter missing or empty"}
-          }
-        }
-      },
-      "/api/v2/memory/timeline" => %{
-        "get" => %{
-          "operationId" => "memoryTimeline",
-          "summary" => "Observations in a date range",
-          "description" => "Queries the claude-mem worker for observations within the given ISO 8601 datetime range. Both parameters are optional; omitting them returns all observations known to the worker.",
-          "tags" => ["Memory"],
-          "parameters" => [
-            %{"name" => "from", "in" => "query", "required" => false, "schema" => %{"type" => "string", "format" => "date-time"}, "description" => "Start of range (ISO 8601)"},
-            %{"name" => "to", "in" => "query", "required" => false, "schema" => %{"type" => "string", "format" => "date-time"}, "description" => "End of range (ISO 8601)"}
-          ],
-          "responses" => %{
-            "200" => %{"description" => "Observations in range with count",
-              "content" => %{"application/json" => %{"schema" => %{
-                "type" => "object",
-                "properties" => %{
-                  "observations" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Observation"}},
-                  "count" => %{"type" => "integer"}
-                }}}}},
-            "502" => %{"description" => "claude-mem worker unreachable"}
-          }
-        }
-      },
-      "/api/v2/memory/health" => %{
-        "get" => %{
-          "operationId" => "memoryHealth",
-          "summary" => "Memory plugin health check",
-          "description" => "Probes the claude-mem worker via MemoryClientBridge and reports reachability status.",
-          "tags" => ["Memory"],
-          "responses" => %{
-            "200" => %{"description" => "Health status",
-              "content" => %{"application/json" => %{"schema" => %{
-                "type" => "object",
-                "properties" => %{
-                  "status" => %{"type" => "string", "enum" => ["ok", "unavailable"]},
-                  "reachable" => %{"type" => "boolean"}
-                }}}}}
-          }
-        }
-      },
-
-      # Widgetization Engine — dashboard widget config and layout (CP-105 / US-368)
-      "/api/v2/widgets" => %{
-        "get" => %{
-          "operationId" => "v2ListWidgets",
-          "summary" => "List all registered widgets with config and pin state",
-          "description" => "Returns all widgets from the WidgetRegistry with their current config, pinned state, and display order for the active session.",
-          "tags" => ["UPM"],
-          "responses" => %{
-            "200" => %{"description" => "Widget list",
-              "content" => %{"application/json" => %{"schema" => %{
-                "type" => "object",
-                "properties" => %{
-                  "widgets" => %{"type" => "array", "items" => %{
-                    "type" => "object",
-                    "properties" => %{
-                      "id" => %{"type" => "string"},
-                      "title" => %{"type" => "string"},
-                      "editable" => %{"type" => "boolean"},
-                      "pinnable" => %{"type" => "boolean"},
-                      "pinned" => %{"type" => "boolean"},
-                      "display_order" => %{"type" => "integer"},
-                      "config" => %{"type" => "object", "additionalProperties" => true}
-                    }
-                  }}
-                }}}}}
-          }
-        }
-      },
-      "/api/v2/widgets/{id}/config" => %{
-        "patch" => %{
-          "operationId" => "v2UpdateWidgetConfig",
-          "summary" => "Update widget configuration",
-          "description" => "Persists per-session widget config to WidgetConfigStore and broadcasts via PubSub.",
-          "tags" => ["UPM"],
-          "parameters" => [%{"name" => "id", "in" => "path", "required" => true, "schema" => %{"type" => "string"}, "description" => "Widget ID"}],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object",
-            "properties" => %{"config" => %{"type" => "object", "additionalProperties" => true, "description" => "Widget-specific config map"}}}}}},
-          "responses" => %{
-            "200" => %{"description" => "Config updated"},
-            "404" => %{"description" => "Widget not found"}
-          }
-        }
-      },
-      "/api/v2/dashboard/layout" => %{
-        "get" => %{
-          "operationId" => "v2GetDashboardLayout",
-          "summary" => "Get current dashboard grid layout",
-          "description" => "Returns the active session's widget placements from LayoutStore for CSS Grid 12-col rendering.",
-          "tags" => ["UPM"],
-          "responses" => %{
-            "200" => %{"description" => "Dashboard layout placements",
-              "content" => %{"application/json" => %{"schema" => %{
-                "type" => "object",
-                "properties" => %{
-                  "placements" => %{"type" => "array", "items" => %{
-                    "type" => "object",
-                    "properties" => %{
-                      "widget_id" => %{"type" => "string"},
-                      "col_start" => %{"type" => "integer"},
-                      "col_span" => %{"type" => "integer"},
-                      "row" => %{"type" => "integer"}
-                    }
-                  }}
-                }}}}}}
-        },
-        "post" => %{
-          "operationId" => "v2SaveDashboardLayout",
-          "summary" => "Save dashboard grid layout",
-          "description" => "Persists widget placements to LayoutStore. Triggered by the DashboardGrid JS hook after native HTML5 drag-reorder.",
-          "tags" => ["UPM"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object",
-            "properties" => %{
-              "placements" => %{"type" => "array", "items" => %{
-                "type" => "object",
-                "required" => ["widget_id"],
-                "properties" => %{
-                  "widget_id" => %{"type" => "string"},
-                  "col_start" => %{"type" => "integer"},
-                  "col_span" => %{"type" => "integer"},
-                  "row" => %{"type" => "integer"}
-                }
-              }}
-            }}}}},
-          "responses" => %{
-            "200" => %{"description" => "Layout saved"},
-            "422" => %{"description" => "Invalid placement data"}
-          }
-        }
-      },
-      "/api/v2/dashboard/pin" => %{
-        "post" => %{
-          "operationId" => "v2PinWidget",
-          "summary" => "Pin or unpin a widget and set scope source",
-          "description" => "Updates the pinned state via WidgetConfigStore and optionally sets the widget as the active scope source in DashboardScopeEngine.",
-          "tags" => ["UPM"],
-          "requestBody" => %{"required" => true, "content" => %{"application/json" => %{"schema" => %{
-            "type" => "object",
-            "required" => ["widget_id", "pinned"],
-            "properties" => %{
-              "widget_id" => %{"type" => "string", "description" => "Widget to pin or unpin"},
-              "pinned" => %{"type" => "boolean", "description" => "True to pin, false to unpin"},
-              "set_scope_source" => %{"type" => "boolean", "description" => "If true, sets this widget as the active scope source in DashboardScopeEngine", "default" => false}
-            }}}}},
-          "responses" => %{
-            "200" => %{"description" => "Pin state updated"},
-            "404" => %{"description" => "Widget not found"}
-          }
-        }
-      },
-
-      "/api/v2/approvals/history" => %{
-        "get" => %{
-          "operationId" => "getApprovalHistory",
-          "summary" => "Get approval audit history with filters",
-          "description" => "Returns paginated approval audit entries. Supports filtering by agent_id, tool_name, decision, and time range.",
-          "tags" => ["Approvals"],
-          "parameters" => [
-            %{"name" => "agent_id", "in" => "query", "required" => false, "schema" => %{"type" => "string"}},
-            %{"name" => "tool_name", "in" => "query", "required" => false, "schema" => %{"type" => "string"}},
-            %{"name" => "decision", "in" => "query", "required" => false, "schema" => %{"type" => "string", "enum" => ["approved", "rejected", "timeout"]}},
-            %{"$ref" => "#/components/parameters/SinceParam"},
-            %{"$ref" => "#/components/parameters/LimitParam"},
-            %{"$ref" => "#/components/parameters/CursorParam"}
-          ],
-          "responses" => %{"200" => %{"description" => "Approval audit history",
-            "content" => %{"application/json" => %{"schema" => %{
-              "type" => "object",
-              "properties" => %{
-                "entries" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/ApprovalAuditEntry"}},
-                "total" => %{"type" => "integer"},
-                "next_cursor" => %{"type" => "string", "nullable" => true}
-              }}}}}}
-        }
-      }
-    }
-  end
-
-  defp build_schemas do
-    %{
-      "Agent" => %{"type" => "object", "properties" => %{
-        "id" => %{"type" => "string"}, "name" => %{"type" => "string"},
-        "status" => %{"type" => "string", "enum" => ["active", "idle", "error", "offline"]},
-        "project" => %{"type" => "string"}, "role" => %{"type" => "string"},
-        "last_heartbeat" => %{"type" => "string", "format" => "date-time"},
-        "registered_at" => %{"type" => "string", "format" => "date-time"},
-        "display_name" => %{"type" => "string", "nullable" => true,
-          "description" => "Human-readable scoped label for the agent (e.g. ccem/wave-1/stripe-env). Null if context unavailable."}}},
-      "PaginatedAgents" => %{"type" => "object", "properties" => %{
-        "data" => %{"type" => "array", "items" => %{"$ref" => "#/components/schemas/Agent"}},
-        "meta" => %{"type" => "object", "properties" => %{
-          "total" => %{"type" => "integer"}, "cursor" => %{"type" => "string"},
-          "has_more" => %{"type" => "boolean"}}}}},
-      "Notification" => %{"type" => "object", "properties" => %{
-        "id" => %{"type" => "string"}, "message" => %{"type" => "string"},
-        "type" => %{"type" => "string"}, "read" => %{"type" => "boolean"},
-        "timestamp" => %{"type" => "string", "format" => "date-time"}}},
-      "AlertRule" => %{"type" => "object", "properties" => %{
-        "id" => %{"type" => "string"}, "name" => %{"type" => "string"},
-        "metric" => %{"type" => "string"}, "scope" => %{"type" => "string"},
-        "threshold" => %{"type" => "number"},
-        "comparator" => %{"type" => "string", "enum" => ["gt", "gte", "lt", "lte", "eq"]},
-        "severity" => %{"type" => "string", "enum" => ["info", "warning", "critical"]},
-        "enabled" => %{"type" => "boolean"}, "consecutive_breaches" => %{"type" => "integer"},
-        "window_s" => %{"type" => "integer"}}},
-      "Alert" => %{"type" => "object", "properties" => %{
-        "id" => %{"type" => "string"}, "rule_id" => %{"type" => "string"},
-        "value" => %{"type" => "number"},
-        "severity" => %{"type" => "string", "enum" => ["info", "warning", "critical"]},
-        "timestamp" => %{"type" => "string", "format" => "date-time"},
-        "acknowledged" => %{"type" => "boolean"}}},
-      "SLO" => %{"type" => "object", "properties" => %{
-        "name" => %{"type" => "string"}, "target" => %{"type" => "number"},
-        "current" => %{"type" => "number"},
-        "status" => %{"type" => "string", "enum" => ["ok", "at_risk", "breached"]},
-        "error_budget_remaining" => %{"type" => "number"}}},
-      "AuditEntry" => %{"type" => "object", "properties" => %{
-        "id" => %{"type" => "string"}, "action" => %{"type" => "string"},
-        "actor" => %{"type" => "string"}, "resource" => %{"type" => "string"},
-        "timestamp" => %{"type" => "string", "format" => "date-time"},
-        "metadata" => %{"type" => "object", "additionalProperties" => true}}},
-      "PaginatedResponse" => %{"type" => "object", "properties" => %{
-        "data" => %{"type" => "array", "items" => %{}},
-        "next_cursor" => %{"type" => "string"}, "total" => %{"type" => "integer"}}},
-      "Error" => %{"type" => "object", "properties" => %{
-        "error" => %{"type" => "string"}, "message" => %{"type" => "string"}}},
-      "PendingDecision" => %{"type" => "object", "description" => "AgentLock pending authorization request (v8.5.0)", "properties" => %{
-        "request_id" => %{"type" => "string"},
-        "tool_name" => %{"type" => "string"},
-        "session_id" => %{"type" => "string"},
-        "agent_id" => %{"type" => "string"},
-        "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]},
-        "params" => %{"type" => "object", "additionalProperties" => true},
-        "status" => %{"type" => "string", "enum" => ["pending", "approved", "denied", "timeout"]},
-        "decision" => %{"type" => "string", "nullable" => true},
-        "token_id" => %{"type" => "string", "nullable" => true},
-        "display_name" => %{"type" => "string", "nullable" => true,
-          "description" => "Human-readable scoped label for the requesting agent (e.g. ccem/wave-1/stripe-env). Null if context unavailable."},
-        "decided_at" => %{"type" => "string", "format" => "date-time", "nullable" => true},
-        "inserted_at" => %{"type" => "string", "format" => "date-time"},
-        "expires_at" => %{"type" => "string", "format" => "date-time"}}},
-      "AuthDecision" => %{"type" => "object", "properties" => %{
-        "ok" => %{"type" => "boolean"}, "decision" => %{"type" => "string", "enum" => ["permit", "deny", "escalate"]},
-        "token_id" => %{"type" => "string"}, "reason" => %{"type" => "string"},
-        "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]}}},
-      "AuthTool" => %{"type" => "object", "properties" => %{
-        "name" => %{"type" => "string"}, "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]},
-        "description" => %{"type" => "string"}, "requires_approval" => %{"type" => "boolean"},
-        "registered_at" => %{"type" => "string", "format" => "date-time"}}},
-      "AuthSession" => %{"type" => "object", "properties" => %{
-        "session_id" => %{"type" => "string"}, "user_id" => %{"type" => "string"},
-        "role" => %{"type" => "string"}, "trust_ceiling" => %{"type" => "string"},
-        "scope" => %{"type" => "string"}, "tool_calls" => %{"type" => "integer"},
-        "denied_count" => %{"type" => "integer"},
-        "created_at" => %{"type" => "string", "format" => "date-time"},
-        "expires_at" => %{"type" => "string", "format" => "date-time"}}},
-      # v8.4.0 schemas
-      "Gate" => %{"type" => "object", "description" => "UPM decision gate record", "properties" => %{
-        "gate_id" => %{"type" => "string"},
-        "question" => %{"type" => "string"},
-        "context" => %{"type" => "string"},
-        "options" => %{"type" => "array", "items" => %{"type" => "string"}},
-        "status" => %{"type" => "string", "enum" => ["pending", "approved", "rejected", "timeout"]},
-        "decision" => %{"type" => "string"},
-        "method" => %{"type" => "string"},
-        "requested_at" => %{"type" => "string", "format" => "date-time"},
-        "resolved_at" => %{"type" => "string", "format" => "date-time"}}},
-      "GateDecision" => %{"type" => "object", "description" => "Result of a blocking gate request", "properties" => %{
-        "decision" => %{"type" => "string", "enum" => ["approved", "rejected", "timeout"]},
-        "method" => %{"type" => "string"},
-        "reason" => %{"type" => "string"},
-        "gate_id" => %{"type" => "string"},
-        "question" => %{"type" => "string"}}},
-      "AgentContext" => %{"type" => "object", "description" => "Real-time AG-UI context for an agent (v8.4.0)", "properties" => %{
-        "agent_id" => %{"type" => "string"},
-        "current_tool" => %{"type" => "string"},
-        "current_phase" => %{"type" => "string"},
-        "formation_id" => %{"type" => "string"},
-        "squadron_id" => %{"type" => "string"},
-        "upm_story_id" => %{"type" => "string"},
-        "last_event_type" => %{"type" => "string"},
-        "updated_at" => %{"type" => "string", "format" => "date-time"}}},
-      "ToolCallSummary" => %{"type" => "object", "description" => "Abbreviated tool call for context endpoints", "properties" => %{
-        "tool_call_id" => %{"type" => "string"},
-        "tool_name" => %{"type" => "string"},
-        "status" => %{"type" => "string", "enum" => ["pending", "running", "completed", "failed"]},
-        "started_at" => %{"type" => "string", "format" => "date-time"},
-        "duration_ms" => %{"type" => "integer"}}},
-      "CoalesceRunSummary" => %{"type" => "object", "description" => "Summary of a Coalesce run", "properties" => %{
-        "run_id" => %{"type" => "string"},
-        "status" => %{"type" => "string"},
-        "scope" => %{"type" => "string"},
-        "dry_run" => %{"type" => "boolean"},
-        "affected_skill_count" => %{"type" => "integer"},
-        "diff_count" => %{"type" => "integer"},
-        "started_at" => %{"type" => "string", "format" => "date-time"},
-        "completed_at" => %{"type" => "string", "format" => "date-time"}}},
-      # Approval workflow schemas (v9.0.0)
-      "ExecutionContext" => %{"type" => "object", "description" => "Execution context for an approval request — describes what the tool will do and its impact", "properties" => %{
-        "tool_name" => %{"type" => "string", "description" => "Name of the tool requesting approval"},
-        "tool_purpose" => %{"type" => "string", "description" => "Human-readable description of what the tool will do"},
-        "affected_files" => %{"type" => "array", "items" => %{"type" => "string"}, "description" => "File paths that will be read, written, or deleted"},
-        "estimated_impact" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"], "description" => "Estimated impact level of the operation"}}},
-      "ApprovalRequest" => %{"type" => "object", "description" => "Approval request with execution context for grouped notification display (v9.0.0)", "properties" => %{
-        "id" => %{"type" => "string"},
-        "agent_id" => %{"type" => "string"},
-        "session_id" => %{"type" => "string"},
-        "tool_name" => %{"type" => "string"},
-        "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]},
-        "status" => %{"type" => "string", "enum" => ["pending", "approved", "rejected", "timeout"]},
-        "execution_context" => %{"$ref" => "#/components/schemas/ExecutionContext"},
-        "display_name" => %{"type" => "string", "nullable" => true, "description" => "Human-readable agent label"},
-        "keyboard_shortcuts" => %{"type" => "object", "description" => "Available keyboard shortcuts for this approval",
-          "properties" => %{
-            "approve" => %{"type" => "string", "example" => "Cmd+Y", "description" => "Shortcut to approve"},
-            "reject" => %{"type" => "string", "example" => "Cmd+N", "description" => "Shortcut to reject"},
-            "details" => %{"type" => "string", "example" => "Cmd+D", "description" => "Shortcut to view details"},
-            "dismiss" => %{"type" => "string", "example" => "Escape", "description" => "Shortcut to dismiss modal"}}},
-        "group_key" => %{"type" => "string", "nullable" => true, "description" => "Grouping key for batched notifications (e.g. agent_id or tool_name)"},
-        "decision" => %{"type" => "string", "nullable" => true},
-        "decided_at" => %{"type" => "string", "format" => "date-time", "nullable" => true},
-        "inserted_at" => %{"type" => "string", "format" => "date-time"},
-        "expires_at" => %{"type" => "string", "format" => "date-time"}}},
-      "ApprovalAuditEntry" => %{"type" => "object", "description" => "Audit log entry for an approval decision (v9.0.0)", "properties" => %{
-        "id" => %{"type" => "string"},
-        "agent_id" => %{"type" => "string"},
-        "tool_name" => %{"type" => "string"},
-        "timestamp" => %{"type" => "string", "format" => "date-time"},
-        "decision" => %{"type" => "string", "enum" => ["approved", "rejected", "timeout"]},
-        "context_snapshot" => %{"$ref" => "#/components/schemas/ExecutionContext"},
-        "reason" => %{"type" => "string", "nullable" => true},
-        "method" => %{"type" => "string", "description" => "How the decision was made", "enum" => ["keyboard_shortcut", "button_click", "api", "auto_approval", "timeout"]},
-        "session_id" => %{"type" => "string"},
-        "risk_level" => %{"type" => "string", "enum" => ["low", "medium", "high", "critical"]}}},
-      "Observation" => %{"type" => "object", "description" => "A claude-mem observation from the ObservationCache or claude-mem worker", "properties" => %{
-        "id" => %{"type" => "string", "description" => "Unique observation ID"},
-        "content" => %{"type" => "string", "description" => "Observation text content"},
-        "session_id" => %{"type" => "string", "nullable" => true, "description" => "Associated session ID"},
-        "agent_id" => %{"type" => "string", "nullable" => true, "description" => "Agent that produced this observation"},
-        "tags" => %{"type" => "array", "items" => %{"type" => "string"}, "description" => "Classification tags"},
-        "metadata" => %{"type" => "object", "additionalProperties" => true, "description" => "Arbitrary observation metadata"},
-        "inserted_at" => %{"type" => "string", "format" => "date-time", "description" => "When the observation was recorded"},
-        "updated_at" => %{"type" => "string", "format" => "date-time", "nullable" => true, "description" => "Last update timestamp"}}}
-    }
-  end
-
-  defp build_parameters do
-    %{
-      "CursorParam" => %{"name" => "cursor", "in" => "query", "required" => false,
-        "description" => "Pagination cursor for next page", "schema" => %{"type" => "string"}},
-      "LimitParam" => %{"name" => "limit", "in" => "query", "required" => false,
-        "description" => "Maximum results to return", "schema" => %{"type" => "integer", "default" => 50, "maximum" => 500}},
-      "AgentIdParam" => %{"name" => "id", "in" => "path", "required" => true,
-        "description" => "Agent ID", "schema" => %{"type" => "string"}},
-      "SinceParam" => %{"name" => "since", "in" => "query", "required" => false,
-        "description" => "Return results after this ISO 8601 timestamp", "schema" => %{"type" => "string", "format" => "date-time"}},
-      "SeverityParam" => %{"name" => "severity", "in" => "query", "required" => false,
-        "description" => "Filter by severity", "schema" => %{"type" => "string", "enum" => ["info", "warning", "critical"]}},
-      "ProjectParam" => %{"name" => "project", "in" => "query", "required" => false,
-        "description" => "Filter by project name", "schema" => %{"type" => "string"}}
-    }
-  end
 
   # ========== Private Helpers ==========
 
   # ========== Workflows (WorkflowSchemaStore) ==========
 
   @doc "GET /api/v2/workflows"
+  operation :list_workflows,
+    summary: "List workflows",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_workflows(conn, _params) do
     json(conn, ApiV2JSON.envelope(WorkflowSchemaStore.list_workflows()))
   end
 
   @doc "POST /api/v2/workflows"
+  operation :create_workflow,
+    summary: "Create workflow",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def create_workflow(conn, params) do
     case WorkflowSchemaStore.register_workflow(params) do
       {:ok, wf} ->
@@ -1743,6 +382,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/workflows/:id"
+  operation :get_workflow,
+    summary: "Get workflow",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_workflow(conn, %{"id" => id}) do
     case WorkflowSchemaStore.get_workflow(id) do
       {:ok, wf} ->
@@ -1754,6 +400,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "PATCH /api/v2/workflows/:id"
+  operation :update_workflow,
+    summary: "Update workflow",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def update_workflow(conn, %{"id" => id} = params) do
     attrs = Map.drop(params, ["id"])
 
@@ -1769,11 +422,25 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   # ========== Formations (UpmStore) ==========
 
   @doc "GET /api/v2/formations"
+  operation :list_formations,
+    summary: "List formations",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_formations(conn, _params) do
     json(conn, ApiV2JSON.envelope(UpmStore.list_all_formations()))
   end
 
   @doc "POST /api/v2/formations"
+  operation :create_formation,
+    summary: "Create formation",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def create_formation(conn, params) do
     {:ok, id} = UpmStore.register_formation(params)
 
@@ -1785,6 +452,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/formations/:id"
+  operation :get_formation,
+    summary: "Get formation",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_formation(conn, %{"id" => id}) do
     case UpmStore.get_formation(id) do
       nil ->
@@ -1798,6 +472,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/formations/:id/agents"
+  operation :get_formation_agents,
+    summary: "Get formation agents",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_formation_agents(conn, %{"id" => id}) do
     agents = AgentRegistry.list_formation(id)
     json(conn, ApiV2JSON.envelope(agents, %{total: length(agents)}))
@@ -1806,6 +487,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   # ========== Verification (VerifyStore) ==========
 
   @doc "POST /api/v2/verify/double — initiate double-verification session"
+  operation :verify_double,
+    summary: "Verify double",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def verify_double(conn, params) do
     project_root = Map.get(params, "project_root", "")
     app_url = Map.get(params, "app_url", "")
@@ -1846,6 +534,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/verify/:id — poll verification session status"
+  operation :verify_status,
+    summary: "Verify status",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def verify_status(conn, %{"id" => id}) do
     case ApmV5.VerifyStore.get(id) do
       {:ok, session} ->
@@ -1880,6 +575,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   that needs to discover which extensions are active without parsing the full
   OpenAPI spec.
   """
+  operation :manifest,
+    summary: "Manifest",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def manifest(conn, _params) do
     version = Mix.Project.config()[:version]
 

@@ -7,8 +7,30 @@ defmodule ApmV5Web.AgUiController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
 
   alias ApmV5.EventStream
+
+  operation :events,
+    summary: "AG-UI SSE event stream",
+    description: """
+    Server-Sent Events endpoint streaming AG-UI protocol events.
+
+    Sends an initial STATE_SNAPSHOT event with current agents/sessions/notifications,
+    then forwards subsequent AG-UI events. Optional `agent_id` query param filters
+    events to a specific agent. Connection stays open until client disconnects;
+    keepalive comments are sent every 30 seconds.
+    """,
+    tags: ["AG-UI"],
+    parameters: [
+      agent_id: [in: :query, type: :string, required: false, description: "Filter events by agent ID"]
+    ],
+    responses: [
+      ok: {"AG-UI SSE stream (text/event-stream)", "text/event-stream", %OpenApiSpex.Schema{type: :string}}
+    ]
+
+  # Catch-all for any action not explicitly annotated above.
+  def open_api_operation(_action), do: nil
 
   @doc """
   SSE endpoint that streams AG-UI events.

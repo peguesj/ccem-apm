@@ -81,6 +81,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/execute — Record execution with token"
+  operation :execute,
+    summary: "Execute",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def execute(conn, params) do
     token_id = Map.get(params, "token_id", "")
     tool_name = Map.get(params, "tool_name", "")
@@ -91,6 +98,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/summary — Authorization summary stats"
+  operation :summary,
+    summary: "Summary",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def summary(conn, _params) do
     summary = AuthorizationGate.summary()
     json(conn, %{ok: true, summary: summary})
@@ -101,6 +115,13 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "GET /api/v2/auth/tools — List registered tools"
+  operation :list_tools,
+    summary: "List tools",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"Registered tools", "application/json", Schemas.AuthTool}
+    ]
+
   def list_tools(conn, _params) do
     tools =
       AuthorizationGate.list_tools()
@@ -110,6 +131,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/tools — Register a tool"
+  operation :register_tool,
+    summary: "Register tool",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def register_tool(conn, params) do
     tool_name = Map.get(params, "name", "")
     risk_level = params |> Map.get("risk_level", "low") |> String.to_existing_atom()
@@ -129,6 +157,13 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/auth/sessions — Create session"
+  operation :create_session,
+    summary: "Create session",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def create_session(conn, params) do
     user_id = Map.get(params, "user_id", "unknown")
     role = Map.get(params, "role", "agent")
@@ -146,6 +181,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/sessions — List active sessions"
+  operation :list_sessions,
+    summary: "List sessions",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"Active auth sessions", "application/json", Schemas.AuthSession}
+    ]
+
   def list_sessions(conn, _params) do
     sessions =
       SessionStore.list_active()
@@ -155,6 +197,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/sessions/:id — Get session"
+  operation :get_session,
+    summary: "Get session",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"Single auth session", "application/json", Schemas.AuthSession}
+    ]
+
   def get_session(conn, %{"id" => session_id}) do
     case SessionStore.get(session_id) do
       nil ->
@@ -166,6 +215,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "DELETE /api/v2/auth/sessions/:id — Destroy session"
+  operation :destroy_session,
+    summary: "Destroy session",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def destroy_session(conn, %{"id" => session_id}) do
     SessionStore.destroy(session_id)
     json(conn, %{ok: true, destroyed: session_id})
@@ -176,6 +232,13 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "GET /api/v2/auth/tokens/:id — Get token"
+  operation :get_token,
+    summary: "Get token",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_token(conn, %{"id" => token_id}) do
     case TokenStore.get(token_id) do
       nil ->
@@ -197,6 +260,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/tokens/:id/revoke — Revoke token"
+  operation :revoke_token,
+    summary: "Revoke token",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def revoke_token(conn, %{"id" => token_id}) do
     case TokenStore.revoke(token_id) do
       :ok -> json(conn, %{ok: true, revoked: token_id})
@@ -210,6 +280,13 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/auth/context/write — Record context write"
+  operation :record_context,
+    summary: "Record context",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def record_context(conn, params) do
     session_id = Map.get(params, "session_id", "default")
     agent_id = Map.get(params, "agent_id", "unknown")
@@ -226,6 +303,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/context/trust — Get trust ceiling"
+  operation :get_trust,
+    summary: "Get trust",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_trust(conn, params) do
     session_id = Map.get(params, "session_id", "default")
     ceiling = ContextTracker.get_trust_ceiling(session_id)
@@ -239,6 +323,13 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/auth/memory/authorize-write — Authorize memory write"
+  operation :authorize_memory_write,
+    summary: "Authorize memory write",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def authorize_memory_write(conn, params) do
     session_id = Map.get(params, "session_id", "default")
     agent_id = Map.get(params, "agent_id", "unknown")
@@ -255,6 +346,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/memory/authorize-read — Authorize memory read"
+  operation :authorize_memory_read,
+    summary: "Authorize memory read",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def authorize_memory_read(conn, params) do
     session_id = Map.get(params, "session_id", "default")
     agent_id = Map.get(params, "agent_id", "unknown")
@@ -273,6 +371,13 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "GET /api/v2/auth/rate-limits — Current rate limit state"
+  operation :rate_limits,
+    summary: "Rate limits",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def rate_limits(conn, _params) do
     stats = RateLimiter.stats()
     json(conn, %{ok: true, rate_limits: stats})
@@ -342,6 +447,13 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/auth/redact — Redact sensitive data from text"
+  operation :redact,
+    summary: "Redact",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def redact(conn, params) do
     text = Map.get(params, "text", "")
     mode = params |> Map.get("mode", "auto") |> String.to_existing_atom()
@@ -374,6 +486,13 @@ defmodule ApmV5Web.V2.AuthController do
         meta: %{next_cursor: integer | nil, has_more: boolean, count: integer}
       }
   """
+  operation :audit_log,
+    summary: "Audit log",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def audit_log(conn, params) do
     limit = params |> Map.get("limit", "50") |> parse_integer(50) |> min(500)
     after_cursor = params |> Map.get("after") |> parse_cursor()
@@ -425,6 +544,13 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "GET /api/v2/auth/pending — List pending escalation requests"
+  operation :list_pending,
+    summary: "List pending",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"Pending decisions", "application/json", Schemas.PendingDecision}
+    ]
+
   def list_pending(conn, _params) do
     pending = PendingDecisions.list_pending()
     |> Enum.map(&pending_to_json/1)
@@ -432,6 +558,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/pending/:id — Get/poll a single pending decision"
+  operation :get_pending,
+    summary: "Get pending",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"Pending decision", "application/json", Schemas.PendingDecision}
+    ]
+
   def get_pending(conn, %{"id" => request_id} = params) do
     wait_ms = params |> Map.get("wait", "0") |> to_integer() |> Kernel.*(1000) |> min(45_000)
 
@@ -466,6 +599,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/decide — Browser-clickable approve/deny via ?request_id=&decision=approve|deny; redirects to /authorization"
+  operation :decide_get,
+    summary: "Decide get",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def decide_get(conn, params) do
     request_id = Map.get(params, "request_id", "")
     raw_decision = Map.get(params, "decision", "")
@@ -500,6 +640,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/decide — Approve or deny a pending escalation"
+  operation :decide,
+    summary: "Decide",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def decide(conn, params) do
     request_id = Map.get(params, "request_id", "")
     raw_decision = Map.get(params, "decision", "")
@@ -546,6 +693,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/policy/rules — Add permanent allow/deny rule"
+  operation :add_policy_rule,
+    summary: "Add policy rule",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def add_policy_rule(conn, params) do
     tool_name = Map.get(params, "tool_name", "")
     raw_action = Map.get(params, "action", "")
@@ -589,6 +743,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "DELETE /api/v2/auth/policy/rules/:tool_name — Remove a permanent rule"
+  operation :remove_policy_rule,
+    summary: "Remove policy rule",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def remove_policy_rule(conn, %{"tool_name" => tool_name}) do
     PolicyRulesStore.remove_rule(tool_name)
     json(conn, %{ok: true, removed: tool_name})
@@ -635,6 +796,13 @@ defmodule ApmV5Web.V2.AuthController do
   - `limit` — integer (default 200)
   - `stats` — if "true", return outcome stats summary only
   """
+  operation :list_policy_decisions,
+    summary: "List policy decisions",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_policy_decisions(conn, params) do
     if Map.get(params, "stats") == "true" do
       s = PolicyDecisionStore.stats()
@@ -729,6 +897,13 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/auth/session/start — Register agent session (apm-auth skill compat)"
+  operation :session_start,
+    summary: "Session start",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def session_start(conn, params) do
     user_id = Map.get(params, "agent_id", Map.get(params, "user_id", "unknown"))
     role = Map.get(params, "role", "agent")
@@ -744,6 +919,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/session/heartbeat — Keepalive for agent session"
+  operation :session_heartbeat,
+    summary: "Session heartbeat",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def session_heartbeat(conn, params) do
     session_id = Map.get(params, "session_id", "")
 
@@ -758,6 +940,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/session/end — Terminate agent session"
+  operation :session_end,
+    summary: "Session end",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def session_end(conn, params) do
     session_id = Map.get(params, "session_id", "")
     SessionStore.destroy(session_id)
@@ -765,6 +954,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/token/redeem — Redeem auth token for execution permit"
+  operation :redeem_token,
+    summary: "Redeem token",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def redeem_token(conn, params) do
     token_id = Map.get(params, "auth_token", Map.get(params, "token_id", ""))
     scope = Map.get(params, "scope", "")
@@ -794,12 +990,26 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/policies — List active policy rules (apm-auth skill compat)"
+  operation :list_policies,
+    summary: "List policies",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_policies(conn, _params) do
     rules = PolicyRulesStore.list_rules()
     json(conn, %{ok: true, policies: rules, rules: rules, count: length(rules)})
   end
 
   @doc "POST /api/v2/auth/policies — Create or update a policy rule"
+  operation :create_policy,
+    summary: "Create policy",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def create_policy(conn, params) do
     tool_name = Map.get(params, "tool", Map.get(params, "tool_name", ""))
     scope = Map.get(params, "scope", "")
@@ -833,12 +1043,26 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/approvals/pending — List pending human-approval decisions"
+  operation :list_approvals_pending,
+    summary: "List approvals pending",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_approvals_pending(conn, _params) do
     pending = PendingDecisions.list_pending() |> Enum.map(&pending_to_json/1)
     json(conn, %{ok: true, pending: pending, count: length(pending)})
   end
 
   @doc "POST /api/v2/auth/approvals/:id/decide — Approve or deny a pending decision"
+  operation :decide_approval,
+    summary: "Decide approval",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def decide_approval(conn, %{"id" => request_id} = params) do
     raw_decision = Map.get(params, "decision", "")
     sticky = Map.get(params, "sticky", false)
@@ -883,6 +1107,13 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/notifications/test — Inject a test audit entry for CCEMHelper notification testing"
+  operation :test_notification,
+    summary: "Test notification",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def test_notification(conn, params) do
     tool_name = Map.get(params, "tool_name", "Bash")
     risk_level_str = Map.get(params, "risk_level", "high")
@@ -927,6 +1158,13 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/approvals/log — Record an authorization decision"
+  operation :log_approval,
+    summary: "Log approval",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def log_approval(conn, params) do
     entry = %{
       agent_id: Map.get(params, "agent_id", "unknown"),
@@ -943,6 +1181,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "GET /api/v2/approvals/history — List approval audit log with optional filters"
+  operation :list_approval_history,
+    summary: "List approval history",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"Approval audit entries", "application/json", Schemas.ApprovalAuditEntry}
+    ]
+
   def list_approval_history(conn, params) do
     opts =
       []
@@ -1101,12 +1346,26 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "GET /api/v2/auth/api-keys — List all API keys (masked)"
+  operation :list_api_keys,
+    summary: "List api keys",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_api_keys(conn, _params) do
     keys = ApmV5.ApiKeyStore.list_keys()
     json(conn, %{ok: true, keys: keys, count: length(keys)})
   end
 
   @doc "POST /api/v2/auth/api-keys — Generate a new API key"
+  operation :create_api_key,
+    summary: "Create api key",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def create_api_key(conn, params) do
     label = Map.get(params, "label", "unnamed")
 
@@ -1119,6 +1378,13 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc "DELETE /api/v2/auth/api-keys/:id — Revoke an API key"
+  operation :revoke_api_key,
+    summary: "Revoke api key",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def revoke_api_key(conn, %{"id" => key}) do
     :ok = ApmV5.ApiKeyStore.revoke_key(key)
     json(conn, %{ok: true, revoked: true})
@@ -1137,6 +1403,13 @@ defmodule ApmV5Web.V2.AuthController do
   - `scope` — `"session"` (default) or `"formation"`
   - `limit` — max results (default 10, max 100)
   """
+  operation :list_risk_scores,
+    summary: "List risk scores",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_risk_scores(conn, params) do
     scope = Map.get(params, "scope", "session")
     limit = params |> Map.get("limit", "10") |> parse_risk_limit()
