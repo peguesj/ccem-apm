@@ -509,7 +509,59 @@ defmodule ApmV5.AuditLog do
     # PubSub broadcast
     Phoenix.PubSub.broadcast(@pubsub, @topic, {:audit_event, event})
 
+    # Fire-and-forget sink dispatch — each configured sink runs in its own
+    # Task so sink latency NEVER blocks the GenServer.
+    dispatch_sinks(event)
+
     {event, %{state | counter: id, prev_hash: self_hash, today: today}}
+  end
+
+  # ── Sink dispatch (audit-s7) ─────────────────────────────────────────────────
+
+  @doc """
+  Dispatch `event` to every configured audit sink using `Task.start/1`.
+
+  Sinks are resolved at call-time from `config :apm_v5, :audit_sinks`.  The
+  default is `[]` (no sinks).  Each sink module MUST implement the
+  `ApmV5.AuditLog.Sink` behaviour.
+
+  ## Example config
+
+      # config/config.exs
+      config :apm_v5, :audit_sinks, []
+
+      # config/prod.exs (opt-in for SIEM delivery)
+      config :apm_v5, :audit_sinks, [ApmV5.AuditLog.Sinks.HttpSink]
+
+  Each `Task.start/1` is fire-and-forget — a crash inside a sink does NOT
+  propagate back to the caller or the `AuditLog` GenServer.
+  """
+  @spec dispatch_sinks(map()) :: :ok
+  def dispatch_sinks(event) do
+    sinks = Application.get_env(:apm_v5, :audit_sinks, [])
+
+    Enum.each(sinks, fn sink_module ->
+      Task.start(fn ->
+        try do
+          case sink_module.push_event(event) do
+            :ok ->
+              :ok
+
+            {:error, reason} ->
+              Logger.warning(
+                "[AuditLog] Sink #{inspect(sink_module)} returned error: #{inspect(reason)}"
+              )
+          end
+        rescue
+          e ->
+            Logger.warning(
+              "[AuditLog] Sink #{inspect(sink_module)} raised: #{inspect(e)}"
+            )
+        end
+      end)
+    end)
+
+    :ok
   end
 
   defp generate_event_id do

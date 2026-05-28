@@ -55,6 +55,21 @@ config :mime, :types, %{
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# --- v9.3.0 Audit Sinks (audit-s7 / CP-225) ---
+# Empty by default.  Override in prod.exs / runtime.exs to deliver events to
+# external SIEM systems:
+#
+#   config :apm_v5, :audit_sinks, [ApmV5.AuditLog.Sinks.HttpSink]
+#
+config :apm_v5, :audit_sinks, []
+
+# HttpSink defaults — endpoint_url is intentionally a placeholder.
+# Override in prod.exs or runtime.exs for real deployments.
+config :apm_v5, ApmV5.AuditLog.Sinks.HttpSink,
+  endpoint_url: "https://siem.example/audit",
+  timeout_ms: 500,
+  max_retries: 0
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
