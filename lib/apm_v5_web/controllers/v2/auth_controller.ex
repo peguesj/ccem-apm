@@ -20,7 +20,8 @@ defmodule ApmV5Web.V2.AuthController do
     PolicyRulesStore,
     PendingDecisions,
     ApprovalAuditLog,
-    PolicyDecisionStore
+    PolicyDecisionStore,
+    RiskScoreAggregator
   }
 
   # ---------------------------------------------------------------------------
@@ -916,4 +917,63 @@ defmodule ApmV5Web.V2.AuthController do
     :ok = ApmV5.ApiKeyStore.revoke_key(key)
     json(conn, %{ok: true, revoked: true})
   end
+
+  # ---------------------------------------------------------------------------
+  # Risk Score Aggregator (CP-231 / comp-map2)
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  GET /api/v2/auth/risk-scores?scope=session|formation&limit=N
+
+  Returns paginated composite risk aggregates sorted by score descending.
+
+  Query params:
+  - `scope` — `"session"` (default) or `"formation"`
+  - `limit` — max results (default 10, max 100)
+  """
+  def list_risk_scores(conn, params) do
+    scope = Map.get(params, "scope", "session")
+    limit = params |> Map.get("limit", "10") |> parse_risk_limit()
+
+    {results, items_key} =
+      case scope do
+        "formation" ->
+          {RiskScoreAggregator.top_formations(limit), "formations"}
+
+        _ ->
+          {RiskScoreAggregator.top_sessions(limit), "sessions"}
+      end
+
+    items =
+      Enum.map(results, fn {id, agg} ->
+        %{
+          "id" => id,
+          "score" => Float.round(agg.score, 4),
+          "level" => to_string(agg.level),
+          "tool_call_count" => agg.tool_call_count,
+          "critical_count" => agg.critical_count,
+          "denial_rate" => Float.round(agg.denial_rate, 4),
+          "last_updated" => DateTime.to_iso8601(agg.last_updated)
+        }
+      end)
+
+    body = %{
+      "ok" => true,
+      "scope" => scope,
+      "count" => length(items),
+      "limit" => limit
+    }
+
+    json(conn, Map.put(body, items_key, items))
+  end
+
+  defp parse_risk_limit(v) when is_binary(v) do
+    case Integer.parse(v) do
+      {n, ""} -> min(max(n, 1), 100)
+      _ -> 10
+    end
+  end
+
+  defp parse_risk_limit(v) when is_integer(v), do: min(max(v, 1), 100)
+  defp parse_risk_limit(_), do: 10
 end

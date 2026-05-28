@@ -515,6 +515,9 @@ defmodule ApmV5Web.Router do
     # Policy decision store — NIST AI RMF GOVERN evidence (CP-227)
     get "/auth/policy/decisions", AuthController, :list_policy_decisions
 
+    # Risk score aggregator — composite session/formation risk (CP-231)
+    get "/auth/risk-scores", AuthController, :list_risk_scores
+
     # Aliases matching the apm-auth skill spec (CCEM-565)
     post "/auth/session/start", AuthController, :session_start
     post "/auth/session/heartbeat", AuthController, :session_heartbeat

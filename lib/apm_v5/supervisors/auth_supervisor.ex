@@ -26,6 +26,8 @@ defmodule ApmV5.Supervisors.AuthSupervisor do
       ApmV5.Auth.ApprovalAuditLog,
       # Policy decision store — NIST AI RMF GOVERN evidence ring buffer (CP-227)
       ApmV5.Auth.PolicyDecisionStore,
+      # Composite risk score aggregator — MAP-2 rolling 5-min window (CP-231)
+      ApmV5.Auth.RiskScoreAggregator,
       # Debouncing approval queue — batches notifications over 200ms window (US-323)
       ApmV5.Auth.ApprovalQueue,
       # Pending decisions queue for human-in-the-loop approvals
