@@ -22,6 +22,28 @@ end
 
 config :apm_v5, ApmV5Web.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "3032"))]
 
+# --- v9.3.0 Observability: OpenTelemetry SDK (obs-s1 / CP-216) ---
+otlp_endpoint = System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+
+config :opentelemetry,
+  resource: [
+    service: [
+      name: "ccem_apm",
+      version: System.get_env("RELEASE_VSN", "9.2.1")
+    ]
+  ]
+
+config :opentelemetry_exporter,
+  otlp_protocol: :http_protobuf,
+  otlp_endpoint: otlp_endpoint
+
+config :opentelemetry,
+  processors: [
+    otel_batch_processor: %{
+      exporter: {:opentelemetry_exporter, %{}}
+    }
+  ]
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

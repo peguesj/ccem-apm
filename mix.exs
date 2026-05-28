@@ -70,7 +70,16 @@ defmodule ApmV5.MixProject do
       {:bypass, "~> 2.1", only: :test},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false}
+      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
+      # --- v9.3.0 Observability (obs-s1 / CP-216) ---
+      {:opentelemetry_api, "~> 1.5"},
+      {:opentelemetry, "~> 1.7"},
+      {:opentelemetry_exporter, "~> 1.10"},
+      {:opentelemetry_semantic_conventions, "~> 1.27"},
+      {:opentelemetry_bandit, "~> 0.3"},
+      {:opentelemetry_phoenix, "~> 2.0"},
+      {:opentelemetry_process_propagator, "~> 0.3"},
+      {:peep, "~> 5.0"}
     ]
   end
 
