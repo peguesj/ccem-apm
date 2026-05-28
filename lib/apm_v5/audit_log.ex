@@ -191,6 +191,26 @@ defmodule ApmV5.AuditLog do
     GenServer.call(__MODULE__, :stats)
   end
 
+  @doc """
+  Online retention window in days. Files older than this are permanently deleted.
+
+  Configurable via `config :apm_v5, :audit_log_retention_online_days, N`.
+  Default: 90 days.
+  """
+  @spec online_days() :: pos_integer()
+  def online_days, do: Application.get_env(:apm_v5, :audit_log_retention_online_days, 90)
+
+  @doc """
+  Archive retention window in days. Files older than this threshold are removed
+  during the nightly purge sweep. Supersedes `online_days/0` — this is the
+  outer boundary before permanent deletion.
+
+  Configurable via `config :apm_v5, :audit_log_retention_archive_days, N`.
+  Default: 365 days.
+  """
+  @spec archive_days() :: pos_integer()
+  def archive_days, do: Application.get_env(:apm_v5, :audit_log_retention_archive_days, 365)
+
   # ── Server ─────────────────────────────────────────────────────────────────
 
   @impl true
@@ -208,6 +228,8 @@ defmodule ApmV5.AuditLog do
   @impl true
   def handle_continue(:init_log_dir, state) do
     File.mkdir_p!(state.log_dir)
+    # Schedule the first daily purge run. Subsequent runs reschedule themselves.
+    Process.send_after(self(), :daily_purge, ms_until_midnight())
     {:noreply, state}
   end
 
@@ -276,6 +298,80 @@ defmodule ApmV5.AuditLog do
       |> Enum.frequencies()
 
     {:reply, counts, state}
+  end
+
+  # ── Retention / Purge ──────────────────────────────────────────────────────
+
+  @impl true
+  def handle_info(:daily_purge, state) do
+    today = Date.utc_today()
+    run_daily_purge(state.log_dir, today)
+    # Reschedule for the next midnight
+    Process.send_after(self(), :daily_purge, ms_until_midnight())
+    {:noreply, %{state | today: today}}
+  end
+
+  @doc """
+  Execute a single daily purge sweep over `log_dir` relative to `today`.
+
+  - Files with a parsed date older than `archive_days()` are permanently deleted.
+  - The file for `yesterday` (Date.add(today, -1)) is chmod 0444 (read-only),
+    since its write rotation is complete.
+  - Today's file and files within the online window are left untouched.
+
+  Public so that tests can invoke it directly without running the GenServer's
+  `:daily_purge` message or manipulating timers.
+  """
+  @spec run_daily_purge(Path.t(), Date.t()) :: :ok
+  def run_daily_purge(log_dir, today \\ Date.utc_today()) do
+    yesterday = Date.add(today, -1)
+    archive_cutoff = Date.add(today, -archive_days())
+
+    case File.ls(log_dir) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.match?(&1, ~r/^ccem_audit_\d{4}-\d{2}-\d{2}\.jsonl$/))
+        |> Enum.each(fn filename ->
+          path = Path.join(log_dir, filename)
+          date_str = filename |> String.replace("ccem_audit_", "") |> String.replace(".jsonl", "")
+
+          case Date.from_iso8601(date_str) do
+            {:ok, file_date} ->
+              cond do
+                # Older than archive window → permanently delete
+                Date.compare(file_date, archive_cutoff) == :lt ->
+                  case File.rm(path) do
+                    :ok ->
+                      Logger.info("[AuditLog] Purged archived log: #{filename}")
+
+                    {:error, reason} ->
+                      Logger.warning("[AuditLog] Failed to purge #{filename}: #{inspect(reason)}")
+                  end
+
+                # Yesterday's file (now closed/rotated) → make read-only
+                Date.compare(file_date, yesterday) == :eq ->
+                  case File.chmod(path, 0o444) do
+                    :ok ->
+                      Logger.debug("[AuditLog] chmod 0444: #{filename}")
+
+                    {:error, reason} ->
+                      Logger.warning("[AuditLog] chmod failed for #{filename}: #{inspect(reason)}")
+                  end
+
+                true ->
+                  :ok
+              end
+
+            {:error, _} ->
+              Logger.warning("[AuditLog] Could not parse date from filename: #{filename}")
+          end
+        end)
+
+      {:error, reason} ->
+        Logger.warning("[AuditLog] daily_purge: cannot list log dir #{log_dir}: #{inspect(reason)}")
+    end
+
+    :ok
   end
 
   # ── Internal ───────────────────────────────────────────────────────────────
@@ -481,6 +577,21 @@ defmodule ApmV5.AuditLog do
 
   defp maybe_filter_until(events, until_ts) do
     Enum.filter(events, &(&1.timestamp <= until_ts))
+  end
+
+  # Returns milliseconds from now until the next UTC midnight.
+  # Used to schedule the daily purge at a consistent wall-clock time.
+  @spec ms_until_midnight() :: non_neg_integer()
+  defp ms_until_midnight do
+    now = DateTime.utc_now()
+    tomorrow = now |> DateTime.to_date() |> Date.add(1)
+
+    midnight =
+      DateTime.new!(tomorrow, ~T[00:00:00], "Etc/UTC")
+
+    diff_sec = DateTime.diff(midnight, now, :second)
+    # Clamp to at least 1 second to avoid tight loops on boundary conditions.
+    max(diff_sec * 1_000, 1_000)
   end
 
   defp log_dir do
