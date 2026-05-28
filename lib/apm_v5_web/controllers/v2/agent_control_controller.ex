@@ -4,13 +4,59 @@ defmodule ApmV5Web.V2.AgentControlController do
 
   Provides POST /api/v2/agents/:id/connect|disconnect|restart endpoints
   used by CCEMHelper and the dashboard control panel.
+
+  ## open_api_spex annotations (api-s5 Wave 1 / CP-262)
+  Actions annotated: control_agent, list_messages, send_message (3 of many).
+  Formation/squadron control actions documented via build_spec/0 until api-s7 (v9.4.0).
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias ApmV5Web.Schemas
 
   @pubsub ApmV5.PubSub
 
   @valid_actions ["connect", "disconnect", "restart", "stop", "pause", "resume"]
+
+  operation :control_agent,
+    summary: "Control an agent",
+    description: "Sends a lifecycle control action to an individual agent (connect, disconnect, restart, stop, pause, resume).",
+    tags: ["Agents"],
+    parameters: [
+      id: [in: :path, type: :string, required: true, description: "Agent ID"]
+    ],
+    request_body: {"Control action", "application/json", Schemas.ControlAgentBody, required: true},
+    responses: [
+      ok: {"Control result", "application/json", Schemas.ControlAgentResult},
+      not_found: {"Agent not found", "application/json", Schemas.ErrorResponse},
+      bad_request: {"Invalid action", "application/json", Schemas.ErrorResponse}
+    ]
+
+  operation :list_messages,
+    summary: "List agent messages",
+    description: "Returns recent messages in the agent's chat channel.",
+    tags: ["Agents"],
+    parameters: [
+      id: [in: :path, type: :string, required: true, description: "Agent ID"],
+      limit: [in: :query, type: :integer, required: false, description: "Max messages to return (default 50, max 500)"]
+    ],
+    responses: [
+      ok: {"Message list", "application/json", Schemas.MessageList}
+    ]
+
+  operation :send_message,
+    summary: "Send message to agent",
+    description: "Posts a message to the agent's chat channel and broadcasts via PubSub.",
+    tags: ["Agents"],
+    parameters: [
+      id: [in: :path, type: :string, required: true, description: "Agent ID"]
+    ],
+    request_body: {"Message body", "application/json", Schemas.SendMessageBody, required: true},
+    responses: [
+      created: {"Message created", "application/json", Schemas.ChatMessage},
+      bad_request: {"Validation error", "application/json", Schemas.ErrorResponse}
+    ]
 
   @doc "POST /api/v2/agents/:id/control — control an individual agent"
   def control_agent(conn, %{"id" => agent_id, "action" => action}) when action in @valid_actions do
