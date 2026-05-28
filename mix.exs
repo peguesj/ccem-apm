@@ -69,7 +69,7 @@ defmodule ApmV5.MixProject do
       {:ag_ui_ex, "~> 0.1.0"},
       {:gun, "~> 2.2"},
       {:reactor, "~> 1.0"},
-      {:exqlite, "~> 0.23", optional: true},
+      {:exqlite, "~> 0.23"},
       {:mox, "~> 1.2", only: :test},
       {:bypass, "~> 2.1", only: :test},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},

@@ -100,6 +100,8 @@ defmodule ApmV5.Application do
       ApmV5.WorkflowRegistry,
       ApmV5.Orchestration.OrchestrationManager,
       ApmV5.Orchestration.OrchestrationRunStore,
+      # Formation WAL persistence store (wf-s3)
+      ApmV5.Orchestration.FormationPersistenceStore,
       # Coalesce subsystem — DecisionGateStore + CoalesceOrchestrator
       ApmV5.Coalesce.CoalesceSupervisor,
       # Memory plugin workers (claude-mem integration)

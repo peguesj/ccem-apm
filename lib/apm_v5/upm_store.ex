@@ -109,7 +109,27 @@ defmodule ApmV5.UpmStore do
 
     :ets.insert(@formations_table, {id, formation})
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:upm", {:formation_registered, formation})
+    # Persist event to SQLite WAL (wf-s3)
+    persist_event(id, :formation_registered, %{
+      name: formation.name,
+      squadrons: formation.squadrons,
+      upm_session_id: formation.upm_session_id
+    })
     {:ok, id}
+  end
+
+  @doc """
+  Restore a formation directly into ETS without triggering persistence.
+
+  Used by `FormationPersistenceStore.replay/0` to rebuild ETS state
+  from the SQLite event log without creating circular append_event calls.
+  """
+  @spec restore_formation(map()) :: :ok
+  def restore_formation(formation) do
+    :ets.insert(@formations_table, {formation.id, formation})
+    :ok
+  rescue
+    _ -> :ok
   end
 
   @doc "Get a formation by ID."
@@ -223,6 +243,9 @@ defmodule ApmV5.UpmStore do
         evt = Map.put(event, :timestamp, DateTime.utc_now())
         updated = %{f | events: f.events ++ [evt], updated_at: DateTime.utc_now()}
         :ets.insert(@formations_table, {formation_id, updated})
+        # Persist event to SQLite WAL (wf-s3) for durable replay
+        event_type = Map.get(event, :type) || Map.get(event, "type") || :formation_event
+        persist_event(formation_id, event_type, Map.drop(event, [:timestamp]))
         :ok
       [] -> {:error, :not_found}
     end
@@ -736,5 +759,23 @@ defmodule ApmV5.UpmStore do
       true ->
         %{id: inspect(story), title: nil, status: "pending", agent_id: nil, plane_issue_id: nil}
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private: FormationPersistenceStore integration (wf-s3)
+  # ---------------------------------------------------------------------------
+
+  # Fire-and-forget SQLite append for durable event log.
+  # Silently no-ops if FormationPersistenceStore is not running (e.g. in tests).
+  defp persist_event(formation_id, event_type, payload) do
+    if Process.whereis(ApmV5.Orchestration.FormationPersistenceStore) do
+      ApmV5.Orchestration.FormationPersistenceStore.append_event(
+        formation_id,
+        event_type,
+        payload
+      )
+    end
+  rescue
+    _ -> :ok
   end
 end
