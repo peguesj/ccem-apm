@@ -48,6 +48,93 @@ defmodule ApmV5.Auth.PolicyRulesStore do
     end
   end
 
+  @doc """
+  Serialize all current PolicyRulesStore rules + AutoApprovalStore policies as a
+  Rego policy bundle (text/plain).
+
+  The output is a valid OPA Rego policy that mirrors the in-memory ETS state.
+  Callers can POST this bundle to an OPA sidecar to bootstrap its policy set.
+
+  ## Example
+
+      iex> ApmV5.Auth.PolicyRulesStore.add_rule("Bash", :always_deny)
+      :ok
+      iex> rego = ApmV5.Auth.PolicyRulesStore.to_rego()
+      iex> String.contains?(rego, "package apm.agentlock")
+      true
+      iex> String.contains?(rego, "always_deny")
+      true
+
+  """
+  @spec to_rego() :: String.t()
+  def to_rego do
+    rules = list_rules()
+
+    auto_approval_lines =
+      case Process.whereis(ApmV5.Auth.AutoApprovalStore) do
+        nil -> []
+        _pid -> ApmV5.Auth.AutoApprovalStore.list_active()
+      end
+
+    rules_block =
+      Enum.map(rules, fn r ->
+        action_str = to_string(r.action)
+        "  #{action_str}[\"#{r.tool_name}\"] = true"
+      end)
+      |> Enum.join("\n")
+
+    auto_block =
+      Enum.map(auto_approval_lines, fn p ->
+        tools =
+          case p.allowed_tools do
+            :all -> "\"*\""
+            list -> "[#{Enum.map_join(list, ", ", &"\"#{&1}\"")}]"
+          end
+
+        "  # policy_id=#{p.policy_id} agent=#{inspect(p.agent_id)} tools=#{tools}\n" <>
+          "  auto_approved_policies[\"#{p.policy_id}\"] = true"
+      end)
+      |> Enum.join("\n")
+
+    generated_at = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    """
+    # CCEM APM AgentLock — generated Rego policy
+    # Generated: #{generated_at}
+    # Source: ApmV5.Auth.PolicyRulesStore.to_rego/0
+    # DO NOT EDIT — regenerate from /api/v2/auth/policy/rego
+
+    package apm.agentlock
+
+    import future.keywords.if
+    import future.keywords.in
+
+    # ── Permanent allow/deny rules ─────────────────────────────────────────────
+    #{if rules_block == "", do: "  # (no permanent rules defined)", else: rules_block}
+
+    # ── Auto-approval policies ─────────────────────────────────────────────────
+    #{if auto_block == "", do: "  # (no active auto-approval policies)", else: auto_block}
+
+    # ── Decision entrypoints ───────────────────────────────────────────────────
+
+    default allow = false
+
+    allow if {
+      always_allow[input.tool_name]
+    }
+
+    deny if {
+      always_deny[input.tool_name]
+    }
+
+    allow if {
+      not deny
+      auto_approved_policies[_]
+    }
+    """
+    |> String.trim_trailing()
+  end
+
   @doc "Check if a tool has a permanent rule. Returns :always_allow | :always_deny | :none.
   Supports \"*\" wildcard stored under the literal key \"*\" — matches any tool when no exact rule exists."
   @spec check_rule(String.t()) :: :always_allow | :always_deny | :none

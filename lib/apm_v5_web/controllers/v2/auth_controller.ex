@@ -517,6 +517,23 @@ defmodule ApmV5Web.V2.AuthController do
   end
 
   @doc """
+  GET /api/v2/auth/policy/rego — Export current policy state as a Rego bundle (auth-v10.1-s3 / CP-293)
+
+  Returns `text/plain` containing a valid OPA Rego policy that mirrors the
+  in-memory PolicyRulesStore rules and AutoApprovalStore policies.
+
+  Consumers can POST this bundle to an OPA sidecar at `/v1/policies/<id>` to
+  bootstrap the decision engine with CCEM APM's current allow/deny state.
+  """
+  def export_policy_rego(conn, _params) do
+    rego_text = PolicyRulesStore.to_rego()
+
+    conn
+    |> put_resp_content_type("text/plain")
+    |> send_resp(200, rego_text)
+  end
+
+  @doc """
   GET /api/v2/auth/policy/decisions — Query authorization decisions (NIST AI RMF GOVERN evidence)
 
   Query params (all optional):
