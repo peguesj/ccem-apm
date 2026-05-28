@@ -22,13 +22,14 @@ defmodule ApmV5Web.V2.CoalesceController do
     render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.Coalesce.{CoalesceOrchestrator, DecisionGateStore, SkillLogicEngine, SwarmCoordinator, SourceFetcher}
+  alias ApmV5Web.Schemas
 
   # POST /api/v2/coalesce/start
   operation :start,
     summary: "Start",
     tags: ["Coalesce"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"OK", "application/json", Schemas.CoalesceRunSummary}
     ]
 
   def start(conn, params) do
@@ -96,7 +97,7 @@ defmodule ApmV5Web.V2.CoalesceController do
     summary: "Get one",
     tags: ["Coalesce"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"OK", "application/json", Schemas.CoalesceRunSummary}
     ]
 
   def show(conn, %{"id" => run_id}) do

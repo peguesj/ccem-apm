@@ -23,6 +23,7 @@ defmodule ApmV5Web.V2.MemoryController do
     render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.Plugins.Memory.MemoryPlugin
+  alias ApmV5Web.Schemas
 
   # ── GET /api/v2/memory/observations ─────────────────────────────────────────
 
@@ -52,7 +53,7 @@ defmodule ApmV5Web.V2.MemoryController do
     summary: "Get observation",
     tags: ["Memory"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"OK", "application/json", Schemas.Observation}
     ]
 
   def get_observation(conn, %{"id" => id} = _params) do

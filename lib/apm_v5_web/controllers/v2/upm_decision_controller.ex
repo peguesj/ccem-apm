@@ -23,13 +23,14 @@ defmodule ApmV5Web.V2.UpmDecisionController do
     render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.Upm.DecisionGate
+  alias ApmV5Web.Schemas
 
   @doc "Create a decision gate and block until resolved (or timeout)."
   operation :create,
     summary: "Create",
     tags: ["UPM Decision Gate"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"OK", "application/json", Schemas.GateDecision}
     ]
 
   def create(conn, params) do
@@ -75,7 +76,7 @@ defmodule ApmV5Web.V2.UpmDecisionController do
     summary: "Get one",
     tags: ["UPM Decision Gate"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"OK", "application/json", Schemas.Gate}
     ]
 
   def show(conn, %{"id" => gate_id}) do

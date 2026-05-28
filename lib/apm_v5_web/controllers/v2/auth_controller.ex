@@ -118,7 +118,7 @@ defmodule ApmV5Web.V2.AuthController do
     summary: "List tools",
     tags: ["AgentLock Authorization"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Registered tools", "application/json", Schemas.AuthTool}
     ]
 
   def list_tools(conn, _params) do
@@ -184,7 +184,7 @@ defmodule ApmV5Web.V2.AuthController do
     summary: "List sessions",
     tags: ["AgentLock Authorization"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Active auth sessions", "application/json", Schemas.AuthSession}
     ]
 
   def list_sessions(conn, _params) do
@@ -200,7 +200,7 @@ defmodule ApmV5Web.V2.AuthController do
     summary: "Get session",
     tags: ["AgentLock Authorization"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Single auth session", "application/json", Schemas.AuthSession}
     ]
 
   def get_session(conn, %{"id" => session_id}) do
@@ -488,7 +488,7 @@ defmodule ApmV5Web.V2.AuthController do
     summary: "List pending",
     tags: ["AgentLock Authorization"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Pending decisions", "application/json", Schemas.PendingDecision}
     ]
 
   def list_pending(conn, _params) do
@@ -502,7 +502,7 @@ defmodule ApmV5Web.V2.AuthController do
     summary: "Get pending",
     tags: ["AgentLock Authorization"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Pending decision", "application/json", Schemas.PendingDecision}
     ]
 
   def get_pending(conn, %{"id" => request_id} = params) do
@@ -1079,7 +1079,7 @@ defmodule ApmV5Web.V2.AuthController do
     summary: "List approval history",
     tags: ["AgentLock Authorization"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Approval audit entries", "application/json", Schemas.ApprovalAuditEntry}
     ]
 
   def list_approval_history(conn, params) do

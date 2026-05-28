@@ -181,7 +181,7 @@ defmodule ApmV5Web.V2.ApiV2Controller do
     summary: "List slos",
     tags: ["Core"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"List of SLOs", "application/json", Schemas.SLO}
     ]
 
   def list_slos(conn, _params) do
@@ -204,7 +204,7 @@ defmodule ApmV5Web.V2.ApiV2Controller do
     summary: "Get slo",
     tags: ["Core"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Single SLO", "application/json", Schemas.SLO}
     ]
 
   def get_slo(conn, %{"name" => name_str}) do
@@ -236,7 +236,7 @@ defmodule ApmV5Web.V2.ApiV2Controller do
     summary: "List alerts",
     tags: ["Core"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Alert history", "application/json", Schemas.Alert}
     ]
 
   def list_alerts(conn, params) do
@@ -268,7 +268,7 @@ defmodule ApmV5Web.V2.ApiV2Controller do
     summary: "List alert rules",
     tags: ["Core"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Alert rules", "application/json", Schemas.AlertRule}
     ]
 
   def list_alert_rules(conn, _params) do
@@ -313,7 +313,7 @@ defmodule ApmV5Web.V2.ApiV2Controller do
     summary: "List audit",
     tags: ["Core"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Audit log entries", "application/json", Schemas.AuditEntry}
     ]
 
   def list_audit(conn, params) do

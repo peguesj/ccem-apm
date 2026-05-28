@@ -18,6 +18,7 @@ defmodule ApmV5Web.V2.AgentContextController do
 
   alias ApmV5.AgUi.AgentContextStore
   alias ApmV5.AgUi.ToolCallTracker
+  alias ApmV5Web.Schemas
 
   @doc "Returns all agent contexts."
   operation :index,
@@ -37,7 +38,7 @@ defmodule ApmV5Web.V2.AgentContextController do
     summary: "Get one",
     tags: ["Agent Context"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"OK", "application/json", Schemas.AgentContext}
     ]
 
   def show(conn, %{"id" => agent_id}) do

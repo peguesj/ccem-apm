@@ -27,6 +27,7 @@ defmodule ApmV5Web.V2.ToolCallController do
 
   alias ApmV5.AgUi.ToolCallTracker
   alias ApmV5.AgUi.EventBus
+  alias ApmV5Web.Schemas
 
   # -- REST Endpoints (US-012) ------------------------------------------------
 
@@ -35,7 +36,7 @@ defmodule ApmV5Web.V2.ToolCallController do
     summary: "List",
     tags: ["Tool Calls"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Active tool calls", "application/json", Schemas.ToolCallSummary}
     ]
 
   def index(conn, _params) do
@@ -59,7 +60,7 @@ defmodule ApmV5Web.V2.ToolCallController do
     summary: "By agent",
     tags: ["Tool Calls"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Tool calls by agent", "application/json", Schemas.ToolCallSummary}
     ]
 
   def by_agent(conn, %{"agent_id" => agent_id}) do
@@ -71,7 +72,7 @@ defmodule ApmV5Web.V2.ToolCallController do
     summary: "Get one",
     tags: ["Tool Calls"],
     responses: [
-      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+      ok: {"Single tool call", "application/json", Schemas.ToolCallSummary}
     ]
 
   def show(conn, %{"id" => id}) do
