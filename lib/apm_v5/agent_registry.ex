@@ -214,6 +214,17 @@ defmodule ApmV5.AgentRegistry do
     # reconstruct parent-child span chains across the agent hierarchy.
     trace_context = build_trace_context(metadata)
 
+    # Build delegation chain when parent_agent_id is present (prov-w3-s7 / CP-281).
+    # The parent's existing chain is extended with a new hop; if the parent has no
+    # chain yet, a fresh 1-hop chain is created from the parent's DID to this agent.
+    parent_agent_id =
+      Map.get(metadata, :parent_agent_id, Map.get(metadata, "parent_agent_id"))
+
+    session_id =
+      Map.get(metadata, :session_id, Map.get(metadata, "session_id", "unknown"))
+
+    delegation_chain = build_delegation_chain(agent_id, parent_agent_id, session_id)
+
     agent =
       identity_map
       |> Map.merge(%{
@@ -226,6 +237,7 @@ defmodule ApmV5.AgentRegistry do
         member_count: Map.get(metadata, :member_count, Map.get(metadata, "member_count", nil)),
         wave_total: Map.get(metadata, :wave_total, Map.get(metadata, "wave_total", nil)),
         trace_context: trace_context,
+        delegation_chain: delegation_chain,
         registered_at: now,
         last_seen: now
       })
@@ -592,6 +604,46 @@ defmodule ApmV5.AgentRegistry do
     end)
   end
   defp normalize_actions(_), do: []
+
+  # Build a JWT-encoded delegation chain for a new agent.
+  # When parent_agent_id is present, looks up the parent's existing chain and
+  # appends a new hop.  If the parent has no chain or cannot be found, a fresh
+  # 1-hop chain is created with the parent's DID as authorizer.
+  # Returns nil when no parent is specified.
+  @spec build_delegation_chain(String.t(), String.t() | nil, String.t()) :: String.t() | nil
+  defp build_delegation_chain(_agent_id, nil, _session_id), do: nil
+
+  defp build_delegation_chain(agent_id, parent_agent_id, session_id) do
+    parent_did = "did:key:ccem-" <> parent_agent_id
+    agent_did = "did:key:ccem-" <> agent_id
+
+    # Resolve the chain to extend: prefer the persistent_term-stored struct from
+    # a previously registered parent, fall back to fresh single-hop chain.
+    {:ok, chain} =
+      case :persistent_term.get({__MODULE__, :delegation_chain, parent_agent_id}, nil) do
+        nil ->
+          # No parent chain stored yet — start a fresh 1-hop chain
+          ApmV5.Provenance.DelegationChain.new_chain(parent_did, agent_did, session_id)
+
+        existing_chain ->
+          # Extend the parent's chain; fall back to fresh chain if tampered
+          case ApmV5.Provenance.DelegationChain.append_hop(existing_chain, agent_did, session_id) do
+            {:ok, _} = ok ->
+              ok
+
+            {:error, _} ->
+              # Parent chain is tampered — start fresh from parent DID
+              ApmV5.Provenance.DelegationChain.new_chain(parent_did, agent_did, session_id)
+          end
+      end
+
+    jwt = ApmV5.Provenance.DelegationChain.to_jwt(chain)
+    # Store the struct under this agent's key so its children can extend the chain.
+    :persistent_term.put({__MODULE__, :delegation_chain, agent_id}, chain)
+    jwt
+  rescue
+    _ -> nil
+  end
 
   defp atomize_safe(map) when is_map(map) do
     Map.new(map, fn
