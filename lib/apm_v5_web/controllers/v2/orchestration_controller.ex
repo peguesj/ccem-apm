@@ -99,6 +99,32 @@ defmodule ApmV5Web.V2.OrchestrationController do
     end
   end
 
+  # ── POST /api/v2/orchestration/runs/:run_id/steps/:step_id/approve ───────────
+
+  @doc """
+  Manually grant approval for an `:approval`-type step.
+
+  Body (optional): `{"approver_id": "...", "reason": "..."}`
+  Returns the updated run on success.
+  """
+  def approve_step(conn, %{"run_id" => run_id, "step_id" => step_id} = params) do
+    approver_info = Map.take(params, ["approver_id", "reason"])
+
+    case OrchestrationManager.grant_approval(run_id, step_id, approver_info) do
+      {:ok, run} ->
+        json(conn, %{run: run, approved: true})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "run not found"})
+
+      {:error, :step_not_found} ->
+        conn |> put_status(404) |> json(%{error: "step not found"})
+
+      {:error, :not_an_approval_step} ->
+        conn |> put_status(422) |> json(%{error: "step is not of type :approval"})
+    end
+  end
+
   # ── POST /api/v2/orchestrations/:id/replay ───────────────────────────────────
 
   def replay(conn, %{"id" => id}) do

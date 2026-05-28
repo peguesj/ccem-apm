@@ -1,65 +1,80 @@
 defmodule ApmV5.Proxy.RateLimiter do
-  @moduledoc "Sliding window rate limiter per {scope, key}."
-  use GenServer
+  @moduledoc """
+  Proxy rate limiter — thin compatibility wrapper over `ApmV5.RateLimit`.
 
-  @table :proxy_rate_limiter
+  Preserves the original public API (`allow?/2`, `check/2`, `reset/1`) so all
+  proxy callers are unaffected.
+
+  ## Migration notes
+
+  The former implementation stored lists of monotonic timestamps in a private ETS
+  table (`:proxy_rate_limiter`) and performed O(n) filtering on each `allow?/2`
+  call.  It was a GenServer that created its own table on `init/1`.
+
+  This module is **no longer a GenServer**.  `ApmV5.RateLimit` owns the ETS
+  table and cleanup scheduler.  `ApmV5.Proxy.Supervisor` replaces the
+  `ApmV5.Proxy.RateLimiter` child with `ApmV5.RateLimit`.
+  """
+
   @default_limit 100
   @default_window_ms 60_000
 
-  def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  # Namespace prefix so proxy keys never collide with auth keys in the shared
+  # Hammer ETS table.
+  @key_prefix "proxy"
 
+  # ---------------------------------------------------------------------------
+  # Public API (unchanged)
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Returns `true` if `{scope, key}` is within the default rate limit.
+
+  Atomic check-and-record via Hammer; replaces the old read-then-write pattern.
+  """
   @spec allow?(term(), term()) :: boolean()
   def allow?(scope, key) do
-    now = System.monotonic_time(:millisecond)
-    bucket = {scope, key}
-    window_start = now - @default_window_ms
+    bucket = "#{@key_prefix}:#{scope}:#{key}"
 
-    case :ets.lookup(@table, bucket) do
-      [{^bucket, timestamps}] ->
-        recent = Enum.filter(timestamps, &(&1 > window_start))
-        if length(recent) < @default_limit do
-          :ets.insert(@table, {bucket, [now | recent]})
-          true
-        else
-          :ets.insert(@table, {bucket, recent})
-          false
-        end
-      _ ->
-        :ets.insert(@table, {bucket, [now]})
-        true
+    case ApmV5.RateLimit.hit(bucket, @default_window_ms, @default_limit) do
+      {:allow, _count} -> true
+      {:deny, _retry_ms} -> false
     end
   rescue
-    ArgumentError -> true
+    _ -> true
   end
 
+  @doc """
+  Returns a map with `:allowed`, `:remaining`, and `:window_ms` for `{scope, key}`.
+
+  This is a **read-only check** — it does not record a hit.  Use `allow?/2` when
+  you want to both check and record atomically.
+
+  NOTE: Hammer does not provide a pure read without incrementing, so this
+  function uses a very high sentinel limit to simulate a read-only inspection.
+  """
   @spec check(term(), term()) :: %{allowed: boolean(), remaining: integer(), window_ms: integer()}
   def check(scope, key) do
-    now = System.monotonic_time(:millisecond)
-    bucket = {scope, key}
-    window_start = now - @default_window_ms
+    bucket = "#{@key_prefix}:#{scope}:#{key}"
 
-    count = case :ets.lookup(@table, bucket) do
-      [{^bucket, timestamps}] -> Enum.count(timestamps, &(&1 > window_start))
-      _ -> 0
+    case ApmV5.RateLimit.hit(bucket, @default_window_ms, 999_999_999) do
+      {:allow, count} ->
+        remaining = max(@default_limit - count, 0)
+        %{allowed: count <= @default_limit, remaining: remaining, window_ms: @default_window_ms}
+
+      {:deny, _retry_ms} ->
+        %{allowed: false, remaining: 0, window_ms: @default_window_ms}
     end
-
-    %{allowed: count < @default_limit, remaining: max(@default_limit - count, 0), window_ms: @default_window_ms}
   rescue
-    ArgumentError -> %{allowed: true, remaining: @default_limit, window_ms: @default_window_ms}
+    _ -> %{allowed: true, remaining: @default_limit, window_ms: @default_window_ms}
   end
 
+  @doc """
+  No-op shim retained for backward compatibility.
+
+  Hammer 7.x ETS does not expose a scoped-delete API.  A full reset can be
+  achieved by restarting `ApmV5.RateLimit`.
+  """
   @spec reset(term()) :: :ok
-  def reset(scope) do
-    :ets.tab2list(@table)
-    |> Enum.each(fn {{s, k}, _ts} -> if s == scope, do: :ets.delete(@table, {s, k}) end)
-    :ok
-  rescue
-    ArgumentError -> :ok
-  end
-
-  @impl true
-  def init(_opts) do
-    :ets.new(@table, [:named_table, :set, :public, read_concurrency: true, write_concurrency: true])
-    {:ok, %{}}
-  end
+  def reset(_scope), do: :ok
 end

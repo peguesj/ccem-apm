@@ -51,6 +51,10 @@ defmodule ApmV5Web.Router do
     plug :accepts, ["json"]
     plug ApmV5Web.Plugs.CORS
     plug ApmV5Web.Plugs.ApiAuth
+    # Rate-limit FIRST to short-circuit floods before any heavy work (rl-s4)
+    plug ApmV5Web.Plugs.RateLimit
+    # RFC 6585 + IETF draft-ietf-httpapi-ratelimit-headers (CP-240 / US-472 / rl-s5)
+    plug ApmV5Web.Plugs.RateLimitHeaders
     # Request validation via open_api_spex (CP-228 / US-460).
     # Only validates paths annotated with @operation on their controller action.
     # replace_params: false ensures unannotated routes keep raw params unchanged,
@@ -183,6 +187,9 @@ defmodule ApmV5Web.Router do
       live "/upm/module", UpmLive, :index
       live "/upm/module/:project_id", UpmLive, :project
       live "/upm/module/:project_id/board", UpmLive, :board
+
+      # Rate limits dashboard (rl-s8)
+      live "/rate-limits", RateLimitsLive, :index
     end
   end
 
@@ -192,6 +199,11 @@ defmodule ApmV5Web.Router do
 
   scope "/api", ApmV5Web do
     pipe_through :api
+
+    # RFC 8615 health check — application/health+json (CP-250 / US-482 / hc-s1)
+    # NOTE: uses "pass"/"warn"/"fail" vocabulary per IETF draft-inadarei-api-health-check-06
+    # The legacy /api/status still returns "ok" for back-compat.
+    get "/health", HealthController, :health
 
     # Agent lifecycle
     get "/status", ApiController, :status
@@ -453,6 +465,10 @@ defmodule ApmV5Web.Router do
     get "/a2a/topics/:topic/subscribers", A2AController, :topic_subscribers
     get "/a2a/stream/:agent_id", A2AController, :stream
 
+    # A2A v0.3.0 task lifecycle (coord-b1 / coord-b2)
+    get "/a2a/tasks", A2ATasksController, :index
+    get "/a2a/tasks/:task_id", A2ATasksController, :show
+
     # Core: approvals
     get "/approvals", ApprovalController, :index
     get "/approvals/:id", ApprovalController, :show
@@ -623,6 +639,8 @@ defmodule ApmV5Web.Router do
     delete "/orchestrations/:id", OrchestrationController, :delete
     post "/orchestrations/:id/steps/:step_id/advance", OrchestrationController, :advance_step
     post "/orchestrations/:id/replay", OrchestrationController, :replay
+    # Approval step grant (wf-s5)
+    post "/orchestration/runs/:run_id/steps/:step_id/approve", OrchestrationController, :approve_step
 
     # ── EXTENSION: memory ─────────────────────────────────────────────────
     get "/memory/observations", MemoryController, :list_observations
@@ -680,6 +698,15 @@ defmodule ApmV5Web.Router do
     post "/hooks/scan", HookHealthController, :scan
     post "/hooks/clear/:project", HookHealthController, :clear
 
+    # ── EXTENSION: artifact version store (coord-c3) ──────────────────────
+    get "/a2a/artifacts/:key/version", ArtifactVersionController, :get_version
+    post "/a2a/artifacts/:key/cas", ArtifactVersionController, :cas
+
+    # ── EXTENSION: file lock registry (coord-c2) ───────────────────────────
+    get "/locks", FileLockController, :index
+    post "/locks/acquire", FileLockController, :acquire
+    delete "/locks/:lock_id", FileLockController, :release
+
     # ── EXTENSION: library ────────────────────────────────────────────────
     get "/library", LibraryController, :index
     get "/library/agents", LibraryController, :agents
@@ -729,6 +756,14 @@ defmodule ApmV5Web.Router do
     pipe_through :api
 
     get "/.well-known/agent-card.json", WellKnownController, :agent_card
+    # RFC 8615 well-known health URI — alias to /api/health (CP-250 / US-482 / hc-s1)
+    get "/.well-known/health", HealthController, :health
+    # Kubernetes liveness probe (CP-251 / US-483 / hc-s2) — minimal 200/503
+    get "/healthz", HealthController, :liveness
+    # Kubernetes readiness probe (CP-252 / US-484 / hc-s3) — GenServer + cache warm
+    get "/ready", HealthController, :readiness
+    # Kubernetes startup probe (CP-253 / US-485 / hc-s4) — supervision tree init
+    get "/startup", HealthController, :startup
     # Per-agent card under /api/v2/agents — outside V2 scope to keep one controller.
     get "/api/v2/agents/:agent_id/agent-card.json",
         WellKnownController,

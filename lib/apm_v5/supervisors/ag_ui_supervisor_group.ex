@@ -28,6 +28,10 @@ defmodule ApmV5.Supervisors.AgUiSupervisorGroup do
       ApmV5.AgUi.ApprovalGate,
       ApmV5.AgUi.A2A.TopicRegistry,
       ApmV5.AgUi.A2A.Router,
+      # A2A v0.3.0 task lifecycle state machine (coord-b1)
+      ApmV5.AgUi.A2A.TaskStore,
+      # AG-UI lifecycle → A2A task state bridge (coord-b2)
+      ApmV5.AgUi.A2A.TaskBridge,
       ApmV5.ChatStore
     ]
 

@@ -23,6 +23,9 @@ defmodule ApmV5.Application do
     ApmV5.AgUi.LifecycleMapper.init_tables()
 
     children = [
+      # PlugAttack ETS storage -- must start before the endpoint to ensure the
+      # table exists when the first request hits ApmV5Web.Plugs.RateLimit.
+      {PlugAttack.Storage.Ets, name: ApmV5.RateLimit.ETS, clean_period: 60_000},
       ApmV5Web.Telemetry,
       {DNSCluster, query: Application.get_env(:apm_v5, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ApmV5.PubSub},
@@ -102,6 +105,8 @@ defmodule ApmV5.Application do
       ApmV5.WorkflowRegistry,
       ApmV5.Orchestration.OrchestrationManager,
       ApmV5.Orchestration.OrchestrationRunStore,
+      # Formation WAL persistence store (wf-s3)
+      ApmV5.Orchestration.FormationPersistenceStore,
       # Coalesce subsystem — DecisionGateStore + CoalesceOrchestrator
       ApmV5.Coalesce.CoalesceSupervisor,
       # Memory plugin workers (claude-mem integration)
@@ -124,14 +129,35 @@ defmodule ApmV5.Application do
       ApmV5.Governance.ComplianceReportEngine,
       # IncidentResponseEngine — circuit breaker on policy risk bursts (comp-mg1 / CP-234)
       ApmV5.Governance.IncidentResponseEngine,
+      # A2A artifact CAS store (coord-c3)
+      ApmV5.A2A.ArtifactVersionStore,
+      # A2A pessimistic file lock registry (coord-c2)
+      ApmV5.A2A.FileLockRegistry,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]
+
+    # Install fuse circuit breakers before supervision tree starts --
+    # fuse uses ETS internally so this is a synchronous, side-effect-free
+    # operation that must complete before the endpoint begins handling requests.
+    install_circuit_breakers()
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: ApmV5.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  # Install fuse circuit breakers for hot-path API endpoints.
+  #
+  # Thresholds (generous to avoid false trips on legitimate agent formations):
+  #   :apm_register_fuse  — 500 failures / 10 s window, reset after 30 s
+  #   :apm_heartbeat_fuse — 1000 failures / 10 s window, reset after 15 s
+  #   :apm_notify_fuse    — 300 failures / 10 s window, reset after 30 s
+  defp install_circuit_breakers do
+    :fuse.install(:apm_register_fuse, {{:standard, 500, 10_000}, {:reset, 30_000}})
+    :fuse.install(:apm_heartbeat_fuse, {{:standard, 1000, 10_000}, {:reset, 15_000}})
+    :fuse.install(:apm_notify_fuse, {{:standard, 300, 10_000}, {:reset, 30_000}})
   end
 
   # Tell Phoenix to update the endpoint configuration
