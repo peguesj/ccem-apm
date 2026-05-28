@@ -18,6 +18,9 @@ defmodule ApmV5.Application do
     ApmV5.AgUi.LifecycleMapper.init_tables()
 
     children = [
+      # PlugAttack ETS storage -- must start before the endpoint to ensure the
+      # table exists when the first request hits ApmV5Web.Plugs.RateLimit.
+      {PlugAttack.Storage.Ets, name: ApmV5.RateLimit.ETS, clean_period: 60_000},
       ApmV5Web.Telemetry,
       {DNSCluster, query: Application.get_env(:apm_v5, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ApmV5.PubSub},

@@ -51,6 +51,7 @@ defmodule ApmV5Web.Router do
     plug :accepts, ["json"]
     plug ApmV5Web.Plugs.CORS
     plug ApmV5Web.Plugs.ApiAuth
+    plug ApmV5Web.Plugs.RateLimit
   end
 
   pipeline :api_flexible do

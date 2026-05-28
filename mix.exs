@@ -64,6 +64,7 @@ defmodule ApmV5.MixProject do
       {:bandit, "~> 1.5"},
       {:hammer, "~> 7.0"},
       {:fuse, "~> 2.5"},
+      {:plug_attack, "~> 0.4"},
       {:earmark, "~> 1.4"},
       {:ag_ui_ex, "~> 0.1.0"},
       {:gun, "~> 2.2"},
