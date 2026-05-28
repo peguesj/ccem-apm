@@ -17,6 +17,13 @@ defmodule ApmV5Web.V2.A2AController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.AgUi.A2A.{Router, Patterns, TopicRegistry}
   alias ApmV5.AgUi.EventBus
@@ -24,6 +31,13 @@ defmodule ApmV5Web.V2.A2AController do
   # -- REST Endpoints (US-032) ------------------------------------------------
 
   @doc "POST /api/v2/a2a/send — send an A2A message"
+  operation :send_message,
+    summary: "Send message",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def send_message(conn, params) do
     case Router.send(params) do
       {:ok, message_id} ->
@@ -37,12 +51,26 @@ defmodule ApmV5Web.V2.A2AController do
   end
 
   @doc "GET /api/v2/a2a/messages/:agent_id — get queued messages"
+  operation :messages,
+    summary: "List messages",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def messages(conn, %{"agent_id" => agent_id}) do
     messages = Router.get_messages(agent_id)
     json(conn, %{agent_id: agent_id, messages: messages, count: length(messages)})
   end
 
   @doc "POST /api/v2/a2a/ack — acknowledge a message"
+  operation :ack,
+    summary: "Acknowledge",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def ack(conn, %{"agent_id" => agent_id, "message_id" => message_id}) do
     Router.ack_message(agent_id, message_id)
     json(conn, %{ok: true})
@@ -55,16 +83,37 @@ defmodule ApmV5Web.V2.A2AController do
   end
 
   @doc "GET /api/v2/a2a/stats — router statistics"
+  operation :stats,
+    summary: "Statistics",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def stats(conn, _params) do
     json(conn, Router.stats())
   end
 
   @doc "GET /api/v2/a2a/history/:agent_id — message history"
+  operation :history,
+    summary: "History",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def history(conn, %{"agent_id" => agent_id}) do
     json(conn, %{agent_id: agent_id, history: Router.history(agent_id)})
   end
 
   @doc "POST /api/v2/a2a/broadcast — broadcast to all agents"
+  operation :broadcast_message,
+    summary: "Broadcast message",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def broadcast_message(conn, params) do
     from = params["from_agent_id"]
 
@@ -80,6 +129,13 @@ defmodule ApmV5Web.V2.A2AController do
   end
 
   @doc "POST /api/v2/a2a/fan-out — fan out to specific agents"
+  operation :fan_out,
+    summary: "Fan-out message",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def fan_out(conn, params) do
     from = params["from_agent_id"]
     targets = params["targets"] || []
@@ -91,6 +147,13 @@ defmodule ApmV5Web.V2.A2AController do
   # -- Topic Subscription (coord-a2 hotfix, v9.2.1) ---------------------------
 
   @doc "POST /api/v2/a2a/topics/subscribe — subscribe an agent to a topic"
+  operation :subscribe_topic,
+    summary: "Subscribe to topic",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def subscribe_topic(conn, %{"agent_id" => agent_id, "topic" => topic})
       when is_binary(agent_id) and is_binary(topic) do
     :ok = TopicRegistry.subscribe(agent_id, topic)
@@ -104,6 +167,13 @@ defmodule ApmV5Web.V2.A2AController do
   end
 
   @doc "DELETE /api/v2/a2a/topics/subscribe — unsubscribe agent from topic(s)"
+  operation :unsubscribe_topic,
+    summary: "Unsubscribe from topic",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def unsubscribe_topic(conn, %{"agent_id" => agent_id, "topic" => topic})
       when is_binary(agent_id) and is_binary(topic) do
     :ok = TopicRegistry.unsubscribe(agent_id, topic)
@@ -122,11 +192,25 @@ defmodule ApmV5Web.V2.A2AController do
   end
 
   @doc "GET /api/v2/a2a/topics — list all topics with subscriber counts"
+  operation :list_topics,
+    summary: "List topics",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_topics(conn, _params) do
     json(conn, %{topics: TopicRegistry.list_topics()})
   end
 
   @doc "GET /api/v2/a2a/topics/:topic/subscribers — list agents subscribed to topic"
+  operation :topic_subscribers,
+    summary: "List topic subscribers",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def topic_subscribers(conn, %{"topic" => topic}) do
     subscribers = TopicRegistry.get_subscribers(topic)
     json(conn, %{topic: topic, subscribers: subscribers, count: length(subscribers)})
@@ -135,6 +219,13 @@ defmodule ApmV5Web.V2.A2AController do
   # -- SSE Streaming (US-033) -------------------------------------------------
 
   @doc "GET /api/v2/a2a/stream/:agent_id — SSE stream of A2A messages"
+  operation :stream,
+    summary: "Stream",
+    tags: ["A2A"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def stream(conn, %{"agent_id" => agent_id}) do
     topic = "a2a:#{agent_id}"
     EventBus.subscribe(topic)

@@ -13,10 +13,24 @@ defmodule ApmV5Web.V2.WorktreeController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.WorktreeStore
 
   @doc "GET /api/worktrees — list all worktrees (optional ?project=foo filter)"
+  operation :index,
+    summary: "List",
+    tags: ["Worktrees"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def index(conn, params) do
     items =
       case Map.get(params, "project") do
@@ -28,6 +42,13 @@ defmodule ApmV5Web.V2.WorktreeController do
   end
 
   @doc "POST /api/worktrees/register — register a new worktree"
+  operation :register,
+    summary: "Register",
+    tags: ["Worktrees"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def register(conn, params) do
     case WorktreeStore.register(params) do
       {:ok, metadata} ->
@@ -43,6 +64,13 @@ defmodule ApmV5Web.V2.WorktreeController do
   end
 
   @doc "GET /api/worktrees/:id — fetch a single worktree"
+  operation :show,
+    summary: "Get one",
+    tags: ["Worktrees"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def show(conn, %{"id" => id}) do
     case WorktreeStore.get(id) do
       {:ok, metadata} ->
@@ -56,6 +84,13 @@ defmodule ApmV5Web.V2.WorktreeController do
   end
 
   @doc "PATCH /api/worktrees/:id — update worktree metadata"
+  operation :update,
+    summary: "Update",
+    tags: ["Worktrees"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def update(conn, %{"id" => id} = params) do
     attrs = Map.drop(params, ["id"])
 
@@ -76,6 +111,13 @@ defmodule ApmV5Web.V2.WorktreeController do
   end
 
   @doc "DELETE /api/worktrees/:id — prune a worktree"
+  operation :delete,
+    summary: "Delete",
+    tags: ["Worktrees"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def delete(conn, %{"id" => id}) do
     case WorktreeStore.prune(id) do
       :ok ->

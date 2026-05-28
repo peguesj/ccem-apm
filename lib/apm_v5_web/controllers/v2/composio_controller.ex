@@ -19,10 +19,30 @@ defmodule ApmV5Web.V2.ComposioController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.Plugins.Composio.ComposioClient
 
   # ── Toolkits ──────────────────────────────────────────────────────────────────
+
+  operation :toolkits,
+
+    summary: "Toolkits",
+
+    tags: ["Composio"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
 
   def toolkits(conn, params) do
     opts =
@@ -42,6 +62,19 @@ defmodule ApmV5Web.V2.ComposioController do
   end
 
   # ── Tools ─────────────────────────────────────────────────────────────────────
+
+  operation :tools,
+
+    summary: "Tools",
+
+    tags: ["Composio"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
 
   def tools(conn, %{"toolkit" => slug} = params) do
     opts =
@@ -65,6 +98,19 @@ defmodule ApmV5Web.V2.ComposioController do
 
   # ── Tool Execution ─────────────────────────────────────────────────────────────
 
+  operation :execute_tool,
+
+    summary: "Execute tool",
+
+    tags: ["Composio"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
+
   def execute_tool(conn, %{"action" => action, "params" => tool_params, "user_id" => user_id})
       when is_binary(action) and is_map(tool_params) and is_binary(user_id) do
     case ComposioClient.execute_tool(action, tool_params, user_id) do
@@ -83,6 +129,19 @@ defmodule ApmV5Web.V2.ComposioController do
 
   # ── Connected Accounts ─────────────────────────────────────────────────────────
 
+  operation :accounts,
+
+    summary: "Accounts",
+
+    tags: ["Composio"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
+
   def accounts(conn, %{"user_id" => user_id}) when is_binary(user_id) do
     case ComposioClient.list_connected_accounts(user_id) do
       {:ok, result} -> json(conn, result)
@@ -98,6 +157,19 @@ defmodule ApmV5Web.V2.ComposioController do
   end
 
   # ── Account Connection ─────────────────────────────────────────────────────────
+
+  operation :connect_account,
+
+    summary: "Connect account",
+
+    tags: ["Composio"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
 
   def connect_account(conn, %{"toolkit" => slug, "user_id" => user_id})
       when is_binary(slug) and is_binary(user_id) do
@@ -117,6 +189,19 @@ defmodule ApmV5Web.V2.ComposioController do
 
   # ── MCP Servers ───────────────────────────────────────────────────────────────
 
+  operation :mcp_servers,
+
+    summary: "Mcp servers",
+
+    tags: ["Composio"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
+
   def mcp_servers(conn, _params) do
     case ComposioClient.list_mcp_servers() do
       {:ok, result} -> json(conn, result)
@@ -125,6 +210,19 @@ defmodule ApmV5Web.V2.ComposioController do
       {:error, reason} -> conn |> put_status(502) |> json(%{error: inspect(reason)})
     end
   end
+
+  operation :create_mcp_server,
+
+    summary: "Create mcp server",
+
+    tags: ["Composio"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
 
   def create_mcp_server(conn, %{"name" => name, "toolkits" => toolkits})
       when is_binary(name) and is_list(toolkits) do

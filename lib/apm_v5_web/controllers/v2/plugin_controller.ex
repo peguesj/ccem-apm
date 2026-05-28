@@ -11,6 +11,13 @@ defmodule ApmV5Web.V2.PluginController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.Plugins.PluginRegistry
   alias ApmV5.Plugins.PluginConfigStore
@@ -20,6 +27,13 @@ defmodule ApmV5Web.V2.PluginController do
   @topic "apm:plugins"
 
   @doc "GET /api/v2/plugins — list all registered plugins"
+  operation :index,
+    summary: "List",
+    tags: ["Plugins"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def index(conn, _params) do
     plugins = PluginRegistry.list_plugins()
 
@@ -30,6 +44,13 @@ defmodule ApmV5Web.V2.PluginController do
   end
 
   @doc "GET /api/v2/plugins/:name — get a single plugin by name"
+  operation :show,
+    summary: "Get one",
+    tags: ["Plugins"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def show(conn, %{"name" => name}) do
     case PluginRegistry.get_plugin(name) do
       {:ok, plugin} ->
@@ -43,6 +64,13 @@ defmodule ApmV5Web.V2.PluginController do
   end
 
   @doc "POST /api/v2/plugins/:name/action — invoke a plugin action"
+  operation :invoke_action,
+    summary: "Invoke action",
+    tags: ["Plugins"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def invoke_action(conn, %{"name" => name} = params) do
     action_name = params["action"] || ""
     action_params = params["params"] || %{}
@@ -86,6 +114,13 @@ defmodule ApmV5Web.V2.PluginController do
   end
 
   @doc "GET /api/v2/plugins/:name/board — Kanban board state shortcut"
+  operation :board,
+    summary: "Board",
+    tags: ["Plugins"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def board(conn, %{"name" => name} = params) do
     action_params = params |> Map.take(["project_id"]) |> drop_nils()
 
@@ -105,6 +140,13 @@ defmodule ApmV5Web.V2.PluginController do
   end
 
   @doc "GET /api/v2/plugins/:name/issues — list or search issues shortcut"
+  operation :issues,
+    summary: "Issues",
+    tags: ["Plugins"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def issues(conn, %{"name" => name} = params) do
     action_params = params |> Map.take(["project_id", "query", "state_name"]) |> drop_nils()
     action_name = if Map.has_key?(action_params, "query"), do: "search_issues", else: "list_issues"
@@ -122,6 +164,13 @@ defmodule ApmV5Web.V2.PluginController do
   end
 
   @doc "POST /api/v2/plugins/reload — re-register all default plugins"
+  operation :reload,
+    summary: "Reload",
+    tags: ["Plugins"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def reload(conn, _params) do
     results = PluginRegistry.reload_defaults() |> Enum.map(&inspect/1)
     plugins = PluginRegistry.list_plugins()
@@ -134,17 +183,38 @@ defmodule ApmV5Web.V2.PluginController do
   end
 
   @doc "GET /api/v2/plugins/cc/plugins — list installed Claude Code plugins"
+  operation :cc_plugins,
+    summary: "Cc plugins",
+    tags: ["Plugins"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def cc_plugins(conn, _params) do
     plugins = ClaudeCodePluginBridge.list_cc_plugins()
     json(conn, %{data: plugins, count: length(plugins)})
   end
 
   @doc "GET /api/v2/plugins/cc/summary — Claude Code plugin ecosystem summary"
+  operation :cc_summary,
+    summary: "Cc summary",
+    tags: ["Plugins"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def cc_summary(conn, _params) do
     json(conn, %{data: ClaudeCodePluginBridge.get_summary()})
   end
 
   @doc "GET /api/v2/plugins/:name/config — get resolved config (defaults + overrides)"
+  operation :get_config,
+    summary: "Get config",
+    tags: ["Plugins"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_config(conn, %{"name" => name}) do
     case PluginRegistry.get_plugin(name) do
       {:ok, _} ->
@@ -158,6 +228,13 @@ defmodule ApmV5Web.V2.PluginController do
   end
 
   @doc "PATCH /api/v2/plugins/:name/config — update plugin config overrides"
+  operation :update_config,
+    summary: "Update config",
+    tags: ["Plugins"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def update_config(conn, %{"name" => name} = params) do
     config = Map.get(params, "config", %{})
 
@@ -179,6 +256,13 @@ defmodule ApmV5Web.V2.PluginController do
   end
 
   @doc "DELETE /api/v2/plugins/:name/config — reset plugin config to defaults"
+  operation :reset_config,
+    summary: "Reset config",
+    tags: ["Plugins"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def reset_config(conn, %{"name" => name}) do
     case PluginRegistry.get_plugin(name) do
       {:ok, _} ->

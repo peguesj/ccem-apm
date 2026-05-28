@@ -11,17 +11,39 @@ defmodule ApmV5Web.V2.AutoApprovalController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
+
   require Logger
 
   alias ApmV5.Auth.AutoApprovalStore
 
   @doc "List all active auto-approval policies."
+  operation :index,
+    summary: "List",
+    tags: ["Approvals"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def index(conn, _params) do
     policies = AutoApprovalStore.list_active()
     json(conn, %{policies: policies, count: length(policies)})
   end
 
   @doc "Get a specific auto-approval policy by ID."
+  operation :show,
+    summary: "Get one",
+    tags: ["Approvals"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def show(conn, %{"id" => policy_id}) do
     case AutoApprovalStore.get(policy_id) do
       nil -> send_resp(conn, 404, Jason.encode!(%{error: "not_found"}))
@@ -44,6 +66,13 @@ defmodule ApmV5Web.V2.AutoApprovalController do
     "created_by": string (optional)
   }
   """
+  operation :create,
+    summary: "Create",
+    tags: ["Approvals"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def create(conn, params) do
     attrs = extract_policy_attrs(params)
 
@@ -62,6 +91,13 @@ defmodule ApmV5Web.V2.AutoApprovalController do
 
   Allowed updates: reason, allowed_tools, allowed_risk_levels, expires_at
   """
+  operation :update,
+    summary: "Update",
+    tags: ["Approvals"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def update(conn, %{"id" => policy_id} = params) do
     updates = extract_policy_attrs(params, :update)
 
@@ -75,6 +111,13 @@ defmodule ApmV5Web.V2.AutoApprovalController do
   end
 
   @doc "Delete an auto-approval policy by ID."
+  operation :delete,
+    summary: "Delete",
+    tags: ["Approvals"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def delete(conn, %{"id" => policy_id}) do
     case AutoApprovalStore.delete(policy_id) do
       :ok ->
@@ -98,6 +141,13 @@ defmodule ApmV5Web.V2.AutoApprovalController do
 
   Returns the matching policy or null.
   """
+  operation :test_match,
+    summary: "Test match",
+    tags: ["Approvals"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def test_match(conn, params) do
     agent_id = params["agent_id"]
     formation_id = params["formation_id"]

@@ -10,6 +10,13 @@ defmodule ApmV5Web.V2.HookHealthController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.HookHealthMonitor
 
@@ -23,6 +30,13 @@ defmodule ApmV5Web.V2.HookHealthController do
 
   @doc "Returns the current health snapshot from HookHealthMonitor."
   @spec health(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :health,
+    summary: "Health check",
+    tags: ["Hooks"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def health(conn, _params) do
     result = HookHealthMonitor.current_health()
     json(conn, %{data: serialize_health(result)})
@@ -32,6 +46,13 @@ defmodule ApmV5Web.V2.HookHealthController do
 
   @doc "Triggers an immediate async re-scan."
   @spec scan(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :scan,
+    summary: "Scan",
+    tags: ["Hooks"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def scan(conn, _params) do
     HookHealthMonitor.scan_now()
 
@@ -52,6 +73,13 @@ defmodule ApmV5Web.V2.HookHealthController do
   - Project not found → 404
   """
   @spec clear(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :clear,
+    summary: "Clear",
+    tags: ["Hooks"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def clear(conn, %{"project" => project_name}) do
     # Trigger fresh scan and wait briefly
     HookHealthMonitor.scan_now()

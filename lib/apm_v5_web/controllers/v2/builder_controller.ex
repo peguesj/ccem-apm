@@ -12,8 +12,28 @@ defmodule ApmV5Web.V2.BuilderController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.Plugins.Builder.BuilderEngine
+
+  operation :start_session,
+
+    summary: "Start session",
+
+    tags: ["Builder"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
 
   def start_session(conn, _params) do
     case BuilderEngine.start_session() do
@@ -22,12 +42,38 @@ defmodule ApmV5Web.V2.BuilderController do
     end
   end
 
+  operation :get_session,
+
+    summary: "Get session",
+
+    tags: ["Builder"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
+
   def get_session(conn, %{"id" => id}) do
     case BuilderEngine.get_session(id) do
       {:ok, session} -> json(conn, session_to_map(session))
       {:error, :not_found} -> json(conn |> put_status(:not_found), %{error: "session not found"})
     end
   end
+
+  operation :update_session,
+
+    summary: "Update session",
+
+    tags: ["Builder"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
 
   def update_session(conn, %{"id" => id} = params) do
     attrs = Map.drop(params, ["id"])
@@ -38,6 +84,19 @@ defmodule ApmV5Web.V2.BuilderController do
     end
   end
 
+  operation :analyze_source,
+
+    summary: "Analyze source",
+
+    tags: ["Builder"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
+
   def analyze_source(conn, %{"id" => id}) do
     case BuilderEngine.analyze_source(id) do
       :ok -> json(conn, %{status: "analyzing"})
@@ -45,12 +104,38 @@ defmodule ApmV5Web.V2.BuilderController do
     end
   end
 
+  operation :generate_preview,
+
+    summary: "Generate preview",
+
+    tags: ["Builder"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
+
   def generate_preview(conn, %{"id" => id}) do
     case BuilderEngine.generate_preview(id) do
       :ok -> json(conn, %{status: "generating"})
       {:error, :not_found} -> json(conn |> put_status(:not_found), %{error: "session not found"})
     end
   end
+
+  operation :write_files,
+
+    summary: "Write files",
+
+    tags: ["Builder"],
+
+    responses: [
+
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+
+    ]
+
 
   def write_files(conn, %{"id" => id}) do
     case BuilderEngine.write_files(id) do

@@ -150,6 +150,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/metrics/:agent_id - per-agent metrics with since param"
+  operation :agent_metrics,
+    summary: "Agent metrics",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def agent_metrics(conn, %{"agent_id" => agent_id} = params) do
     opts =
       case params["since"] do
@@ -170,6 +177,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   # ========== SLOs ==========
 
   @doc "GET /api/v2/slos - all SLIs with error budgets"
+  operation :list_slos,
+    summary: "List slos",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_slos(conn, _params) do
     slis = SloEngine.get_all_slis()
 
@@ -186,6 +200,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/slos/:name - single SLI with history"
+  operation :get_slo,
+    summary: "Get slo",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_slo(conn, %{"name" => name_str}) do
     name = safe_to_existing_atom(name_str)
 
@@ -211,6 +232,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   # ========== Alerts ==========
 
   @doc "GET /api/v2/alerts - alert history with cursor pagination and filters"
+  operation :list_alerts,
+    summary: "List alerts",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_alerts(conn, params) do
     limit = ApiV2JSON.parse_limit(params)
 
@@ -236,12 +264,26 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/alerts/rules - list alert rules"
+  operation :list_alert_rules,
+    summary: "List alert rules",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_alert_rules(conn, _params) do
     rules = AlertRulesEngine.list_rules()
     json(conn, ApiV2JSON.envelope(rules, %{total: length(rules)}))
   end
 
   @doc "POST /api/v2/alerts/rules - create alert rule"
+  operation :create_alert_rule,
+    summary: "Create alert rule",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def create_alert_rule(conn, params) do
     rule_params = %{
       name: params["name"] || "unnamed",
@@ -267,6 +309,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   # ========== Audit ==========
 
   @doc "GET /api/v2/audit - audit log with cursor pagination and filters"
+  operation :list_audit,
+    summary: "List audit",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_audit(conn, params) do
     limit = ApiV2JSON.parse_limit(params)
 
@@ -1727,11 +1776,25 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   # ========== Workflows (WorkflowSchemaStore) ==========
 
   @doc "GET /api/v2/workflows"
+  operation :list_workflows,
+    summary: "List workflows",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_workflows(conn, _params) do
     json(conn, ApiV2JSON.envelope(WorkflowSchemaStore.list_workflows()))
   end
 
   @doc "POST /api/v2/workflows"
+  operation :create_workflow,
+    summary: "Create workflow",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def create_workflow(conn, params) do
     case WorkflowSchemaStore.register_workflow(params) do
       {:ok, wf} ->
@@ -1743,6 +1806,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/workflows/:id"
+  operation :get_workflow,
+    summary: "Get workflow",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_workflow(conn, %{"id" => id}) do
     case WorkflowSchemaStore.get_workflow(id) do
       {:ok, wf} ->
@@ -1754,6 +1824,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "PATCH /api/v2/workflows/:id"
+  operation :update_workflow,
+    summary: "Update workflow",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def update_workflow(conn, %{"id" => id} = params) do
     attrs = Map.drop(params, ["id"])
 
@@ -1769,11 +1846,25 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   # ========== Formations (UpmStore) ==========
 
   @doc "GET /api/v2/formations"
+  operation :list_formations,
+    summary: "List formations",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_formations(conn, _params) do
     json(conn, ApiV2JSON.envelope(UpmStore.list_all_formations()))
   end
 
   @doc "POST /api/v2/formations"
+  operation :create_formation,
+    summary: "Create formation",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def create_formation(conn, params) do
     {:ok, id} = UpmStore.register_formation(params)
 
@@ -1785,6 +1876,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/formations/:id"
+  operation :get_formation,
+    summary: "Get formation",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_formation(conn, %{"id" => id}) do
     case UpmStore.get_formation(id) do
       nil ->
@@ -1798,6 +1896,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/formations/:id/agents"
+  operation :get_formation_agents,
+    summary: "Get formation agents",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_formation_agents(conn, %{"id" => id}) do
     agents = AgentRegistry.list_formation(id)
     json(conn, ApiV2JSON.envelope(agents, %{total: length(agents)}))
@@ -1806,6 +1911,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   # ========== Verification (VerifyStore) ==========
 
   @doc "POST /api/v2/verify/double — initiate double-verification session"
+  operation :verify_double,
+    summary: "Verify double",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def verify_double(conn, params) do
     project_root = Map.get(params, "project_root", "")
     app_url = Map.get(params, "app_url", "")
@@ -1846,6 +1958,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   @doc "GET /api/v2/verify/:id — poll verification session status"
+  operation :verify_status,
+    summary: "Verify status",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def verify_status(conn, %{"id" => id}) do
     case ApmV5.VerifyStore.get(id) do
       {:ok, session} ->
@@ -1880,6 +1999,13 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   that needs to discover which extensions are active without parsing the full
   OpenAPI spec.
   """
+  operation :manifest,
+    summary: "Manifest",
+    tags: ["Core"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def manifest(conn, _params) do
     version = Mix.Project.config()[:version]
 

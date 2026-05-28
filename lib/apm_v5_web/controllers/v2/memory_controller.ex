@@ -14,6 +14,13 @@ defmodule ApmV5Web.V2.MemoryController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.Plugins.Memory.MemoryPlugin
 
@@ -21,6 +28,13 @@ defmodule ApmV5Web.V2.MemoryController do
 
   @doc "List cached observations with optional limit/offset pagination."
   @spec list_observations(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :list_observations,
+    summary: "List observations",
+    tags: ["Memory"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def list_observations(conn, params) do
     action_params =
       %{}
@@ -34,6 +48,13 @@ defmodule ApmV5Web.V2.MemoryController do
 
   @doc "Get a single observation by ID."
   @spec get_observation(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :get_observation,
+    summary: "Get observation",
+    tags: ["Memory"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def get_observation(conn, %{"id" => id} = _params) do
     dispatch(conn, "get_observation", %{"id" => id})
   end
@@ -42,6 +63,13 @@ defmodule ApmV5Web.V2.MemoryController do
 
   @doc "Semantic search across observations; falls back to ETS substring match."
   @spec search(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :search,
+    summary: "Search",
+    tags: ["Memory"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def search(conn, %{"query" => _} = params) do
     dispatch(conn, "search_observations", Map.take(params, ["query"]))
   end
@@ -56,6 +84,13 @@ defmodule ApmV5Web.V2.MemoryController do
 
   @doc "Observations in date range; from/to are optional ISO8601 datetime strings."
   @spec timeline(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :timeline,
+    summary: "Timeline",
+    tags: ["Memory"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def timeline(conn, params) do
     action_params = Map.take(params, ["from", "to"])
     dispatch(conn, "timeline", action_params)
@@ -65,6 +100,13 @@ defmodule ApmV5Web.V2.MemoryController do
 
   @doc "Claude-mem worker reachability status."
   @spec health(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :health,
+    summary: "Health check",
+    tags: ["Memory"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def health(conn, _params) do
     dispatch(conn, "health_check", %{})
   end

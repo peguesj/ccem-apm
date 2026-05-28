@@ -7,11 +7,25 @@ defmodule ApmV5Web.V2.PlaneController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.PlanePmAlign
 
   @doc "Return the current Plane sync state."
   @spec sync_status(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :sync_status,
+    summary: "Sync status",
+    tags: ["Plane"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def sync_status(conn, _params) do
     state = PlanePmAlign.current_state()
 
@@ -27,6 +41,13 @@ defmodule ApmV5Web.V2.PlaneController do
 
   @doc "Trigger an immediate Plane sync and return the new state."
   @spec sync(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :sync,
+    summary: "Sync",
+    tags: ["Plane"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def sync(conn, _params) do
     PlanePmAlign.trigger_sync()
     json(conn, %{ok: true, message: "sync triggered"})

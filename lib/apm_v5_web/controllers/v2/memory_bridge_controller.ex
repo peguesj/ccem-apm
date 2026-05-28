@@ -11,6 +11,13 @@ defmodule ApmV5Web.V2.MemoryBridgeController do
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  # api-s7 Wave 1 — minimal annotations injected by /tmp/api-s7/annotate.py.
+  # CastAndValidate is permissive: replace_params: false, freeform 200 schemas.
+  plug OpenApiSpex.Plug.CastAndValidate,
+    replace_params: false,
+    render_error: ApmV5Web.Plugs.OpenApiErrorRenderer
 
   alias ApmV5.Plugins.Memory.ClaudeMemBridge
 
@@ -18,6 +25,13 @@ defmodule ApmV5Web.V2.MemoryBridgeController do
 
   @doc "Search observations by query string."
   @spec observations(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :observations,
+    summary: "Observations",
+    tags: ["Memory"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def observations(conn, params) do
     query = Map.get(params, "query", "")
     limit = parse_limit(Map.get(params, "limit", "50"))
@@ -42,6 +56,13 @@ defmodule ApmV5Web.V2.MemoryBridgeController do
 
   @doc "Return all observations for a given memory_session_id."
   @spec session(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :session,
+    summary: "Session",
+    tags: ["Memory"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def session(conn, %{"session_id" => session_id}) do
     case ClaudeMemBridge.session(session_id) do
       {:ok, rows} ->
@@ -63,6 +84,13 @@ defmodule ApmV5Web.V2.MemoryBridgeController do
 
   @doc "Return aggregate stats: observation count, min ts, max ts."
   @spec stats(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  operation :stats,
+    summary: "Statistics",
+    tags: ["Memory"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   def stats(conn, _params) do
     case ClaudeMemBridge.stats() do
       {:ok, data} ->
