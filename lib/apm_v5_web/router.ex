@@ -448,6 +448,10 @@ defmodule ApmV5Web.Router do
     get "/a2a/topics/:topic/subscribers", A2AController, :topic_subscribers
     get "/a2a/stream/:agent_id", A2AController, :stream
 
+    # A2A v0.3.0 task lifecycle (coord-b1 / coord-b2)
+    get "/a2a/tasks", A2ATasksController, :index
+    get "/a2a/tasks/:task_id", A2ATasksController, :show
+
     # Core: approvals
     get "/approvals", ApprovalController, :index
     get "/approvals/:id", ApprovalController, :show
