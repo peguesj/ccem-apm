@@ -682,8 +682,12 @@ defmodule ApmV5Web.Router do
     get "/library/graph", LibraryController, :graph
     post "/library/refresh", LibraryController, :refresh
 
-    # ── EXTENSION: governance (CP-229 / US-461) ───────────────────────────
+    # ── EXTENSION: governance (CP-229 / US-461 · CP-233/US-465 · CP-234/US-466) ──
     get "/governance/controls", GovernanceController, :list_controls
+    get "/governance/report", GovernanceController, :report
+    post "/governance/report/refresh", GovernanceController, :refresh_report
+    get "/governance/circuit-breakers", GovernanceController, :list_circuit_breakers
+    post "/governance/circuit-breakers/:session_id/close", GovernanceController, :close_circuit
   end
 
   # A2UI flexible format endpoint

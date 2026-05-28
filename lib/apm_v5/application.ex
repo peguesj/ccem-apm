@@ -115,6 +115,10 @@ defmodule ApmV5.Application do
       ApmV5.Governance.Vault,
       # Governance KRI poller — emits risk_score_p95 telemetry every 60s (comp-ms1 / CP-232)
       ApmV5.Governance.GovernanceKriPoller,
+      # ComplianceReportEngine cache Agent — 5-min TTL posture reports (comp-ms2 / CP-233)
+      ApmV5.Governance.ComplianceReportEngine,
+      # IncidentResponseEngine — circuit breaker on policy risk bursts (comp-mg1 / CP-234)
+      ApmV5.Governance.IncidentResponseEngine,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]

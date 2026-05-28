@@ -190,6 +190,36 @@ defmodule ApmV5.Governance.ControlRegistry do
           "re-index of affected log entries (gap: automated rotation not yet built).",
       status: :satisfied,
       iso_27001: ["A.8.24"]
+    },
+    compliance_report_engine: %{
+      name: "ComplianceReportEngine",
+      description:
+        "Automated posture reporting module that maps every CCEM control to its " <>
+          "NIST AI RMF / SOC 2 / ISO 27001 / NIST CSF / PCI DSS / EU AI Act / CIS " <>
+          "status and computes per-framework and overall compliance scores. " <>
+          "Reports are generated on demand (cached 5 minutes) and include a live " <>
+          "KRI snapshot from PolicyDecisionStore and RiskScoreAggregator. " <>
+          "Satisfies NIST AI RMF GOVERN-6 (compliance measurement) and ISO 27001 " <>
+          "A.5.36 (compliance with policies and standards). Added comp-ms2 CP-233.",
+      status: :satisfied,
+      nist_ai_rmf: ["GV-6.1"],
+      iso_27001: ["A.5.36"]
+    },
+    incident_response_engine: %{
+      name: "IncidentResponseEngine",
+      description:
+        "Circuit-breaker GenServer that monitors `auth:decisions` and `auth:risks` " <>
+          "PubSub streams. When a session exceeds `critical_command_rate > 5%` or " <>
+          "`denial_rate > 20%` in a 5-minute window, the engine opens a circuit: " <>
+          "it installs a temporary `always_deny` rule in PolicyRulesStore, records " <>
+          "the circuit in ETS with a 15-minute TTL, broadcasts on " <>
+          "`governance:circuits`, and schedules automatic re-closure. Manual override " <>
+          "is available via `POST /api/v2/governance/circuit-breakers/:session_id/close`. " <>
+          "Closes the NIST AI RMF MANAGE gap for automated incident containment. " <>
+          "Added comp-mg1 CP-234.",
+      status: :satisfied,
+      nist_ai_rmf: ["MG-1.1"],
+      nist_csf: ["RESPOND"]
     }
   }
 
