@@ -1,0 +1,80 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "9.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "CCEM APM — BEAM VM metrics via PromEx. Production dashboards sourced from prom_ex GitHub (akoutmos/prom_ex) at deploy time.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [],
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["beam", "erlang", "vm", "ccem-apm", "prom_ex"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": "Prometheus",
+        "definition": "label_values(erlang_vm_memory_bytes_total, node)",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "node",
+        "options": [],
+        "query": {
+          "query": "label_values(erlang_vm_memory_bytes_total, node)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CCEM APM — BEAM VM",
+  "uid": "ccem-beam-01",
+  "version": 1,
+  "_note": "Placeholder dashboard. For full BEAM VM panels (memory breakdown, process count, scheduler utilization, GC stats, reductions, port count), source the production dashboard from https://raw.githubusercontent.com/akoutmos/prom_ex/master/dashboards/grafana/beam_dashboard.json at deploy time. Requires prom_ex PromEx.Plugins.Beam configured in apm_v5."
+}
