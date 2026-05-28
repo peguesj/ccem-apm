@@ -29,7 +29,7 @@ defmodule ApmV5Web.Components.RateLimitWidget do
 
   use ApmV5Web, :live_component
 
-  alias ApmV5.Auth.AdaptiveRateLimiter
+  alias ApmV5.Auth.{AdaptiveRateLimiter, FormationRateLimiter}
 
   @fuse_names [
     {:apm_register_fuse, "Register"},
@@ -51,7 +51,8 @@ defmodule ApmV5Web.Components.RateLimitWidget do
      |> assign(:factor, AdaptiveRateLimiter.adaptive_factor())
      |> assign(:sparkline, [])
      |> assign(:top_limited, [])
-     |> assign(:formation_util, [])}
+     |> assign(:formation_id, nil)
+     |> assign(:formation_util, %{})}
   end
 
   @impl true
@@ -62,6 +63,19 @@ defmodule ApmV5Web.Components.RateLimitWidget do
      socket
      |> assign(:factor, factor)
      |> assign(:sparkline, sparkline)}
+  end
+
+  def update(%{formation_id: fid} = assigns, socket) when is_binary(fid) do
+    top_limited = FormationRateLimiter.top_n_agents(fid, 10)
+    formation_util = FormationRateLimiter.heatmap_data(fid)
+
+    {:ok,
+     socket
+     |> assign(assigns)
+     |> assign(:formation_id, fid)
+     |> assign(:top_limited, top_limited)
+     |> assign(:formation_util, formation_util)
+     |> assign(:fuse_states, fetch_fuse_states())}
   end
 
   def update(assigns, socket) do
@@ -114,40 +128,46 @@ defmodule ApmV5Web.Components.RateLimitWidget do
         </div>
       </section>
 
-      <!-- Top rate-limited agents (placeholder) -->
+      <!-- Top rate-limited agents (rl-s9: powered by FormationRateLimiter.top_n_agents/2) -->
       <section>
         <h3 class="text-sm font-medium text-base-content/70 mb-2">Top Rate-Limited Agents</h3>
         <%= if @top_limited == [] do %>
           <p class="text-xs text-base-content/40 italic">
-            TODO (rl-s9): Requires Hammer key-enumeration helper in ApmV5.RateLimit.
+            <%= if is_nil(@formation_id), do: "Pass formation_id to widget to show live data.", else: "No agents with active bucket usage." %>
           </p>
         <% else %>
           <ul class="space-y-1">
-            <%= for {key, hits} <- @top_limited do %>
+            <%= for %{agent_id: agent_id, tool_name: tool_name, used: used} <- @top_limited do %>
               <li class="flex justify-between text-sm">
-                <span class="font-mono truncate"><%= key %></span>
-                <span class="text-error font-semibold"><%= hits %></span>
+                <span class="font-mono truncate" title={"#{agent_id}:#{tool_name}"}>
+                  <%= agent_id %>
+                  <span class="text-base-content/50">:<%= tool_name %></span>
+                </span>
+                <span class="text-error font-semibold"><%= used %></span>
               </li>
             <% end %>
           </ul>
         <% end %>
       </section>
 
-      <!-- Per-formation utilization heat map (placeholder) -->
+      <!-- Per-formation utilization heat map (rl-s10: powered by FormationRateLimiter.heatmap_data/1) -->
       <section>
         <h3 class="text-sm font-medium text-base-content/70 mb-2">Formation Utilization</h3>
-        <%= if @formation_util == [] do %>
+        <%= if map_size(@formation_util) == 0 do %>
           <p class="text-xs text-base-content/40 italic">
-            TODO (rl-s10): Requires FormationRateLimiter.utilization/0 query helper.
+            <%= if is_nil(@formation_id), do: "Pass formation_id to widget to show live data.", else: "No tool activity recorded for this formation." %>
           </p>
         <% else %>
-          <div class="grid grid-cols-5 gap-1">
-            <%= for {_fid, pct} <- @formation_util do %>
-              <div
-                class="h-6 rounded text-xs flex items-center justify-center font-mono"
-                style={"background: hsl(#{round((1 - pct) * 120)}, 60%, 50%);"}
-              >
-                <%= round(pct * 100) %>%
+          <div class="grid grid-cols-3 gap-2">
+            <%= for {tool_name, pct} <- Enum.sort(@formation_util) do %>
+              <div class="space-y-1">
+                <div class="text-xs text-base-content/60 truncate" title={tool_name}><%= tool_name %></div>
+                <div
+                  class="h-5 rounded text-xs flex items-center justify-center font-mono text-white"
+                  style={"background: hsl(#{round((1 - pct / 100) * 120)}, 60%, 40%);"}
+                >
+                  <%= :erlang.float_to_binary(pct / 1, decimals: 1) %>%
+                </div>
               </div>
             <% end %>
           </div>
