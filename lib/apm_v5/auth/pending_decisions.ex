@@ -267,24 +267,24 @@ defmodule ApmV5.Auth.PendingDecisions do
   # ── Private ──────────────────────────────────────────────────────────────────
 
   defp log_to_audit(entry) do
-    if Process.whereis(ApprovalAuditLog) do
-      ApprovalAuditLog.log_decision(%{
-        agent_id: entry.agent_id,
-        tool_name: entry.tool_name,
-        decision: entry.decision,
-        request_id: entry.request_id,
-        session_id: entry.session_id,
-        risk_level: entry.risk_level,
-        timestamp: entry.decided_at || DateTime.utc_now(),
-        context_snapshot: %{
-          action_type: entry[:action_type],
-          action_detail: entry[:action_detail],
-          risk_rationale: entry[:risk_rationale],
-          params: entry.params,
-          token_id: Map.get(entry, :token_id)
-        }
-      })
-    end
+    # audit-s4 (CP-222): ApprovalAuditLog is now a stateless shim — no process
+    # guard needed. log_decision/1 delegates directly to AuditLog.
+    ApprovalAuditLog.log_decision(%{
+      agent_id: entry.agent_id,
+      tool_name: entry.tool_name,
+      decision: entry.decision,
+      request_id: entry.request_id,
+      session_id: entry.session_id,
+      risk_level: entry.risk_level,
+      timestamp: entry.decided_at || DateTime.utc_now(),
+      context_snapshot: %{
+        action_type: entry[:action_type],
+        action_detail: entry[:action_detail],
+        risk_rationale: entry[:risk_rationale],
+        params: entry.params,
+        token_id: Map.get(entry, :token_id)
+      }
+    })
   end
 
   defp sanitize_params(params) when is_map(params) do

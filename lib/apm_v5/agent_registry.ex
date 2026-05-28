@@ -209,6 +209,11 @@ defmodule ApmV5.AgentRegistry do
     identity = ApmV5.AgentIdentity.build(agent_id, params_with_project)
     identity_map = ApmV5.AgentIdentity.to_map(identity)
 
+    # Extract optional W3C trace context (obs-s3 / CP-218).
+    # Persisted alongside agent metadata so formation tree builders can
+    # reconstruct parent-child span chains across the agent hierarchy.
+    trace_context = build_trace_context(metadata)
+
     agent =
       identity_map
       |> Map.merge(%{
@@ -220,6 +225,7 @@ defmodule ApmV5.AgentRegistry do
         namespace: Map.get(metadata, :namespace, Map.get(metadata, "namespace", nil)),
         member_count: Map.get(metadata, :member_count, Map.get(metadata, "member_count", nil)),
         wave_total: Map.get(metadata, :wave_total, Map.get(metadata, "wave_total", nil)),
+        trace_context: trace_context,
         registered_at: now,
         last_seen: now
       })
@@ -401,6 +407,7 @@ defmodule ApmV5.AgentRegistry do
           |> maybe_put(fields, "swarm", :swarm)
           |> maybe_put(fields, "cluster", :cluster)
           |> maybe_put(fields, "role", :role)
+          |> maybe_merge_trace_context(fields)
           |> Map.put(:last_seen, now)
 
         :ets.insert(@agents_table, {agent_id, updated})
@@ -458,6 +465,59 @@ defmodule ApmV5.AgentRegistry do
       parent -> walk_hierarchy(parent, [parent | acc])
     end
   end
+
+  # Merge trace_context from update fields without overwriting an existing value
+  # with nil (allows partial updates to preserve existing trace attribution).
+  defp maybe_merge_trace_context(agent, fields) do
+    new_tc = build_trace_context(fields)
+    if is_nil(new_tc), do: agent, else: Map.put(agent, :trace_context, new_tc)
+  end
+
+  # Build a normalized trace_context map from incoming registration metadata.
+  # Accepts the W3C `traceparent` string plus explicit field overrides.
+  # Returns nil if no trace information is present so JSON serialization stays clean.
+  @spec build_trace_context(map()) :: map() | nil
+  defp build_trace_context(metadata) do
+    raw = Map.get(metadata, :trace_context, Map.get(metadata, "trace_context"))
+
+    traceparent =
+      Map.get(metadata, :traceparent, Map.get(metadata, "traceparent")) ||
+        (is_map(raw) && (Map.get(raw, :traceparent) || Map.get(raw, "traceparent")))
+
+    trace_id =
+      (is_map(raw) && (Map.get(raw, :trace_id) || Map.get(raw, "trace_id"))) ||
+        Map.get(metadata, :trace_id, Map.get(metadata, "trace_id")) ||
+        extract_trace_id_from_traceparent(traceparent)
+
+    span_id =
+      (is_map(raw) && (Map.get(raw, :span_id) || Map.get(raw, "span_id"))) ||
+        Map.get(metadata, :span_id, Map.get(metadata, "span_id"))
+
+    parent_span_id =
+      (is_map(raw) && (Map.get(raw, :parent_span_id) || Map.get(raw, "parent_span_id"))) ||
+        Map.get(metadata, :parent_span_id, Map.get(metadata, "parent_span_id"))
+
+    if is_nil(trace_id) && is_nil(traceparent) do
+      nil
+    else
+      %{
+        trace_id: trace_id,
+        span_id: span_id,
+        parent_span_id: parent_span_id,
+        traceparent: traceparent
+      }
+    end
+  end
+
+  # Parse trace_id from a W3C traceparent string: "00-<trace_id>-<span_id>-<flags>"
+  defp extract_trace_id_from_traceparent(nil), do: nil
+  defp extract_trace_id_from_traceparent(tp) when is_binary(tp) do
+    case String.split(tp, "-") do
+      [_ver, trace_id | _rest] when byte_size(trace_id) == 32 -> trace_id
+      _ -> nil
+    end
+  end
+  defp extract_trace_id_from_traceparent(_), do: nil
 
   defp maybe_put(map, fields, string_key, atom_key) do
     case Map.get(fields, string_key, Map.get(fields, atom_key)) do

@@ -18,6 +18,8 @@ defmodule ApmV5.ClaudeUsageStore do
 
   require Logger
 
+  alias OpenTelemetry.SemConv.Incubating.GenAiAttributes
+
   @table :claude_usage
   @lvm_table :claude_lvm_capabilities
 
@@ -233,6 +235,9 @@ defmodule ApmV5.ClaudeUsageStore do
 
     :ets.insert(@table, {key, updated})
 
+    # If there is an active OTel span, annotate it with the gen_ai usage attrs.
+    maybe_set_usage_span_attrs(usage)
+
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "apm:usage", {:usage_updated, get_all_usage()})
 
     # Broadcast lvm:usage_changed when effort level shifts
@@ -324,4 +329,31 @@ defmodule ApmV5.ClaudeUsageStore do
   end
 
   defp infer_effort_level(_), do: "low"
+
+  # ---------------------------------------------------------------------------
+  # OTel span enrichment
+  # ---------------------------------------------------------------------------
+
+  # When `record_usage` fires inside an existing OTel span (e.g. a `with_llm_span`
+  # wrapping a Claude API call), attach the gen_ai usage attrs to that span.
+  # This is fire-and-forget: if the tracer is a no-op (SDK not configured, or
+  # `:undefined` span context), `set_attributes/2` is itself a no-op and we
+  # skip the call entirely to avoid logging noise.
+  @spec maybe_set_usage_span_attrs(map()) :: :ok
+  defp maybe_set_usage_span_attrs(usage) do
+    span_ctx = OpenTelemetry.Tracer.current_span_ctx()
+
+    unless span_ctx == :undefined do
+      attrs = %{
+        GenAiAttributes.gen_ai_usage_input_tokens() => Map.get(usage, :input, 0),
+        GenAiAttributes.gen_ai_usage_output_tokens() => Map.get(usage, :output, 0),
+        :"gen_ai.usage.cache_read.input_tokens" => Map.get(usage, :cache_read, 0),
+        :"gen_ai.usage.cache_creation.input_tokens" => Map.get(usage, :cache_creation, 0)
+      }
+
+      OpenTelemetry.Span.set_attributes(span_ctx, attrs)
+    end
+
+    :ok
+  end
 end

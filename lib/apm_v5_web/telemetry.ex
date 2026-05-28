@@ -4,6 +4,12 @@ defmodule ApmV5Web.Telemetry do
 
   Configures Telemetry.Metrics and attaches them to the Phoenix.LiveDashboard
   metrics reporter for real-time performance monitoring.
+
+  ## Prometheus reporter (obs-s2 / CP-217)
+
+  `ApmV5.Metrics` is started here as a supervised `Peep` reporter child.
+  The peep ETS storage backing `:ccem_apm_metrics` is scraped via
+  `Peep.Plug` mounted at `/metrics` in the router.
   """
 
   use Supervisor
@@ -16,11 +22,11 @@ defmodule ApmV5Web.Telemetry do
   @impl true
   def init(_arg) do
     children = [
-      # Telemetry poller will execute the given period measurements
-      # every 10_000ms. Learn more here: https://hexdocs.pm/telemetry_metrics
-      {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
-      # Add reporters as children of your supervision tree.
-      # {Telemetry.Metrics.ConsoleReporter, metrics: metrics()}
+      # Telemetry poller — periodic VM measurements every 10 s.
+      {:telemetry_poller, measurements: periodic_measurements(), period: 10_000},
+      # Peep Prometheus reporter — serves ccem_apm_* metrics at /metrics.
+      # Named :ccem_apm_metrics so Peep.Plug can resolve it by name.
+      ApmV5.Metrics.child_spec()
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

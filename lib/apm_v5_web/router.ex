@@ -58,6 +58,14 @@ defmodule ApmV5Web.Router do
     plug ApmV5Web.Plugs.CORS
   end
 
+  # ── Prometheus scrape endpoint (internal — restrict at network layer) ────────
+  # Intentionally outside the :api pipeline so Prometheus scrapers can reach
+  # /metrics without a bearer token. Restrict at load-balancer / firewall in
+  # production. obs-s2 / CP-217 / US-449.
+  pipeline :metrics_internal do
+    plug :accepts, ["text"]
+  end
+
   # ── BROWSER ROUTES ─────────────────────────────────────────────────────────
 
   scope "/", ApmV5Web do
@@ -677,6 +685,16 @@ defmodule ApmV5Web.Router do
     pipe_through :api_flexible
 
     get "/a2ui/components", A2uiController, :components
+  end
+
+  # ── Prometheus /metrics — internal scrape endpoint (obs-s2 / CP-217) ────────
+  # Routed to MetricsController which calls Peep.get_all_metrics + Prometheus.export.
+  # Intentionally outside the :api pipeline (no bearer token required) — restrict
+  # at load-balancer / firewall in production.
+  scope "/", ApmV5Web do
+    pipe_through :metrics_internal
+
+    get "/metrics", MetricsController, :index
   end
 
   # ── WEBHOOKS (no auth pipeline — validated internally by handler) ──────────

@@ -386,9 +386,42 @@ defmodule ApmV5.Auth.AuthorizationGate do
     end
   end
 
+  # audit-s3: forward agent_id and session_id from details as typed context
+  # so they're included in the hash chain. Falls back to log/4 if AuditLog
+  # rejects the call (shouldn't happen; defensive catch).
+  #
+  # obs-s3: if details carries a `trace_context` or `traceparent` field
+  # (forwarded by the hook), the parent_span_id is mapped to `causation_id`
+  # so audit events are correlated with the distributed OTel span tree.
   defp log_audit(event_type, resource, details) do
     try do
-      ApmV5.AuditLog.log(event_type, "agentlock", resource, details)
+      # Extract causation_id from incoming trace_context.parent_span_id (obs-s3).
+      causation_id =
+        with tc when is_map(tc) <- Map.get(details, :trace_context, Map.get(details, "trace_context")),
+             psid when is_binary(psid) <- Map.get(tc, :parent_span_id) || Map.get(tc, "parent_span_id") do
+          psid
+        else
+          _ ->
+            # Fallback: parse parent span from bare traceparent string if present
+            case Map.get(details, :traceparent, Map.get(details, "traceparent")) do
+              tp when is_binary(tp) ->
+                case String.split(tp, "-") do
+                  [_ver, _tid, parent_sid | _] -> parent_sid
+                  _ -> nil
+                end
+              _ -> nil
+            end
+        end
+
+      context = %{
+        agent_id: Map.get(details, :agent_id),
+        session_id: Map.get(details, :session_id),
+        tool_name: resource,
+        severity: :info,
+        causation_id: causation_id
+      }
+
+      ApmV5.AuditLog.log_with_context(event_type, "agentlock", resource, details, nil, context)
     rescue
       _ -> :ok
     catch

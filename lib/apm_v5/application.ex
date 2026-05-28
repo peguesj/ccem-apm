@@ -14,6 +14,11 @@ defmodule ApmV5.Application do
     # Attach default telemetry logger handlers (v8.12.1)
     _ = ApmV5.Instrumentation.attach_default_handlers()
 
+    # v9.3.0 Observability: wire OTel instrumentation for Bandit + Phoenix
+    # Must run BEFORE the endpoint supervisor child starts accepting connections.
+    OpentelemetryBandit.setup()
+    OpentelemetryPhoenix.setup(adapter: :bandit)
+
     # Initialize LifecycleMapper ETS tables before supervision tree starts
     ApmV5.AgUi.LifecycleMapper.init_tables()
 

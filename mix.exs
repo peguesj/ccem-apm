@@ -71,7 +71,18 @@ defmodule ApmV5.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
-      {:open_api_spex, "~> 3.22"}
+      {:open_api_spex, "~> 3.22"},
+      # --- v9.3.0 Observability (obs-s1 / CP-216) ---
+      {:opentelemetry_api, "~> 1.5"},
+      {:opentelemetry, "~> 1.7"},
+      {:opentelemetry_exporter, "~> 1.10"},
+      {:opentelemetry_semantic_conventions, "~> 1.27"},
+      {:opentelemetry_bandit, "~> 0.3"},
+      {:opentelemetry_phoenix, "~> 2.0"},
+      {:opentelemetry_process_propagator, "~> 0.3"},
+      {:peep, "~> 5.0"},
+      # --- v9.3.0 Audit: structured Logger backend (audit-s5 / CP-223) ---
+      {:logger_json, "~> 7.0"}
     ]
   end
 
