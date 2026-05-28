@@ -295,6 +295,19 @@ defmodule ApmV5Web.ApiController do
 
   @doc "POST /api/register -- register agent (existing v4 endpoint)"
   def register(conn, params) do
+    case :fuse.ask(:apm_register_fuse, :sync) do
+      :blown ->
+        conn
+        |> put_status(503)
+        |> put_resp_header("retry-after", "30")
+        |> json(%{error: "circuit_open", fuse: "apm_register_fuse"})
+
+      :ok ->
+        do_register(conn, params)
+    end
+  end
+
+  defp do_register(conn, params) do
     agent_id = params["agent_id"] || params["id"]
 
     if is_nil(agent_id) or agent_id == "" do
@@ -370,6 +383,19 @@ defmodule ApmV5Web.ApiController do
 
   @doc "POST /api/heartbeat -- update agent status (upsert: auto-registers unknown agents)"
   def heartbeat(conn, params) do
+    case :fuse.ask(:apm_heartbeat_fuse, :sync) do
+      :blown ->
+        conn
+        |> put_status(503)
+        |> put_resp_header("retry-after", "15")
+        |> json(%{error: "circuit_open", fuse: "apm_heartbeat_fuse"})
+
+      :ok ->
+        do_heartbeat(conn, params)
+    end
+  end
+
+  defp do_heartbeat(conn, params) do
     agent_id = params["agent_id"] || params["id"]
 
     if is_nil(agent_id) or agent_id == "" do
@@ -406,6 +432,19 @@ defmodule ApmV5Web.ApiController do
 
   @doc "POST /api/notify -- add notification with optional scoped fields"
   def notify(conn, params) do
+    case :fuse.ask(:apm_notify_fuse, :sync) do
+      :blown ->
+        conn
+        |> put_status(503)
+        |> put_resp_header("retry-after", "30")
+        |> json(%{error: "circuit_open", fuse: "apm_notify_fuse"})
+
+      :ok ->
+        do_notify(conn, params)
+    end
+  end
+
+  defp do_notify(conn, params) do
     # Parse upm_context — may arrive as JSON string or already-decoded map
     upm_context =
       case params["upm_context"] do

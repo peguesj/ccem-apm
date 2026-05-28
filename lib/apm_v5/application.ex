@@ -115,10 +115,27 @@ defmodule ApmV5.Application do
       ApmV5Web.Endpoint
     ]
 
+    # Install fuse circuit breakers before supervision tree starts --
+    # fuse uses ETS internally so this is a synchronous, side-effect-free
+    # operation that must complete before the endpoint begins handling requests.
+    install_circuit_breakers()
+
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: ApmV5.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  # Install fuse circuit breakers for hot-path API endpoints.
+  #
+  # Thresholds (generous to avoid false trips on legitimate agent formations):
+  #   :apm_register_fuse  — 500 failures / 10 s window, reset after 30 s
+  #   :apm_heartbeat_fuse — 1000 failures / 10 s window, reset after 15 s
+  #   :apm_notify_fuse    — 300 failures / 10 s window, reset after 30 s
+  defp install_circuit_breakers do
+    :fuse.install(:apm_register_fuse, {{:standard, 500, 10_000}, {:reset, 30_000}})
+    :fuse.install(:apm_heartbeat_fuse, {{:standard, 1000, 10_000}, {:reset, 15_000}})
+    :fuse.install(:apm_notify_fuse, {{:standard, 300, 10_000}, {:reset, 30_000}})
   end
 
   # Tell Phoenix to update the endpoint configuration
