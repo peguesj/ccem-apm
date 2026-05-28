@@ -178,6 +178,11 @@ defmodule ApmV5Web.Router do
   scope "/api", ApmV5Web do
     pipe_through :api
 
+    # RFC 8615 health check — application/health+json (CP-250 / US-482 / hc-s1)
+    # NOTE: uses "pass"/"warn"/"fail" vocabulary per IETF draft-inadarei-api-health-check-06
+    # The legacy /api/status still returns "ok" for back-compat.
+    get "/health", HealthController, :health
+
     # Agent lifecycle
     get "/status", ApiController, :status
     get "/agents", ApiController, :agents
@@ -691,6 +696,8 @@ defmodule ApmV5Web.Router do
     pipe_through :api
 
     get "/.well-known/agent-card.json", WellKnownController, :agent_card
+    # RFC 8615 well-known health URI — alias to /api/health (CP-250 / US-482 / hc-s1)
+    get "/.well-known/health", HealthController, :health
     # Per-agent card under /api/v2/agents — outside V2 scope to keep one controller.
     get "/api/v2/agents/:agent_id/agent-card.json",
         WellKnownController,
