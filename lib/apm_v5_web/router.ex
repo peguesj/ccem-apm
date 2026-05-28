@@ -730,6 +730,10 @@ defmodule ApmV5Web.Router do
 
     # ── EXTENSION: identity (prov-w1-s2 / CP-276) ────────────────────────────
     get "/identity/did-document", IdentityController, :did_document
+
+    # ── EXTENSION: provenance (prov-w2-s4 / CP-278) ───────────────────────────
+    get "/provenance/bundle", ProvenanceController, :bundle
+    get "/provenance/lineage", ProvenanceController, :lineage
   end
 
   # A2UI flexible format endpoint
