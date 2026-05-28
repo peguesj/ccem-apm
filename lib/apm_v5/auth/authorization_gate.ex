@@ -25,8 +25,8 @@ defmodule ApmV5.Auth.AuthorizationGate do
 
   alias ApmV5.Auth.Types
   alias ApmV5.Auth.Types.AuthTool
-  alias ApmV5.Auth.{PolicyEngine, TokenStore, SessionStore, RateLimiter, ContextTracker,
-                     PolicyRulesStore, PendingDecisions}
+  alias ApmV5.Auth.{PolicyEngine, TokenStore, SessionStore, RateLimiter, FormationRateLimiter,
+                     ContextTracker, PolicyRulesStore, PendingDecisions}
 
   @tool_registry :agentlock_tool_registry
 
@@ -166,8 +166,28 @@ defmodule ApmV5.Auth.AuthorizationGate do
         {:reply, result, new_state}
 
       :ok ->
-        # 3a. Check permanent policy rules (always_allow / always_deny override)
-        policy_rule = PolicyRulesStore.check_rule(tool_name)
+        # 2b. Formation-level rate check (sqrt-scaled aggregate budget)
+        formation_id = Map.get(params, :formation_id) || Map.get(params, "formation_id")
+        tool_risk = get_tool_risk(tool_name)
+        formation_check =
+          if is_binary(formation_id) and byte_size(formation_id) > 0 do
+            FormationRateLimiter.check(agent_id, formation_id, tool_name, tool_risk)
+          else
+            :ok
+          end
+
+        case formation_check do
+          {:deny, scope} ->
+            broadcast({:auth_rate_limited, %{tool_name: tool_name, agent_id: agent_id, scope: scope, formation_id: formation_id, retry_after_ms: 1_000}})
+            broadcast_decision(tool_name, :rate_limited, :medium, session_id)
+            log_audit("auth:formation_rate_limited", tool_name, %{agent_id: agent_id, formation_id: formation_id, scope: scope})
+            result = {:error, :rate_limited, "Formation rate limit exceeded (scope: #{scope}). Retry after 1000ms"}
+            new_state = %{state | total_denied: state.total_denied + 1}
+            {:reply, result, new_state}
+
+          :ok ->
+            # 3a. Check permanent policy rules (always_allow / always_deny override)
+            policy_rule = PolicyRulesStore.check_rule(tool_name)
 
         # 3b. Build evaluation context
         trust_ceiling = get_trust_ceiling(session_id)
@@ -328,7 +348,8 @@ defmodule ApmV5.Auth.AuthorizationGate do
                %{state | total_denied: state.total_denied + 1}}
           end
 
-        {:reply, result, new_state}
+            {:reply, result, new_state}
+        end
     end
   end
 
@@ -405,6 +426,13 @@ defmodule ApmV5.Auth.AuthorizationGate do
       session_id: session_id,
       timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
     })
+  end
+
+  defp get_tool_risk(tool_name) do
+    case get_tool(tool_name) do
+      nil -> :low
+      tool -> tool.risk_level || :low
+    end
   end
 
   defp broadcast(event) do
