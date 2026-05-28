@@ -526,6 +526,17 @@ defmodule ApmV5.AuditLog do
     # Task so sink latency NEVER blocks the GenServer.
     dispatch_sinks(event)
 
+    # Ed25519 artifact attestation (prov-w1-s3 / CP-277):
+    # Produce a signed attestation for :tool_call events whose tool_name is
+    # Write, Edit, or MultiEdit. Runs in a Task — never blocks the GenServer.
+    ApmV5.Provenance.ArtifactAttestation.Signer.maybe_attest(
+      event_type,
+      resource,
+      agent_id,
+      tool_name,
+      context
+    )
+
     {event, %{state | counter: id, prev_hash: self_hash, today: today}}
   end
 

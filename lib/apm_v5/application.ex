@@ -22,6 +22,9 @@ defmodule ApmV5.Application do
     # Initialize LifecycleMapper ETS tables before supervision tree starts
     ApmV5.AgUi.LifecycleMapper.init_tables()
 
+    # Initialize artifact attestation ETS ring buffer before AuditLog starts
+    ApmV5.Provenance.ArtifactAttestation.init_table()
+
     children = [
       # PlugAttack ETS storage -- must start before the endpoint to ensure the
       # table exists when the first request hits ApmV5Web.Plugs.RateLimit.
@@ -133,6 +136,8 @@ defmodule ApmV5.Application do
       ApmV5.A2A.ArtifactVersionStore,
       # A2A pessimistic file lock registry (coord-c2)
       ApmV5.A2A.FileLockRegistry,
+      # Identity: Ed25519 KeyStore — persists APM signing keypair (prov-w1-s1 / CP-275)
+      ApmV5.Identity.KeyStore,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]
