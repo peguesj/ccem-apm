@@ -172,18 +172,26 @@ defmodule ApmV5Web.Schemas do
   end
 
   defmodule PolicyRule do
-    @moduledoc "A policy rule definition"
+    @moduledoc """
+    A policy rule definition.
+
+    Reflects the actual PolicyRulesStore.list_rules/0 response shape:
+    %{tool_name: string, action: atom_as_string, inserted_at: datetime_string}.
+    (api-s6: aligned to real store output — api-s7 may add id/tool_pattern aliases)
+    """
     OpenApiSpex.schema(%{
       title: "PolicyRule",
       type: :object,
       properties: %{
-        id: %Schema{type: :string},
-        tool_pattern: %Schema{type: :string, description: "Glob or regex pattern for tool names"},
-        action: %Schema{type: :string, enum: ["permit", "deny", "escalate"]},
-        risk_level: ApmV5Web.Schemas.RiskLevel,
-        description: %Schema{type: :string, nullable: true}
+        tool_name: %Schema{type: :string, description: "Tool name or glob pattern (e.g. '*', 'Bash')"},
+        action: %Schema{
+          type: :string,
+          enum: ["always_allow", "always_deny", "permit", "deny", "escalate"],
+          description: "Policy action for the tool"
+        },
+        inserted_at: %Schema{type: :string, format: :"date-time", nullable: true}
       },
-      required: [:id, :tool_pattern, :action]
+      required: [:tool_name, :action]
     })
   end
 
@@ -193,8 +201,16 @@ defmodule ApmV5Web.Schemas do
       title: "PolicyRuleList",
       type: :object,
       properties: %{
+        ok: %Schema{type: :boolean, nullable: true},
         rules: %Schema{type: :array, items: ApmV5Web.Schemas.PolicyRule},
-        total: %Schema{type: :integer}
+        policies: %Schema{
+          type: :array,
+          items: ApmV5Web.Schemas.PolicyRule,
+          nullable: true,
+          description: "Alias for rules (apm-auth skill compat)"
+        },
+        count: %Schema{type: :integer, nullable: true},
+        total: %Schema{type: :integer, nullable: true}
       }
     })
   end
