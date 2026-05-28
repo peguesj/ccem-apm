@@ -165,21 +165,51 @@ defmodule ApmV5.Auth.PolicyEngine do
       case tool_name do
         "Bash" ->
           command = get_in(context, [:params, "command"]) || ""
-          if destructive_command?(command), do: :critical, else: base_risk
+
+          if destructive_command?(command) do
+            # KRI: critical_command_rate
+            agent_id   = Map.get(context, :agent_id, "unknown")
+            cmd_sig    = String.slice(command, 0, 120)
+
+            :telemetry.execute(
+              [:apm_v5, :governance, :critical_command_rate],
+              %{count: 1},
+              %{tool_name: tool_name, agent_id: agent_id, command_signature: cmd_sig}
+            )
+
+            :critical
+          else
+            base_risk
+          end
 
         _ ->
           base_risk
       end
 
-    # Apply MCP ToolAnnotations if provided — take the higher risk
+    # Apply MCP ToolAnnotations if provided — take the higher risk.
+    # If annotations also produce :critical emit KRI for annotation path.
     mcp_annotations = Map.get(context, :mcp_annotations)
 
     if is_map(mcp_annotations) and map_size(mcp_annotations) > 0 do
       annotation_risk = from_mcp_annotations(mcp_annotations)
 
-      if Types.risk_severity(annotation_risk) > Types.risk_severity(bash_risk),
-        do: annotation_risk,
-        else: bash_risk
+      final_risk =
+        if Types.risk_severity(annotation_risk) > Types.risk_severity(bash_risk),
+          do: annotation_risk,
+          else: bash_risk
+
+      if final_risk == :critical and bash_risk != :critical do
+        # Annotation-driven :critical — emit KRI if not already emitted above
+        agent_id = Map.get(context, :agent_id, "unknown")
+
+        :telemetry.execute(
+          [:apm_v5, :governance, :critical_command_rate],
+          %{count: 1},
+          %{tool_name: tool_name, agent_id: agent_id, command_signature: "mcp_annotation_destructive"}
+        )
+      end
+
+      final_risk
     else
       bash_risk
     end

@@ -79,6 +79,13 @@ defmodule ApmV5.Auth.PolicyRulesStore do
     :ets.insert(@table, {tool_name, action, DateTime.utc_now()})
     Logger.info("[PolicyRulesStore] Rule set: #{tool_name} → #{action}")
 
+    # KRI: policy_rule_changes (create or update)
+    :telemetry.execute(
+      [:apm_v5, :governance, :policy_rule_changes],
+      %{count: 1},
+      %{tool_name: tool_name, action: action, change_type: :upsert}
+    )
+
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:policy_rule_added, %{
       tool_name: tool_name,
       action: action,
@@ -92,6 +99,13 @@ defmodule ApmV5.Auth.PolicyRulesStore do
   def handle_call({:remove_rule, tool_name}, _from, state) do
     :ets.delete(@table, tool_name)
     Logger.info("[PolicyRulesStore] Rule removed: #{tool_name}")
+
+    # KRI: policy_rule_changes (delete)
+    :telemetry.execute(
+      [:apm_v5, :governance, :policy_rule_changes],
+      %{count: 1},
+      %{tool_name: tool_name, action: :none, change_type: :delete}
+    )
 
     Phoenix.PubSub.broadcast(ApmV5.PubSub, "agentlock:authorization", {:policy_rule_removed, %{
       tool_name: tool_name
