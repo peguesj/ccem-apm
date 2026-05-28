@@ -138,6 +138,10 @@ defmodule ApmV5.Application do
       ApmV5.A2A.FileLockRegistry,
       # Identity: Ed25519 KeyStore — persists APM signing keypair (prov-w1-s1 / CP-275)
       ApmV5.Identity.KeyStore,
+      # Identity: AgentRoleIndex — deterministic UUID v5 role identity (prov-w2-s5 / CP-279)
+      ApmV5.Identity.AgentRoleIndex,
+      # Provenance: LineageTracker — wasDerivedFrom edges via tool-call hashes (prov-w2-s6 / CP-280)
+      ApmV5.Provenance.LineageTracker,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]
