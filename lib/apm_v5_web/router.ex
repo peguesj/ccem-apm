@@ -55,6 +55,8 @@ defmodule ApmV5Web.Router do
     plug ApmV5Web.Plugs.RateLimit
     # RFC 6585 + IETF draft-ietf-httpapi-ratelimit-headers (CP-240 / US-472 / rl-s5)
     plug ApmV5Web.Plugs.RateLimitHeaders
+    # RFC 8594 Deprecation + Sunset headers for legacy /api/* routes (api-s8 / CP-267)
+    plug ApmV5Web.Plugs.Deprecation
     # NOTE: OpenApiSpex.Plug.CastAndValidate is NOT in the router pipeline
     # because it requires :phoenix_controller in conn.private (set only after
     # the controller dispatcher resolves the route). Instead, annotated
