@@ -9,6 +9,28 @@ defmodule ApmV5.AgUi.A2A.Envelope do
   - mix compile --warnings-as-errors passes
   """
 
+  require Logger
+
+  @fipa_performatives ~w(
+    cfp propose accept_proposal reject_proposal
+    request inform inform_if
+    failure agree cancel
+    subscribe unsubscribe
+    query_if query_ref
+  )
+
+  @doc """
+  Returns `true` when `message_type` is a recognized FIPA performative.
+
+  Non-FIPA types are permitted (warn-only validation in `new/1`) so existing
+  callers using proprietary message types remain unaffected.
+  """
+  @spec message_type_valid?(String.t()) :: boolean()
+  def message_type_valid?(message_type) when is_binary(message_type),
+    do: message_type in @fipa_performatives
+
+  def message_type_valid?(_), do: false
+
   @enforce_keys [:from_agent_id, :to, :message_type, :payload]
   defstruct [
     :id,
@@ -46,6 +68,13 @@ defmodule ApmV5.AgUi.A2A.Envelope do
     to = parse_address(attrs[:to] || attrs["to"])
     msg_type = attrs[:message_type] || attrs["message_type"] || "generic"
     payload = attrs[:payload] || attrs["payload"] || %{}
+
+    unless message_type_valid?(msg_type) do
+      Logger.warning(
+        "[A2A.Envelope] Unknown message_type #{inspect(msg_type)}. " <>
+          "Consider a FIPA performative: #{Enum.join(@fipa_performatives, ", ")}"
+      )
+    end
 
     cond do
       is_nil(from) -> {:error, "from_agent_id is required"}
