@@ -170,6 +170,9 @@ defmodule ApmV5Web.Router do
       live "/upm/module", UpmLive, :index
       live "/upm/module/:project_id", UpmLive, :project
       live "/upm/module/:project_id/board", UpmLive, :board
+
+      # Rate limits dashboard (rl-s8)
+      live "/rate-limits", RateLimitsLive, :index
     end
   end
 
