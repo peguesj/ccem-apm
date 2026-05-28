@@ -666,6 +666,10 @@ defmodule ApmV5Web.Router do
     post "/hooks/scan", HookHealthController, :scan
     post "/hooks/clear/:project", HookHealthController, :clear
 
+    # ── EXTENSION: artifact version store (coord-c3) ──────────────────────
+    get "/a2a/artifacts/:key/version", ArtifactVersionController, :get_version
+    post "/a2a/artifacts/:key/cas", ArtifactVersionController, :cas
+
     # ── EXTENSION: library ────────────────────────────────────────────────
     get "/library", LibraryController, :index
     get "/library/agents", LibraryController, :agents
