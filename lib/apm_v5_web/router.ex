@@ -52,6 +52,8 @@ defmodule ApmV5Web.Router do
     plug ApmV5Web.Plugs.CORS
     plug ApmV5Web.Plugs.ApiAuth
     plug ApmV5Web.Plugs.RateLimit
+    # RFC 6585 + IETF draft-ietf-httpapi-ratelimit-headers (CP-240 / US-472 / rl-s5)
+    plug ApmV5Web.Plugs.RateLimitHeaders
   end
 
   pipeline :api_flexible do
