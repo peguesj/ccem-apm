@@ -41,23 +41,42 @@ defmodule ApmV5.Tracing do
 
   Sets the following attributes on the active span:
     - `openinference.span.kind` = `"AGENT"`
-    - `gen_ai.provider.name` = `"anthropic"` (CCEM targets Anthropic models exclusively)
+    - `gen_ai.provider.name` = `opts[:provider_name]` (default `"anthropic"`)
     - `gen_ai.agent.id` = `agent_id`
+    - `gen_ai.agent.name` = `opts[:agent_name]` (optional)
+    - `gen_ai.agent.description` = `opts[:agent_description]` (optional)
+    - `gen_ai.agent.version` = `opts[:agent_version]` (optional)
     - `ccem.formation.id` = `formation_id`
+
+  Pass `provider_name: "ccem"` in opts when instrumenting CCEM-internal operations
+  (e.g., `AgentRegistry.register_agent/3`).
 
   Returns the return value of `fun`.
   """
-  @spec with_agent_span(String.t(), String.t() | nil, (-> result)) :: result when result: term()
-  def with_agent_span(agent_id, formation_id, fun)
+  @spec with_agent_span(String.t(), String.t() | nil, (-> result), keyword()) :: result
+        when result: term()
+  def with_agent_span(agent_id, formation_id, fun, opts \\ [])
       when is_binary(agent_id) and is_function(fun, 0) do
-    attrs = %{
+    provider = Keyword.get(opts, :provider_name, "anthropic")
+
+    base_attrs = %{
       :"openinference.span.kind" => "AGENT",
-      :"gen_ai.provider.name" => "anthropic",
+      :"gen_ai.provider.name" => provider,
       :"gen_ai.agent.id" => agent_id,
       :"ccem.formation.id" => formation_id || ""
     }
 
-    run_span("ccem.agent", attrs, fun)
+    optional_attrs =
+      opts
+      |> Keyword.take([:agent_name, :agent_description, :agent_version])
+      |> Enum.reduce(%{}, fn
+        {:agent_name, v}, acc when is_binary(v) -> Map.put(acc, :"gen_ai.agent.name", v)
+        {:agent_description, v}, acc when is_binary(v) -> Map.put(acc, :"gen_ai.agent.description", v)
+        {:agent_version, v}, acc when is_binary(v) -> Map.put(acc, :"gen_ai.agent.version", v)
+        _, acc -> acc
+      end)
+
+    run_span("ccem.agent", Map.merge(base_attrs, optional_attrs), fun)
   end
 
   @doc """

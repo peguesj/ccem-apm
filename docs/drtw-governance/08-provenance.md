@@ -42,7 +42,7 @@
 
 ### Wave 3 (depends on Wave 1, parallel)
 - [x] **S7** `DelegationChain` module — pure functional, `:crypto` only — M (prov-w3-s7 / CP-281 / SHIPPED)
-- [ ] **S8** OTel GenAI `gen_ai.agent.*` span emission in `AgentRegistry` — M (2 days)
+- [x] **S8** OTel GenAI `gen_ai.agent.*` span emission in `AgentRegistry` — M (prov-w3-s8 / CP-282 / SHIPPED)
 
 ### Wave 4 (depends on Waves 1-3)
 - **S9** Provenance REST API (6 new endpoints) — M (2 days)
