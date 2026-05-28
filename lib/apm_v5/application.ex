@@ -116,6 +116,8 @@ defmodule ApmV5.Application do
       ApmV5.HookHealthMonitor,
       # A2A artifact CAS store (coord-c3)
       ApmV5.A2A.ArtifactVersionStore,
+      # A2A pessimistic file lock registry (coord-c2)
+      ApmV5.A2A.FileLockRegistry,
       # Start to serve requests, typically the last entry
       ApmV5Web.Endpoint
     ]

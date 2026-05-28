@@ -677,6 +677,11 @@ defmodule ApmV5Web.Router do
     get "/a2a/artifacts/:key/version", ArtifactVersionController, :get_version
     post "/a2a/artifacts/:key/cas", ArtifactVersionController, :cas
 
+    # ── EXTENSION: file lock registry (coord-c2) ───────────────────────────
+    get "/locks", FileLockController, :index
+    post "/locks/acquire", FileLockController, :acquire
+    delete "/locks/:lock_id", FileLockController, :release
+
     # ── EXTENSION: library ────────────────────────────────────────────────
     get "/library", LibraryController, :index
     get "/library/agents", LibraryController, :agents
