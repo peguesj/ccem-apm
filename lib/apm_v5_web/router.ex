@@ -126,6 +126,9 @@ defmodule ApmV5Web.Router do
       live "/showcase/:project", ShowcaseLive, :project
       live "/ccem", CcemOverviewLive, :index
 
+      # Extension: governance posture (CP-236 / US-468 — auth-comp TRACK COMPLETE)
+      live "/governance", GovernanceLive, :index
+
       # Extension: agentlock
       live "/authorization", AuthorizationLive, :index
       live "/govern/authorization", AuthorizationLive, :index

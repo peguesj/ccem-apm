@@ -106,6 +106,7 @@ defmodule ApmV5Web.Components.SidebarNav do
   defp govern_nav(assigns) do
     ~H"""
     <.section_header label="Govern" />
+    <.nav_item icon="hero-globe-alt"                label="Governance"    href="/governance"        current_path={@current_path} />
     <.nav_item icon="hero-shield-check"             label="Authorization" href="/authorization"     current_path={@current_path} />
     <.nav_item icon="hero-map"                      label="Routing"       href="/routing"           current_path={@current_path} />
     <.nav_item icon="hero-clipboard-document-check" label="Approvals"     href="/approvals-history" current_path={@current_path} />
