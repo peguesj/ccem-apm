@@ -46,6 +46,7 @@ defmodule ApmV5.AgUi.A2A.AgentCard do
           authentication: map()
         }
 
+  @derive Jason.Encoder
   defstruct name: "",
             description: "",
             version: "",

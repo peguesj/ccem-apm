@@ -24,6 +24,7 @@ defmodule ApmV5.AgUi.A2A.AgentSkill do
           examples: [String.t()]
         }
 
+  @derive Jason.Encoder
   defstruct id: "",
             name: "",
             description: "",
