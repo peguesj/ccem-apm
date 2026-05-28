@@ -25,9 +25,10 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
   @type orchestration_type :: :pipeline | :workflow | :maintenance | :sync | :formation | :autonomous
 
   @type step :: %{
-          id: String.t(),
-          label: String.t(),
-          type: :action | :gate | :decision | :terminal | :approval
+          required(:id) => String.t(),
+          required(:label) => String.t(),
+          required(:type) => :action | :gate | :decision | :terminal | :approval,
+          optional(:timeout_ms) => pos_integer() | nil
         }
 
   @type edge :: %{source: String.t(), target: String.t()}
@@ -146,7 +147,8 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
   @impl true
   def init(_opts) do
     :ets.new(@table, [:named_table, :public, :set, read_concurrency: true])
-    {:ok, %{}}
+    # timers: %{"{run_id}:{step_id}" => timer_ref}
+    {:ok, %{timers: %{}}}
   end
 
   @impl true
@@ -156,7 +158,25 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
       :ets.insert(@table, {run.id, run})
       OrchestrationRunStore.put(run)
       broadcast_run_event(:run_started, run)
-      {:reply, {:ok, run}, state}
+
+      # Schedule timeouts for any steps that carry a timeout_ms field
+      new_timers =
+        Enum.reduce(run.steps, state.timers, fn step, acc ->
+          case Map.get(step, :timeout_ms) do
+            nil ->
+              acc
+
+            ms when is_integer(ms) and ms > 0 ->
+              timer_key = "#{run.id}:#{step.id}"
+              ref = Process.send_after(self(), {:step_timeout, run.id, step.id}, ms)
+              Map.put(acc, timer_key, ref)
+
+            _ ->
+              acc
+          end
+        end)
+
+      {:reply, {:ok, run}, %{state | timers: new_timers}}
     else
       {:error, _} = err -> {:reply, err, state}
     end
@@ -165,11 +185,15 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
   def handle_call({:advance_step, run_id, step_id}, _from, state) do
     case :ets.lookup(@table, run_id) do
       [{^run_id, run}] ->
+        # Cancel any pending timeout for the step being advanced away from
+        timer_key = "#{run_id}:#{Map.get(run, :current_step, step_id)}"
+        new_timers = cancel_timer_if_present(state.timers, timer_key)
+
         updated = %{run | current_step: step_id}
         :ets.insert(@table, {run_id, updated})
         OrchestrationRunStore.put(updated)
         broadcast_run_event(:run_advanced, updated)
-        {:reply, {:ok, updated}, state}
+        {:reply, {:ok, updated}, %{state | timers: new_timers}}
 
       [] ->
         {:reply, {:error, :not_found}, state}
@@ -179,11 +203,17 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
   def handle_call({:cancel_run, run_id}, _from, state) do
     case :ets.lookup(@table, run_id) do
       [{^run_id, run}] ->
+        # Cancel all timers for this run
+        new_timers =
+          Enum.reduce(run.steps, state.timers, fn step, acc ->
+            cancel_timer_if_present(acc, "#{run_id}:#{step.id}")
+          end)
+
         updated = %{run | status: :cancelled, completed_at: DateTime.utc_now()}
         :ets.insert(@table, {run_id, updated})
         OrchestrationRunStore.put(updated)
         broadcast_run_event(:run_cancelled, updated)
-        {:reply, :ok, state}
+        {:reply, :ok, %{state | timers: new_timers}}
 
       [] ->
         {:reply, {:error, :not_found}, state}
@@ -204,6 +234,10 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
             {:reply, {:error, :not_an_approval_step}, state}
 
           true ->
+            # Cancel any pending timeout for this step before approving
+            timer_key = "#{run_id}:#{step_id}"
+            new_timers = cancel_timer_if_present(state.timers, timer_key)
+
             # Broadcast approval event before advancing
             Phoenix.PubSub.broadcast(
               ApmV5.PubSub,
@@ -226,7 +260,7 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
             :ets.insert(@table, {run_id, updated})
             OrchestrationRunStore.put(updated)
             broadcast_run_event(:run_advanced, updated)
-            {:reply, {:ok, updated}, state}
+            {:reply, {:ok, updated}, %{state | timers: new_timers}}
         end
 
       [] ->
@@ -235,8 +269,59 @@ defmodule ApmV5.Orchestration.OrchestrationManager do
   end
 
   # ---------------------------------------------------------------------------
+  # handle_info: step timeout
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_info({:step_timeout, run_id, step_id}, state) do
+    timer_key = "#{run_id}:#{step_id}"
+    new_timers = Map.delete(state.timers, timer_key)
+
+    case :ets.lookup(@table, run_id) do
+      [{^run_id, run}] ->
+        # Only fail the run if the step is still the current/active step
+        # (or if current_step is nil, meaning we haven't advanced past it)
+        active_step = run.current_step
+
+        if is_nil(active_step) or active_step == step_id do
+          Logger.warning(
+            "[OrchestrationManager] Step timeout: run=#{run_id} step=#{step_id}"
+          )
+
+          updated = %{run | status: :failed, completed_at: DateTime.utc_now(),
+                      metadata: Map.put(run.metadata, :failure_reason, {:timeout, step_id})}
+          :ets.insert(@table, {run_id, updated})
+          OrchestrationRunStore.put(updated)
+          broadcast_run_event(:run_failed, updated)
+
+          Phoenix.PubSub.broadcast(
+            ApmV5.PubSub,
+            "apm:orchestration",
+            {:run_step_timeout, run_id, step_id}
+          )
+        end
+
+      [] ->
+        :ok
+    end
+
+    {:noreply, %{state | timers: new_timers}}
+  end
+
+  # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  defp cancel_timer_if_present(timers, key) do
+    case Map.pop(timers, key) do
+      {nil, timers} ->
+        timers
+
+      {ref, timers} ->
+        Process.cancel_timer(ref)
+        timers
+    end
+  end
 
   defp validate_type(%{orchestration_type: :pipeline} = params) do
     case detect_cycle(Map.get(params, :edges, [])) do
