@@ -162,6 +162,21 @@ defmodule ApmV5.Governance.ControlRegistry do
           "applied. Added in v9.3.0 auth-s1 (CP-227).",
       status: :satisfied,
       nist_ai_rmf: ["GV-1.1", "GV-6.1"]
+    },
+    compliance_disclosure: %{
+      name: "ComplianceDisclosure",
+      description:
+        "Governance fields on AgentIdentity — `asl_tier`, `ai_act_risk_class`, " <>
+          "and `disclosure_text` — allow each registered agent to declare its " <>
+          "Anthropic RSP capability ceiling (ASL-1/2/3) and its EU AI Act " <>
+          "Article 6 / Annex III risk classification. The `disclosure_text` " <>
+          "field carries the Article 52 transparency notice surfaced to end " <>
+          "users. Fields are propagated to the A2A AgentCard `metadata.governance` " <>
+          "key. Gap: runtime enforcement of disclosure presentation is not yet " <>
+          "wired into the frontend (pending v9.4.0 AgentCard LiveComponent).",
+      status: :partial,
+      eu_ai_act: ["Article 13", "Article 52"],
+      nist_ai_rmf: ["MAP-1.5"]
     }
   }
 

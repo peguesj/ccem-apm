@@ -56,6 +56,10 @@ defmodule ApmV5.AgentIdentity do
     | :quality_agent
     | :unknown
 
+  @type asl_tier() :: :asl1 | :asl2 | :asl3 | nil
+
+  @type ai_act_risk_class() :: :minimal | :limited | :high | :unacceptable | nil
+
   @type t() :: %__MODULE__{
     # OTel gen_ai.agent.* fields
     agent_id:          String.t(),
@@ -93,7 +97,16 @@ defmodule ApmV5.AgentIdentity do
 
     # A2A v0.3.0 — Skills declaration for AgentCard (coord-a1 v9.2.1).
     # Each skill: %{id, name, description, inputModes, outputModes, tags, examples}
-    skills:            [map()]
+    skills:            [map()],
+
+    # Governance — Responsible Scaling Policy + EU AI Act (comp-map1 / CP-230)
+    # asl_tier: Anthropic RSP capability ceiling declaration (ASL-1..3).
+    # ai_act_risk_class: EU AI Act Article 6 / Annex III risk classification.
+    # disclosure_text: EU AI Act Article 52 transparency disclosure string,
+    #   surfaced to end users when the agent is deployed in an interactive context.
+    asl_tier:          asl_tier(),
+    ai_act_risk_class: ai_act_risk_class(),
+    disclosure_text:   String.t() | nil
   }
 
   defstruct [
@@ -121,7 +134,10 @@ defmodule ApmV5.AgentIdentity do
     :upm_session_id,
     upm_context: %{},
     authorization: %{},
-    skills: []
+    skills: [],
+    asl_tier: nil,
+    ai_act_risk_class: nil,
+    disclosure_text: nil
   ]
 
   @doc """
@@ -181,6 +197,11 @@ defmodule ApmV5.AgentIdentity do
     |> maybe_add("risk_level",   get_p(p, "risk_level"))
     |> maybe_add("trust_level",  get_p(p, "trust_level"))
 
+    # Governance fields (comp-map1 / CP-230)
+    asl_tier          = parse_asl_tier(get_p(p, "asl_tier"))
+    ai_act_risk_class = parse_ai_act_risk_class(get_p(p, "ai_act_risk_class"))
+    disclosure_text   = get_p(p, "disclosure_text")
+
     %__MODULE__{
       agent_id:          agent_id,
       agent_name:        agent_name,
@@ -205,7 +226,10 @@ defmodule ApmV5.AgentIdentity do
       work_item_title:   get_p(p, "work_item_title"),
       upm_session_id:    get_p(p, "upm_session_id"),
       upm_context:       upm_ctx,
-      authorization:     auth_ctx
+      authorization:     auth_ctx,
+      asl_tier:          asl_tier,
+      ai_act_risk_class: ai_act_risk_class,
+      disclosure_text:   disclosure_text
     }
   end
 
@@ -252,7 +276,11 @@ defmodule ApmV5.AgentIdentity do
       upm_session_id:    id.upm_session_id,
       upm_context:       id.upm_context,
       # AgentLock
-      authorization:     id.authorization
+      authorization:     id.authorization,
+      # Governance (comp-map1 / CP-230)
+      asl_tier:          id.asl_tier,
+      ai_act_risk_class: id.ai_act_risk_class,
+      disclosure_text:   id.disclosure_text
     }
   end
 
@@ -331,6 +359,38 @@ defmodule ApmV5.AgentIdentity do
     end
   end
   defp parse_int(_), do: nil
+
+  # ---------------------------------------------------------------------------
+  # Governance field parsers (comp-map1 / CP-230)
+  # ---------------------------------------------------------------------------
+
+  @valid_asl_tiers ~w(asl1 asl2 asl3)
+
+  @doc false
+  defp parse_asl_tier(nil), do: nil
+  defp parse_asl_tier(v) when is_atom(v) do
+    s = Atom.to_string(v)
+    if s in @valid_asl_tiers, do: String.to_existing_atom(s), else: nil
+  end
+  defp parse_asl_tier(v) when is_binary(v) do
+    normalized = String.downcase(v)
+    if normalized in @valid_asl_tiers, do: String.to_atom(normalized), else: nil
+  end
+  defp parse_asl_tier(_), do: nil
+
+  @valid_ai_act_classes ~w(minimal limited high unacceptable)
+
+  @doc false
+  defp parse_ai_act_risk_class(nil), do: nil
+  defp parse_ai_act_risk_class(v) when is_atom(v) do
+    s = Atom.to_string(v)
+    if s in @valid_ai_act_classes, do: String.to_existing_atom(s), else: nil
+  end
+  defp parse_ai_act_risk_class(v) when is_binary(v) do
+    normalized = String.downcase(v)
+    if normalized in @valid_ai_act_classes, do: String.to_atom(normalized), else: nil
+  end
+  defp parse_ai_act_risk_class(_), do: nil
 
   defp get_p(map, key), do: Map.get(map, key)
 
