@@ -550,6 +550,8 @@ defmodule ApmV5Web.Router do
     get "/auth/policy/rules", AuthController, :list_policy_rules
     post "/auth/policy/rules", AuthController, :add_policy_rule
     delete "/auth/policy/rules/:tool_name", AuthController, :remove_policy_rule
+    # auth-v10.1-s3 (CP-293): Rego policy export
+    get "/auth/policy/rego", AuthController, :export_policy_rego
 
     # CP-285: versioned policy changelog
     get "/auth/policy/history", AuthController, :policy_history

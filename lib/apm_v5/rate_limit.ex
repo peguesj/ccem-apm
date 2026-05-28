@@ -1,14 +1,27 @@
 defmodule ApmV5.RateLimit do
   @moduledoc """
-  Central rate limiter for CCEM APM, backed by Hammer 7.x ETS sliding window.
+  Central rate limiter for CCEM APM, backed by Hammer 7.x sliding-window.
 
-  Uses an atomic check-and-record (`hit/3`) — O(1) amortized — replacing the
-  two hand-rolled timestamp-list accumulators that had an O(n) per-check
-  accumulation bug (prune ran every 30s, writes were continuous).
+  ## Backend selection (auth-v10.2-s1 / CP-296)
+
+  The backing store is **config-driven** so teams can swap between ETS (default,
+  zero-infrastructure, CI-safe) and Redis (multi-node, persistent, production).
+
+      # Default — ETS, in-process, no external deps
+      config :apm_v5, ApmV5.RateLimit, backend: :ets
+
+      # Redis — requires a running Redis instance; uses hammer_backend_redis
+      config :apm_v5, ApmV5.RateLimit, backend: :redis, redis_url: "redis://localhost:6379"
+
+  At compile time the module `use`-es the correct Hammer backend. Because Hammer
+  generates functions at compile time via macro, both modules are always defined
+  but only one is listed in the supervision tree (see `ApmV5.Application`).
+
+  The public API (`hit/3`) delegates to whichever module is active, so call
+  sites never need to change.
 
   ## Usage
 
-      # Allow up to 200 calls in any 60-second window for a given key
       case ApmV5.RateLimit.hit("agent-123:Bash", :timer.seconds(60), 200) do
         {:allow, count} -> :ok
         {:deny, retry_after_ms} -> {:error, :rate_limited, retry_after_ms}
@@ -16,17 +29,41 @@ defmodule ApmV5.RateLimit do
 
   ## Key conventions
 
-  - Agent tool key: `"\#{agent_id}:\#{tool_name}"`
-  - Formation key (reserved for rl-s6): `"formation:\#{formation_id}:\#{tool_name}"`
+  - Agent tool key:     `"\#{agent_id}:\#{tool_name}"`
+  - Formation key:      `"formation:\#{formation_id}:\#{tool_name}"`
+  - Global limiter key: `"global:\#{endpoint}"`
 
   ## Child spec
 
-  Add `ApmV5.RateLimit` to a supervisor:
+      children = [ApmV5.RateLimit]
 
-      children = [
-        {ApmV5.RateLimit, clean_period: :timer.minutes(2)}
-      ]
+  `child_spec/1` delegates to the active backend module.
   """
 
+  # Compile-time backend selection
+  @backend Application.compile_env(:apm_v5, [ApmV5.RateLimit, :backend], :ets)
+
+  case @backend do
+    :ets ->
+      use Hammer, backend: :ets, algorithm: :sliding_window
+
+    :redis ->
+      # hammer_backend_redis must be in mix.exs deps when backend: :redis is configured.
+      # CI environments should use backend: :ets (default) to avoid Redis dependency.
+      use Hammer,
+        backend: {Hammer.Backend.Redis, [expiry_ms: 60_000 * 60, redix_config: []]},
+        algorithm: :sliding_window
+  end
+end
+
+defmodule ApmV5.RateLimit.EtsBackend do
+  @moduledoc """
+  Explicit ETS-backed Hammer instance.
+
+  Always compiled regardless of the configured backend so that callers that
+  explicitly want ETS semantics (e.g. tests) can use this module directly.
+
+  In production, prefer `ApmV5.RateLimit` which selects the backend from config.
+  """
   use Hammer, backend: :ets, algorithm: :sliding_window
 end

@@ -17,6 +17,7 @@ defmodule ApmV5.Auth.PolicyEngine do
   alias ApmV5.Auth.Types
   alias ApmV5.Auth.Types.{AuthTool, PolicyDecision}
   alias ApmV5.Auth.PolicyPredicate
+  alias ApmV5.Auth.PolicyPriorityResolver
 
   # Default risk mapping for Claude Code tools
   @default_risk_map %{
@@ -73,15 +74,27 @@ defmodule ApmV5.Auth.PolicyEngine do
     predicates = Map.get(context, :predicates, [])
     predicate_gate = PolicyPredicate.evaluate_all(predicates, context)
 
-    # Permanent policy rule takes absolute priority — but only when predicates
-    # (if any) all match.
-    effective_rule =
+    # Multi-rule conflict resolution path (auth-v10.1-s4 / CP-294):
+    # When caller provides :matching_rules list, resolve via PolicyPriorityResolver.
+    # Predicates gate whether matching rules are considered at all.
+    resolved_rule =
       case predicate_gate do
-        :match -> Map.get(context, :policy_rule, :none)
-        :no_match -> :none
+        :no_match ->
+          :none
+
+        :match ->
+          case Map.get(context, :matching_rules) do
+            [_ | _] = rules ->
+              strategy = PolicyPriorityResolver.configured_strategy()
+              PolicyPriorityResolver.resolve(rules, strategy)
+
+            _ ->
+              Map.get(context, :policy_rule, :none)
+          end
       end
 
-    case effective_rule do
+    # Permanent policy rule takes absolute priority over all other checks.
+    case resolved_rule do
       :always_allow ->
         %PolicyDecision{
           allowed: true,
