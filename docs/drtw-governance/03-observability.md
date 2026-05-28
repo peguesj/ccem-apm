@@ -53,3 +53,34 @@
 - `gen_ai.usage.cache_read.input_tokens` — CCEM already tracks this
 - `gen_ai.usage.cache_creation.input_tokens` — CCEM already tracks this
 - `gen_ai.request.model`, `gen_ai.provider.name`, `gen_ai.conversation.id`
+
+---
+
+## v9.4.0 Wave 3 S8 Update — AgentRegistry gen_ai.agent.* span emission (prov-w3-s8 / CP-282)
+
+**Shipped**: 2026-05-28 on `ralph/v9.4.0-prov-w3`
+
+### What changed
+- `ApmV5.Tracing.with_agent_span/4` (was `/3`): added optional `opts` keyword parameter.
+  - `provider_name:` keyword overrides the default `"anthropic"` provider name.
+  - `agent_name:`, `agent_description:`, `agent_version:` keywords set the corresponding
+    `gen_ai.agent.*` span attributes from `opentelemetry_semantic_conventions` incubating GenAI.
+- `ApmV5.AgentRegistry.handle_call({:register_agent, ...})`: wraps the entire registration
+  body in `ApmV5.Tracing.with_agent_span(agent_id, formation_id, fn, provider_name: "ccem")`.
+  Attributes on the span: `gen_ai.agent.id`, `gen_ai.provider.name = "ccem"`,
+  `ccem.formation.id`, `openinference.span.kind = "AGENT"`, plus optional
+  `gen_ai.agent.name`, `gen_ai.agent.description`, `gen_ai.agent.version` when provided.
+- `ApmV5.AgentRegistry.handle_call({:update_status, ...})`: wraps status update body in
+  `with_agent_span` so status transition OTel events are emitted.
+
+### DRTW decision
+No new packages. `opentelemetry_semantic_conventions ~> 1.27` is already installed
+(obs-s1 / CP-216).  `ApmV5.Tracing.with_agent_span/3` was already present (obs-s4 / CP-219).
+The story required only a 4-argument overload + two `handle_call` wrappings — ~50 LOC.
+
+### TDD
+9 behavioral tests in `test/apm_v5/agent_registry_otel_test.exs` verify:
+- Registration returns `:ok` with no span errors (no-op OTel in test env)
+- Agent record fields that feed span attributes are correctly stored
+- Concurrent registration does not leak span context
+- Status updates return `:ok` and persist correctly
