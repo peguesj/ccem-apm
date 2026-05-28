@@ -5,9 +5,16 @@ defmodule ApmV5Web.V2.AuthController do
   Provides 13 endpoints under `/api/v2/auth/*` for tool authorization,
   session management, token validation, audit queries, context tracking,
   and policy configuration.
+
+  ## open_api_spex annotations (api-s5 Wave 1 / CP-262)
+  Actions annotated: authorize, list_policy_rules (2 of 13)
+  Remaining actions documented via build_spec/0 fallback until api-s7 (v9.4.0).
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias ApmV5Web.Schemas
 
   alias ApmV5.Auth.{
     AuthorizationGate,
@@ -25,6 +32,19 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
   # Authorization
   # ---------------------------------------------------------------------------
+
+  operation :authorize,
+    summary: "Authorize a tool invocation",
+    description: """
+    Main AgentLock authorization gate. Evaluates the tool call against policy rules,
+    session trust level, and risk thresholds. Returns allow/deny/ask decision.
+    """,
+    tags: ["AgentLock Authorization"],
+    request_body: {"Authorization request", "application/json", Schemas.AuthorizeRequest, required: true},
+    responses: [
+      ok: {"Authorization decision", "application/json", Schemas.AuthDecision},
+      unprocessable_entity: {"Validation error", "application/json", Schemas.ErrorResponse}
+    ]
 
   @doc "POST /api/v2/auth/authorize — Main authorization gate"
   def authorize(conn, params) do
@@ -401,6 +421,14 @@ defmodule ApmV5Web.V2.AuthController do
   # ---------------------------------------------------------------------------
   # Policy Rules
   # ---------------------------------------------------------------------------
+
+  operation :list_policy_rules,
+    summary: "List policy rules",
+    description: "Returns all permanent allow/deny/escalate policy rules for tool authorization.",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"Policy rule list", "application/json", Schemas.PolicyRuleList}
+    ]
 
   @doc "GET /api/v2/auth/policy/rules — List permanent allow/deny rules"
   def list_policy_rules(conn, _params) do

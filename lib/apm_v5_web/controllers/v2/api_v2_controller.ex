@@ -2,9 +2,14 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   @moduledoc """
   v2 REST API with standardized envelope responses and cursor-based pagination.
   Phase 3.1 of CCEM APM v5.
+
+  ## open_api_spex annotations (api-s5 Wave 1 / CP-262)
+  Actions annotated: status, list_agents, get_agent (3 of many)
+  Remaining actions documented via build_spec/0 fallback until api-s7 (v9.4.0).
   """
 
   use ApmV5Web, :controller
+  use OpenApiSpex.ControllerSpecs
 
   alias ApmV5.AgentRegistry
   alias ApmV5.MetricsCollector
@@ -14,8 +19,46 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   alias ApmV5.WorkflowSchemaStore
   alias ApmV5.UpmStore
   alias ApmV5Web.V2.ApiV2JSON
+  alias ApmV5Web.Schemas
+
+  # ========== OpenAPI spec ==========
+
+  operation :openapi,
+    summary: "OpenAPI 3.0.3 spec",
+    description: "Returns the full OpenAPI 3.0.3 spec for the CCEM APM v2 API (113 paths). " <>
+      "During Wave 1 (api-s5) most routes are documented via build_spec/0. " <>
+      "Full open_api_spex annotation completes in api-s7 (v9.4.0).",
+    tags: ["Health"],
+    responses: [
+      ok: {"OpenAPI 3.0.3 JSON document", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
 
   # ========== Agents ==========
+
+  operation :list_agents,
+    summary: "List agents",
+    description: "Returns all registered agents with cursor-based pagination.",
+    tags: ["Agents"],
+    parameters: [
+      cursor: [in: :query, type: :string, required: false, description: "Pagination cursor"],
+      limit: [in: :query, type: :integer, required: false, description: "Page size (max 200, default 50)"],
+      project: [in: :query, type: :string, required: false, description: "Filter by project"]
+    ],
+    responses: [
+      ok: {"Agent list", "application/json", Schemas.AgentList}
+    ]
+
+  operation :get_agent,
+    summary: "Get agent by ID",
+    description: "Returns a single agent with computed health score and recent metrics.",
+    tags: ["Agents"],
+    parameters: [
+      id: [in: :path, type: :string, required: true, description: "Agent ID"]
+    ],
+    responses: [
+      ok: {"Agent detail", "application/json", Schemas.Agent},
+      not_found: {"Not found", "application/json", Schemas.ErrorResponse}
+    ]
 
   @doc "GET /api/v2/agents - list agents with cursor pagination"
   def list_agents(conn, params) do
@@ -54,6 +97,18 @@ defmodule ApmV5Web.V2.ApiV2Controller do
 
   # ========== Sessions ==========
 
+  operation :list_sessions,
+    summary: "List sessions",
+    description: "Returns all active and historical Claude Code sessions with cursor-based pagination.",
+    tags: ["Sessions"],
+    parameters: [
+      cursor: [in: :query, type: :string, required: false, description: "Pagination cursor"],
+      limit: [in: :query, type: :integer, required: false, description: "Page size (max 200, default 50)"]
+    ],
+    responses: [
+      ok: {"Session list", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
   @doc "GET /api/v2/sessions - list sessions with cursor pagination"
   def list_sessions(conn, params) do
     limit = ApiV2JSON.parse_limit(params)
@@ -73,6 +128,14 @@ defmodule ApmV5Web.V2.ApiV2Controller do
   end
 
   # ========== Metrics ==========
+
+  operation :fleet_metrics,
+    summary: "Fleet metrics summary",
+    description: "Returns aggregated health and performance metrics across all agents.",
+    tags: ["Metrics"],
+    responses: [
+      ok: {"Fleet metrics", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
 
   @doc "GET /api/v2/metrics - fleet metrics summary"
   def fleet_metrics(conn, _params) do
