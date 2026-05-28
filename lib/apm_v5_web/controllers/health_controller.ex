@@ -76,6 +76,24 @@ defmodule ApmV5Web.HealthController do
     |> json(payload)
   end
 
+  @doc """
+  GET /healthz — Kubernetes liveness probe.
+
+  Returns 200 when the BEAM is up and Phoenix is responding. Kubernetes only
+  checks the HTTP status code, so the body is kept minimal.
+
+  Returns 503 only in the (theoretically unreachable) case where a fatal
+  startup error condition is detected. Paves the way for hc-s3 /ready and
+  hc-s4 /startup which add GenServer readiness and supervision-tree startup
+  checks respectively.
+  """
+  @spec liveness(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def liveness(conn, _params) do
+    # If this action executes, the BEAM is running and the Phoenix endpoint is
+    # serving requests — both required conditions for Kubernetes liveness.
+    json(conn, %{ok: true})
+  end
+
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
