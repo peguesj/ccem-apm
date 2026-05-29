@@ -516,4 +516,26 @@ defmodule ApmV5Web.V2.ProvenanceController do
 
   defp parse_int(value, _default) when is_integer(value) and value >= 0, do: value
   defp parse_int(_, default), do: default
+
+  @doc """
+  GET /api/v2/provenance/slsa/:attestation_id — SLSA Provenance v1.0 retrieval
+  (comp-v10.3-s1 / CP-299)
+
+  Returns a DSSE envelope wrapping the in-toto Statement that carries the
+  SLSA Provenance v1 predicate for a given artefact write.
+  """
+  def show(conn, %{"attestation_id" => attestation_id}) do
+    alias ApmV5.Provenance.SLSAProvenance
+
+    case ArtifactAttestation.find_by_id(attestation_id) do
+      {:ok, attest} ->
+        envelope = SLSAProvenance.sign(attest)
+        json(conn, envelope)
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(404)
+        |> json(%{error: "attestation not found", attestation_id: attestation_id})
+    end
+  end
 end

@@ -141,6 +141,34 @@ defmodule ApmV5.Provenance.ArtifactAttestation do
     :ets.insert(@ets_table, {ring_key, attest})
     :ok
   end
+
+  @doc """
+  Find an attestation by the SLSA-style attestation id (first 32 hex chars of
+  sha256(signature)). Used by the public SLSA Provenance retrieval endpoint
+  (`GET /api/v2/provenance/slsa/:attestation_id`).
+
+  O(n) over the ring buffer (n ≤ 5000). Returns `{:ok, attest}` or
+  `{:error, :not_found}`.
+  """
+  @spec find_by_id(String.t()) :: {:ok, t()} | {:error, :not_found}
+  def find_by_id(attestation_id) when is_binary(attestation_id) do
+    init_table()
+
+    result =
+      :ets.foldl(
+        fn {_k, %__MODULE__{} = a}, acc ->
+          id = :crypto.hash(:sha256, a.signature) |> Base.encode16(case: :lower) |> binary_part(0, 32)
+          if id == attestation_id, do: a, else: acc
+        end,
+        nil,
+        @ets_table
+      )
+
+    case result do
+      nil -> {:error, :not_found}
+      attest -> {:ok, attest}
+    end
+  end
 end
 
 defmodule ApmV5.Provenance.ArtifactAttestation.Signer do

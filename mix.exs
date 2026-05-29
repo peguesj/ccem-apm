@@ -97,7 +97,9 @@ defmodule ApmV5.MixProject do
       # --- v10.2.0 OIDC: enterprise IdP integration (CP-297) ---
       {:assent, "~> 0.3"},
       {:req, "~> 0.5"},
-      {:jose, "~> 1.11"}
+      {:jose, "~> 1.11"},
+      # --- v10.3.0 WebAuthn FIDO2 (auth-v10.3-s1 / CP-298, DRTW 01 GAP 8) ---
+      {:wax_, "~> 0.7"}
     ]
   end
 

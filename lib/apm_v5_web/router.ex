@@ -754,6 +754,8 @@ defmodule ApmV5Web.Router do
     get "/provenance/agents/:id", ProvenanceController, :agent_provenance
     get "/provenance/artifacts", ProvenanceController, :artifacts
     post "/provenance/verify", ProvenanceController, :verify
+    # ── EXTENSION: SLSA Provenance (comp-v10.3-s1 / CP-299) ──────────────────
+    get "/provenance/slsa/:attestation_id", ProvenanceController, :show
   end
 
   # A2UI flexible format endpoint
