@@ -93,7 +93,11 @@ defmodule ApmV5.MixProject do
       # --- v9.3.0 Audit: structured Logger backend (audit-s5 / CP-223) ---
       {:logger_json, "~> 7.0"},
       # --- v9.3.0 Auth/Compliance: encryption ---
-      {:cloak, "~> 1.1"}
+      {:cloak, "~> 1.1"},
+      # --- v10.2.0 OIDC: enterprise IdP integration (CP-297) ---
+      {:assent, "~> 0.3"},
+      {:req, "~> 0.5"},
+      {:jose, "~> 1.11"}
     ]
   end
 

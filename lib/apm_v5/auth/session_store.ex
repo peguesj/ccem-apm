@@ -20,6 +20,7 @@ defmodule ApmV5.Auth.SessionStore do
 
   require Logger
 
+  alias ApmV5.Auth.OidcVerifier
   alias ApmV5.Auth.Types
   alias ApmV5.Auth.Types.AuthSession
 
@@ -40,9 +41,20 @@ defmodule ApmV5.Auth.SessionStore do
   @doc """
   Create a new authorization session.
 
-  Returns `{:ok, session_id}`.
+  Returns `{:ok, session_id}` or `{:error, reason}` when OIDC verification fails.
+
+  ## Options
+
+  - `:ttl_seconds` — session TTL (default: #{@default_ttl_seconds})
+  - `:data_boundary` — data boundary atom (default: `:authenticated_user_only`)
+  - `:metadata` — additional metadata map
+  - `:oidc_id_token` — OIDC ID JWT string. When present, calls `OidcVerifier` and
+    uses the verified `sub` claim as the authoritative `user_id`. OIDC takes
+    precedence over the local `user_id` argument when both are provided.
+  - `:oidc_provider` — provider key atom matching config (required when `:oidc_id_token` given)
+  - `:oidc_verifier` — explicit `OidcVerifier` pid for tests (defaults to named module)
   """
-  @spec create(String.t(), String.t(), keyword()) :: {:ok, String.t()}
+  @spec create(String.t(), String.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def create(user_id, role, opts \\ []) do
     GenServer.call(__MODULE__, {:create, user_id, role, opts})
   end
@@ -141,28 +153,35 @@ defmodule ApmV5.Auth.SessionStore do
 
   @impl true
   def handle_call({:create, user_id, role, opts}, _from, state) do
-    session_id = generate_session_id()
-    now = DateTime.utc_now()
-    ttl = Keyword.get(opts, :ttl_seconds, @default_ttl_seconds)
-    boundary = Keyword.get(opts, :data_boundary, :authenticated_user_only)
-    metadata = Keyword.get(opts, :metadata, %{})
+    case resolve_oidc_identity(user_id, opts) do
+      {:ok, resolved_user_id, oidc_meta} ->
+        session_id = generate_session_id()
+        now = DateTime.utc_now()
+        ttl = Keyword.get(opts, :ttl_seconds, @default_ttl_seconds)
+        boundary = Keyword.get(opts, :data_boundary, :authenticated_user_only)
+        base_metadata = Keyword.get(opts, :metadata, %{})
+        metadata = Map.merge(base_metadata, oidc_meta)
 
-    session = %AuthSession{
-      id: session_id,
-      user_id: user_id,
-      role: role,
-      data_boundary: boundary,
-      trust_ceiling: :authoritative,
-      created_at: now,
-      expires_at: DateTime.add(now, ttl, :second),
-      metadata: metadata
-    }
+        session = %AuthSession{
+          id: session_id,
+          user_id: resolved_user_id,
+          role: role,
+          data_boundary: boundary,
+          trust_ceiling: :authoritative,
+          created_at: now,
+          expires_at: DateTime.add(now, ttl, :second),
+          metadata: metadata
+        }
 
-    :ets.insert(@sessions_table, {session_id, session})
-    add_to_user_index(user_id, session_id)
+        :ets.insert(@sessions_table, {session_id, session})
+        add_to_user_index(resolved_user_id, session_id)
 
-    broadcast({:session_created, session})
-    {:reply, {:ok, session_id}, %{state | total_created: state.total_created + 1}}
+        broadcast({:session_created, session})
+        {:reply, {:ok, session_id}, %{state | total_created: state.total_created + 1}}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
   end
 
   @impl true
@@ -228,6 +247,38 @@ defmodule ApmV5.Auth.SessionStore do
   # ---------------------------------------------------------------------------
   # Private
   # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # OIDC Identity Resolution
+  # ---------------------------------------------------------------------------
+
+  # When no oidc_id_token is provided, pass-through with no extra metadata.
+  defp resolve_oidc_identity(user_id, opts) do
+    case Keyword.get(opts, :oidc_id_token) do
+      nil ->
+        {:ok, user_id, %{}}
+
+      jwt when is_binary(jwt) ->
+        provider = Keyword.get(opts, :oidc_provider, :default)
+        verifier = Keyword.get(opts, :oidc_verifier, OidcVerifier)
+
+        case OidcVerifier.verify_id_token(verifier, jwt, provider) do
+          {:ok, claims} ->
+            sub = Map.get(claims, "sub", user_id)
+
+            oidc_meta = %{
+              oidc_verified: true,
+              oidc_provider: provider,
+              oidc_sub: sub
+            }
+
+            {:ok, sub, oidc_meta}
+
+          {:error, _reason} = err ->
+            err
+        end
+    end
+  end
 
   defp generate_session_id do
     hex = :crypto.strong_rand_bytes(12) |> Base.encode16(case: :lower)
