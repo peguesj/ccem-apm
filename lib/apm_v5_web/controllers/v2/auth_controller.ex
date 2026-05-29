@@ -36,7 +36,8 @@ defmodule ApmV5Web.V2.AuthController do
     PendingDecisions,
     ApprovalAuditLog,
     PolicyDecisionStore,
-    RiskScoreAggregator
+    RiskScoreAggregator,
+    DelegationToken
   }
 
   # ---------------------------------------------------------------------------
@@ -109,6 +110,180 @@ defmodule ApmV5Web.V2.AuthController do
     summary = AuthorizationGate.summary()
     json(conn, %{ok: true, summary: summary})
   end
+
+  # ---------------------------------------------------------------------------
+  # Delegation Tokens (OWASP MCP02 — scope-narrowing on sub-agent spawn, CP-303)
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  POST /api/v2/auth/delegation/issue — issues a scope-narrowed delegation token.
+
+  Body:
+    - parent_token (optional) — base64url envelope from a prior issue call;
+      omit for a root token issued directly by the APM
+    - child_agent_id (required)
+    - allowed_tools (required, list of strings)
+    - max_risk_ceiling (required, one of: "none"|"low"|"medium"|"high"|"critical")
+    - ttl_seconds (optional, default 3600)
+
+  Returns:
+    {ok: true, token: "delegation.v1.<base64url>", expires_at, allowed_tools, max_risk_ceiling}
+  """
+  operation :delegation_issue,
+    summary: "Issue delegation token",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
+  def delegation_issue(conn, params) do
+    with {:ok, child_id} <- fetch_required(params, "child_agent_id"),
+         {:ok, allowed_tools} <- fetch_required(params, "allowed_tools"),
+         {:ok, ceiling_str} <- fetch_required(params, "max_risk_ceiling"),
+         {:ok, ceiling} <- parse_risk(ceiling_str),
+         {:ok, parent_token} <- decode_parent(Map.get(params, "parent_token")),
+         opts = [
+           allowed_tools: allowed_tools,
+           max_risk_ceiling: ceiling,
+           ttl_seconds: Map.get(params, "ttl_seconds", 3600)
+         ],
+         {:ok, token} <- DelegationToken.issue(parent_token, child_id, opts) do
+      envelope = encode_token(token)
+
+      json(conn, %{
+        ok: true,
+        token: envelope,
+        expires_at: token.expires_at,
+        allowed_tools: token.allowed_tools,
+        max_risk_ceiling: Atom.to_string(token.max_risk_ceiling)
+      })
+    else
+      {:error, :missing_field, field} ->
+        conn |> put_status(400) |> json(%{ok: false, error: "missing field: #{field}"})
+
+      {:error, :invalid_risk} ->
+        conn |> put_status(400) |> json(%{ok: false, error: "invalid max_risk_ceiling"})
+
+      {:error, :invalid_parent_token} ->
+        conn |> put_status(400) |> json(%{ok: false, error: "invalid parent_token envelope"})
+
+      {:error, reason} ->
+        conn |> put_status(422) |> json(%{ok: false, error: to_string(reason)})
+    end
+  end
+
+  @doc """
+  POST /api/v2/auth/delegation/verify — verifies a delegation token envelope.
+
+  Body: {token: "delegation.v1.<base64url>"}
+
+  Returns: {ok: true, valid: bool, claims, reason}
+  """
+  operation :delegation_verify,
+    summary: "Verify delegation token",
+    tags: ["AgentLock Authorization"],
+    responses: [
+      ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
+    ]
+
+  def delegation_verify(conn, params) do
+    case Map.get(params, "token") do
+      nil ->
+        conn |> put_status(400) |> json(%{ok: false, valid: false, reason: "missing token"})
+
+      envelope ->
+        case decode_token(envelope) do
+          {:ok, token} ->
+            case DelegationToken.verify(token) do
+              :ok ->
+                json(conn, %{
+                  ok: true,
+                  valid: true,
+                  claims: %{
+                    parent_agent_id: token.parent_agent_id,
+                    child_agent_id: token.child_agent_id,
+                    allowed_tools: token.allowed_tools,
+                    max_risk_ceiling: Atom.to_string(token.max_risk_ceiling),
+                    issued_at: token.issued_at,
+                    expires_at: token.expires_at
+                  }
+                })
+
+              {:error, reason} ->
+                json(conn, %{ok: true, valid: false, reason: Atom.to_string(reason)})
+            end
+
+          {:error, reason} ->
+            json(conn, %{ok: true, valid: false, reason: Atom.to_string(reason)})
+        end
+    end
+  end
+
+  # ── Delegation helpers ────────────────────────────────────────────────────
+
+  defp fetch_required(params, key) do
+    case Map.get(params, key) do
+      nil -> {:error, :missing_field, key}
+      "" -> {:error, :missing_field, key}
+      val -> {:ok, val}
+    end
+  end
+
+  defp parse_risk(s) when is_binary(s) do
+    case s do
+      "none" -> {:ok, :none}
+      "low" -> {:ok, :low}
+      "medium" -> {:ok, :medium}
+      "high" -> {:ok, :high}
+      "critical" -> {:ok, :critical}
+      _ -> {:error, :invalid_risk}
+    end
+  end
+
+  defp parse_risk(_), do: {:error, :invalid_risk}
+
+  defp decode_parent(nil), do: {:ok, nil}
+  defp decode_parent(envelope) when is_binary(envelope), do: decode_token(envelope)
+  defp decode_parent(_), do: {:error, :invalid_parent_token}
+
+  # Envelope: "delegation.v1.<base64url(json(struct))>"
+  defp encode_token(%DelegationToken{} = token) do
+    payload = %{
+      "parent_agent_id" => token.parent_agent_id,
+      "child_agent_id" => token.child_agent_id,
+      "allowed_tools" => token.allowed_tools,
+      "max_risk_ceiling" => Atom.to_string(token.max_risk_ceiling),
+      "issued_at" => token.issued_at,
+      "expires_at" => token.expires_at,
+      "signature" => Base.url_encode64(token.signature, padding: false)
+    }
+
+    body = payload |> Jason.encode!() |> Base.url_encode64(padding: false)
+    "delegation.v1." <> body
+  end
+
+  defp decode_token("delegation.v1." <> body) do
+    with {:ok, json} <- Base.url_decode64(body, padding: false),
+         {:ok, map} <- Jason.decode(json),
+         {:ok, sig} <- Base.url_decode64(map["signature"] || "", padding: false),
+         {:ok, ceiling} <- parse_risk(map["max_risk_ceiling"]) do
+      token = %DelegationToken{
+        parent_agent_id: map["parent_agent_id"],
+        child_agent_id: map["child_agent_id"],
+        allowed_tools: map["allowed_tools"] || [],
+        max_risk_ceiling: ceiling,
+        issued_at: map["issued_at"],
+        expires_at: map["expires_at"],
+        signature: sig
+      }
+
+      {:ok, token}
+    else
+      _ -> {:error, :invalid_envelope}
+    end
+  end
+
+  defp decode_token(_), do: {:error, :invalid_envelope}
 
   # ---------------------------------------------------------------------------
   # Tools

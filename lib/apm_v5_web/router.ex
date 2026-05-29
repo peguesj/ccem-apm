@@ -517,6 +517,9 @@ defmodule ApmV5Web.Router do
     post "/auth/authorize", AuthController, :authorize
     post "/auth/execute", AuthController, :execute
     get "/auth/summary", AuthController, :summary
+    # ── Delegation Tokens — OWASP MCP02 scope-narrowing (CP-303) ────────────
+    post "/auth/delegation/issue", AuthController, :delegation_issue
+    post "/auth/delegation/verify", AuthController, :delegation_verify
     get "/auth/tools", AuthController, :list_tools
     post "/auth/tools", AuthController, :register_tool
     post "/auth/sessions", AuthController, :create_session
