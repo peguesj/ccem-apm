@@ -54,7 +54,11 @@ No production-ready Elixir OPA client exists. Build `ApmV5.Auth.OpaClient` as ~3
 - **GAP 6**: Swap `RateLimiter` ETS → `hammer` Redis backend for BEAM cluster deployments
 - **GAP 7**: `assent` OIDC integration in `SessionStore.create/2` for enterprise SSO agent identity
 
-### v10.3.0 — Human approver attestation
+### v10.3.0 — Verifiable Credentials + Human approver attestation
+- **SHIPPED (CP-300)**: `ApmV5.Governance.VerifiableCredential` — W3C VC 2.0 JWT-VC issuance.
+  Issues EdDSA-signed VCs documenting agent capabilities (WHAT authorized) alongside
+  v10.0.0 JWT identity tokens (WHO the agent is). Zero new deps — pure OTP `:crypto`.
+  Closes EU AI Act Article 13 + 52 disclosure gap. See `docs/migrations/v10.3.0-vc-issuance.md`.
 - **GAP 8**: `wax_` WebAuthn attestation on approval endpoint; prevents API-based approval bypass
 
 ## Key Non-Obvious Findings

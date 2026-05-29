@@ -744,6 +744,11 @@ defmodule ApmV5Web.Router do
     get "/governance/circuit-breakers", GovernanceController, :list_circuit_breakers
     post "/governance/circuit-breakers/:session_id/close", GovernanceController, :close_circuit
 
+    # ── EXTENSION: Verifiable Credentials (CP-300 / comp-v10.3-s2) ───────────
+    post "/governance/credentials/issue", CredentialsController, :issue
+    post "/governance/credentials/verify", CredentialsController, :verify
+    post "/governance/credentials/revoke", CredentialsController, :revoke
+
     # ── EXTENSION: identity (prov-w1-s2 / CP-276) ────────────────────────────
     get "/identity/did-document", IdentityController, :did_document
 
