@@ -55,6 +55,7 @@ import ScrollBottom from "./hooks/scroll_bottom"
 import DrawerResize from "./hooks/drawer_resize"
 import { CommandBarHook } from "./hooks/command_bar"
 import ProvenanceLineageGraph from "./hooks/provenance_lineage_graph"
+import TableKeyNav from "./hooks/table_key_nav"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -117,7 +118,8 @@ const Hooks = {
   ScrollBottom,
   DrawerResize,
   CommandBar: CommandBarHook,
-  ProvenanceLineageGraph
+  ProvenanceLineageGraph,
+  TableKeyNav
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
