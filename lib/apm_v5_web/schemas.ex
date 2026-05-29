@@ -143,11 +143,14 @@ defmodule ApmV5Web.Schemas do
       properties: %{
         agent_id: %Schema{type: :string},
         session_id: %Schema{type: :string},
-        tool_name: %Schema{type: :string},
+        tool_name: %Schema{type: :string, description: "Preferred field; falls back to 'tool' for v9.x callers"},
+        tool: %Schema{type: :string, description: "v9.x compat alias for tool_name"},
         role: %Schema{type: :string, default: "agent"},
-        params: %Schema{type: :object, additionalProperties: true, description: "Tool parameters"}
+        params: %Schema{type: :object, additionalProperties: true, description: "Tool parameters"},
+        args: %Schema{type: :object, additionalProperties: true, description: "v9.x compat alias for params"},
+        trust_requested: %Schema{type: :string, description: "v9.x compat; APM auto-downgrades"}
       },
-      required: [:agent_id, :session_id, :tool_name]
+      required: [:agent_id, :session_id]
     })
   end
 

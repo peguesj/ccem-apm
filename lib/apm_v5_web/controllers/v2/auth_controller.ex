@@ -60,9 +60,9 @@ defmodule ApmV5Web.V2.AuthController do
   def authorize(conn, params) do
     agent_id = Map.get(params, "agent_id", "unknown")
     session_id = Map.get(params, "session_id", "default")
-    tool_name = Map.get(params, "tool_name", "unknown")
+    tool_name = Map.get(params, "tool_name") || Map.get(params, "tool") || "unknown"
     role = Map.get(params, "role", "agent")
-    tool_params = Map.get(params, "params", %{})
+    tool_params = Map.get(params, "params") || Map.get(params, "args") || %{}
 
     case AuthorizationGate.authorize(agent_id, session_id, tool_name, role, tool_params) do
       {:ok, token_id} ->
