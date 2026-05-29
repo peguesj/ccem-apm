@@ -187,6 +187,14 @@ defmodule ApmV5Web.Components.DesignSystem do
   defp badge_tone_style("neutral"),
     do: "background: var(--ccem-bg-2); color: var(--ccem-fg-muted); border: 1px solid var(--ccem-line);"
 
+  # Atom-tone coercion (CP-308) — LiveViews like AuthorizationLive emit atom
+  # statuses (e.g. :err from authorize result tagging); coerce to the string
+  # clause-form rather than crash the whole LV mount with a FunctionClauseError.
+  defp badge_tone_style(tone) when is_atom(tone), do: badge_tone_style(Atom.to_string(tone))
+
+  # Final fallback for any unmapped string — render as neutral instead of crashing.
+  defp badge_tone_style(tone) when is_binary(tone), do: badge_tone_style("neutral")
+
   # ---------------------------------------------------------------------------
   # card/1
   # ---------------------------------------------------------------------------
