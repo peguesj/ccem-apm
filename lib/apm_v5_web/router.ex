@@ -749,8 +749,9 @@ defmodule ApmV5Web.Router do
     post "/governance/credentials/verify", CredentialsController, :verify
     post "/governance/credentials/revoke", CredentialsController, :revoke
 
-    # ── EXTENSION: identity (prov-w1-s2 / CP-276) ────────────────────────────
+    # ── EXTENSION: identity (prov-w1-s2 / CP-276, CP-302) ────────────────────
     get "/identity/did-document", IdentityController, :did_document
+    get "/identity/jwks", IdentityController, :jwks
 
     # ── EXTENSION: provenance (prov-w2-s4 / CP-278 + prov-w4-s9 / CP-283) ───
     get "/provenance/bundle", ProvenanceController, :bundle
@@ -791,6 +792,8 @@ defmodule ApmV5Web.Router do
     pipe_through :api
 
     get "/.well-known/agent-card.json", WellKnownController, :agent_card
+    # RFC 8615 well-known JWKS — alias for /api/v2/identity/jwks (CP-302)
+    get "/.well-known/jwks.json", V2.IdentityController, :jwks
     # RFC 8615 well-known health URI — alias to /api/health (CP-250 / US-482 / hc-s1)
     get "/.well-known/health", HealthController, :health
     # Kubernetes liveness probe (CP-251 / US-483 / hc-s2) — minimal 200/503
