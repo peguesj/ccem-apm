@@ -461,8 +461,8 @@ defmodule ApmV5Web.UsageLive do
     max(i + o + c, 1)
   end
 
-  defp effort_tone("intensive"), do: "err"
-  defp effort_tone("high"), do: "warn"
+  defp effort_tone("intensive"), do: "error"
+  defp effort_tone("high"), do: "warning"
   defp effort_tone("medium"), do: "info"
   defp effort_tone(_), do: "neutral"
 

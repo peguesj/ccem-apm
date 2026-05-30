@@ -235,7 +235,7 @@ defmodule ApmV5Web.ConversationMonitorLive do
             </span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <.badge :if={count_active(@all_conversations) > 0} tone="ok" dot>
+            <.badge :if={count_active(@all_conversations) > 0} tone="success" dot>
               {count_active(@all_conversations)} live
             </.badge>
             <.badge :if={count_active(@all_conversations) == 0} tone="neutral">
@@ -357,7 +357,7 @@ defmodule ApmV5Web.ConversationMonitorLive do
                       </span>
                     </td>
                     <td style="padding: 0 12px; font-family: var(--ccem-font-sans, sans-serif); font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg);">
-                      <.badge tone={if conv.active, do: "ok", else: "neutral"} dot={conv.active}>
+                      <.badge tone={if conv.active, do: "success", else: "neutral"} dot={conv.active}>
                         {if conv.active, do: "active", else: "idle #{conv.idle_minutes}m"}
                       </.badge>
                     </td>
@@ -730,8 +730,8 @@ defmodule ApmV5Web.ConversationMonitorLive do
 
   @spec msg_badge_tone(String.t()) :: String.t()
   defp msg_badge_tone("user"), do: "iris"
-  defp msg_badge_tone("assistant"), do: "ok"
-  defp msg_badge_tone("system"), do: "warn"
+  defp msg_badge_tone("assistant"), do: "success"
+  defp msg_badge_tone("system"), do: "warning"
   defp msg_badge_tone(_), do: "neutral"
 
   @spec page_window(list(map()), pos_integer()) :: list(map())

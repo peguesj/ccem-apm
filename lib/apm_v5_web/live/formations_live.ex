@@ -410,9 +410,9 @@ defmodule ApmV5Web.FormationsLive do
               <%!-- Legend for dot colours --%>
               <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--ccem-line-subtle); flex-wrap: wrap;">
                 <span style="font-size: 11px; color: var(--ccem-fg-dim); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;">Status:</span>
-                <.badge tone="ok" dot={true}>active</.badge>
+                <.badge tone="success" dot={true}>active</.badge>
                 <.badge tone="info">complete</.badge>
-                <.badge tone="err">error</.badge>
+                <.badge tone="error">error</.badge>
                 <.badge tone="neutral">idle</.badge>
               </div>
             </.card>
@@ -1019,11 +1019,11 @@ defmodule ApmV5Web.FormationsLive do
     |> length()
   end
 
-  defp status_tone("active"), do: "ok"
+  defp status_tone("active"), do: "success"
   defp status_tone("complete"), do: "info"
   defp status_tone("pass"), do: "info"
   defp status_tone("done"), do: "info"
-  defp status_tone("error"), do: "err"
+  defp status_tone("error"), do: "error"
   defp status_tone(_idle), do: "neutral"
 
   defp source_label(:live), do: "live"

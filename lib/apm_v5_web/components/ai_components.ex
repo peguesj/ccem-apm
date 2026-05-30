@@ -514,8 +514,8 @@ defmodule ApmV5Web.Components.AiComponents do
 
   # Map agent status to DesignSystem badge tone.
   @spec status_tone(String.t()) :: String.t()
-  defp status_tone("active"), do: "ok"
-  defp status_tone("error"), do: "err"
+  defp status_tone("active"), do: "success"
+  defp status_tone("error"), do: "error"
   defp status_tone("done"), do: "iris"
   defp status_tone(_), do: "neutral"
 

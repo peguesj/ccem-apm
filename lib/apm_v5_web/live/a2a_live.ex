@@ -206,7 +206,7 @@ defmodule ApmV5Web.A2ALive do
               <span style="font-size: 12px; color: var(--ccem-fg-dim);">queued</span>
             </:col>
             <:col :let={row} label="Pending">
-              <.badge tone={if row.depth > 0, do: "warn", else: "neutral"}>
+              <.badge tone={if row.depth > 0, do: "warning", else: "neutral"}>
                 {row.depth}
               </.badge>
             </:col>
@@ -405,9 +405,9 @@ defmodule ApmV5Web.A2ALive do
 
     tone =
       cond do
-        String.contains?(type, "error") -> "err"
-        String.contains?(type, "deliver") -> "ok"
-        String.contains?(type, "expire") -> "warn"
+        String.contains?(type, "error") -> "error"
+        String.contains?(type, "deliver") -> "success"
+        String.contains?(type, "expire") -> "warning"
         true -> "iris"
       end
 

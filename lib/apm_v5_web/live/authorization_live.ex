@@ -299,14 +299,14 @@ defmodule ApmV5Web.AuthorizationLive do
 
     result =
       if tool_name == "" do
-        %{status: :err, message: "Tool name is required"}
+        %{status: "error", message: "Tool name is required"}
       else
         try do
           tools = AuthorizationGate.list_tools()
 
           case Enum.find(tools, &(to_string(&1.name) == tool_name)) do
             nil ->
-              %{status: :warn, message: "Tool '#{tool_name}' not registered"}
+              %{status: "warning", message: "Tool '#{tool_name}' not registered"}
 
             tool ->
               if tool.requires_auth do
@@ -315,28 +315,28 @@ defmodule ApmV5Web.AuthorizationLive do
 
                 case rule do
                   %{action: :always_allow} ->
-                    %{status: :ok, message: "GRANT — permanent allow rule active"}
+                    %{status: "success", message: "GRANT — permanent allow rule active"}
 
                   %{action: :always_deny} ->
-                    %{status: :err, message: "DENY — permanent deny rule active"}
+                    %{status: "error", message: "DENY — permanent deny rule active"}
 
                   _ ->
                     scoped = if scope != "", do: " (scope: #{scope})", else: ""
 
                     %{
-                      status: :warn,
+                      status: "warning",
                       message:
                         "ESCALATE — requires approval#{scoped} (risk: #{tool.risk_level})"
                     }
                 end
               else
-                %{status: :ok, message: "GRANT — no authorization required for #{tool_name}"}
+                %{status: "success", message: "GRANT — no authorization required for #{tool_name}"}
               end
           end
         rescue
-          _ -> %{status: :err, message: "Authorization check failed"}
+          _ -> %{status: "error", message: "Authorization check failed"}
         catch
-          :exit, _ -> %{status: :err, message: "Auth gate unavailable"}
+          :exit, _ -> %{status: "error", message: "Auth gate unavailable"}
         end
       end
 
@@ -777,7 +777,7 @@ defmodule ApmV5Web.AuthorizationLive do
             </h1>
             <.badge tone="iris">AgentLock</.badge>
             <%= if length(@pending) > 0 do %>
-              <.badge tone="warn" dot>{length(@pending)} pending</.badge>
+              <.badge tone="warning" dot>{length(@pending)} pending</.badge>
             <% end %>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
@@ -897,7 +897,7 @@ defmodule ApmV5Web.AuthorizationLive do
             >
               <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--ccem-line);">
                 <div style="display:flex; align-items:center; gap:10px;">
-                  <.badge tone="warn" dot>Approval required</.badge>
+                  <.badge tone="warning" dot>Approval required</.badge>
                   <span style="font-size:13px; color:var(--ccem-fg-muted); font-variant-numeric:tabular-nums;">
                     {@ttl_remaining}s
                   </span>
@@ -968,7 +968,7 @@ defmodule ApmV5Web.AuthorizationLive do
               <div style="display:flex; flex-direction:column; gap:8px;">
                 <div style="display:flex; align-items:center; justify-content:space-between;">
                   <span style="font-size:13px; color:var(--ccem-fg);">Active</span>
-                  <.badge tone="ok">{Map.get(@summary.tokens || %{}, :active, 0)}</.badge>
+                  <.badge tone="success">{Map.get(@summary.tokens || %{}, :active, 0)}</.badge>
                 </div>
                 <div style="display:flex; align-items:center; justify-content:space-between;">
                   <span style="font-size:13px; color:var(--ccem-fg);">Used</span>
@@ -976,7 +976,7 @@ defmodule ApmV5Web.AuthorizationLive do
                 </div>
                 <div style="display:flex; align-items:center; justify-content:space-between;">
                   <span style="font-size:13px; color:var(--ccem-fg);">Expired</span>
-                  <.badge tone="warn">{Map.get(@summary.tokens || %{}, :expired, 0)}</.badge>
+                  <.badge tone="warning">{Map.get(@summary.tokens || %{}, :expired, 0)}</.badge>
                 </div>
               </div>
             </.card>
@@ -1037,7 +1037,7 @@ defmodule ApmV5Web.AuthorizationLive do
                 <span style="font-family:var(--ccem-font-mono); font-size:12px;">{rule.tool_name}</span>
               </:col>
               <:col :let={rule} label="Action">
-                <.badge tone={if rule.action == :always_allow, do: "ok", else: "err"}>
+                <.badge tone={if rule.action == :always_allow, do: "success", else: "error"}>
                   {if rule.action == :always_allow, do: "ALLOW", else: "DENY"}
                 </.badge>
               </:col>
@@ -1074,7 +1074,7 @@ defmodule ApmV5Web.AuthorizationLive do
                   <.badge tone={risk_ds_tone(tool.risk_level)}>{tool.risk_level}</.badge>
                 </:col>
                 <:col :let={tool} label="Requires Auth">
-                  <.badge tone={if tool.requires_auth, do: "warn", else: "ok"}>
+                  <.badge tone={if tool.requires_auth, do: "warning", else: "success"}>
                     {if tool.requires_auth, do: "Yes", else: "No"}
                   </.badge>
                 </:col>
@@ -1296,11 +1296,11 @@ defmodule ApmV5Web.AuthorizationLive do
                     Risk Level
                   </label>
                   <div style="display:flex; flex-wrap:wrap; gap:4px;">
-                    <.badge tone="ok">None</.badge>
+                    <.badge tone="success">None</.badge>
                     <.badge tone="info">Low</.badge>
-                    <.badge tone="warn">Medium</.badge>
-                    <.badge tone="err">High</.badge>
-                    <.badge tone="err">Critical</.badge>
+                    <.badge tone="warning">Medium</.badge>
+                    <.badge tone="error">High</.badge>
+                    <.badge tone="error">Critical</.badge>
                   </div>
                 </div>
                 <div>
@@ -1308,9 +1308,9 @@ defmodule ApmV5Web.AuthorizationLive do
                     Decision
                   </label>
                   <div style="display:flex; gap:4px;">
-                    <.badge tone="ok">Granted</.badge>
-                    <.badge tone="err">Denied</.badge>
-                    <.badge tone="warn">Escalated</.badge>
+                    <.badge tone="success">Granted</.badge>
+                    <.badge tone="error">Denied</.badge>
+                    <.badge tone="warning">Escalated</.badge>
                   </div>
                 </div>
                 <.toggle on={length(@pending) > 0} label="Show pending only" on_toggle="switch_tab" />
@@ -1341,21 +1341,21 @@ defmodule ApmV5Web.AuthorizationLive do
   defp tab_display("audit"), do: "Audit Log"
   defp tab_display(_), do: "Overview"
 
-  defp risk_ds_tone(:none), do: "ok"
+  defp risk_ds_tone(:none), do: "success"
   defp risk_ds_tone(:low), do: "info"
-  defp risk_ds_tone(:medium), do: "warn"
-  defp risk_ds_tone(:high), do: "err"
-  defp risk_ds_tone(:critical), do: "err"
+  defp risk_ds_tone(:medium), do: "warning"
+  defp risk_ds_tone(:high), do: "error"
+  defp risk_ds_tone(:critical), do: "error"
   defp risk_ds_tone(_), do: "neutral"
 
-  defp decision_ds_tone(:granted), do: "ok"
-  defp decision_ds_tone(:denied), do: "err"
-  defp decision_ds_tone(:rate_limited), do: "warn"
-  defp decision_ds_tone(:escalated), do: "warn"
+  defp decision_ds_tone(:granted), do: "success"
+  defp decision_ds_tone(:denied), do: "error"
+  defp decision_ds_tone(:rate_limited), do: "warning"
+  defp decision_ds_tone(:escalated), do: "warning"
   defp decision_ds_tone(_), do: "neutral"
 
-  defp action_ds_tone(:destructive), do: "err"
-  defp action_ds_tone(:write), do: "warn"
+  defp action_ds_tone(:destructive), do: "error"
+  defp action_ds_tone(:write), do: "warning"
   defp action_ds_tone(:read), do: "info"
   defp action_ds_tone(_), do: "neutral"
 

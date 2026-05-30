@@ -143,17 +143,17 @@ defmodule ApmV5Web.AlignmentLive do
   defp overall_score_tone(report) do
     score = Map.get(report, "overall_score", 0)
     cond do
-      score >= 80 -> "ok"
-      score >= 50 -> "warn"
-      true -> "err"
+      score >= 80 -> "success"
+      score >= 50 -> "warning"
+      true -> "error"
     end
   end
 
   defp gap_dot_tone(gap_type) do
     case gap_type do
-      "missing_apm_registration" -> "err"
-      "missing_formation_role" -> "warn"
-      "missing_agent_type" -> "warn"
+      "missing_apm_registration" -> "error"
+      "missing_formation_role" -> "warning"
+      "missing_agent_type" -> "warning"
       "missing_fmt_convention" -> "neutral"
       _ -> "neutral"
     end
@@ -222,21 +222,21 @@ defmodule ApmV5Web.AlignmentLive do
                 </span>
               </div>
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
-                <.badge tone="ok" dot={true} square={true}> </.badge>
+                <.badge tone="success" dot={true} square={true}> </.badge>
                 <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Aligned:</span>
                 <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-ok);">
                   <%= Map.get(summary, "fully_aligned", 0) %>
                 </span>
               </div>
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
-                <.badge tone="warn" dot={true} square={true}> </.badge>
+                <.badge tone="warning" dot={true} square={true}> </.badge>
                 <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Partial:</span>
                 <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-warn);">
                   <%= Map.get(summary, "partially_aligned", 0) %>
                 </span>
               </div>
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
-                <.badge tone="err" dot={true} square={true}> </.badge>
+                <.badge tone="error" dot={true} square={true}> </.badge>
                 <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Missing:</span>
                 <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-err);">
                   <%= Map.get(summary, "missing_alignment", 0) %>

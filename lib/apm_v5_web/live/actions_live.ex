@@ -469,7 +469,7 @@ defmodule ApmV5Web.ActionsLive do
                 <div style="font-size: 13px; font-weight: 500; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{proj.name}</div>
                 <div style="font-size: 10px; color: var(--ccem-fg-subtle); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{proj.path}</div>
               </div>
-              <.badge tone={if action_applied?(proj, @selected_action.id), do: "ok", else: "neutral"} square={true}>
+              <.badge tone={if action_applied?(proj, @selected_action.id), do: "success", else: "neutral"} square={true}>
                 {if action_applied?(proj, @selected_action.id), do: "applied", else: "pending"}
               </.badge>
               <.icon :if={@project_path == proj.path} name="hero-check" class="size-4 text-accent flex-shrink-0" />
@@ -562,14 +562,14 @@ defmodule ApmV5Web.ActionsLive do
   defp format_stack(stack) when is_binary(stack), do: stack
   defp format_stack(_), do: "—"
 
-  defp run_status_tone("completed"), do: "ok"
-  defp run_status_tone("failed"), do: "err"
+  defp run_status_tone("completed"), do: "success"
+  defp run_status_tone("failed"), do: "error"
   defp run_status_tone("running"), do: "info"
   defp run_status_tone(_), do: "neutral"
 
-  defp category_tone("hooks"), do: "warn"
+  defp category_tone("hooks"), do: "warning"
   defp category_tone("memory"), do: "iris"
-  defp category_tone("config"), do: "ok"
+  defp category_tone("config"), do: "success"
   defp category_tone("analysis"), do: "accent"
   defp category_tone(_), do: "neutral"
 

@@ -114,7 +114,7 @@ defmodule ApmV5Web.SkillDriftLive do
             </:col>
             <:col :let={row} label="Fixable">
               <%= if row.fixable do %>
-                <.badge tone="ok">Yes</.badge>
+                <.badge tone="success">Yes</.badge>
               <% else %>
                 <.badge tone="neutral">No</.badge>
               <% end %>
@@ -137,8 +137,8 @@ defmodule ApmV5Web.SkillDriftLive do
   # Private helpers
   # ---------------------------------------------------------------------------
 
-  defp severity_tone(:critical), do: "err"
-  defp severity_tone(:warning), do: "warn"
+  defp severity_tone(:critical), do: "error"
+  defp severity_tone(:warning), do: "warning"
   defp severity_tone(:info), do: "info"
   defp severity_tone(_), do: "neutral"
 

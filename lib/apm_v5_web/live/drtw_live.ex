@@ -180,7 +180,7 @@ defmodule ApmV5Web.DrtwLive do
 
   defp find_by_id(results, id), do: Enum.find(results, &(&1.id == id))
 
-  defp result_type_tone("package"), do: "ok"
+  defp result_type_tone("package"), do: "success"
   defp result_type_tone("skill"), do: "iris"
   defp result_type_tone("pattern"), do: "info"
   defp result_type_tone(_), do: "neutral"

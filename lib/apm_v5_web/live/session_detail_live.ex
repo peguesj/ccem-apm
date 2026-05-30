@@ -752,7 +752,7 @@ defmodule ApmV5Web.SessionDetailLive do
   defp session_status_label(_), do: "idle"
 
   defp status_tone(nil), do: "neutral"
-  defp status_tone(%{active: true}), do: "ok"
+  defp status_tone(%{active: true}), do: "success"
   defp status_tone(_), do: "neutral"
 
   defp session_duration(nil), do: ""
@@ -786,12 +786,12 @@ defmodule ApmV5Web.SessionDetailLive do
   defp role_label(other), do: other
 
   defp role_tone("user"), do: "iris"
-  defp role_tone("assistant"), do: "ok"
-  defp role_tone("system"), do: "warn"
+  defp role_tone("assistant"), do: "success"
+  defp role_tone("system"), do: "warning"
   defp role_tone(_), do: "neutral"
 
-  defp tc_status_tone(%{type: "tool_result", is_error: true}), do: "err"
-  defp tc_status_tone(%{type: "tool_result"}), do: "ok"
+  defp tc_status_tone(%{type: "tool_result", is_error: true}), do: "error"
+  defp tc_status_tone(%{type: "tool_result"}), do: "success"
   defp tc_status_tone(_), do: "info"
 
   defp tc_status_label(%{type: "tool_result", is_error: true}), do: "error"

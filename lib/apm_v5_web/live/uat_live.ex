@@ -787,9 +787,9 @@ defmodule ApmV5Web.UatLive do
   defp summary_tone(tests) do
     cond do
       Enum.all?(tests, &(&1.status == :pending)) -> "neutral"
-      Enum.all?(tests, &(&1.status == :pass)) -> "ok"
-      Enum.any?(tests, &(&1.status in [:fail, :error])) -> "err"
-      true -> "warn"
+      Enum.all?(tests, &(&1.status == :pass)) -> "success"
+      Enum.any?(tests, &(&1.status in [:fail, :error])) -> "error"
+      true -> "warning"
     end
   end
 
@@ -805,9 +805,9 @@ defmodule ApmV5Web.UatLive do
     Enum.sum(Enum.map(tests, & &1.duration_ms))
   end
 
-  defp status_tone(:pass), do: "ok"
-  defp status_tone(:fail), do: "err"
-  defp status_tone(:error), do: "warn"
+  defp status_tone(:pass), do: "success"
+  defp status_tone(:fail), do: "error"
+  defp status_tone(:error), do: "warning"
   defp status_tone(:skip), do: "info"
   defp status_tone(:pending), do: "neutral"
 

@@ -102,8 +102,8 @@ defmodule ApmV5Web.TasksLive do
   # --- Helpers ---
 
   defp status_tone("running"), do: "info"
-  defp status_tone("completed"), do: "ok"
-  defp status_tone("failed"), do: "err"
+  defp status_tone("completed"), do: "success"
+  defp status_tone("failed"), do: "error"
   defp status_tone("stopped"), do: "neutral"
   defp status_tone(_), do: "neutral"
 

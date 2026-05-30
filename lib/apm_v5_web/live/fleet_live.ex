@@ -591,8 +591,8 @@ defmodule ApmV5Web.FleetLive do
   # ---------------------------------------------------------------------------
 
   @spec status_tone(String.t()) :: String.t()
-  defp status_tone("active"), do: "ok"
-  defp status_tone("error"), do: "err"
+  defp status_tone("active"), do: "success"
+  defp status_tone("error"), do: "error"
   defp status_tone("done"), do: "iris"
   defp status_tone(_), do: "neutral"
 

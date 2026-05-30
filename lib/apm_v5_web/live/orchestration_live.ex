@@ -21,10 +21,10 @@ defmodule ApmV5Web.OrchestrationLive do
   @type_badge_tones %{
     pipeline: "info",
     workflow: "accent",
-    maintenance: "warn",
+    maintenance: "warning",
     sync: "neutral",
     formation: "iris",
-    autonomous: "err"
+    autonomous: "error"
   }
 
   # ── Mount ──────────────────────────────────────────────────────────────────
@@ -263,8 +263,8 @@ defmodule ApmV5Web.OrchestrationLive do
   # ── Private helpers ────────────────────────────────────────────────────────
 
   defp run_status_tone(:running), do: "accent"
-  defp run_status_tone(:completed), do: "ok"
-  defp run_status_tone(:failed), do: "err"
-  defp run_status_tone(:cancelled), do: "warn"
+  defp run_status_tone(:completed), do: "success"
+  defp run_status_tone(:failed), do: "error"
+  defp run_status_tone(:cancelled), do: "warning"
   defp run_status_tone(_), do: "neutral"
 end

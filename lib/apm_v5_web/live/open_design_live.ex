@@ -70,8 +70,8 @@ defmodule ApmV5Web.OpenDesignLive do
             <div class="flex items-center gap-3">
               <.icon name="hero-paint-brush" class="w-5 h-5 text-primary" />
               <h1 class="text-lg font-semibold">open-design</h1>
-              <.badge :if={@daemon_state[:reachable]} tone="ok">daemon online</.badge>
-              <.badge :if={!@daemon_state[:reachable]} tone="err">daemon offline</.badge>
+              <.badge :if={@daemon_state[:reachable]} tone="success">daemon online</.badge>
+              <.badge :if={!@daemon_state[:reachable]} tone="error">daemon offline</.badge>
             </div>
             <div class="flex items-center gap-2 text-sm text-base-content/60">
               <%= if @daemon_state[:version] do %>
