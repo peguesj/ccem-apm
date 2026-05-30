@@ -32,7 +32,11 @@ defmodule ApmWeb.Components.Feedback.Modal do
   """
   use Phoenix.Component
 
-  import Phoenix.LiveView.JS, only: [hide: 1]
+  # Phase 2 TODO resolution: verified import path for Phoenix.LiveView.JS.
+  # `dispatch/2` is used in phx-click binding; `hide/1` and `show/1` available for
+  # future JS command chaining. The JS struct is used directly in HEEx so we alias
+  # the module rather than import individual functions, preventing name clashes.
+  alias Phoenix.LiveView.JS
 
   attr :id, :string, required: true
   attr :title, :string, required: true

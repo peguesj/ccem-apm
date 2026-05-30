@@ -52,7 +52,7 @@ defmodule ApmWeb.Components.Data.JsonViewer do
   end
 
   defp render_json_value(v, _depth) when is_binary(v) do
-    escaped = Phoenix.HTML.html_escape(v)
+    escaped = Phoenix.HTML.html_escape(v) |> Phoenix.HTML.safe_to_string()
     Phoenix.HTML.raw(~s(<span class="apm-json--string">"#{escaped}"</span>))
   end
 
@@ -78,7 +78,7 @@ defmodule ApmWeb.Components.Data.JsonViewer do
       |> Enum.with_index()
       |> Enum.map(fn {{k, v}, i} ->
         comma = if i < n - 1, do: ",", else: ""
-        key_html = ~s(<span class="apm-json--key">#{Phoenix.HTML.html_escape(to_string(k))}</span>)
+        key_html = ~s(<span class="apm-json--key">#{Phoenix.HTML.html_escape(to_string(k)) |> Phoenix.HTML.safe_to_string()}</span>)
         val_html = Phoenix.HTML.safe_to_string(render_json_value(v, depth + 1))
         ~s(<div style="margin-left:#{(depth + 1) * 14}px">#{key_html}: #{val_html}#{comma}</div>)
       end)
