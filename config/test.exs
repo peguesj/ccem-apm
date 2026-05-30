@@ -2,7 +2,7 @@ import Config
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
-config :apm_v5, ApmV5Web.Endpoint,
+config :apm, ApmWeb.Endpoint,
   http: [ip: {0, 0, 0, 0, 0, 0, 0, 1}, port: 4002],
   secret_key_base: "jvpCyjwCk/dKLnuZo+ARngyZL6cSm27iEGSkf7r7Dc27VkWy5bLH7r4+ES1Fhy+7",
   server: false
