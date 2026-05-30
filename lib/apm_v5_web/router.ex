@@ -113,6 +113,9 @@ defmodule ApmV5Web.Router do
       live "/architecture", ArchitectureLive, :index
       live "/analytics", AnalyticsLive, :index
       live "/health", HealthCheckLive, :index
+      # Phase 0.4 — Wiring Monitor (continuous design↔backend integrity)
+      # TODO (Phase 3): move to /operate/health as "Wiring" tab once the Operate layout lands
+      live "/health/wiring", WiringMonitorLive, :index
       live "/conversations", ConversationMonitorLive, :index
       # Observe: Conversations LiveView (CP-181 / US-456)
       live "/observe/conversations", ConversationMonitorLive, :index
