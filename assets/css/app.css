@@ -26,6 +26,10 @@
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
+/* v11 token system — dual-residency: --apm-* canonical + --ccem-* alias bridge */
+@import "./apm_tokens.css";
+@import "./apm_tokens_aliases.css";
+
 /* This file is for your main application CSS */
 
 /* ============================================================
