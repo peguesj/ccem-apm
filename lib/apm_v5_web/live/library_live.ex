@@ -346,10 +346,10 @@ defmodule ApmV5Web.LibraryLive do
       type in ~w(orchestrator persistent_service) -> "accent"
       type in ~w(squadron_lead quality_agent) -> "iris"
       type in ~w(swarm_agent cluster_agent) -> "info"
-      type in ~w(agentlock security) -> "err"
+      type in ~w(agentlock security) -> "error"
       type in ~w(methodology architecture) -> "info"
-      type in ~w(workflow documentation quality) -> "ok"
-      type in ~w(user project enabled) -> "warn"
+      type in ~w(workflow documentation quality) -> "success"
+      type in ~w(user project enabled) -> "warning"
       true -> "neutral"
     end
   end

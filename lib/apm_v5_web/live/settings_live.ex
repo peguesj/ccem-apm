@@ -156,7 +156,7 @@ defmodule ApmV5Web.SettingsLive do
             </h1>
             <.badge tone="iris">v9.2.0</.badge>
             <%= if @saved_flash do %>
-              <.badge tone="ok" dot>Saved</.badge>
+              <.badge tone="success" dot>Saved</.badge>
             <% end %>
           </div>
           <.link navigate="/govern/authorization">
@@ -308,8 +308,8 @@ defmodule ApmV5Web.SettingsLive do
                     </span>
                     <.badge tone={
                       if (Map.get(rule, :action) || Map.get(rule, :decision)) in [:always_allow, "always_allow"],
-                        do: "ok",
-                        else: "danger"
+                        do: "success",
+                        else: "error"
                     }>
                       {Map.get(rule, :action) || Map.get(rule, :decision)}
                     </.badge>

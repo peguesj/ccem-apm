@@ -493,12 +493,12 @@ defmodule ApmV5Web.BuilderLive do
 
   defp status_tone(:draft), do: "neutral"
   defp status_tone(:analyzing), do: "info"
-  defp status_tone(:analyzed), do: "ok"
+  defp status_tone(:analyzed), do: "success"
   defp status_tone(:generating), do: "info"
   defp status_tone(:preview), do: "accent"
-  defp status_tone(:writing), do: "warn"
-  defp status_tone(:complete), do: "ok"
-  defp status_tone(:error), do: "err"
+  defp status_tone(:writing), do: "warning"
+  defp status_tone(:complete), do: "success"
+  defp status_tone(:error), do: "error"
   defp status_tone(_), do: "neutral"
 
   defp slug_for(session) do

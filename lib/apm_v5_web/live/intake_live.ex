@@ -72,9 +72,9 @@ defmodule ApmV5Web.IntakeLive do
 
   # ── Helpers ──────────────────────────────────────────────────────────────
 
-  defp severity_tone("critical"), do: "err"
-  defp severity_tone("major"), do: "warn"
-  defp severity_tone("success"), do: "ok"
+  defp severity_tone("critical"), do: "error"
+  defp severity_tone("major"), do: "warning"
+  defp severity_tone("success"), do: "success"
   defp severity_tone(_), do: "neutral"
 
   defp source_counts(events) do
@@ -146,7 +146,7 @@ defmodule ApmV5Web.IntakeLive do
             <div style="display: flex; flex-wrap: wrap; gap: var(--ccem-space-2);">
               <%= for watcher <- @watchers do %>
                 <div style="display: flex; align-items: center; gap: var(--ccem-space-2); background: var(--ccem-surface-3); border-radius: var(--ccem-radius-sm); padding: var(--ccem-space-1) var(--ccem-space-3);">
-                  <.badge tone="ok" dot={true} square={true}> </.badge>
+                  <.badge tone="success" dot={true} square={true}> </.badge>
                   <span style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-secondary);">
                     <%= watcher.name() %>
                   </span>

@@ -298,7 +298,7 @@ defmodule ApmV5Web.DashboardLive do
             aria-live="assertive"
           >
             <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
-              <.badge tone="warn" dot>Approval Required</.badge>
+              <.badge tone="warning" dot>Approval Required</.badge>
               <span style="font-family: var(--ccem-font-mono); color: var(--ccem-warn); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 <%= label %>
               </span>
@@ -317,7 +317,7 @@ defmodule ApmV5Web.DashboardLive do
                 <span data-countdown-display>20s</span>
               </div>
               <%= if length(@agentlock_pending) > 1 do %>
-                <.badge tone="warn" square><%= length(@agentlock_pending) %></.badge>
+                <.badge tone="warning" square><%= length(@agentlock_pending) %></.badge>
               <% end %>
             </div>
             <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
@@ -1670,7 +1670,7 @@ defmodule ApmV5Web.DashboardLive do
 
   defp agent_status_tone("active"), do: "success"
   defp agent_status_tone("idle"), do: "neutral"
-  defp agent_status_tone("error"), do: "danger"
+  defp agent_status_tone("error"), do: "error"
   defp agent_status_tone("discovered"), do: "info"
   defp agent_status_tone("completed"), do: "accent"
   defp agent_status_tone(_), do: "neutral"

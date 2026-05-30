@@ -719,9 +719,9 @@ defmodule ApmV5Web.SessionTimelineLive do
     type_str = to_string(type)
 
     cond do
-      String.contains?(type_str, ["error", "denied", "blocked", "failed"]) -> "err"
-      String.contains?(type_str, ["escalated", "warning", "pending"]) -> "warn"
-      String.contains?(type_str, ["granted", "approved", "success", "complete", "finished"]) -> "ok"
+      String.contains?(type_str, ["error", "denied", "blocked", "failed"]) -> "error"
+      String.contains?(type_str, ["escalated", "warning", "pending"]) -> "warning"
+      String.contains?(type_str, ["granted", "approved", "success", "complete", "finished"]) -> "success"
       true -> "neutral"
     end
   end
@@ -735,17 +735,17 @@ defmodule ApmV5Web.SessionTimelineLive do
       String.contains?(type_str, ["denied", "blocked"]) -> "denied"
       String.contains?(type_str, ["escalated", "pending"]) -> "pending"
       String.contains?(type_str, ["granted", "approved"]) -> "approved"
-      String.contains?(type_str, ["success", "complete", "finished"]) -> "ok"
+      String.contains?(type_str, ["success", "complete", "finished"]) -> "success"
       true -> "info"
     end
   end
 
   @spec category_tone(String.t()) :: String.t()
-  defp category_tone("lifecycle"), do: "ok"
+  defp category_tone("lifecycle"), do: "success"
   defp category_tone("auth"), do: "iris"
-  defp category_tone("formation"), do: "warn"
+  defp category_tone("formation"), do: "warning"
   defp category_tone("task"), do: "neutral"
-  defp category_tone("tool"), do: "warn"
+  defp category_tone("tool"), do: "warning"
   defp category_tone(_), do: "neutral"
 
   @spec lane_label_style(String.t()) :: String.t()

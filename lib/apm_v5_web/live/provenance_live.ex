@@ -240,7 +240,7 @@ defmodule ApmV5Web.ProvenanceLive do
                             {format_timestamp(attest.timestamp)}
                           </td>
                           <td style="padding:0.5rem 0.75rem;">
-                            <.badge tone={if sig_valid?(attest), do: "ok", else: "err"}>
+                            <.badge tone={if sig_valid?(attest), do: "success", else: "error"}>
                               {if sig_valid?(attest), do: "valid", else: "invalid"}
                             </.badge>
                           </td>

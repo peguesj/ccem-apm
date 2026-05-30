@@ -254,7 +254,7 @@ defmodule ApmV5Web.CoalesceLive do
                       {@active_run.run_id}
                     </span>
                     <%= if @active_run.dry_run do %>
-                      <.badge tone="warn">DRY RUN</.badge>
+                      <.badge tone="warning">DRY RUN</.badge>
                     <% end %>
                     <.badge tone={run_tone(@active_run.status)}>{@active_run.status}</.badge>
                   </div>
@@ -338,7 +338,7 @@ defmodule ApmV5Web.CoalesceLive do
                       </span>
                     </:col>
                     <:col :let={diff} label="Status">
-                      <.badge tone={if diff.approved, do: "ok", else: "warn"}>
+                      <.badge tone={if diff.approved, do: "success", else: "warning"}>
                         {if diff.approved, do: "approved", else: "pending"}
                       </.badge>
                     </:col>
@@ -378,7 +378,7 @@ defmodule ApmV5Web.CoalesceLive do
               <%= for addition <- @selected_diff.additions do %>
                 <.card>
                   <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                    <.badge tone="ok">{addition.type}</.badge>
+                    <.badge tone="success">{addition.type}</.badge>
                     <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">{addition.section}</span>
                   </div>
                   <pre style="font-family: var(--ccem-font-mono); font-size: 11px; color: var(--ccem-fg-dim); white-space: pre-wrap; overflow-x: auto;">{addition.content}</pre>
@@ -412,23 +412,23 @@ defmodule ApmV5Web.CoalesceLive do
   defp run_tone(:intelligence), do: "info"
   defp run_tone(:analysis), do: "iris"
   defp run_tone(:generation), do: "accent"
-  defp run_tone(:validation), do: "warn"
-  defp run_tone(:awaiting_gate), do: "warn"
-  defp run_tone(:applying), do: "ok"
-  defp run_tone(:complete), do: "ok"
+  defp run_tone(:validation), do: "warning"
+  defp run_tone(:awaiting_gate), do: "warning"
+  defp run_tone(:applying), do: "success"
+  defp run_tone(:complete), do: "success"
   defp run_tone(:cancelled), do: "neutral"
-  defp run_tone(:failed), do: "err"
+  defp run_tone(:failed), do: "error"
   defp run_tone(_), do: "neutral"
 
-  defp gate_tone(:pending), do: "warn"
-  defp gate_tone(:approved), do: "ok"
-  defp gate_tone(:rejected), do: "err"
+  defp gate_tone(:pending), do: "warning"
+  defp gate_tone(:approved), do: "success"
+  defp gate_tone(:rejected), do: "error"
   defp gate_tone(:deferred), do: "neutral"
   defp gate_tone(_), do: "neutral"
 
-  defp impact_tone(:high), do: "err"
-  defp impact_tone(:medium), do: "warn"
-  defp impact_tone(:low), do: "ok"
+  defp impact_tone(:high), do: "error"
+  defp impact_tone(:medium), do: "warning"
+  defp impact_tone(:low), do: "success"
   defp impact_tone(_), do: "neutral"
 
   defp confidence_style(c) when c >= 0.85, do: "color: var(--ccem-ok, #22c55e);"

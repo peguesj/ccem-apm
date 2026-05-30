@@ -223,12 +223,12 @@ defmodule ApmV5Web.GovernanceLive do
                     <span style="font-size:13px; font-weight:600; color:var(--ccem-fg); font-variant-numeric:tabular-nums;">
                       {fw_data.score}/100
                     </span>
-                    <.badge tone="ok">{satisfied}</.badge>
+                    <.badge tone="success">{satisfied}</.badge>
                     <%= if partial > 0 do %>
-                      <.badge tone="warn">{partial}</.badge>
+                      <.badge tone="warning">{partial}</.badge>
                     <% end %>
                     <%= if gap > 0 do %>
-                      <.badge tone="err">{gap}</.badge>
+                      <.badge tone="error">{gap}</.badge>
                     <% end %>
                   </div>
                 </div>
@@ -317,9 +317,9 @@ defmodule ApmV5Web.GovernanceLive do
               Active Circuit Breakers
             </p>
             <%= if length(@circuits) > 0 do %>
-              <.badge tone="err" dot>{length(@circuits)} open</.badge>
+              <.badge tone="error" dot>{length(@circuits)} open</.badge>
             <% else %>
-              <.badge tone="ok">None</.badge>
+              <.badge tone="success">None</.badge>
             <% end %>
           </div>
           <%= if @circuits == [] do %>
@@ -342,7 +342,7 @@ defmodule ApmV5Web.GovernanceLive do
                 </span>
               </:col>
               <:col :let={cb} label="Reason">
-                <.badge tone="warn">{cb.reason}</.badge>
+                <.badge tone="warning">{cb.reason}</.badge>
               </:col>
               <:col :let={cb} label="">
                 <.btn
@@ -524,15 +524,15 @@ defmodule ApmV5Web.GovernanceLive do
   defp status_sort_key(:satisfied), do: 3
   defp status_sort_key(_), do: 4
 
-  defp status_tone(:satisfied), do: "ok"
-  defp status_tone(:partial), do: "warn"
-  defp status_tone(:gap), do: "err"
-  defp status_tone(:absent), do: "err"
+  defp status_tone(:satisfied), do: "success"
+  defp status_tone(:partial), do: "warning"
+  defp status_tone(:gap), do: "error"
+  defp status_tone(:absent), do: "error"
   defp status_tone(_), do: "neutral"
 
-  defp score_tone(s) when s >= 80, do: "ok"
-  defp score_tone(s) when s >= 50, do: "warn"
-  defp score_tone(_), do: "err"
+  defp score_tone(s) when s >= 80, do: "success"
+  defp score_tone(s) when s >= 50, do: "warning"
+  defp score_tone(_), do: "error"
 
   defp score_label(s) when s >= 80, do: "Good"
   defp score_label(s) when s >= 50, do: "Moderate"
@@ -542,11 +542,11 @@ defmodule ApmV5Web.GovernanceLive do
   defp score_bar_color(s) when s >= 50, do: "var(--ccem-warn, #f5a623)"
   defp score_bar_color(_), do: "var(--ccem-err, #e5534b)"
 
-  defp risk_tone(:none), do: "ok"
+  defp risk_tone(:none), do: "success"
   defp risk_tone(:low), do: "info"
-  defp risk_tone(:medium), do: "warn"
-  defp risk_tone(:high), do: "err"
-  defp risk_tone(:critical), do: "err"
+  defp risk_tone(:medium), do: "warning"
+  defp risk_tone(:high), do: "error"
+  defp risk_tone(:critical), do: "error"
   defp risk_tone(_), do: "neutral"
 
   defp format_framework(:nist_ai_rmf), do: "NIST AI RMF"

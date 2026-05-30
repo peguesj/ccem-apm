@@ -156,8 +156,8 @@ defmodule ApmV5Web.PortsLive do
 
   defp ns_tone("web"), do: "iris"
   defp ns_tone("api"), do: "accent"
-  defp ns_tone("service"), do: "warn"
-  defp ns_tone("tool"), do: "ok"
+  defp ns_tone("service"), do: "warning"
+  defp ns_tone("tool"), do: "success"
   defp ns_tone(_), do: "neutral"
 
   @impl true
@@ -172,8 +172,8 @@ defmodule ApmV5Web.PortsLive do
           <div style="display: flex; align-items: center; gap: 12px;">
             <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Port Manager</h1>
             <.badge tone="neutral"><%= to_string(@total) %> projects</.badge>
-            <.badge tone="ok"><%= to_string(@active_count) %> active</.badge>
-            <.badge :if={@clash_count > 0} tone="err"><%= to_string(@clash_count) %> clashes</.badge>
+            <.badge tone="success"><%= to_string(@active_count) %> active</.badge>
+            <.badge :if={@clash_count > 0} tone="error"><%= to_string(@clash_count) %> clashes</.badge>
           </div>
           <.btn variant="primary" size="sm" phx-click="scan_ports">Scan Ports</.btn>
         </div>
@@ -220,10 +220,10 @@ defmodule ApmV5Web.PortsLive do
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
                   <span style="font-size: 24px; font-family: monospace; font-weight: 700; color: var(--ccem-fg);">:<%= p.port %></span>
-                  <.badge tone={if p.active, do: "ok", else: "neutral"} dot={true}><%= if p.active, do: "active", else: "inactive" %></.badge>
+                  <.badge tone={if p.active, do: "success", else: "neutral"} dot={true}><%= if p.active, do: "active", else: "inactive" %></.badge>
                 </div>
                 <div :if={MapSet.member?(@clash_ports, p.name)} style="padding: 8px; border-radius: 6px; background: var(--ccem-err-bg, rgba(239,68,68,0.08)); border: 1px solid var(--ccem-err-border, rgba(239,68,68,0.2)); display: flex; align-items: center; justify-content: space-between;">
-                  <.badge tone="err">Port clash</.badge>
+                  <.badge tone="error">Port clash</.badge>
                   <.btn variant="destructive" size="xs" phx-click="assign_port" phx-value-project={p.name}>Reassign</.btn>
                 </div>
               </.card>
@@ -258,7 +258,7 @@ defmodule ApmV5Web.PortsLive do
                 <div style="font-size: 13px; display: flex; align-items: center; gap: 8px;">
                   <span style="color: var(--ccem-fg-muted);">Port</span>
                   <span style="font-family: monospace; font-weight: 700; color: var(--ccem-fg);"><%= clash.port %></span>
-                  <.badge tone="err"><%= Enum.join(clash.projects, ", ") %></.badge>
+                  <.badge tone="error"><%= Enum.join(clash.projects, ", ") %></.badge>
                 </div>
               </div>
             </div>

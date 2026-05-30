@@ -562,7 +562,7 @@ defmodule ApmV5Web.SkillsLive do
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
                       <div style="display: flex; gap: 4px;">
                         <.badge tone="neutral">CUSTOM</.badge>
-                        <.badge :if={skill.has_frontmatter} tone="ok">valid</.badge>
+                        <.badge :if={skill.has_frontmatter} tone="success">valid</.badge>
                       </div>
                       <.btn
                         :if={skill.health_score < 50}
@@ -773,14 +773,14 @@ defmodule ApmV5Web.SkillsLive do
             AgentLock Authorization
           </h3>
           <div :if={@selected_skill.auth_gated} style="display: flex; align-items: center; gap: 8px;">
-            <.badge tone="ok">
+            <.badge tone="success">
               <.icon name="hero-shield-check" class="size-3" />
               Auth Gated
             </.badge>
             <span style="font-size: 11px; color: var(--ccem-fg-subtle);">agentlock_pre_tool.sh active</span>
           </div>
           <div :if={not @selected_skill.auth_gated} style="display: flex; flex-direction: column; gap: 8px;">
-            <.badge tone="warn">
+            <.badge tone="warning">
               <.icon name="hero-shield-exclamation" class="size-3" />
               Auth Missing
             </.badge>
@@ -799,7 +799,7 @@ defmodule ApmV5Web.SkillsLive do
             <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 4px;">Recent Auth Decisions</p>
             <div style="display: flex; flex-direction: column; gap: 4px;">
               <div :for={decision <- @agentlock_status.recent_decisions} style="display: flex; align-items: center; gap: 4px; font-size: 11px;">
-                <.badge tone={if decision.event == "authorized", do: "ok", else: "warn"} dot={true}></.badge>
+                <.badge tone={if decision.event == "authorized", do: "success", else: "warning"} dot={true}></.badge>
                 <span style="font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;">{decision.tool}</span>
                 <span style="color: var(--ccem-fg-subtle); margin-left: auto;">{decision.event}</span>
               </div>
@@ -900,9 +900,9 @@ defmodule ApmV5Web.SkillsLive do
                 <span>
                   Fix frontmatter
                   <%= if @selected_skill.has_frontmatter do %>
-                    <.badge tone="ok" style="margin-left: 4px;">OK</.badge>
+                    <.badge tone="success" style="margin-left: 4px;">OK</.badge>
                   <% else %>
-                    <.badge tone="warn" style="margin-left: 4px;">needs fix</.badge>
+                    <.badge tone="warning" style="margin-left: 4px;">needs fix</.badge>
                   <% end %>
                 </span>
               </label>
@@ -916,9 +916,9 @@ defmodule ApmV5Web.SkillsLive do
                 <span>
                   Improve description
                   <%= if @selected_skill.description_quality == "good" do %>
-                    <.badge tone="ok" style="margin-left: 4px;">OK</.badge>
+                    <.badge tone="success" style="margin-left: 4px;">OK</.badge>
                   <% else %>
-                    <.badge tone="warn" style="margin-left: 4px;">needs fix</.badge>
+                    <.badge tone="warning" style="margin-left: 4px;">needs fix</.badge>
                   <% end %>
                 </span>
               </label>
@@ -932,9 +932,9 @@ defmodule ApmV5Web.SkillsLive do
                 <span>
                   Add triggers
                   <%= if Map.get(@selected_skill, :trigger_count, 0) > 0 do %>
-                    <.badge tone="ok" style="margin-left: 4px;">OK (<%= Map.get(@selected_skill, :trigger_count, 0) %>)</.badge>
+                    <.badge tone="success" style="margin-left: 4px;">OK (<%= Map.get(@selected_skill, :trigger_count, 0) %>)</.badge>
                   <% else %>
-                    <.badge tone="warn" style="margin-left: 4px;">none</.badge>
+                    <.badge tone="warning" style="margin-left: 4px;">none</.badge>
                   <% end %>
                 </span>
               </label>
@@ -948,9 +948,9 @@ defmodule ApmV5Web.SkillsLive do
                 <span>
                   Add templates
                   <%= if Map.get(@selected_skill, :has_templates_section, false) do %>
-                    <.badge tone="ok" style="margin-left: 4px;">OK</.badge>
+                    <.badge tone="success" style="margin-left: 4px;">OK</.badge>
                   <% else %>
-                    <.badge tone="warn" style="margin-left: 4px;">missing</.badge>
+                    <.badge tone="warning" style="margin-left: 4px;">missing</.badge>
                   <% end %>
                 </span>
               </label>
@@ -964,9 +964,9 @@ defmodule ApmV5Web.SkillsLive do
                 <span>
                   Add examples
                   <%= if Map.get(@selected_skill, :has_examples_section, false) do %>
-                    <.badge tone="ok" style="margin-left: 4px;">OK</.badge>
+                    <.badge tone="success" style="margin-left: 4px;">OK</.badge>
                   <% else %>
-                    <.badge tone="warn" style="margin-left: 4px;">missing</.badge>
+                    <.badge tone="warning" style="margin-left: 4px;">missing</.badge>
                   <% end %>
                 </span>
               </label>
@@ -1750,9 +1750,9 @@ defmodule ApmV5Web.SkillsLive do
 
   defp skill_tier_tone(skill) do
     cond do
-      skill.health_score >= 80 -> "ok"
-      skill.health_score >= 50 -> "warn"
-      true -> "err"
+      skill.health_score >= 80 -> "success"
+      skill.health_score >= 50 -> "warning"
+      true -> "error"
     end
   end
 
@@ -1785,9 +1785,9 @@ defmodule ApmV5Web.SkillsLive do
   defp tier_label(:needs_attention), do: "Needs Attention"
   defp tier_label(:critical), do: "Critical"
 
-  defp tier_badge_tone(:healthy), do: "ok"
-  defp tier_badge_tone(:needs_attention), do: "warn"
-  defp tier_badge_tone(:critical), do: "err"
+  defp tier_badge_tone(:healthy), do: "success"
+  defp tier_badge_tone(:needs_attention), do: "warning"
+  defp tier_badge_tone(:critical), do: "error"
 
   defp tier_color(:healthy), do: "var(--ccem-ok)"
   defp tier_color(:needs_attention), do: "var(--ccem-warn)"
@@ -1856,7 +1856,7 @@ defmodule ApmV5Web.SkillsLive do
 
   defp format_time(_), do: "—"
 
-  defp methodology_tone(:ralph), do: "ok"
+  defp methodology_tone(:ralph), do: "success"
   defp methodology_tone(:tdd), do: "info"
   defp methodology_tone(:elixir_architect), do: "accent"
   defp methodology_tone(_), do: "neutral"
@@ -1867,13 +1867,13 @@ defmodule ApmV5Web.SkillsLive do
   defp methodology_for_skill("elixir-architect"), do: :elixir_architect
   defp methodology_for_skill(_), do: nil
 
-  defp source_tone(:observed), do: "ok"
+  defp source_tone(:observed), do: "success"
   defp source_tone(:filesystem), do: "neutral"
   defp source_tone(_), do: "neutral"
 
-  defp health_tone(score) when score >= 80, do: "ok"
-  defp health_tone(score) when score >= 50, do: "warn"
-  defp health_tone(_), do: "err"
+  defp health_tone(score) when score >= 80, do: "success"
+  defp health_tone(score) when score >= 50, do: "warning"
+  defp health_tone(_), do: "error"
 
   defp health_label(score) when score >= 80, do: "healthy"
   defp health_label(score) when score >= 50, do: "needs attention"
@@ -1883,9 +1883,9 @@ defmodule ApmV5Web.SkillsLive do
   defp desc_score("truncated"), do: 10
   defp desc_score(_), do: 0
 
-  defp desc_quality_tone("good"), do: "ok"
-  defp desc_quality_tone("truncated"), do: "warn"
-  defp desc_quality_tone(_), do: "err"
+  defp desc_quality_tone("good"), do: "success"
+  defp desc_quality_tone("truncated"), do: "warning"
+  defp desc_quality_tone(_), do: "error"
 
   defp format_modified(nil), do: "—"
 

@@ -123,7 +123,7 @@ defmodule ApmV5Web.ApprovalsLive do
           <.card padded={false}>
             <div style="padding: 16px 16px 0 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
               <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">Pending Decisions</span>
-              <.badge tone={if @pending_count > 0, do: "warn", else: "neutral"}>
+              <.badge tone={if @pending_count > 0, do: "warning", else: "neutral"}>
                 {@pending_count}
               </.badge>
             </div>
@@ -260,13 +260,13 @@ defmodule ApmV5Web.ApprovalsLive do
   end
   defp format_dt(_), do: "—"
 
-  defp risk_tone(:high), do: "err"
-  defp risk_tone(:medium), do: "warn"
-  defp risk_tone(:low), do: "ok"
+  defp risk_tone(:high), do: "error"
+  defp risk_tone(:medium), do: "warning"
+  defp risk_tone(:low), do: "success"
   defp risk_tone(_), do: "neutral"
 
-  defp audit_tone(:approved), do: "ok"
-  defp audit_tone(:denied), do: "err"
-  defp audit_tone(:deferred), do: "warn"
+  defp audit_tone(:approved), do: "success"
+  defp audit_tone(:denied), do: "error"
+  defp audit_tone(:deferred), do: "warning"
   defp audit_tone(_), do: "neutral"
 end

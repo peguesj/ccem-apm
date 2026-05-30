@@ -12,7 +12,7 @@ defmodule ApmV5Web.Components.DesignSystem do
       import ApmV5Web.Components.DesignSystem
 
       <.btn variant="primary" size="md" type="button">Save</.btn>
-      <.badge tone="ok" dot>Running</.badge>
+      <.badge tone="success" dot>Running</.badge>
       <.card><p>Hello</p></.card>
   """
 
@@ -113,10 +113,12 @@ defmodule ApmV5Web.Components.DesignSystem do
   # ---------------------------------------------------------------------------
 
   @doc """
-  Renders a status badge with seven tone options.
+  Renders a status badge with canonical 5-tone severity vocabulary.
 
   ## Tones
-  `accent`, `iris`, `ok`, `warn`, `err`, `info`, `neutral`
+  `success`, `warning`, `error`, `info`, `neutral`
+
+  Extended tones: `accent`, `iris` (design-system use only).
 
   ## Options
   - `dot`    — shows an animated pulsing indicator dot
@@ -124,13 +126,13 @@ defmodule ApmV5Web.Components.DesignSystem do
 
   ## Examples
 
-      <.badge tone="ok">Healthy</.badge>
-      <.badge tone="err" dot>Failed</.badge>
-      <.badge tone="warn" square>3</.badge>
+      <.badge tone="success">Healthy</.badge>
+      <.badge tone="error" dot>Failed</.badge>
+      <.badge tone="warning" square>3</.badge>
   """
   attr :tone, :string,
     default: "neutral",
-    values: ~w(accent iris ok warn err info neutral)
+    values: ~w(accent iris success warning error info neutral)
 
   attr :dot, :boolean, default: false
   attr :square, :boolean, default: false
@@ -172,13 +174,13 @@ defmodule ApmV5Web.Components.DesignSystem do
   defp badge_tone_style("iris"),
     do: "background: var(--ccem-iris-muted, color-mix(in srgb, var(--ccem-iris, #7c6cf8) 18%, transparent)); color: var(--ccem-iris, #7c6cf8); border: 1px solid color-mix(in srgb, var(--ccem-iris, #7c6cf8) 30%, transparent);"
 
-  defp badge_tone_style("ok"),
+  defp badge_tone_style("success"),
     do: "background: color-mix(in srgb, var(--ccem-ok, #22c55e) 15%, transparent); color: var(--ccem-ok, #22c55e); border: 1px solid color-mix(in srgb, var(--ccem-ok, #22c55e) 30%, transparent);"
 
-  defp badge_tone_style("warn"),
+  defp badge_tone_style("warning"),
     do: "background: color-mix(in srgb, var(--ccem-warn, #f59e0b) 15%, transparent); color: var(--ccem-warn, #f59e0b); border: 1px solid color-mix(in srgb, var(--ccem-warn, #f59e0b) 30%, transparent);"
 
-  defp badge_tone_style("err"),
+  defp badge_tone_style("error"),
     do: "background: color-mix(in srgb, var(--ccem-err, #ef4444) 15%, transparent); color: var(--ccem-err, #ef4444); border: 1px solid color-mix(in srgb, var(--ccem-err, #ef4444) 30%, transparent);"
 
   defp badge_tone_style("info"),
@@ -187,13 +189,9 @@ defmodule ApmV5Web.Components.DesignSystem do
   defp badge_tone_style("neutral"),
     do: "background: var(--ccem-bg-2); color: var(--ccem-fg-muted); border: 1px solid var(--ccem-line);"
 
-  # Atom-tone coercion (CP-308) — LiveViews like AuthorizationLive emit atom
-  # statuses (e.g. :err from authorize result tagging); coerce to the string
-  # clause-form rather than crash the whole LV mount with a FunctionClauseError.
-  defp badge_tone_style(tone) when is_atom(tone), do: badge_tone_style(Atom.to_string(tone))
-
-  # Final fallback for any unmapped string — render as neutral instead of crashing.
-  defp badge_tone_style(tone) when is_binary(tone), do: badge_tone_style("neutral")
+  # Phase 0.2: CP-308 atom-coercion and catch-all fallbacks removed.
+  # All tone callsites now emit canonical strings: success | warning | error | info | neutral
+  # (plus accent/iris for extended DS use). No runtime coercion needed.
 
   # ---------------------------------------------------------------------------
   # card/1

@@ -66,7 +66,7 @@ defmodule ApmV5Web.ComposioLive do
               <.badge tone="accent">1000+ integrations</.badge>
             </div>
             <div class="flex items-center gap-2">
-              <.badge :if={!@loading} tone="ok">connected</.badge>
+              <.badge :if={!@loading} tone="success">connected</.badge>
               <.badge :if={@loading} tone="info">loading</.badge>
             </div>
           </div>
@@ -151,7 +151,7 @@ defmodule ApmV5Web.ComposioLive do
               <div class="text-sm font-medium"><%= acct[:name] || acct["name"] || "Account" %></div>
               <div class="text-xs text-base-content/60"><%= acct[:app_name] || acct["appName"] || "" %></div>
             </div>
-            <.badge tone={if acct[:status] == "ACTIVE" or acct["status"] == "ACTIVE", do: "ok", else: "neutral"}>
+            <.badge tone={if acct[:status] == "ACTIVE" or acct["status"] == "ACTIVE", do: "success", else: "neutral"}>
               <%= acct[:status] || acct["status"] || "unknown" %>
             </.badge>
           </div>

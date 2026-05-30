@@ -106,17 +106,17 @@ defmodule ApmV5Web.ScannerLive do
 
   # --- Helpers ---
 
-  defp stack_tone("node"), do: "warn"
+  defp stack_tone("node"), do: "warning"
   defp stack_tone("elixir"), do: "accent"
   defp stack_tone("python"), do: "iris"
-  defp stack_tone("rust"), do: "err"
+  defp stack_tone("rust"), do: "error"
   defp stack_tone("go"), do: "info"
-  defp stack_tone("swift"), do: "ok"
+  defp stack_tone("swift"), do: "success"
   defp stack_tone(_), do: "neutral"
 
   defp scanner_status_tone(%{status: :idle}), do: "neutral"
   defp scanner_status_tone(%{status: :scanning}), do: "info"
-  defp scanner_status_tone(%{status: :done}), do: "ok"
+  defp scanner_status_tone(%{status: :done}), do: "success"
   defp scanner_status_tone(_), do: "neutral"
 
   defp scanner_status_text(%{status: :idle}), do: "Idle — not yet scanned"
@@ -202,7 +202,7 @@ defmodule ApmV5Web.ScannerLive do
               </span>
             </:col>
             <:col :let={row} label="Claude Config">
-              <.badge tone={if row[:has_claude_config], do: "ok", else: "neutral"}>
+              <.badge tone={if row[:has_claude_config], do: "success", else: "neutral"}>
                 <%= if row[:has_claude_config], do: "yes", else: "no" %>
               </.badge>
             </:col>

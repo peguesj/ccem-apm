@@ -389,9 +389,9 @@ defmodule ApmV5Web.MemoryLive do
   defp type_style("agent"), do: {"accent", "agent"}
   defp type_style("tool_call"), do: {"info", "tool_call"}
   defp type_style("session"), do: {"iris", "session"}
-  defp type_style("error"), do: {"err", "error"}
-  defp type_style("security"), do: {"warn", "security"}
-  defp type_style("memory"), do: {"ok", "memory"}
+  defp type_style("error"), do: {"error", "error"}
+  defp type_style("security"), do: {"warning", "security"}
+  defp type_style("memory"), do: {"success", "memory"}
   defp type_style(other), do: {"neutral", other || "unknown"}
 
   # ── Event Handlers ─────────────────────────────────────────────────────────

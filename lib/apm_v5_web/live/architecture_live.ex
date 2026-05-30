@@ -337,7 +337,7 @@ defmodule ApmV5Web.ArchitectureLive do
               </span>
             </:col>
             <:col :let={topic} label="Status">
-              <.badge tone={if topic.subscriber_count > 0, do: "ok", else: "neutral"}>
+              <.badge tone={if topic.subscriber_count > 0, do: "success", else: "neutral"}>
                 {if topic.subscriber_count > 0, do: "Active", else: "Idle"}
               </.badge>
             </:col>
@@ -654,8 +654,8 @@ defmodule ApmV5Web.ArchitectureLive do
   defp format_bytes(_), do: "—"
 
   @spec gs_status_tone(String.t()) :: String.t()
-  defp gs_status_tone("running"), do: "ok"
-  defp gs_status_tone("error"), do: "err"
+  defp gs_status_tone("running"), do: "success"
+  defp gs_status_tone("error"), do: "error"
   defp gs_status_tone(_), do: "neutral"
 
   @spec level_role(String.t() | nil) :: String.t()

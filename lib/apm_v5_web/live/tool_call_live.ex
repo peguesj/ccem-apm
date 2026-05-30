@@ -355,12 +355,12 @@ defmodule ApmV5Web.ToolCallLive do
   end
 
   @spec call_status_tone(atom() | String.t() | nil) :: String.t()
-  defp call_status_tone(:in_progress), do: "warn"
-  defp call_status_tone(:completed), do: "ok"
-  defp call_status_tone(:error), do: "err"
-  defp call_status_tone("in_progress"), do: "warn"
-  defp call_status_tone("completed"), do: "ok"
-  defp call_status_tone("error"), do: "err"
+  defp call_status_tone(:in_progress), do: "warning"
+  defp call_status_tone(:completed), do: "success"
+  defp call_status_tone(:error), do: "error"
+  defp call_status_tone("in_progress"), do: "warning"
+  defp call_status_tone("completed"), do: "success"
+  defp call_status_tone("error"), do: "error"
   defp call_status_tone(_), do: "neutral"
 
   @spec call_status_label(atom() | String.t() | nil) :: String.t()
