@@ -37,6 +37,7 @@ defmodule ApmWeb.DecidePendingLive do
   use ApmWeb, :live_view
 
   alias Apm.Decisions
+  alias Apm.Auth.PolicyRulesStore
 
   # v11 Tier-5 templates (no conflict with DesignSystem — new names)
   alias ApmWeb.Components.Templates.PageShell
@@ -76,6 +77,7 @@ defmodule ApmWeb.DecidePendingLive do
      |> assign(:selected, nil)
      |> assign(:decide_modal, nil)
      |> assign(:modal_item, nil)
+     |> assign(:modal_decision, "allow")
      |> assign(:sticky_rule, false)
      |> assign(:toast, nil)
      |> assign(:status, :loading)
@@ -138,11 +140,25 @@ defmodule ApmWeb.DecidePendingLive do
   end
 
   def handle_event("close_modal", _params, socket) do
-    {:noreply, socket |> assign(:decide_modal, nil) |> assign(:modal_item, nil)}
+    {:noreply,
+     socket
+     |> assign(:decide_modal, nil)
+     |> assign(:modal_item, nil)
+     |> assign(:modal_decision, "allow")
+     |> assign(:sticky_rule, false)}
+  end
+
+  def handle_event("toggle_sticky", _params, socket) do
+    {:noreply, update(socket, :sticky_rule, &(!&1))}
+  end
+
+  def handle_event("modal_select_decision", %{"value" => value}, socket) do
+    {:noreply, assign(socket, :modal_decision, value)}
   end
 
   def handle_event("modal_decide", %{"decision" => decision} = params, socket) do
     id = get_in(socket.assigns, [:modal_item, :id])
+    item = socket.assigns.modal_item
     sticky = params["sticky"] == "true"
 
     socket =
@@ -150,6 +166,8 @@ defmodule ApmWeb.DecidePendingLive do
       |> assign(:sticky_rule, sticky)
       |> assign(:decide_modal, nil)
       |> assign(:modal_item, nil)
+      |> assign(:modal_decision, "allow")
+      |> maybe_add_sticky_rule(item, decision, sticky)
 
     if id do
       do_decide(socket, id, String.to_atom(decision))
@@ -422,6 +440,38 @@ defmodule ApmWeb.DecidePendingLive do
   end
 
   # ── Private helpers ──────────────────────────────────────────────────────────
+
+  # Persists a sticky policy rule when the user checks "Create sticky policy rule"
+  # in the DecisionModal. The rule targets the specific agent_id (stored as the ETS
+  # key) so future requests from that agent are auto-decided without interruption.
+  #
+  # PolicyRulesStore supports agent-scoped keys via add_rule/3 — we use the agent_id
+  # as the tool scope key with `created_by: "decide_pending_modal"` for auditability.
+  defp maybe_add_sticky_rule(socket, _item, _decision, false), do: socket
+
+  defp maybe_add_sticky_rule(socket, nil, _decision, true), do: socket
+
+  defp maybe_add_sticky_rule(socket, item, decision, true) do
+    action =
+      case decision do
+        "allow" -> :always_allow
+        "deny" -> :always_deny
+        _ -> nil
+      end
+
+    if action do
+      # Use the agent_id as the key so the rule targets this specific agent.
+      # Fall back to tool_name if agent_id is absent (older queue item shape).
+      rule_key = item[:agent_id] || item[:tool_name] || "*"
+
+      PolicyRulesStore.add_rule(rule_key, action,
+        created_by: "decide_pending_modal",
+        approved_by: nil
+      )
+    end
+
+    socket
+  end
 
   defp load_queue(socket) do
     try do
