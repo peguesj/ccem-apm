@@ -100,7 +100,8 @@ defmodule ApmWeb.Router do
     # this wrapper each `live` macro creates its own implicit session, and the
     # LiveSocket intercepts anchor clicks then fails to negotiate the session
     # change, resulting in 404 errors when navigating between pages.
-    live_session :main_app do
+    live_session :main_app,
+      on_mount: [{ApmWeb.Hooks.PendingCountHook, :default}] do
       # Core monitoring views
       live "/", DashboardLive, :index
       live "/apm-all", AllProjectsLive, :index
