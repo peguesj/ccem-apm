@@ -25,6 +25,8 @@ defmodule ApmWeb.Components.Core.Button do
   """
   use Phoenix.Component
 
+  import ApmWeb.Components.Core.Icon, only: [icon: 1]
+
   attr :variant, :string, default: "secondary",
     values: ~w(primary secondary ghost outline danger)
 

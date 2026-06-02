@@ -88,6 +88,13 @@ defmodule ApmWeb.Router do
     get "/docs/upm/status", PageController, :redirect_to_showcase
     get "/upm", PageController, :upm_redirect
 
+    # ── v11 IA 301 redirects ─────────────────────────────────────────────────
+    # Old routes are preserved as fallback LiveViews (no-downtime strategy).
+    # Once zero-traffic is confirmed for the old paths, remove these redirects.
+    get "/approvals", V11RedirectController, :approvals
+    get "/approvals-history", V11RedirectController, :approvals_history
+    get "/sessions/:id", V11RedirectController, :session_detail
+
     # All LiveViews share a single live_session so the LiveSocket can perform
     # client-side navigation between pages without a full-page reload. Without
     # this wrapper each `live` macro creates its own implicit session, and the
@@ -153,6 +160,12 @@ defmodule ApmWeb.Router do
       live "/govern/settings", SettingsLive, :index
       live "/approvals-history", ApprovalHistoryLive, :index
       live "/routing", RoutingLive, :index
+
+      # ── v11 Phase 2: Gold-standard pages ────────────────────────────────────
+      # DECIDE section
+      live "/decide/pending", DecidePendingLive, :index
+      # INVESTIGATE section
+      live "/investigate/sessions/:id", InvestigateSessionLive, :show
 
       # Extension: usage
       live "/usage", UsageLive, :index

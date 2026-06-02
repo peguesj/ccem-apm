@@ -39,8 +39,8 @@ defmodule ApmWeb.Components.Data.DataTable do
 
   attr :id, :string, required: true
   attr :rows, :list, default: []
-  attr :loading, :boolean, default: false
-  attr :error, :string, default: nil
+  attr :is_loading, :boolean, default: false
+  attr :error_message, :string, default: nil
   attr :density, :string, default: "default", values: ~w(compact default comfortable)
   attr :keyboard_nav, :boolean, default: false
   attr :selected_row, :any, default: nil
@@ -63,9 +63,9 @@ defmodule ApmWeb.Components.Data.DataTable do
   def data_table(assigns) do
     ~H"""
     <%= cond do %>
-      <% @loading -> %>
+      <% @is_loading -> %>
         <%= render_slot(@loading) %>
-      <% @error -> %>
+      <% @error_message -> %>
         <%= render_slot(@error) %>
       <% @rows == [] -> %>
         <%= render_slot(@empty) %>
