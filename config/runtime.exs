@@ -12,15 +12,15 @@ import Config
 # If you use `mix release`, you need to explicitly enable the server
 # by passing the PHX_SERVER=true when you start it:
 #
-#     PHX_SERVER=true bin/apm_v5 start
+#     PHX_SERVER=true bin/apm start
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
 if System.get_env("PHX_SERVER") do
-  config :apm_v5, ApmV5Web.Endpoint, server: true
+  config :apm, ApmWeb.Endpoint, server: true
 end
 
-config :apm_v5, ApmV5Web.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "3032"))]
+config :apm, ApmWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "3032"))]
 
 # --- v9.3.0 Observability: OpenTelemetry SDK (obs-s1 / CP-216) ---
 otlp_endpoint = System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
@@ -53,7 +53,7 @@ cloak_key_b64 =
   System.get_env("CCEM_CLOAK_KEY") ||
     Base.encode64(:crypto.strong_rand_bytes(32))
 
-config :apm_v5, ApmV5.Governance.Vault,
+config :apm, Apm.Governance.Vault,
   ciphers: [
     default: {Cloak.Ciphers.AES.GCM, tag: "AES.GCM.V1", key: Base.decode64!(cloak_key_b64)}
   ]
@@ -73,9 +73,9 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || "example.com"
 
-  config :apm_v5, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  config :apm, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
-  config :apm_v5, ApmV5Web.Endpoint,
+  config :apm, ApmWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
       # Enable IPv6 and bind on all interfaces.
@@ -91,7 +91,7 @@ if config_env() == :prod do
   # To get SSL working, you will need to add the `https` key
   # to your endpoint configuration:
   #
-  #     config :apm_v5, ApmV5Web.Endpoint,
+  #     config :apm, ApmWeb.Endpoint,
   #       https: [
   #         ...,
   #         port: 443,
@@ -113,7 +113,7 @@ if config_env() == :prod do
   # We also recommend setting `force_ssl` in your config/prod.exs,
   # ensuring no data is ever sent via http, always redirecting to https:
   #
-  #     config :apm_v5, ApmV5Web.Endpoint,
+  #     config :apm, ApmWeb.Endpoint,
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.

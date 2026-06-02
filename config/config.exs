@@ -7,24 +7,24 @@
 # General application configuration
 import Config
 
-config :apm_v5,
+config :apm,
   generators: [timestamp_type: :utc_datetime]
 
 # Configure the endpoint
-config :apm_v5, ApmV5Web.Endpoint,
+config :apm, ApmWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: ApmV5Web.ErrorHTML, json: ApmV5Web.ErrorJSON],
+    formats: [html: ApmWeb.ErrorHTML, json: ApmWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: ApmV5.PubSub,
+  pubsub_server: Apm.PubSub,
   live_view: [signing_salt: "b6BgEvJs"]
 
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
-  apm_v5: [
+  apm: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
     cd: Path.expand("../assets", __DIR__),
@@ -34,7 +34,7 @@ config :esbuild,
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "4.1.12",
-  apm_v5: [
+  apm: [
     args: ~w(
       --input=assets/css/app.css
       --output=priv/static/assets/css/app.css
@@ -59,13 +59,13 @@ config :phoenix, :json_library, Jason
 # Empty by default.  Override in prod.exs / runtime.exs to deliver events to
 # external SIEM systems:
 #
-#   config :apm_v5, :audit_sinks, [ApmV5.AuditLog.Sinks.HttpSink]
+#   config :apm, :audit_sinks, [Apm.AuditLog.Sinks.HttpSink]
 #
-config :apm_v5, :audit_sinks, []
+config :apm, :audit_sinks, []
 
 # HttpSink defaults — endpoint_url is intentionally a placeholder.
 # Override in prod.exs or runtime.exs for real deployments.
-config :apm_v5, ApmV5.AuditLog.Sinks.HttpSink,
+config :apm, Apm.AuditLog.Sinks.HttpSink,
   endpoint_url: "https://siem.example/audit",
   timeout_ms: 500,
   max_retries: 0
@@ -74,7 +74,7 @@ config :apm_v5, ApmV5.AuditLog.Sinks.HttpSink,
 #
 # Backend selection: :ets (default, single-node) or :horde (multi-node).
 # Set to :horde in production when running a multi-node cluster.
-config :apm_v5, :agent_registry_backend, :ets
+config :apm, :agent_registry_backend, :ets
 
 # libcluster topology skeleton — DNS strategy (multi-node production default).
 # Override in prod.exs or runtime.exs with actual service/namespace values.
@@ -86,7 +86,7 @@ config :apm_v5, :agent_registry_backend, :ets
 #       strategy: Cluster.Strategy.Kubernetes.DNS,
 #       config: [
 #         service: "apm-v5-headless",
-#         application_name: "apm_v5",
+#         application_name: "apm",
 #         polling_interval: 5_000
 #       ]
 #     ]
@@ -103,13 +103,13 @@ config :libcluster, :topologies, []
 
 # OPA sidecar client defaults (auth-v10.1-s1 / CP-291)
 # Override base_url in dev.exs / prod.exs if sidecar runs on a different host.
-config :apm_v5, ApmV5.Auth.OpaClient,
+config :apm, Apm.Auth.OpaClient,
   base_url: "http://localhost:8181",
   timeout_ms: 2_000
 
 # PolicyPriorityResolver strategy (auth-v10.1-s4 / CP-294)
 # :deny_wins | :most_specific | :first_match
-config :apm_v5, ApmV5.Auth.PolicyPriorityResolver, strategy: :deny_wins
+config :apm, Apm.Auth.PolicyPriorityResolver, strategy: :deny_wins
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

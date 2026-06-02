@@ -1,4 +1,4 @@
-defmodule ApmV5Web.ConnCase do
+defmodule ApmWeb.ConnCase do
   @moduledoc """
   Test case for controller tests requiring a connection.
   """
@@ -7,13 +7,13 @@ defmodule ApmV5Web.ConnCase do
 
   using do
     quote do
-      @endpoint ApmV5Web.Endpoint
+      @endpoint ApmWeb.Endpoint
 
-      use ApmV5Web, :verified_routes
+      use ApmWeb, :verified_routes
 
       import Plug.Conn
       import Phoenix.ConnTest
-      import ApmV5Web.ConnCase
+      import ApmWeb.ConnCase
     end
   end
 
