@@ -27,6 +27,11 @@ defmodule ApmWeb.Components.Composite.StatTile do
   """
   use Phoenix.Component
 
+  # Phase 2 cross-component import convention: explicit import of each used
+  # subcomponent. Alias or import at module scope for all components this
+  # composite depends on so callers get a clean API without full module paths.
+  import ApmWeb.Components.Core.Badge, only: [badge: 1]
+
   attr :label, :string, required: true
   attr :value, :string, required: true
   attr :unit, :string, default: nil
@@ -56,7 +61,7 @@ defmodule ApmWeb.Components.Composite.StatTile do
           <span class="apm-stat-tile__unit">{@unit}</span>
         <% end %>
         <%= if @delta do %>
-          <ApmWeb.Components.Core.Badge.badge tone={@delta_tone}>{@delta}</ApmWeb.Components.Core.Badge.badge>
+          <.badge tone={@delta_tone}>{@delta}</.badge>
         <% end %>
       </div>
       <%= if @spark != [] do %>

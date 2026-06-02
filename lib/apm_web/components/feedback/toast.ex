@@ -33,6 +33,8 @@ defmodule ApmWeb.Components.Feedback.Toast do
   """
   use Phoenix.Component
 
+  alias Phoenix.LiveView.JS
+
   attr :id, :string, required: true
   attr :tone, :string, default: "success",
     values: ~w(success warning error info neutral)
@@ -70,7 +72,7 @@ defmodule ApmWeb.Components.Feedback.Toast do
       <button
         class="apm-toast__close apm-focusable"
         aria-label="Dismiss"
-        phx-click={JS.remove(@id)}
+        phx-click={JS.hide(to: "##{@id}")}
         type="button"
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 6 12 12M18 6 6 18"/></svg>
