@@ -167,6 +167,12 @@ defmodule ApmWeb.Router do
       # INVESTIGATE section
       live "/investigate/sessions/:id", InvestigateSessionLive, :show
 
+      # ── v11 Phase 3: Live section /live/* route aliases ──────────────────────
+      live "/live/fleet", FleetLive, :index
+      live "/live/sessions", SessionManagerLive, :index
+      live "/live/timeline", SessionTimelineLive, :index
+      live "/live/conversations", ConversationMonitorLive, :index
+
       # Extension: usage
       live "/usage", UsageLive, :index
 
