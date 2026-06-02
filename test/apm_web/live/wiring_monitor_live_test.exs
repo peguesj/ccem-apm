@@ -17,6 +17,11 @@ defmodule ApmWeb.WiringMonitorLiveTest do
   alias Apm.WiringMonitor
   alias Apm.WiringMonitor.Finding
 
+  setup_all do
+    Code.ensure_loaded!(ApmWeb.WiringMonitorLive)
+    :ok
+  end
+
   # ---------------------------------------------------------------------------
   # Test 1 — LiveView contract
   # ---------------------------------------------------------------------------

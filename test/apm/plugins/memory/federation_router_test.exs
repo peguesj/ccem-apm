@@ -1,5 +1,8 @@
 defmodule Apm.Plugins.Memory.FederationRouterTest do
-  use ExUnit.Case, async: true
+  # async: false — Bypass HTTP mocks are port-allocated and can receive stray
+  # GenServer stop messages from concurrently-running Bypass instances in other
+  # test modules, causing spurious GenServer termination errors under full-suite runs.
+  use ExUnit.Case, async: false
 
   alias Apm.Plugins.Memory.FederationRouter
 

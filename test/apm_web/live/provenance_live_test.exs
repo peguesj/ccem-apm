@@ -16,6 +16,11 @@ defmodule ApmWeb.ProvenanceLiveTest do
 
   @moduletag :prov_w4
 
+  setup_all do
+    Code.ensure_loaded!(ApmWeb.ProvenanceLive)
+    :ok
+  end
+
   # ── Module contract tests (no process startup required) ───────────────────
 
   describe "ApmWeb.ProvenanceLive module" do
