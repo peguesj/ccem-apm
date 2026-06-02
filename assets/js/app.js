@@ -56,6 +56,12 @@ import DrawerResize from "./hooks/drawer_resize"
 import { CommandBarHook } from "./hooks/command_bar"
 import ProvenanceLineageGraph from "./hooks/provenance_lineage_graph"
 import TableKeyNav from "./hooks/table_key_nav"
+import CountdownRing from "./hooks/countdown_ring"
+import SwipeDecide from "./hooks/swipe_decide"
+import DrawerSlide from "./hooks/drawer_slide"
+import ModalTrap from "./hooks/modal_trap"
+import CountUp from "./hooks/count_up"
+import SparklineDot from "./hooks/sparkline_dot"
 
 // Custom hooks for LiveView
 const Hooks = {
@@ -119,7 +125,13 @@ const Hooks = {
   DrawerResize,
   CommandBar: CommandBarHook,
   ProvenanceLineageGraph,
-  TableKeyNav
+  TableKeyNav,
+  CountdownRing,
+  SwipeDecide,
+  DrawerSlide,
+  ModalTrap,
+  CountUp,
+  SparklineDot
 }
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
