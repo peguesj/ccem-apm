@@ -164,8 +164,17 @@ defmodule ApmWeb.Router do
       # ── v11 Phase 2: Gold-standard pages ────────────────────────────────────
       # DECIDE section
       live "/decide/pending", DecidePendingLive, :index
+      # ── v11 Phase 3: Decide section remaining routes ─────────────────────────
+      live "/decide/policies", AuthorizationLive, :index
+      live "/decide/upm", UpmLive, :index
+      live "/decide/test", UatLive, :index
       # INVESTIGATE section
       live "/investigate/sessions/:id", InvestigateSessionLive, :show
+      # ── v11 Phase 3: Investigate section remaining routes ────────────────────
+      live "/investigate/tool-calls", ToolCallLive, :index
+      live "/investigate/a2a", A2ALive, :index
+      live "/investigate/timeline", SessionTimelineLive, :index
+      live "/investigate/audit", BackfillLive, :index
 
       # ── v11 Phase 3: Live section /live/* route aliases ──────────────────────
       live "/live/fleet", FleetLive, :index
