@@ -1,4 +1,4 @@
-defmodule ApmV5.DocsFreshnessTest do
+defmodule Apm.DocsFreshnessTest do
   use ExUnit.Case, async: true
 
   @current_version "9.1.3"
@@ -47,9 +47,9 @@ defmodule ApmV5.DocsFreshnessTest do
 
   describe "sidebar_nav.ex" do
     test "uses dynamic Application.spec version (not hardcoded @app_version)" do
-      content = File.read!("lib/apm_v5_web/components/sidebar_nav.ex")
-      assert String.contains?(content, "Application.spec(:apm_v5, :vsn)"),
-        "sidebar_nav.ex should use Application.spec(:apm_v5, :vsn) for dynamic versioning"
+      content = File.read!("lib/apm_web/components/sidebar_nav.ex")
+      assert String.contains?(content, "Application.spec(:apm, :vsn)"),
+        "sidebar_nav.ex should use Application.spec(:apm, :vsn) for dynamic versioning"
     end
   end
 

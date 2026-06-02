@@ -1,0 +1,110 @@
+/* ============================================================
+   APM v11.0.0 — --ccem-* Alias Bridge (dual-residency)
+   Source map: design-intake/v11.0.0/from-designer/rename-mapping.md
+   Strategy: --ccem-* aliases resolve to --apm-* canonical tokens.
+   Tokens first (apm_tokens.css), then this file.
+   Deprecation: --ccem-* aliases removed in v12; components migrate in v11.1.
+   ============================================================ */
+
+:root {
+  /* ── SURFACE (--ccem-bg-* → --apm-surface-*) ── */
+  --ccem-bg-0:       var(--apm-surface-sunken);
+  --ccem-bg-1:       var(--apm-surface-base);
+  --ccem-bg-2:       var(--apm-surface-raised);
+  --ccem-bg-3:       var(--apm-surface-overlay);
+  --ccem-bg-inverse: var(--apm-surface-inverse);
+
+  /* ── TEXT (--ccem-fg-* → --apm-text-*) ── */
+  --ccem-fg:         var(--apm-text-primary);
+  --ccem-fg-muted:   var(--apm-text-muted);
+  --ccem-fg-dim:     var(--apm-text-dim);
+  --ccem-fg-faint:   var(--apm-text-faint);
+  --ccem-fg-inverse: var(--apm-text-inverse);
+
+  /* ── BORDER (--ccem-line-* → --apm-border-*) ── */
+  --ccem-line-subtle: var(--apm-border-subtle);
+  --ccem-line:        var(--apm-border-default);
+  --ccem-line-strong: var(--apm-border-strong);
+  --ccem-line-accent: var(--apm-border-accent);
+
+  /* ── STATUS (vocabulary collapse D-007: ok/warn/err → success/warning/error) ── */
+  --ccem-ok:        var(--apm-status-success);
+  --ccem-ok-soft:   var(--apm-status-success-soft);
+  --ccem-warn:      var(--apm-status-warning);
+  --ccem-warn-soft: var(--apm-status-warning-soft);
+  --ccem-err:       var(--apm-status-error);
+  --ccem-err-soft:  var(--apm-status-error-soft);
+  --ccem-info:      var(--apm-status-info);
+  --ccem-info-soft: var(--apm-status-info-soft);
+
+  /* ── ACCENT (values preserved, renamed only) ── */
+  --ccem-accent:      var(--apm-accent);
+  --ccem-accent-dim:  var(--apm-accent-dim);
+  --ccem-accent-soft: var(--apm-accent-soft);
+  --ccem-accent-glow: var(--apm-accent-glow);
+
+  /* ── DECORATION (iris demoted from tone to decoration — D-007) ── */
+  --ccem-iris:      var(--apm-decoration-iris);
+  --ccem-iris-soft: var(--apm-decoration-iris-soft);
+
+  /* ── MOTION ── */
+  --ccem-ease-out:    var(--apm-ease-out);
+  /*
+   * --ccem-ease-in-out splits into two tokens in v11:
+   *   --apm-ease-in     (cubic-bezier(0.4, 0, 1, 1))
+   *   --apm-ease-drawer (cubic-bezier(0.16, 1, 0.3, 1))
+   * The alias below maps to --apm-ease-in as the closest general-purpose equivalent.
+   * Components that drive drawer/inspector panels should migrate to --apm-ease-drawer.
+   */
+  --ccem-ease-in-out: var(--apm-ease-in);
+  --ccem-dur-fast:       var(--apm-dur-fast);
+  --ccem-dur-base:       var(--apm-dur-base);
+  --ccem-dur-slow:       var(--apm-dur-drawer);
+  --ccem-dur-deliberate: var(--apm-dur-deliberate);
+
+  /* ── UNMAPPED (no v11 --apm-* equivalent; retain original values until v12) ── */
+  --ccem-live:      oklch(0.86 0.18 140);       /* TODO: unmapped */
+  --ccem-live-glow: oklch(0.86 0.22 140 / 0.6); /* TODO: unmapped */
+
+  --ccem-font-sans:    'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; /* TODO: unmapped — use --apm-font-sans */
+  --ccem-font-mono:    'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; /* TODO: unmapped — use --apm-font-mono */
+  --ccem-font-display: 'Geist', 'Inter', sans-serif; /* TODO: unmapped */
+
+  --ccem-t-2xs: 10px;  /* TODO: unmapped — use --apm-t-2xs */
+  --ccem-t-xs:  11px;  /* TODO: unmapped — use --apm-t-xs */
+  --ccem-t-sm:  12px;  /* TODO: unmapped — use --apm-t-sm */
+  --ccem-t-base:13px;  /* TODO: unmapped — use --apm-t-base */
+  --ccem-t-md:  14px;  /* TODO: unmapped — use --apm-t-md */
+  --ccem-t-lg:  16px;  /* TODO: unmapped — use --apm-t-lg */
+  --ccem-t-xl:  20px;  /* TODO: unmapped — use --apm-t-xl */
+  --ccem-t-2xl: 28px;  /* TODO: unmapped — use --apm-t-2xl (v11: 26px) */
+  --ccem-t-3xl: 36px;  /* TODO: unmapped — use --apm-t-3xl (v11: 34px) */
+  --ccem-t-4xl: 48px;  /* TODO: unmapped — use --apm-t-4xl (v11: 46px) */
+  --ccem-t-5xl: 64px;  /* TODO: unmapped (no v11 equivalent) */
+
+  --ccem-s-0:  0;      /* TODO: unmapped */
+  --ccem-s-1:  4px;    /* TODO: unmapped — use --apm-s-1 */
+  --ccem-s-2:  8px;    /* TODO: unmapped — use --apm-s-2 */
+  --ccem-s-3:  12px;   /* TODO: unmapped — use --apm-s-3 */
+  --ccem-s-4:  16px;   /* TODO: unmapped — use --apm-s-4 */
+  --ccem-s-5:  20px;   /* TODO: unmapped — use --apm-s-5 */
+  --ccem-s-6:  24px;   /* TODO: unmapped — use --apm-s-6 */
+  --ccem-s-8:  32px;   /* TODO: unmapped — use --apm-s-8 */
+  --ccem-s-10: 40px;   /* TODO: unmapped — use --apm-s-10 */
+  --ccem-s-12: 48px;   /* TODO: unmapped — use --apm-s-12 */
+  --ccem-s-16: 64px;   /* TODO: unmapped — use --apm-s-16 */
+
+  --ccem-r-xs:  3px;   /* TODO: unmapped — use --apm-r-xs */
+  --ccem-r-sm:  5px;   /* TODO: unmapped — use --apm-r-sm */
+  --ccem-r-md:  7px;   /* TODO: unmapped — use --apm-r-md */
+  --ccem-r-lg:  10px;  /* TODO: unmapped — use --apm-r-lg */
+  --ccem-r-xl:  14px;  /* TODO: unmapped — use --apm-r-xl */
+  --ccem-r-2xl: 20px;  /* TODO: unmapped (no v11 equivalent) */
+  --ccem-r-full:999px; /* TODO: unmapped — use --apm-r-full */
+
+  --ccem-shadow-xs:   0 1px 0 0 rgba(0,0,0,0.25), inset 0 1px 0 0 rgba(255,255,255,0.02); /* TODO: unmapped */
+  --ccem-shadow-sm:   0 2px 6px -2px rgba(0,0,0,0.4);   /* TODO: unmapped — use --apm-shadow-sm */
+  --ccem-shadow-md:   0 8px 24px -8px rgba(0,0,0,0.5);  /* TODO: unmapped — use --apm-shadow-md */
+  --ccem-shadow-lg:   0 24px 64px -16px rgba(0,0,0,0.6);/* TODO: unmapped — use --apm-shadow-lg */
+  --ccem-shadow-glow: 0 0 0 1px var(--apm-accent-glow), 0 0 24px -4px var(--apm-accent-glow); /* TODO: unmapped */
+}

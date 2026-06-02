@@ -1,4 +1,4 @@
-defmodule ApmV5.Test.EtsFixtures do
+defmodule Apm.Test.EtsFixtures do
   @moduledoc """
   ETS-backed fixture helpers for contract tests (api-s6p / CP-266).
 
@@ -9,12 +9,12 @@ defmodule ApmV5.Test.EtsFixtures do
   ## Usage
 
       setup do
-        ApmV5.Test.EtsFixtures.reset()
+        Apm.Test.EtsFixtures.reset()
         :ok
       end
 
       test "GET /api/v2/agents/:id", %{conn: conn} do
-        %{id: agent_id} = ApmV5.Test.EtsFixtures.seed_agent()
+        %{id: agent_id} = Apm.Test.EtsFixtures.seed_agent()
         conn = get(conn, "/api/v2/agents/\#{agent_id}")
         assert conn.status == 200
       end
@@ -26,8 +26,8 @@ defmodule ApmV5.Test.EtsFixtures do
   reference the generated IDs directly.
   """
 
-  alias ApmV5.AgentRegistry
-  alias ApmV5.AgUi.ApprovalGate
+  alias Apm.AgentRegistry
+  alias Apm.AgUi.ApprovalGate
 
   @doc """
   Seeds a single agent into AgentRegistry ETS.
@@ -37,12 +37,12 @@ defmodule ApmV5.Test.EtsFixtures do
 
   ## Examples
 
-      iex> %{id: id} = ApmV5.Test.EtsFixtures.seed_agent()
+      iex> %{id: id} = Apm.Test.EtsFixtures.seed_agent()
       iex> is_binary(id)
       true
 
-      iex> %{id: id} = ApmV5.Test.EtsFixtures.seed_agent(%{status: "active"})
-      iex> ApmV5.AgentRegistry.get_agent(id).status
+      iex> %{id: id} = Apm.Test.EtsFixtures.seed_agent(%{status: "active"})
+      iex> Apm.AgentRegistry.get_agent(id).status
       "active"
   """
   @spec seed_agent(map()) :: map()
