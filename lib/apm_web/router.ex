@@ -133,7 +133,7 @@ defmodule ApmWeb.Router do
       live "/tool-calls", ToolCallLive, :index
       live "/a2a", A2ALive, :index
       live "/sessions", SessionManagerLive, :index
-      live "/sessions/:id", SessionManagerLive, :show
+      # "/sessions/:id" is redirected by V11RedirectController → /investigate/sessions/:id
       live "/observe/sessions/:session_id", SessionDetailLive, :index
       # Observe: Timeline LiveView (CP-180 / US-455)
       live "/observe/timeline", SessionTimelineLive, :index
@@ -158,7 +158,7 @@ defmodule ApmWeb.Router do
       live "/authorization", AuthorizationLive, :index
       live "/govern/authorization", AuthorizationLive, :index
       live "/govern/settings", SettingsLive, :index
-      live "/approvals-history", ApprovalHistoryLive, :index
+      # "/approvals-history" is redirected by V11RedirectController → /decide/pending?status=resolved
       live "/routing", RoutingLive, :index
 
       # ── v11 Phase 2: Gold-standard pages ────────────────────────────────────

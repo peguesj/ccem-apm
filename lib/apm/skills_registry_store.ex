@@ -50,14 +50,88 @@ defmodule Apm.SkillsRegistryStore do
   end
 
   # ---------------------------------------------------------------------------
+  # Permissive skill list
+  # ---------------------------------------------------------------------------
+
+  @doc "Returns skills that bypass AgentLock authorization."
+  @spec list_permissive() :: [String.t()]
+  def list_permissive do
+    GenServer.call(__MODULE__, :list_permissive)
+  end
+
+  @doc "Adds a skill name to the permissive list. Returns `:ok`."
+  @spec add_permissive(String.t()) :: :ok
+  def add_permissive(name) do
+    GenServer.call(__MODULE__, {:add_permissive, name})
+  end
+
+  @doc "Removes a skill name from the permissive list. Returns `:ok | {:error, :not_found}`."
+  @spec remove_permissive(String.t()) :: :ok | {:error, :not_found}
+  def remove_permissive(name) do
+    GenServer.call(__MODULE__, {:remove_permissive, name})
+  end
+
+  @doc "Returns true if the skill is in the permissive list."
+  @spec permissive?(String.t()) :: boolean()
+  def permissive?(name) do
+    GenServer.call(__MODULE__, {:permissive?, name})
+  end
+
+  # ---------------------------------------------------------------------------
+  # Repository management
+  # ---------------------------------------------------------------------------
+
+  @doc "Returns all registered remote skill repositories."
+  @spec list_repositories() :: [map()]
+  def list_repositories do
+    GenServer.call(__MODULE__, :list_repositories)
+  end
+
+  @doc "Adds a repository. Returns `{:ok, repo_map}` with auto-generated id."
+  @spec add_repository(map()) :: {:ok, map()}
+  def add_repository(attrs) do
+    GenServer.call(__MODULE__, {:add_repository, attrs})
+  end
+
+  @doc "Removes a repository by id. Returns `:ok | {:error, :not_found}`."
+  @spec remove_repository(String.t()) :: :ok | {:error, :not_found}
+  def remove_repository(id) do
+    GenServer.call(__MODULE__, {:remove_repository, id})
+  end
+
+  @doc "Triggers an async sync of a repository. Returns `:ok | {:error, :not_found}`."
+  @spec sync_repository(String.t()) :: :ok | {:error, :not_found}
+  def sync_repository(id) do
+    GenServer.call(__MODULE__, {:sync_repository, id})
+  end
+
+  # ---------------------------------------------------------------------------
   # GenServer callbacks
   # ---------------------------------------------------------------------------
+
+  @default_permissive ~w(apm apm-auth ccem ccem-apm)
+
+  @mcp_market_repo %{
+    id: "mcp-market",
+    name: "MCP Market",
+    url: "https://www.aitmpl.com/skills",
+    type: "http",
+    added_at: nil,
+    last_synced: nil
+  }
 
   @impl true
   def init(_) do
     :ets.new(@ets_table, [:named_table, :public, :set, read_concurrency: true])
     send(self(), :scan)
-    {:ok, %{last_scanned: nil}}
+
+    initial_repos = %{@mcp_market_repo.id => Map.put(@mcp_market_repo, :added_at, DateTime.utc_now() |> DateTime.to_iso8601())}
+
+    {:ok, %{
+      last_scanned: nil,
+      permissive: MapSet.new(@default_permissive),
+      repositories: initial_repos
+    }}
   end
 
   @impl true
@@ -98,6 +172,64 @@ defmodule Apm.SkillsRegistryStore do
       end
 
     {:reply, result, state}
+  end
+
+  @impl true
+  def handle_call(:list_permissive, _from, state) do
+    {:reply, MapSet.to_list(state.permissive), state}
+  end
+
+  @impl true
+  def handle_call({:add_permissive, name}, _from, state) do
+    {:reply, :ok, %{state | permissive: MapSet.put(state.permissive, name)}}
+  end
+
+  @impl true
+  def handle_call({:remove_permissive, name}, _from, state) do
+    if MapSet.member?(state.permissive, name) do
+      {:reply, :ok, %{state | permissive: MapSet.delete(state.permissive, name)}}
+    else
+      {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:permissive?, name}, _from, state) do
+    {:reply, MapSet.member?(state.permissive, name), state}
+  end
+
+  @impl true
+  def handle_call(:list_repositories, _from, state) do
+    {:reply, Map.values(state.repositories), state}
+  end
+
+  @impl true
+  def handle_call({:add_repository, attrs}, _from, state) do
+    id = attrs[:id] || attrs["id"] || "repo-#{System.unique_integer([:positive])}"
+    repo = Map.merge(%{id: id, added_at: DateTime.utc_now() |> DateTime.to_iso8601(), last_synced: nil}, attrs)
+    {:reply, {:ok, repo}, %{state | repositories: Map.put(state.repositories, id, repo)}}
+  end
+
+  @impl true
+  def handle_call({:remove_repository, id}, _from, state) do
+    if Map.has_key?(state.repositories, id) do
+      {:reply, :ok, %{state | repositories: Map.delete(state.repositories, id)}}
+    else
+      {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:sync_repository, id}, _from, state) do
+    case Map.fetch(state.repositories, id) do
+      {:ok, repo} ->
+        Task.start(fn -> do_repository_sync(repo) end)
+        synced = Map.put(repo, :last_synced, DateTime.utc_now() |> DateTime.to_iso8601())
+        {:reply, :ok, %{state | repositories: Map.put(state.repositories, id, synced)}}
+
+      :error ->
+        {:reply, {:error, :not_found}, state}
+    end
   end
 
   @impl true
@@ -249,6 +381,14 @@ defmodule Apm.SkillsRegistryStore do
       auth_gated: hook_present and referenced_tools != [],
       auth_missing_tools: missing_tools
     }
+  end
+
+  defp do_repository_sync(repo) do
+    Logger.info("[SkillsRegistryStore] Syncing repository: #{repo.id} (#{repo.url})")
+    # HTTP fetch is intentionally deferred — this is a fire-and-forget placeholder.
+    # A full sync implementation would fetch a skills manifest from repo.url,
+    # write SKILL.md files to @skills_dir/repo.id/, and call do_scan/0.
+    :ok
   end
 
   defp compute_health(has_full_frontmatter, desc_quality, trigger_count, has_examples, has_template) do

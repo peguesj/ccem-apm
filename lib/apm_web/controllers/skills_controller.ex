@@ -197,4 +197,66 @@ defmodule ApmWeb.SkillsController do
 
     json(conn, %{status: "scanning"})
   end
+
+  @doc "GET /api/skills/permissive"
+  def list_permissive(conn, _params) do
+    names = SkillsRegistryStore.list_permissive()
+    json(conn, %{permissive: names, count: length(names)})
+  end
+
+  @doc "POST /api/skills/permissive — body: {name: string}"
+  def add_permissive(conn, %{"name" => name}) do
+    :ok = SkillsRegistryStore.add_permissive(name)
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:permissive_updated, %{action: "add", name: name}})
+    json(conn, %{status: "added", name: name})
+  end
+
+  @doc "DELETE /api/skills/permissive/:name"
+  def remove_permissive(conn, %{"name" => name}) do
+    case SkillsRegistryStore.remove_permissive(name) do
+      :ok ->
+        Phoenix.PubSub.broadcast(@pubsub, @topic, {:permissive_updated, %{action: "remove", name: name}})
+        json(conn, %{status: "removed", name: name})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "skill not in permissive list: #{name}"})
+    end
+  end
+
+  @doc "GET /api/skills/repositories"
+  def list_repositories(conn, _params) do
+    repos = SkillsRegistryStore.list_repositories()
+    json(conn, %{repositories: repos, count: length(repos)})
+  end
+
+  @doc "POST /api/skills/repositories — body: {id?, name, url, type?}"
+  def add_repository(conn, params) do
+    {:ok, repo} = SkillsRegistryStore.add_repository(params)
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:repository_updated, %{action: "add", id: repo.id}})
+    json(conn, %{status: "added", repository: repo})
+  end
+
+  @doc "DELETE /api/skills/repositories/:id"
+  def remove_repository(conn, %{"id" => id}) do
+    case SkillsRegistryStore.remove_repository(id) do
+      :ok ->
+        Phoenix.PubSub.broadcast(@pubsub, @topic, {:repository_updated, %{action: "remove", id: id}})
+        json(conn, %{status: "removed", id: id})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "repository not found: #{id}"})
+    end
+  end
+
+  @doc "POST /api/skills/repositories/:id/sync"
+  def sync_repository(conn, %{"id" => id}) do
+    case SkillsRegistryStore.sync_repository(id) do
+      :ok ->
+        Phoenix.PubSub.broadcast(@pubsub, @topic, {:repository_updated, %{action: "sync", id: id}})
+        json(conn, %{status: "syncing", id: id})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "repository not found: #{id}"})
+    end
+  end
 end
