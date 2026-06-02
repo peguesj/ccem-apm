@@ -227,6 +227,13 @@ defmodule ApmWeb.Router do
 
       # Rate limits dashboard (rl-s8)
       live "/rate-limits", RateLimitsLive, :index
+
+      # ── v11 Phase 5: Operate section /operate/* route aliases (US-506 CP-326) ──
+      live "/operate/health", HealthCheckLive, :index
+      live "/operate/plugins", PluginDashboardLive, :index
+      live "/operate/integrations", PluginDashboardLive, :integrations_tab
+      live "/operate/notifications", NotificationLive, :index
+      live "/operate/docs", DocsLive, :index
     end
   end
 
