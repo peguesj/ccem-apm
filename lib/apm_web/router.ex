@@ -228,6 +228,13 @@ defmodule ApmWeb.Router do
 
       # Rate limits dashboard (rl-s8)
       live "/rate-limits", RateLimitsLive, :index
+
+      # ── v11 Phase 4: Tune section /tune/* route aliases (US-505 CP-325) ────────
+      live "/tune/skills", SkillsLive, :index
+      live "/tune/memory", MemoryLive, :index
+      live "/tune/orchestration", OrchestrationLive, :index
+      live "/tune/analytics", AnalyticsLive, :index
+      live "/tune/alignment", AlignmentLive, :index
     end
   end
 
