@@ -18,6 +18,21 @@ defmodule ApmWeb.DecidePendingLiveTest do
   alias ApmWeb.DecidePendingLive
   alias Apm.Decisions
 
+  # Ensure modules are loaded before any function_exported? assertions — the BEAM's
+  # :erlang.function_exported/3 returns false for unloaded modules regardless of
+  # whether they are compiled, and ExUnit randomizes test order.
+  setup_all do
+    Code.ensure_loaded!(ApmWeb.DecidePendingLive)
+    Code.ensure_loaded!(ApmWeb.V11RedirectController)
+    Code.ensure_loaded!(ApmWeb.Components.Feedback.EmptyState)
+    Code.ensure_loaded!(ApmWeb.Components.Templates.PageShell)
+    Code.ensure_loaded!(ApmWeb.Components.Templates.QueuePage)
+    Code.ensure_loaded!(ApmWeb.Components.Feedback.CountdownRing)
+    Code.ensure_loaded!(ApmWeb.Components.Feedback.SwipeCard)
+    Code.ensure_loaded!(ApmWeb.Components.Feedback.Modal)
+    :ok
+  end
+
   # ── 1. Module contract ───────────────────────────────────────────────────────
 
   describe "ApmWeb.DecidePendingLive module" do

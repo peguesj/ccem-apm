@@ -19,6 +19,11 @@ defmodule ApmWeb.InvestigateSessionLiveTest do
   alias Apm.Sessions
   alias Apm.ToolCalls
 
+  setup_all do
+    Code.ensure_loaded!(ApmWeb.InvestigateSessionLive)
+    :ok
+  end
+
   # ── 1. Module contract ───────────────────────────────────────────────────────
 
   describe "ApmWeb.InvestigateSessionLive module" do

@@ -33,9 +33,12 @@ defmodule Apm.Auth.AuthorizationGateJwtTest do
 
     test "rejects tampered Bearer token" do
       jwt = JwtAssertion.sign_assertion(%{agent_id: "agent-tamper-int"})
-      [h, p, s] = String.split(jwt, ".")
-      # Tamper the signature
-      bad_sig = if String.last(s) == "A", do: String.slice(s, 0..-2//1) <> "B", else: String.slice(s, 0..-2//1) <> "A"
+      [h, p, _s] = String.split(jwt, ".")
+      # Replace the signature with random bytes — last-char flipping is insufficient
+      # because for 64-byte Ed25519 sigs, the last base64url char encodes only padding
+      # bits (the final group carries 2 data bits + 4 padding bits), so A↔B at
+      # position 86 decodes to identical bytes and the crypto check passes.
+      bad_sig = :crypto.strong_rand_bytes(64) |> Base.url_encode64(padding: false)
       bad_jwt = Enum.join([h, p, bad_sig], ".")
       params = %{identity_token: bad_jwt}
 
