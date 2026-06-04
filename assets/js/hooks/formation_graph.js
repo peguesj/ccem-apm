@@ -175,13 +175,16 @@ export default {
 
     let treeLayout
     if (isLR) {
-      // Left-to-right: tighter vertical, wider horizontal
+      // Left-to-right: tighter vertical, wider horizontal.
+      // CP-336 (US-516): nodeSize bumped 90→120 / 200→250 — labels (10-11px font in 90px wide × 28px tall
+      // nodes) were overlapping at default spacing. +33% horizontal, +25% vertical resolves clipping.
       treeLayout = d3.tree()
-        .nodeSize([90, 200])
+        .nodeSize([120, 250])
         .separation((a, b) => a.parent === b.parent ? 1.2 : 1.6)
     } else {
+      // CP-336 (US-516): TD nodeSize bumped 170→200 / 110→140 for the same reason.
       treeLayout = d3.tree()
-        .nodeSize([170, 110])
+        .nodeSize([200, 140])
         .separation((a, b) => a.parent === b.parent ? 1.2 : 1.8)
     }
 

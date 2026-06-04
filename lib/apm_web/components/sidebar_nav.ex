@@ -45,13 +45,10 @@ defmodule ApmWeb.Components.SidebarNav do
       id="apm-sidebar"
       class="w-52 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0 h-screen sticky top-0 overflow-hidden"
     >
-      <%!-- Brand header --%>
-      <div class="p-3 border-b border-base-300 flex-shrink-0">
-        <div class="sidebar-brand flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2 min-w-0">
-            <div class="w-2 h-2 rounded-full bg-success animate-pulse flex-shrink-0"></div>
-            <span class="font-mono font-bold text-sm text-base-content sidebar-label truncate">CCEM APM</span>
-          </div>
+      <%!-- Brand header REMOVED CP-331 (US-511): wordmark canonical in top_bar.ex; sidebar retains collapse control + version --%>
+      <div class="p-2 border-b border-base-300 flex-shrink-0">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-xs text-base-content/40 sidebar-label sidebar-version font-mono">v{@version}</span>
           <button
             onclick="window.apmSidebar.toggle()"
             class="btn btn-ghost btn-xs p-0.5 flex-shrink-0 text-base-content/40 hover:text-base-content"
@@ -61,7 +58,6 @@ defmodule ApmWeb.Components.SidebarNav do
             <.icon name="hero-chevron-right" class="size-3 sidebar-arrow-expand" />
           </button>
         </div>
-        <div class="text-xs text-base-content/40 mt-0.5 sidebar-label sidebar-version">v{@version}</div>
       </div>
 
       <%!-- Scrollable nav body --%>

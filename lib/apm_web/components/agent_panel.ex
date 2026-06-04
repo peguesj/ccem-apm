@@ -38,20 +38,24 @@ defmodule ApmWeb.Components.AgentPanel do
         <span class="text-center">Status</span>
       </div>
       <%!-- Agent rows --%>
+      <%!-- CP-334 (US-514): dot-syntax accessors replaced with safe map-accessors so a single agent
+           missing :tier / :name / :status / :last_seen does not crash the entire :for and blank the fleet.
+           Pre-fix: one malformed agent (e.g. registered via /api/register without :tier) would crash
+           the whole comprehension, headers rendered but rows did not. ── --%>
       <div class="space-y-1">
         <div
           :for={agent <- filtered_agents(assigns)}
           class="card bg-base-200 border border-base-300 hover:border-primary/50 transition-colors cursor-pointer"
           phx-click="select_agent"
-          phx-value-agent_id={agent.id}
+          phx-value-agent_id={agent[:id] || agent[:agent_id] || ""}
         >
           <div class="grid grid-cols-[24px_1fr_1fr_80px_60px_80px] gap-2 items-center px-3 py-2">
-            <div class={["badge badge-xs", tier_badge_class(agent.tier)]}>
-              {agent.tier}
+            <div class={["badge badge-xs", tier_badge_class(agent[:tier])]}>
+              {agent[:tier] || 1}
             </div>
             <div>
               <div class="text-sm font-medium truncate flex items-center gap-1.5">
-                {agent[:agent_name] || agent.name}
+                {agent[:agent_name] || agent[:name] || agent[:id] || agent[:agent_id] || "(unnamed)"}
                 <span :if={agent[:formation_id]} class="badge badge-xs badge-primary badge-outline font-mono text-[9px]" title={"Formation: #{agent[:formation_id]}"}>
                   {formation_role_badge(agent[:role] || agent[:agent_type])}
                 </span>
@@ -63,8 +67,9 @@ defmodule ApmWeb.Components.AgentPanel do
                 </span>
               </div>
               <div class="text-[10px] text-base-content/30 flex items-center gap-1">
-                <span class="font-mono truncate max-w-[120px]" title={agent.id}>
-                  {NamespaceResolver.agent_label(agent.id,
+                <% safe_id = agent[:id] || agent[:agent_id] || "" %>
+                <span class="font-mono truncate max-w-[120px]" title={safe_id}>
+                  {NamespaceResolver.agent_label(safe_id,
                     project: agent[:project],
                     role: agent[:formation_role] || agent[:role],
                     task_subject: agent[:task_subject])}
@@ -77,10 +82,10 @@ defmodule ApmWeb.Components.AgentPanel do
             </div>
             <%!-- AG-UI real-time activity column --%>
             <div class="text-[10px] text-base-content/50 truncate">
-              {agent_activity_label(agent.id)}
+              {agent_activity_label(agent[:id] || agent[:agent_id] || "")}
             </div>
             <div class="text-right text-xs text-base-content/40">
-              {format_last_seen(agent.last_seen)}
+              {format_last_seen(agent[:last_seen])}
             </div>
             <div class="text-center">
               <span class={["badge badge-xs", agent_type_badge_class(agent[:agent_type])]}>
@@ -88,8 +93,8 @@ defmodule ApmWeb.Components.AgentPanel do
               </span>
             </div>
             <div class="text-center">
-              <span class={["badge badge-sm", status_badge_class(agent.status)]}>
-                {agent.status}
+              <span class={["badge badge-sm", status_badge_class(agent[:status])]}>
+                {agent[:status] || "unknown"}
               </span>
             </div>
           </div>

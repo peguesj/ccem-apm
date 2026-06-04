@@ -65,7 +65,7 @@ defmodule ApmWeb.DashboardLive do
     tasks = ProjectStore.get_tasks(active_project || "_global")
     commands = ProjectStore.get_commands(active_project || "_global")
     ralph_data = load_ralph_for_project(active_project, config)
-    session_count = count_config_sessions(config)
+    session_count = live_session_count(config)
     # Batch-fetch cross-project data from DashboardData snapshot cache (US-603)
     # Single ETS read replaces 6 sequential GenServer.calls on cold mount.
     snap = Apm.DashboardData.snapshot()
@@ -1118,7 +1118,7 @@ defmodule ApmWeb.DashboardLive do
     projects = Map.get(config, "projects", [])
     active = Map.get(config, "active_project")
     ralph_data = load_ralph_for_project(active, config)
-    session_count = count_config_sessions(config)
+    session_count = live_session_count(config)
 
     socket =
       socket
@@ -1445,6 +1445,19 @@ defmodule ApmWeb.DashboardLive do
     |> Map.get("projects", [])
     |> Enum.flat_map(fn p -> Map.get(p, "sessions", []) end)
     |> length()
+  end
+
+  # CP-333 (US-513): SESSIONS stat tile prefers SessionManager (disk-backed, real-time)
+  # over count_config_sessions (apm_config.json projects[].sessions which is never hydrated).
+  # Falls back to the config-based count if SessionManager isn't running.
+  defp live_session_count(config) do
+    try do
+      Apm.SessionManager.list_sessions() |> length()
+    rescue
+      _ -> count_config_sessions(config)
+    catch
+      :exit, _ -> count_config_sessions(config)
+    end
   end
 
   defp categorize_projects(projects, active_project) do

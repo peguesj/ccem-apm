@@ -21,6 +21,21 @@
   --ccem-fg-faint:   var(--apm-text-faint);
   --ccem-fg-inverse: var(--apm-text-inverse);
 
+  /* ── daisyUI compatibility CP-335 (US-515): map --color-base-content + neighbours to APM v11 text tokens.
+     Without these, daisyUI's text-base-content/40, /50, /60 utilities use daisyUI defaults (low contrast)
+     instead of the high-contrast --apm-text-* scale. Sidebar nav labels, badges, and any utility class
+     consuming --color-base-content inherits the correct token. ── */
+  --color-base-content:   var(--apm-text-primary);
+  --color-base-100:       var(--apm-surface-base);
+  --color-base-200:       var(--apm-surface-raised);
+  --color-base-300:       var(--apm-border-subtle);
+  --color-primary:        var(--apm-accent);
+  --color-primary-content: var(--apm-text-inverse);
+  --color-success:        var(--apm-status-success);
+  --color-warning:        var(--apm-status-warning);
+  --color-error:          var(--apm-status-error);
+  --color-info:           var(--apm-status-info);
+
   /* ── BORDER (--ccem-line-* → --apm-border-*) ── */
   --ccem-line-subtle: var(--apm-border-subtle);
   --ccem-line:        var(--apm-border-default);
