@@ -151,12 +151,18 @@ defmodule Apm.UpmStore do
     |> List.first()
   end
 
-  @doc "List all formations."
+  @doc """
+  List all formations.
+
+  CP-338 (US-518): tolerates cold-start window before the ETS table is created.
+  """
   @spec list_formations() :: [map()]
   def list_formations do
     :ets.tab2list(@formations_table)
     |> Enum.map(fn {_id, f} -> f end)
     |> Enum.sort_by(& &1.registered_at, {:desc, DateTime})
+  rescue
+    ArgumentError -> []
   end
 
   @doc """
@@ -219,7 +225,7 @@ defmodule Apm.UpmStore do
       end)
 
     (upm ++ agent_only ++ notif_only)
-    |> Enum.sort_by(& &1.name)
+    |> Enum.sort_by(&Map.get(&1, :name, Map.get(&1, :id, "")))
   end
 
   @doc "Update a formation's fields."

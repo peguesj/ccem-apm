@@ -39,11 +39,18 @@ defmodule Apm.AgentRegistry do
     end
   end
 
-  @doc "List all registered agents as a list of maps."
+  @doc """
+  List all registered agents as a list of maps.
+
+  CP-338 (US-518): cold-start resilient — returns `[]` if the ETS table
+  has not been initialized yet, instead of crashing with ArgumentError.
+  """
   @spec list_agents() :: [map()]
   def list_agents do
     :ets.tab2list(@agents_table)
     |> Enum.map(fn {_id, agent} -> agent end)
+  rescue
+    ArgumentError -> []
   end
 
   @doc "List agents filtered by project name."
@@ -125,12 +132,21 @@ defmodule Apm.AgentRegistry do
     GenServer.call(__MODULE__, {:add_notification, notification})
   end
 
-  @doc "Get all notifications, most recent first."
+  @doc """
+  Get all notifications, most recent first.
+
+  CP-338 (US-518): tolerates cold-start window when the ETS table has not yet
+  been created by `init/1`. Returns `[]` rather than crashing with
+  `ArgumentError`, which keeps downstream callers (UpmStore.list_all_formations/0,
+  /api/v2/formations) serving 200 with empty payloads instead of 500.
+  """
   @spec get_notifications() :: [map()]
   def get_notifications do
     :ets.tab2list(@notifications_table)
     |> Enum.map(fn {_id, notif} -> notif end)
     |> Enum.sort_by(& &1.id, :desc)
+  rescue
+    ArgumentError -> []
   end
 
   @doc "Get notifications with optional keyword filters (category, project_name, namespace, type)."
