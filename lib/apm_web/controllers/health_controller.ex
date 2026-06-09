@@ -31,7 +31,7 @@ defmodule ApmWeb.HealthController do
   alias OpenApiSpex.Schema
   alias Apm.AppVersion
 
-  operation :health,
+  operation(:health,
     summary: "RFC 8615 health check",
     description: """
     Returns RFC 8615 / IETF draft-inadarei-api-health-check-06 compliant health
@@ -40,48 +40,66 @@ defmodule ApmWeb.HealthController do
     """,
     tags: ["Health"],
     responses: [
-      ok: {"Health+JSON response", "application/health+json", %Schema{
-        type: :object,
-        properties: %{
-          status: %Schema{type: :string, enum: ["pass", "warn", "fail"]},
-          version: %Schema{type: :string},
-          checks: %Schema{type: :object, additionalProperties: true}
-        },
-        required: [:status, :version]
-      }}
+      ok:
+        {"Health+JSON response", "application/health+json",
+         %Schema{
+           type: :object,
+           properties: %{
+             status: %Schema{type: :string, enum: ["pass", "warn", "fail"]},
+             version: %Schema{type: :string},
+             checks: %Schema{type: :object, additionalProperties: true}
+           },
+           required: [:status, :version]
+         }}
     ]
+  )
 
-  operation :readiness,
+  operation(:readiness,
     summary: "Kubernetes readiness probe",
-    description: "Returns 200 when StatusCache is warm and critical GenServers are alive. Returns 503 with failed check names otherwise.",
+    description:
+      "Returns 200 when StatusCache is warm and critical GenServers are alive. Returns 503 with failed check names otherwise.",
     tags: ["Health"],
     responses: [
-      ok: {"Ready", "application/json", %Schema{type: :object, properties: %{ready: %Schema{type: :boolean}}}},
-      service_unavailable: {"Not ready", "application/json", %Schema{
-        type: :object,
-        properties: %{
-          ready: %Schema{type: :boolean},
-          failed: %Schema{type: :array, items: %Schema{type: :string}}
-        }
-      }}
+      ok:
+        {"Ready", "application/json",
+         %Schema{type: :object, properties: %{ready: %Schema{type: :boolean}}}},
+      service_unavailable:
+        {"Not ready", "application/json",
+         %Schema{
+           type: :object,
+           properties: %{
+             ready: %Schema{type: :boolean},
+             failed: %Schema{type: :array, items: %Schema{type: :string}}
+           }
+         }}
     ]
+  )
 
-  operation :startup,
+  operation(:startup,
     summary: "Kubernetes startup probe",
-    description: "Returns 200 when the OTP supervision tree is fully initialized. Returns 503 while starting up.",
+    description:
+      "Returns 200 when the OTP supervision tree is fully initialized. Returns 503 while starting up.",
     tags: ["Health"],
     responses: [
-      ok: {"Started", "application/json", %Schema{type: :object, properties: %{started: %Schema{type: :boolean}, phase: %Schema{type: :string}}}},
-      service_unavailable: {"Starting", "application/json", %Schema{type: :object, additionalProperties: true}}
+      ok:
+        {"Started", "application/json",
+         %Schema{
+           type: :object,
+           properties: %{started: %Schema{type: :boolean}, phase: %Schema{type: :string}}
+         }},
+      service_unavailable:
+        {"Starting", "application/json", %Schema{type: :object, additionalProperties: true}}
     ]
+  )
 
-  operation :liveness,
+  operation(:liveness,
     summary: "Kubernetes liveness probe",
     description: "Returns 200 when the BEAM is up and Phoenix is responding. Minimal body.",
     tags: ["Health"],
     responses: [
       ok: {"Alive", "application/json", Schemas.OkResponse}
     ]
+  )
 
   # Catch-all for any action not explicitly annotated above.
   def open_api_operation(_action), do: nil

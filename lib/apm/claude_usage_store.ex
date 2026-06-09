@@ -153,7 +153,8 @@ defmodule Apm.ClaudeUsageStore do
 
   @doc "Record model capabilities for a given model name."
   @spec record_model_capabilities(String.t(), map()) :: :ok
-  def record_model_capabilities(model, capabilities) when is_binary(model) and is_map(capabilities) do
+  def record_model_capabilities(model, capabilities)
+      when is_binary(model) and is_map(capabilities) do
     GenServer.cast(__MODULE__, {:record_capabilities, model, capabilities})
   end
 
@@ -161,7 +162,9 @@ defmodule Apm.ClaudeUsageStore do
   @spec get_model_capabilities(String.t()) :: map() | nil
   def get_model_capabilities(model) when is_binary(model) do
     case :ets.info(@lvm_table) do
-      :undefined -> nil
+      :undefined ->
+        nil
+
       _ ->
         case :ets.lookup(@lvm_table, model) do
           [{^model, caps}] -> caps
@@ -174,7 +177,9 @@ defmodule Apm.ClaudeUsageStore do
   @spec get_all_model_capabilities() :: map()
   def get_all_model_capabilities do
     case :ets.info(@lvm_table) do
-      :undefined -> %{}
+      :undefined ->
+        %{}
+
       _ ->
         :ets.tab2list(@lvm_table)
         |> Map.new()
@@ -248,7 +253,8 @@ defmodule Apm.ClaudeUsageStore do
       Phoenix.PubSub.broadcast(
         Apm.PubSub,
         "lvm:usage_changed",
-        {:effort_level_changed, %{project: project, model: model, old: old_effort, new: new_effort}}
+        {:effort_level_changed,
+         %{project: project, model: model, old: old_effort, new: new_effort}}
       )
     end
 

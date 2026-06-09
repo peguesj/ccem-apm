@@ -7,7 +7,10 @@ defmodule Apm.AuditLogChainTest do
   alias Apm.AuditLog
   alias Apm.AuditLog.AuditIntegrityError
 
-  @tmp_log_dir Path.join(System.tmp_dir!(), "apm_audit_test_#{:erlang.unique_integer([:positive])}")
+  @tmp_log_dir Path.join(
+                 System.tmp_dir!(),
+                 "apm_audit_test_#{:erlang.unique_integer([:positive])}"
+               )
 
   setup do
     File.mkdir_p!(@tmp_log_dir)

@@ -159,8 +159,12 @@ defmodule Apm.Governance.Vault do
   defp maybe_encrypt_value(_key, value) when is_map(value) do
     if Map.get(value, :__cloak__) == true or Map.get(value, "__cloak__") == true do
       Map.new(value, fn
-        {:__cloak__, _} -> {:__cloak__, true}
-        {"__cloak__", _} -> {"__cloak__", true}
+        {:__cloak__, _} ->
+          {:__cloak__, true}
+
+        {"__cloak__", _} ->
+          {"__cloak__", true}
+
         {k, v} ->
           plaintext = if is_binary(v), do: v, else: Jason.encode!(v)
 

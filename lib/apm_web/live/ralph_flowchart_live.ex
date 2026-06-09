@@ -16,8 +16,18 @@ defmodule ApmWeb.RalphFlowchartLive do
   alias Apm.Ralph
 
   @default_steps [
-    %{id: "1", label: "You write a PRD", description: "Define what you want to build", phase: "setup"},
-    %{id: "2", label: "Convert to prd.json", description: "Break into small user stories", phase: "setup"},
+    %{
+      id: "1",
+      label: "You write a PRD",
+      description: "Define what you want to build",
+      phase: "setup"
+    },
+    %{
+      id: "2",
+      label: "Convert to prd.json",
+      description: "Break into small user stories",
+      phase: "setup"
+    },
     %{id: "3", label: "Run ralph.sh", description: "Starts the autonomous loop", phase: "setup"},
     %{id: "4", label: "AI picks a story", description: "Finds next passes: false", phase: "loop"},
     %{id: "5", label: "Implements it", description: "Writes code, runs tests", phase: "loop"},
@@ -61,7 +71,9 @@ defmodule ApmWeb.RalphFlowchartLive do
       |> assign(:selected_step, nil)
       |> push_flowchart_data(steps, edges, length(steps))
 
-    {:ok, socket |> assign(:sidebar_collapsed, false)
+    {:ok,
+     socket
+     |> assign(:sidebar_collapsed, false)
      |> assign(:inspector_open, false)
      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -74,109 +86,112 @@ defmodule ApmWeb.RalphFlowchartLive do
         <.sidebar_nav current_path="/ralph" skill_count={@active_skill_count} />
       </:sidebar>
       <:main>
-
-      <%!-- Main content --%>
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Top bar --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Ralph Methodology</h2>
-            <div class="badge badge-sm badge-ghost">
-              Step {@visible_count} of {length(@steps)}
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              class="btn btn-ghost btn-xs"
-              phx-click="reset_steps"
-              disabled={@visible_count == 1}
-            >
-              Reset
-            </button>
-            <button
-              class="btn btn-ghost btn-xs"
-              phx-click="prev_step"
-              disabled={@visible_count <= 1}
-            >
-              Previous
-            </button>
-            <button
-              class="btn btn-primary btn-xs"
-              phx-click="next_step"
-              disabled={@visible_count >= length(@steps)}
-            >
-              Next
-            </button>
-          </div>
-        </header>
-
-        <%!-- Flowchart body --%>
-        <div class="flex-1 flex overflow-hidden">
-          <%!-- Flowchart area --%>
-          <div class="flex-1 overflow-hidden relative">
-            <div
-              id="ralph-flowchart"
-              class="w-full h-full"
-              phx-hook="RalphFlowchart"
-              phx-update="ignore"
-            >
-            </div>
-          </div>
-
-          <%!-- Step details panel --%>
-          <div class="w-72 border-l border-base-300 bg-base-200 flex flex-col flex-shrink-0 overflow-y-auto">
-            <div class="p-4 border-b border-base-300">
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
-                Step Details
-              </h3>
-            </div>
-            <div class="p-4">
-              <div :if={@selected_step == nil} class="text-center text-base-content/30 py-8 text-xs">
-                Click a node to view step details
+        <%!-- Main content --%>
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <%!-- Top bar --%>
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+              <h2 class="text-sm font-semibold text-base-content">Ralph Methodology</h2>
+              <div class="badge badge-sm badge-ghost">
+                Step {@visible_count} of {length(@steps)}
               </div>
-              <div :if={@selected_step} class="space-y-4">
-                <div>
-                  <div class={["inline-block px-2 py-0.5 rounded text-xs font-semibold mb-2", phase_badge_class(@selected_step.phase)]}>
-                    {@selected_step.phase}
-                  </div>
-                  <h3 class="text-lg font-bold">{@selected_step.label}</h3>
-                  <p class="text-sm text-base-content/60 mt-1">{@selected_step.description}</p>
-                </div>
-                <div class="text-xs text-base-content/40">
-                  Step {@selected_step.id} of {length(@steps)}
-                </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                class="btn btn-ghost btn-xs"
+                phx-click="reset_steps"
+                disabled={@visible_count == 1}
+              >
+                Reset
+              </button>
+              <button
+                class="btn btn-ghost btn-xs"
+                phx-click="prev_step"
+                disabled={@visible_count <= 1}
+              >
+                Previous
+              </button>
+              <button
+                class="btn btn-primary btn-xs"
+                phx-click="next_step"
+                disabled={@visible_count >= length(@steps)}
+              >
+                Next
+              </button>
+            </div>
+          </header>
+
+          <%!-- Flowchart body --%>
+          <div class="flex-1 flex overflow-hidden">
+            <%!-- Flowchart area --%>
+            <div class="flex-1 overflow-hidden relative">
+              <div
+                id="ralph-flowchart"
+                class="w-full h-full"
+                phx-hook="RalphFlowchart"
+                phx-update="ignore"
+              >
               </div>
             </div>
 
-            <%!-- Steps list --%>
-            <div class="p-4 border-t border-base-300">
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">
-                All Steps
-              </h3>
-              <div class="space-y-1">
-                <button
-                  :for={step <- @steps}
-                  class={[
-                    "w-full text-left px-3 py-2 rounded text-xs transition-colors",
-                    step_visible?(step, @visible_count) && "opacity-100",
-                    !step_visible?(step, @visible_count) && "opacity-30",
-                    @selected_step && @selected_step.id == step.id && "bg-primary/10 text-primary",
-                    !(@selected_step && @selected_step.id == step.id) && "hover:bg-base-300"
-                  ]}
-                  phx-click="select_step"
-                  phx-value-step-id={step.id}
-                >
-                  <div class="flex items-center gap-2">
-                    <span class={["inline-block w-2 h-2 rounded-full", phase_dot_class(step.phase)]}></span>
-                    <span class="font-medium">{step.label}</span>
+            <%!-- Step details panel --%>
+            <div class="w-72 border-l border-base-300 bg-base-200 flex flex-col flex-shrink-0 overflow-y-auto">
+              <div class="p-4 border-b border-base-300">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">
+                  Step Details
+                </h3>
+              </div>
+              <div class="p-4">
+                <div :if={@selected_step == nil} class="text-center text-base-content/30 py-8 text-xs">
+                  Click a node to view step details
+                </div>
+                <div :if={@selected_step} class="space-y-4">
+                  <div>
+                    <div class={[
+                      "inline-block px-2 py-0.5 rounded text-xs font-semibold mb-2",
+                      phase_badge_class(@selected_step.phase)
+                    ]}>
+                      {@selected_step.phase}
+                    </div>
+                    <h3 class="text-lg font-bold">{@selected_step.label}</h3>
+                    <p class="text-sm text-base-content/60 mt-1">{@selected_step.description}</p>
                   </div>
-                </button>
+                  <div class="text-xs text-base-content/40">
+                    Step {@selected_step.id} of {length(@steps)}
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Steps list --%>
+              <div class="p-4 border-t border-base-300">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">
+                  All Steps
+                </h3>
+                <div class="space-y-1">
+                  <button
+                    :for={step <- @steps}
+                    class={[
+                      "w-full text-left px-3 py-2 rounded text-xs transition-colors",
+                      step_visible?(step, @visible_count) && "opacity-100",
+                      !step_visible?(step, @visible_count) && "opacity-30",
+                      @selected_step && @selected_step.id == step.id && "bg-primary/10 text-primary",
+                      !(@selected_step && @selected_step.id == step.id) && "hover:bg-base-300"
+                    ]}
+                    phx-click="select_step"
+                    phx-value-step-id={step.id}
+                  >
+                    <div class="flex items-center gap-2">
+                      <span class={["inline-block w-2 h-2 rounded-full", phase_dot_class(step.phase)]}>
+                      </span>
+                      <span class="font-medium">{step.label}</span>
+                    </div>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    <.wizard page="upm" dom_id="ccem-wizard-upm-ralph" />
+        <.wizard page="upm" dom_id="ccem-wizard-upm-ralph" />
       </:main>
     </.page_layout>
     """

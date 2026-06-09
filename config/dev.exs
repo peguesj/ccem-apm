@@ -13,10 +13,14 @@ config :apm, ApmWeb.Endpoint,
   code_reloader: System.get_env("APM_NO_CODE_RELOAD") != "1",
   debug_errors: true,
   secret_key_base: "kY3MVboJ+Qr9zL8db1GpnTfcC1c2MrnokzTtXVfoauKI0hpUP55+TMtv8nGgo4hu",
-  watchers: if(System.get_env("APM_NO_WATCHERS") == "1", do: [], else: [
-    esbuild: {Esbuild, :install_and_run, [:apm, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:apm, ~w(--watch)]}
-  ])
+  watchers:
+    if(System.get_env("APM_NO_WATCHERS") == "1",
+      do: [],
+      else: [
+        esbuild: {Esbuild, :install_and_run, [:apm, ~w(--sourcemap=inline --watch)]},
+        tailwind: {Tailwind, :install_and_run, [:apm, ~w(--watch)]}
+      ]
+    )
 
 # ## SSL Support
 #

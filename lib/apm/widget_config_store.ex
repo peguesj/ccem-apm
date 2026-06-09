@@ -45,11 +45,13 @@ defmodule Apm.WidgetConfigStore do
   def put_config(session_id, widget_id, config)
       when is_binary(session_id) and is_binary(widget_id) and is_map(config) do
     :ets.insert(@table, {{session_id, widget_id}, config})
+
     Phoenix.PubSub.broadcast(
       Apm.PubSub,
       "dashboard:session:#{session_id}",
       {:widget_config_updated, widget_id, config}
     )
+
     :ok
   end
 

@@ -19,12 +19,13 @@ defmodule ApmWeb.V2.PlaneController do
 
   @doc "Return the current Plane sync state."
   @spec sync_status(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :sync_status,
+  operation(:sync_status,
     summary: "Sync status",
     tags: ["Plane"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def sync_status(conn, _params) do
     state = PlanePmAlign.current_state()
@@ -41,12 +42,13 @@ defmodule ApmWeb.V2.PlaneController do
 
   @doc "Trigger an immediate Plane sync and return the new state."
   @spec sync(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :sync,
+  operation(:sync,
     summary: "Sync",
     tags: ["Plane"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def sync(conn, _params) do
     PlanePmAlign.trigger_sync()

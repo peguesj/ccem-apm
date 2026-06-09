@@ -39,7 +39,7 @@ defmodule ApmWeb.Components.Feedback.EmptyState do
       <% end %>
       <%= if @action != [] do %>
         <div class="apm-empty-state__action">
-          <%= render_slot(@action) %>
+          {render_slot(@action)}
         </div>
       <% end %>
     </div>

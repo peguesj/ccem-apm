@@ -172,11 +172,17 @@ defmodule ApmWeb.SettingsLive do
           <p style="font-size:12px; color:var(--ccem-fg-muted); margin:0 0 14px;">
             How a pending authorization request is shown. An always-on modal
             interrupts your work, so it is opt-in. Keyboard while focused:
-            <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">&#8629;</kbd>
+            <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">
+              &#8629;
+            </kbd>
             approve ·
-            <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">Esc</kbd>
+            <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">
+              Esc
+            </kbd>
             /
-            <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">D</kbd>
+            <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">
+              D
+            </kbd>
             deny.
           </p>
           <div style="display:flex; flex-direction:column; gap:8px;">
@@ -193,7 +199,8 @@ defmodule ApmWeb.SettingsLive do
               >
                 <span style={"margin-top:2px; width:16px; height:16px; border-radius:50%; border:2px solid #{if @approval_display_mode == mode, do: "var(--ccem-accent, #7c9eff)", else: "var(--ccem-line)"}; flex-shrink:0; display:flex; align-items:center; justify-content:center;"}>
                   <%= if @approval_display_mode == mode do %>
-                    <span style="width:7px; height:7px; border-radius:50%; background:var(--ccem-accent, #7c9eff);"></span>
+                    <span style="width:7px; height:7px; border-radius:50%; background:var(--ccem-accent, #7c9eff);">
+                    </span>
                   <% end %>
                 </span>
                 <span style="display:flex; flex-direction:column; gap:3px;">
@@ -307,9 +314,12 @@ defmodule ApmWeb.SettingsLive do
                       {Map.get(rule, :tool) || Map.get(rule, :tool_name) || "—"}
                     </span>
                     <.badge tone={
-                      if (Map.get(rule, :action) || Map.get(rule, :decision)) in [:always_allow, "always_allow"],
-                        do: "success",
-                        else: "error"
+                      if (Map.get(rule, :action) || Map.get(rule, :decision)) in [
+                           :always_allow,
+                           "always_allow"
+                         ],
+                         do: "success",
+                         else: "error"
                     }>
                       {Map.get(rule, :action) || Map.get(rule, :decision)}
                     </.badge>

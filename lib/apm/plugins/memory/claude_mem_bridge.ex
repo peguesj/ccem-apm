@@ -120,7 +120,10 @@ defmodule Apm.Plugins.Memory.ClaudeMemBridge do
         {:ok, %{db: db}}
 
       {:error, reason} ->
-        Logger.warning("[ClaudeMemBridge] DB unavailable (#{inspect(reason)}); queries will fail gracefully")
+        Logger.warning(
+          "[ClaudeMemBridge] DB unavailable (#{inspect(reason)}); queries will fail gracefully"
+        )
+
         {:ok, %{db: nil}}
     end
   end

@@ -88,7 +88,10 @@ defmodule Apm.WidgetRegistry do
       refresh_interval: nil,
       min_width: 6,
       min_height: 4,
-      config_schema: %{layout: "enum:graph_td,graph_lr,hierarchical,card_grid", max_depth: "integer"},
+      config_schema: %{
+        layout: "enum:graph_td,graph_lr,hierarchical,card_grid",
+        max_depth: "integer"
+      },
       default_config: %{layout: "graph_td", max_depth: 5},
       plugin: nil,
       version: "1.0.0",
@@ -280,7 +283,8 @@ defmodule Apm.WidgetRegistry do
     %{
       id: "projects",
       name: "Projects",
-      description: "Active projects list with session/agent counts — pin to scope all widgets to a project",
+      description:
+        "Active projects list with session/agent counts — pin to scope all widgets to a project",
       category: :monitoring,
       source_module: Apm.ProjectStore,
       refresh_interval: nil,
@@ -354,7 +358,8 @@ defmodule Apm.WidgetRegistry do
   Returns the merged config map (does not persist to ETS — use WidgetConfigStore for persistence).
   """
   @spec resolve_config(String.t(), map()) :: map()
-  def resolve_config(widget_id, overrides \\ %{}) when is_binary(widget_id) and is_map(overrides) do
+  def resolve_config(widget_id, overrides \\ %{})
+      when is_binary(widget_id) and is_map(overrides) do
     case get_widget(widget_id) do
       nil -> overrides
       widget -> Map.merge(widget.default_config, overrides)
@@ -392,7 +397,9 @@ defmodule Apm.WidgetRegistry do
   def handle_call({:update_widget_config, widget_id, config_overrides}, _from, state) do
     case :ets.lookup(state.table, widget_id) do
       [{^widget_id, widget}] ->
-        updated = Map.update(widget, :default_config, config_overrides, &Map.merge(&1, config_overrides))
+        updated =
+          Map.update(widget, :default_config, config_overrides, &Map.merge(&1, config_overrides))
+
         :ets.insert(state.table, {widget_id, updated})
         {:reply, :ok, state}
 

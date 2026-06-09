@@ -113,7 +113,15 @@ defmodule Apm.Library.GraphBuilder do
         mcp_servers: safe_list(&Apm.LibraryStore.list_mcp_servers/0)
       }
     else
-      %{skills: [], agents: [], commands: [], tools: [], patterns: [], learnings: [], mcp_servers: []}
+      %{
+        skills: [],
+        agents: [],
+        commands: [],
+        tools: [],
+        patterns: [],
+        learnings: [],
+        mcp_servers: []
+      }
     end
   end
 
@@ -167,6 +175,7 @@ defmodule Apm.Library.GraphBuilder do
 
   defp take_metadata(item) when is_map(item) do
     keys = [:description, :source, :path, :triggers, :type]
+
     Enum.reduce(keys, %{}, fn k, acc ->
       case Map.fetch(item, k) do
         {:ok, v} -> Map.put(acc, k, v)
@@ -358,4 +367,3 @@ defmodule Apm.Library.GraphBuilder do
 
   defp all_types, do: [:skill, :agent, :command, :tool, :pattern, :learning, :mcp]
 end
-

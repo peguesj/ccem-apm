@@ -84,5 +84,6 @@ defmodule Apm.UPM.Adapters.Plane do
   defp build_url(%{"id" => id}) when is_binary(id) do
     "plane://issues/#{id}"
   end
+
   defp build_url(_), do: nil
 end

@@ -182,11 +182,13 @@ defmodule Apm.AgUi.DashboardStateSync do
           old_agent != new_agent ->
             Enum.flat_map(Map.keys(new_agent), fn key ->
               if Map.get(old_agent, key) != Map.get(new_agent, key) do
-                [%{
-                  "op" => "replace",
-                  "path" => "/agents/#{id}/#{key}",
-                  "value" => Map.get(new_agent, key)
-                }]
+                [
+                  %{
+                    "op" => "replace",
+                    "path" => "/agents/#{id}/#{key}",
+                    "value" => Map.get(new_agent, key)
+                  }
+                ]
               else
                 []
               end

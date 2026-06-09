@@ -92,9 +92,11 @@ defmodule Apm.UPM.VCSIntegrationStore do
   def init(_opts) do
     :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
     state = load_persisted_state()
+
     Enum.each(state, fn record ->
       :ets.insert(@table, {record.id, record})
     end)
+
     Logger.info("[UPM.VCSIntegrationStore] Initialized with #{length(state)} integrations")
     {:ok, %{count: length(state)}}
   end
@@ -195,7 +197,8 @@ defmodule Apm.UPM.VCSIntegrationStore do
         project_id: project_id,
         provider: provider,
         repo_url: get_attr(attrs, :repo_url) || get_attr(attrs, "repo_url"),
-        default_branch: get_attr(attrs, :default_branch) || get_attr(attrs, "default_branch") || "main",
+        default_branch:
+          get_attr(attrs, :default_branch) || get_attr(attrs, "default_branch") || "main",
         qa_branch: get_attr(attrs, :qa_branch) || get_attr(attrs, "qa_branch"),
         staging_branch: get_attr(attrs, :staging_branch) || get_attr(attrs, "staging_branch"),
         prod_branch: get_attr(attrs, :prod_branch) || get_attr(attrs, "prod_branch"),
@@ -233,6 +236,7 @@ defmodule Apm.UPM.VCSIntegrationStore do
           {:ok, record} ->
             last_sync = parse_dt(map[:last_sync_at])
             [%{record | last_sync_at: last_sync}]
+
           _ ->
             []
         end
@@ -251,8 +255,11 @@ defmodule Apm.UPM.VCSIntegrationStore do
       |> Enum.map(fn {_id, record} -> record_to_map(record) end)
 
     case Jason.encode(records, pretty: true) do
-      {:ok, json} -> File.write!(path, json)
-      {:error, reason} -> Logger.error("[UPM.VCSIntegrationStore] Persist failed: #{inspect(reason)}")
+      {:ok, json} ->
+        File.write!(path, json)
+
+      {:error, reason} ->
+        Logger.error("[UPM.VCSIntegrationStore] Persist failed: #{inspect(reason)}")
     end
   end
 
@@ -269,7 +276,10 @@ defmodule Apm.UPM.VCSIntegrationStore do
   defp generate_id(attrs) do
     project_id = get_attr(attrs, :project_id) || get_attr(attrs, "project_id") || ""
     provider = get_attr(attrs, :provider) || get_attr(attrs, "provider") || ""
-    :crypto.hash(:sha256, "#{project_id}:#{provider}") |> Base.encode16(case: :lower) |> binary_part(0, 16)
+
+    :crypto.hash(:sha256, "#{project_id}:#{provider}")
+    |> Base.encode16(case: :lower)
+    |> binary_part(0, 16)
   end
 
   defp get_attr(map, key) do
@@ -293,11 +303,13 @@ defmodule Apm.UPM.VCSIntegrationStore do
   end
 
   defp parse_dt(nil), do: nil
+
   defp parse_dt(str) when is_binary(str) do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> dt
       _ -> nil
     end
   end
+
   defp parse_dt(_), do: nil
 end

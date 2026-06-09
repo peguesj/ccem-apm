@@ -42,15 +42,17 @@ defmodule Apm.Auth.AuthorizationGateJwtTest do
       bad_jwt = Enum.join([h, p, bad_sig], ".")
       params = %{identity_token: bad_jwt}
 
-      assert {:error, :invalid_token, _} = AuthorizationGate.authorize("agent-tamper-int", "sess-3", "Read", "agent", params)
+      assert {:error, :invalid_token, _} =
+               AuthorizationGate.authorize("agent-tamper-int", "sess-3", "Read", "agent", params)
     end
 
     test "accepts valid Bearer token and verifies agent_id from claims" do
-      jwt = JwtAssertion.sign_assertion(%{
-        agent_id: "agent-verified",
-        formation_id: "fmt-int-1",
-        session_id: "sess-int"
-      })
+      jwt =
+        JwtAssertion.sign_assertion(%{
+          agent_id: "agent-verified",
+          formation_id: "fmt-int-1",
+          session_id: "sess-int"
+        })
 
       # Pass a DIFFERENT payload agent_id — the JWT claim should win.
       params = %{identity_token: jwt}
@@ -58,7 +60,9 @@ defmodule Apm.Auth.AuthorizationGateJwtTest do
       # We can't easily assert on the exact downstream result without spinning up
       # all of policy/token/session, but we can confirm the gate doesn't error
       # with :invalid_token (it processes the JWT path).
-      result = AuthorizationGate.authorize("payload-says-different", "sess-int", "Read", "agent", params)
+      result =
+        AuthorizationGate.authorize("payload-says-different", "sess-int", "Read", "agent", params)
+
       # The result will be either {:ok, _} or {:error, :denied/policy, _} —
       # but NEVER {:error, :invalid_token, _} because JWT is valid.
       case result do
@@ -70,6 +74,7 @@ defmodule Apm.Auth.AuthorizationGateJwtTest do
     test "absent Bearer token → legacy fallback (no crash)" do
       # No :identity_token key → legacy path, agent_id taken from payload, no error.
       result = AuthorizationGate.authorize("agent-legacy", "sess-legacy", "Read", "agent", %{})
+
       case result do
         {:ok, _token_id} -> :ok
         {:error, reason, _} -> refute reason == :invalid_token
@@ -82,6 +87,7 @@ defmodule Apm.Auth.AuthorizationGateJwtTest do
       params = %{"identity_token" => jwt}
 
       result = AuthorizationGate.authorize("agent-str-key", "sess-str", "Read", "agent", params)
+
       case result do
         {:ok, _} -> :ok
         {:error, reason, _} -> refute reason == :invalid_token

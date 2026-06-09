@@ -325,12 +325,14 @@ defmodule ApmWeb.AuthorizationLive do
 
                     %{
                       status: "warning",
-                      message:
-                        "ESCALATE — requires approval#{scoped} (risk: #{tool.risk_level})"
+                      message: "ESCALATE — requires approval#{scoped} (risk: #{tool.risk_level})"
                     }
                 end
               else
-                %{status: "success", message: "GRANT — no authorization required for #{tool_name}"}
+                %{
+                  status: "success",
+                  message: "GRANT — no authorization required for #{tool_name}"
+                }
               end
           end
         rescue
@@ -611,13 +613,17 @@ defmodule ApmWeb.AuthorizationLive do
   @impl true
   def handle_event("approve_selected", _params, socket) do
     Enum.each(socket.assigns.selected_ids, &PendingDecisions.decide(&1, :approve))
-    {:noreply, assign(socket, pending: PendingDecisions.list_pending(), selected_ids: MapSet.new())}
+
+    {:noreply,
+     assign(socket, pending: PendingDecisions.list_pending(), selected_ids: MapSet.new())}
   end
 
   @impl true
   def handle_event("deny_selected", _params, socket) do
     Enum.each(socket.assigns.selected_ids, &PendingDecisions.decide(&1, :deny))
-    {:noreply, assign(socket, pending: PendingDecisions.list_pending(), selected_ids: MapSet.new())}
+
+    {:noreply,
+     assign(socket, pending: PendingDecisions.list_pending(), selected_ids: MapSet.new())}
   end
 
   @impl true
@@ -815,7 +821,8 @@ defmodule ApmWeb.AuthorizationLive do
                     >
                       <span style={"margin-top:2px; width:14px; height:14px; border-radius:50%; border:2px solid #{if @approval_display_mode == mode, do: "var(--ccem-accent, #7c9eff)", else: "var(--ccem-line)"}; flex-shrink:0; display:flex; align-items:center; justify-content:center;"}>
                         <%= if @approval_display_mode == mode do %>
-                          <span style="width:6px; height:6px; border-radius:50%; background:var(--ccem-accent, #7c9eff);"></span>
+                          <span style="width:6px; height:6px; border-radius:50%; background:var(--ccem-accent, #7c9eff);">
+                          </span>
                         <% end %>
                       </span>
                       <span style="display:flex; flex-direction:column; gap:2px;">
@@ -858,26 +865,36 @@ defmodule ApmWeb.AuthorizationLive do
               </div>
               <div style="flex:1; min-width:0;">
                 <p style="font-size:13px; font-weight:600; color:var(--ccem-fg); margin:0 0 4px;">
-                  {length(@pending)} pending authorization request{if length(@pending) != 1, do: "s", else: ""}
+                  {length(@pending)} pending authorization request{if length(@pending) != 1,
+                    do: "s",
+                    else: ""}
                 </p>
                 <p style="font-size:12px; color:var(--ccem-fg-muted); margin:0 0 12px;">
                   Approval required before 20-second TTL expires.
                 </p>
                 <div style="display:flex; gap:8px;">
                   <.btn variant="primary" size="sm" phx-click="approve_all_pending">Approve All</.btn>
-                  <.btn variant="destructive" size="sm" phx-click="dismiss_all_pending">Deny All</.btn>
+                  <.btn variant="destructive" size="sm" phx-click="dismiss_all_pending">
+                    Deny All
+                  </.btn>
                   <.btn variant="ghost" size="sm" phx-click="dismiss_auth">Dismiss</.btn>
                 </div>
               </div>
               <div style="display:flex; flex-direction:column; gap:6px; font-size:11px; color:var(--ccem-fg-dim);">
                 <span>
-                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;font-family:var(--ccem-font-mono);">&#8629;</kbd>
+                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;font-family:var(--ccem-font-mono);">
+                    &#8629;
+                  </kbd>
                   Approve
                 </span>
                 <span>
-                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;font-family:var(--ccem-font-mono);">Esc</kbd>
+                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;font-family:var(--ccem-font-mono);">
+                    Esc
+                  </kbd>
                   /
-                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;font-family:var(--ccem-font-mono);">D</kbd>
+                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;font-family:var(--ccem-font-mono);">
+                    D
+                  </kbd>
                   Deny
                 </span>
               </div>
@@ -918,18 +935,28 @@ defmodule ApmWeb.AuthorizationLive do
                   <.btn variant="primary" phx-click="approve" phx-value-id={Map.get(top, :request_id)}>
                     Approve &nbsp;<kbd style="opacity:0.7;">&#8629;</kbd>
                   </.btn>
-                  <.btn variant="destructive" phx-click="deny" phx-value-id={Map.get(top, :request_id)}>
+                  <.btn
+                    variant="destructive"
+                    phx-click="deny"
+                    phx-value-id={Map.get(top, :request_id)}
+                  >
                     Deny &nbsp;<kbd style="opacity:0.7;">Esc</kbd>
                   </.btn>
                   <div style="flex:1;"></div>
                   <.btn variant="ghost" phx-click="dismiss_auth">Dismiss</.btn>
                 </div>
                 <p style="font-size:11px; color:var(--ccem-fg-dim); margin:14px 0 0;">
-                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">&#8629;</kbd>
+                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">
+                    &#8629;
+                  </kbd>
                   Approve ·
-                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">Esc</kbd>
+                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">
+                    Esc
+                  </kbd>
                   /
-                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">D</kbd>
+                  <kbd style="background:var(--ccem-bg-2);border:1px solid var(--ccem-line);border-radius:3px;padding:1px 5px;">
+                    D
+                  </kbd>
                   Deny · change default via the &#8943; menu
                 </p>
               </div>
@@ -1023,7 +1050,9 @@ defmodule ApmWeb.AuthorizationLive do
                 <.badge tone={@scope_test_result.status}>
                   {String.upcase(to_string(@scope_test_result.status))}
                 </.badge>
-                <span style="font-size:13px; color:var(--ccem-fg);">{@scope_test_result.message}</span>
+                <span style="font-size:13px; color:var(--ccem-fg);">
+                  {@scope_test_result.message}
+                </span>
               </div>
             <% end %>
           </.card>
@@ -1034,7 +1063,9 @@ defmodule ApmWeb.AuthorizationLive do
           <.card padded={false}>
             <.data_table id="policy-rules-table" rows={@policy_rules}>
               <:col :let={rule} label="Tool">
-                <span style="font-family:var(--ccem-font-mono); font-size:12px;">{rule.tool_name}</span>
+                <span style="font-family:var(--ccem-font-mono); font-size:12px;">
+                  {rule.tool_name}
+                </span>
               </:col>
               <:col :let={rule} label="Action">
                 <.badge tone={if rule.action == :always_allow, do: "success", else: "error"}>
@@ -1047,7 +1078,12 @@ defmodule ApmWeb.AuthorizationLive do
                 </span>
               </:col>
               <:col :let={rule} label="Actions">
-                <.btn variant="ghost" size="xs" phx-click="remove_rule" phx-value-tool={rule.tool_name}>
+                <.btn
+                  variant="ghost"
+                  size="xs"
+                  phx-click="remove_rule"
+                  phx-value-tool={rule.tool_name}
+                >
                   Remove
                 </.btn>
               </:col>
@@ -1079,11 +1115,18 @@ defmodule ApmWeb.AuthorizationLive do
                   </.badge>
                 </:col>
                 <:col :let={tool} label="Data Boundary">
-                  <span style="font-size:12px; color:var(--ccem-fg-muted);">{tool.data_boundary}</span>
+                  <span style="font-size:12px; color:var(--ccem-fg-muted);">
+                    {tool.data_boundary}
+                  </span>
                 </:col>
                 <:col :let={tool} label="Quick Rules">
                   <div style="display:flex; gap:4px;">
-                    <.btn variant="ghost" size="xs" phx-click="always_allow" phx-value-tool={tool.name}>
+                    <.btn
+                      variant="ghost"
+                      size="xs"
+                      phx-click="always_allow"
+                      phx-value-tool={tool.name}
+                    >
                       Allow
                     </.btn>
                     <.btn variant="ghost" size="xs" phx-click="always_deny" phx-value-tool={tool.name}>
@@ -1116,17 +1159,29 @@ defmodule ApmWeb.AuthorizationLive do
                 <.card>
                   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
                     <div style="display:flex; align-items:center; gap:8px;">
-                      <span style="font-size:13px; font-weight:600; color:var(--ccem-fg);">{agent_lbl}</span>
+                      <span style="font-size:13px; font-weight:600; color:var(--ccem-fg);">
+                        {agent_lbl}
+                      </span>
                       <.badge tone={risk_ds_tone(max_risk)}>{max_risk}</.badge>
                       <.badge tone="neutral">
                         {length(gates)} request{if length(gates) != 1, do: "s", else: ""}
                       </.badge>
                     </div>
                     <div style="display:flex; gap:4px;">
-                      <.btn variant="primary" size="sm" phx-click="approve_group" phx-value-agent={agent_id}>
+                      <.btn
+                        variant="primary"
+                        size="sm"
+                        phx-click="approve_group"
+                        phx-value-agent={agent_id}
+                      >
                         Approve All
                       </.btn>
-                      <.btn variant="destructive" size="sm" phx-click="deny_group" phx-value-agent={agent_id}>
+                      <.btn
+                        variant="destructive"
+                        size="sm"
+                        phx-click="deny_group"
+                        phx-value-agent={agent_id}
+                      >
                         Deny All
                       </.btn>
                     </div>
@@ -1149,10 +1204,20 @@ defmodule ApmWeb.AuthorizationLive do
                           </p>
                         </div>
                         <div style="display:flex; gap:4px; flex-shrink:0;">
-                          <.btn variant="primary" size="sm" phx-click="approve_gate" phx-value-id={gate.request_id}>
+                          <.btn
+                            variant="primary"
+                            size="sm"
+                            phx-click="approve_gate"
+                            phx-value-id={gate.request_id}
+                          >
                             Approve
                           </.btn>
-                          <.btn variant="destructive" size="sm" phx-click="deny_gate" phx-value-id={gate.request_id}>
+                          <.btn
+                            variant="destructive"
+                            size="sm"
+                            phx-click="deny_gate"
+                            phx-value-id={gate.request_id}
+                          >
                             Deny
                           </.btn>
                         </div>
@@ -1175,7 +1240,9 @@ defmodule ApmWeb.AuthorizationLive do
                 </.badge>
               </:col>
               <:col :let={{decision, _idx}} label="Tool">
-                <span style="font-family:var(--ccem-font-mono); font-size:12px;">{decision.tool}</span>
+                <span style="font-family:var(--ccem-font-mono); font-size:12px;">
+                  {decision.tool}
+                </span>
               </:col>
               <:col :let={{decision, _idx}} label="Risk">
                 <.badge tone={risk_ds_tone(decision.risk_level)}>{decision.risk_level}</.badge>
@@ -1220,12 +1287,16 @@ defmodule ApmWeb.AuthorizationLive do
                 </p>
                 <p style="font-size:12px; color:var(--ccem-fg-muted); margin:0;">
                   Tool:
-                  <span style="font-family:var(--ccem-font-mono);">{@scope_test_input["tool_name"]}</span>
+                  <span style="font-family:var(--ccem-font-mono);">
+                    {@scope_test_input["tool_name"]}
+                  </span>
                 </p>
                 <%= if @scope_test_input["scope"] != "" do %>
                   <p style="font-size:12px; color:var(--ccem-fg-muted); margin:4px 0 0;">
                     Scope:
-                    <span style="font-family:var(--ccem-font-mono);">{@scope_test_input["scope"]}</span>
+                    <span style="font-family:var(--ccem-font-mono);">
+                      {@scope_test_input["scope"]}
+                    </span>
                   </p>
                 <% end %>
               </div>
@@ -1382,8 +1453,23 @@ defmodule ApmWeb.AuthorizationLive do
         :exit, _ -> auth_summary_default()
       end
 
-    sessions = try do SessionStore.list_active() rescue _ -> [] catch :exit, _ -> [] end
-    tools = try do AuthorizationGate.list_tools() rescue _ -> [] catch :exit, _ -> [] end
+    sessions =
+      try do
+        SessionStore.list_active()
+      rescue
+        _ -> []
+      catch
+        :exit, _ -> []
+      end
+
+    tools =
+      try do
+        AuthorizationGate.list_tools()
+      rescue
+        _ -> []
+      catch
+        :exit, _ -> []
+      end
 
     audit_entries =
       try do
@@ -1451,11 +1537,19 @@ defmodule ApmWeb.AuthorizationLive do
   defp normalize_risk_level(_), do: :none
 
   defp safe_list_pending do
-    try do PendingDecisions.list_pending() rescue _ -> [] end
+    try do
+      PendingDecisions.list_pending()
+    rescue
+      _ -> []
+    end
   end
 
   defp safe_list_rules do
-    try do PolicyRulesStore.list_rules() rescue _ -> [] end
+    try do
+      PolicyRulesStore.list_rules()
+    rescue
+      _ -> []
+    end
   end
 
   defp group_pending_by_agent(pending) do

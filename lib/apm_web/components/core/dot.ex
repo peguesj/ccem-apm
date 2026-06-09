@@ -17,7 +17,8 @@ defmodule ApmWeb.Components.Core.Dot do
   """
   use Phoenix.Component
 
-  attr :tone, :string, default: "neutral",
+  attr :tone, :string,
+    default: "neutral",
     values: ~w(success warning error info neutral)
 
   attr :pulse, :boolean, default: false

@@ -111,11 +111,14 @@ defmodule ApmWeb.DecidePendingLiveTest do
       # We verify the function exists and its return type contract when the process IS alive.
       # When the process is not started it will raise EXIT — both are acceptable in test env.
       try do
-        result = Decisions.decide("nonexistent-id-#{System.unique_integer()}", :allow, kind: :auth)
+        result =
+          Decisions.decide("nonexistent-id-#{System.unique_integer()}", :allow, kind: :auth)
+
         assert match?({:error, _}, result) or match?({:ok, _}, result),
                "decide/3 must return tagged tuple when GenServer is available"
       catch
-        :exit, _ -> :ok  # acceptable when GenServer not started in test env
+        # acceptable when GenServer not started in test env
+        :exit, _ -> :ok
       end
     end
   end
@@ -154,12 +157,36 @@ defmodule ApmWeb.DecidePendingLiveTest do
       # Build a fake socket state to test selection logic
       socket_assigns = %{
         queue: [
-          %{id: "item-1", kind: :auth, tool_name: "bash", subject: "agent", command: "ls",
-            reason: nil, scope: nil, ttl_s: 20, risk_level: :high, agent_id: "a1",
-            session_id: "s1", inserted_at: DateTime.utc_now(), raw: %{}},
-          %{id: "item-2", kind: :auth, tool_name: "write", subject: "agent", command: "write",
-            reason: nil, scope: nil, ttl_s: 15, risk_level: :critical, agent_id: "a2",
-            session_id: "s1", inserted_at: DateTime.utc_now(), raw: %{}}
+          %{
+            id: "item-1",
+            kind: :auth,
+            tool_name: "bash",
+            subject: "agent",
+            command: "ls",
+            reason: nil,
+            scope: nil,
+            ttl_s: 20,
+            risk_level: :high,
+            agent_id: "a1",
+            session_id: "s1",
+            inserted_at: DateTime.utc_now(),
+            raw: %{}
+          },
+          %{
+            id: "item-2",
+            kind: :auth,
+            tool_name: "write",
+            subject: "agent",
+            command: "write",
+            reason: nil,
+            scope: nil,
+            ttl_s: 15,
+            risk_level: :critical,
+            agent_id: "a2",
+            session_id: "s1",
+            inserted_at: DateTime.utc_now(),
+            raw: %{}
+          }
         ],
         selected: nil
       }

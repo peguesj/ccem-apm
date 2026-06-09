@@ -98,9 +98,7 @@ defmodule Apm.Auth.OidcVerifierTest do
 
     # Start a fresh verifier for each test (isolated state)
     {:ok, pid} =
-      start_supervised(
-        {OidcVerifier, providers: %{test_idp: provider_cfg}, name: nil}
-      )
+      start_supervised({OidcVerifier, providers: %{test_idp: provider_cfg}, name: nil})
 
     %{bypass: bypass, issuer: issuer, verifier: pid}
   end
@@ -179,7 +177,9 @@ defmodule Apm.Auth.OidcVerifierTest do
       {:ok, pid} = start_supervised({OidcVerifier, providers: %{}, name: nil}, id: :no_providers)
 
       jwt = build_jwt(valid_claims())
-      assert {:error, :no_oidc_providers_configured} = OidcVerifier.verify_id_token(pid, jwt, :any)
+
+      assert {:error, :no_oidc_providers_configured} =
+               OidcVerifier.verify_id_token(pid, jwt, :any)
     end
   end
 
@@ -238,7 +238,10 @@ defmodule Apm.Auth.OidcVerifierTest do
       :ok
     end
 
-    test "uses OIDC sub claim as user_id when oidc_id_token is valid", %{verifier: pid, issuer: issuer} do
+    test "uses OIDC sub claim as user_id when oidc_id_token is valid", %{
+      verifier: pid,
+      issuer: issuer
+    } do
       jwt = build_jwt(valid_claims(iss: issuer, sub: "okta|enterprise-agent-999"))
 
       {:ok, session_id} =

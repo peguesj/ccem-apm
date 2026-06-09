@@ -104,7 +104,10 @@ defmodule ApmWeb.Components.DesignSystem do
   end
 
   defp btn_size_style("xs"), do: "height: 1.5rem; padding: 0 0.5rem; font-size: 11px; gap: 4px;"
-  defp btn_size_style("sm"), do: "height: 1.75rem; padding: 0 0.625rem; font-size: 12px; gap: 4px;"
+
+  defp btn_size_style("sm"),
+    do: "height: 1.75rem; padding: 0 0.625rem; font-size: 12px; gap: 4px;"
+
   defp btn_size_style("md"), do: "height: 2rem; padding: 0 0.75rem; font-size: 13px; gap: 6px;"
   defp btn_size_style("lg"), do: "height: 2.5rem; padding: 0 1rem; font-size: 14px; gap: 6px;"
 
@@ -169,25 +172,32 @@ defmodule ApmWeb.Components.DesignSystem do
   end
 
   defp badge_tone_style("accent"),
-    do: "background: var(--ccem-accent-muted, color-mix(in srgb, var(--ccem-accent) 18%, transparent)); color: var(--ccem-accent); border: 1px solid color-mix(in srgb, var(--ccem-accent) 30%, transparent);"
+    do:
+      "background: var(--ccem-accent-muted, color-mix(in srgb, var(--ccem-accent) 18%, transparent)); color: var(--ccem-accent); border: 1px solid color-mix(in srgb, var(--ccem-accent) 30%, transparent);"
 
   defp badge_tone_style("iris"),
-    do: "background: var(--ccem-iris-muted, color-mix(in srgb, var(--ccem-iris, #7c6cf8) 18%, transparent)); color: var(--ccem-iris, #7c6cf8); border: 1px solid color-mix(in srgb, var(--ccem-iris, #7c6cf8) 30%, transparent);"
+    do:
+      "background: var(--ccem-iris-muted, color-mix(in srgb, var(--ccem-iris, #7c6cf8) 18%, transparent)); color: var(--ccem-iris, #7c6cf8); border: 1px solid color-mix(in srgb, var(--ccem-iris, #7c6cf8) 30%, transparent);"
 
   defp badge_tone_style("success"),
-    do: "background: color-mix(in srgb, var(--ccem-ok, #22c55e) 15%, transparent); color: var(--ccem-ok, #22c55e); border: 1px solid color-mix(in srgb, var(--ccem-ok, #22c55e) 30%, transparent);"
+    do:
+      "background: color-mix(in srgb, var(--ccem-ok, #22c55e) 15%, transparent); color: var(--ccem-ok, #22c55e); border: 1px solid color-mix(in srgb, var(--ccem-ok, #22c55e) 30%, transparent);"
 
   defp badge_tone_style("warning"),
-    do: "background: color-mix(in srgb, var(--ccem-warn, #f59e0b) 15%, transparent); color: var(--ccem-warn, #f59e0b); border: 1px solid color-mix(in srgb, var(--ccem-warn, #f59e0b) 30%, transparent);"
+    do:
+      "background: color-mix(in srgb, var(--ccem-warn, #f59e0b) 15%, transparent); color: var(--ccem-warn, #f59e0b); border: 1px solid color-mix(in srgb, var(--ccem-warn, #f59e0b) 30%, transparent);"
 
   defp badge_tone_style("error"),
-    do: "background: color-mix(in srgb, var(--ccem-err, #ef4444) 15%, transparent); color: var(--ccem-err, #ef4444); border: 1px solid color-mix(in srgb, var(--ccem-err, #ef4444) 30%, transparent);"
+    do:
+      "background: color-mix(in srgb, var(--ccem-err, #ef4444) 15%, transparent); color: var(--ccem-err, #ef4444); border: 1px solid color-mix(in srgb, var(--ccem-err, #ef4444) 30%, transparent);"
 
   defp badge_tone_style("info"),
-    do: "background: color-mix(in srgb, var(--ccem-info, #3b82f6) 15%, transparent); color: var(--ccem-info, #3b82f6); border: 1px solid color-mix(in srgb, var(--ccem-info, #3b82f6) 30%, transparent);"
+    do:
+      "background: color-mix(in srgb, var(--ccem-info, #3b82f6) 15%, transparent); color: var(--ccem-info, #3b82f6); border: 1px solid color-mix(in srgb, var(--ccem-info, #3b82f6) 30%, transparent);"
 
   defp badge_tone_style("neutral"),
-    do: "background: var(--ccem-bg-2); color: var(--ccem-fg-muted); border: 1px solid var(--ccem-line);"
+    do:
+      "background: var(--ccem-bg-2); color: var(--ccem-fg-muted); border: 1px solid var(--ccem-line);"
 
   # Phase 0.2: CP-308 atom-coercion and catch-all fallbacks removed.
   # All tone callsites now emit canonical strings: success | warning | error | info | neutral
@@ -274,7 +284,10 @@ defmodule ApmWeb.Components.DesignSystem do
       <span style="font-size: 24px; font-weight: 600; color: var(--ccem-fg); font-variant-numeric: tabular-nums; line-height: 1.1;">
         {@value}
       </span>
-      <span :if={@delta} style={"font-size: 12px; font-weight: 500; color: #{@delta_color}; font-variant-numeric: tabular-nums;"}>
+      <span
+        :if={@delta}
+        style={"font-size: 12px; font-weight: 500; color: #{@delta_color}; font-variant-numeric: tabular-nums;"}
+      >
         {@delta}
       </span>
       <div :if={@sparkline != []}>
@@ -421,7 +434,9 @@ defmodule ApmWeb.Components.DesignSystem do
           "color: var(--ccem-fg); line-height: 1.4; white-space: nowrap;"
       }
       {@rest}
-    >{@key}</kbd>
+    >
+      {@key}
+    </kbd>
     """
   end
 
@@ -470,7 +485,7 @@ defmodule ApmWeb.Components.DesignSystem do
           class="ds-input-icon"
           style="position: absolute; left: 8px; display: flex; align-items: center; pointer-events: none; color: var(--ccem-fg-dim);"
         >
-          <%= render_slot(@icon) %>
+          {render_slot(@icon)}
         </div>
       <% end %>
       <input
@@ -498,7 +513,7 @@ defmodule ApmWeb.Components.DesignSystem do
           class="ds-input-suffix"
           style="position: absolute; right: 8px; display: flex; align-items: center; color: var(--ccem-fg-dim);"
         >
-          <%= render_slot(@suffix) %>
+          {render_slot(@suffix)}
         </div>
       <% else %>
         <%= if @type == "search" do %>
@@ -511,7 +526,9 @@ defmodule ApmWeb.Components.DesignSystem do
                 "border-radius: 3px; font-family: var(--ccem-font-mono, monospace); " <>
                 "font-size: 11px; color: var(--ccem-fg-dim); white-space: nowrap; pointer-events: none;"
             }
-          >⌘K</span>
+          >
+            ⌘K
+          </span>
         <% end %>
       <% end %>
     </div>
@@ -573,7 +590,7 @@ defmodule ApmWeb.Components.DesignSystem do
                   "border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));"
               }
             >
-              <%= col[:label] %>
+              {col[:label]}
             </th>
           </tr>
         </thead>
@@ -591,7 +608,7 @@ defmodule ApmWeb.Components.DesignSystem do
                   "font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg);"
               }
             >
-              <%= render_slot(col, row) %>
+              {render_slot(col, row)}
             </td>
           </tr>
         </tbody>

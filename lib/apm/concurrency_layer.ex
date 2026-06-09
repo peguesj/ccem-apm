@@ -83,7 +83,12 @@ defmodule Apm.ConcurrencyLayer do
   defp run_with_telemetry(fun, label) do
     start = System.monotonic_time()
     meta = %{label: label}
-    :telemetry.execute([:apm, :concurrency, :task, :start], %{system_time: System.system_time()}, meta)
+
+    :telemetry.execute(
+      [:apm, :concurrency, :task, :start],
+      %{system_time: System.system_time()},
+      meta
+    )
 
     try do
       result = fun.()

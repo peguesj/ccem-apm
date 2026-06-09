@@ -20,14 +20,20 @@ defmodule ApmWeb.V2.ApiV2JSON do
   @doc "Parse limit from query params, clamped to 1..200."
   def parse_limit(params) do
     case params["limit"] do
-      nil -> @default_limit
+      nil ->
+        @default_limit
+
       val when is_binary(val) ->
         case Integer.parse(val) do
           {n, _} -> n |> max(1) |> min(@max_limit)
           :error -> @default_limit
         end
-      val when is_integer(val) -> val |> max(1) |> min(@max_limit)
-      _ -> @default_limit
+
+      val when is_integer(val) ->
+        val |> max(1) |> min(@max_limit)
+
+      _ ->
+        @default_limit
     end
   end
 
@@ -80,7 +86,11 @@ defmodule ApmWeb.V2.ApiV2JSON do
     next_cursor =
       if has_more do
         last = List.last(page)
-        encode_cursor(%{"id" => to_string(get_field(last, id_key)), "timestamp" => to_string(get_field(last, ts_key))})
+
+        encode_cursor(%{
+          "id" => to_string(get_field(last, id_key)),
+          "timestamp" => to_string(get_field(last, ts_key))
+        })
       else
         nil
       end
@@ -88,6 +98,9 @@ defmodule ApmWeb.V2.ApiV2JSON do
     {page, next_cursor, has_more}
   end
 
-  defp get_field(map, key) when is_atom(key), do: Map.get(map, key) || Map.get(map, to_string(key))
-  defp get_field(map, key) when is_binary(key), do: Map.get(map, key) || Map.get(map, String.to_existing_atom(key))
+  defp get_field(map, key) when is_atom(key),
+    do: Map.get(map, key) || Map.get(map, to_string(key))
+
+  defp get_field(map, key) when is_binary(key),
+    do: Map.get(map, key) || Map.get(map, String.to_existing_atom(key))
 end

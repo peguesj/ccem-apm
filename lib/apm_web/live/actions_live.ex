@@ -8,7 +8,6 @@ defmodule ApmWeb.ActionsLive do
 
   use ApmWeb, :live_view
 
-
   alias Apm.ActionEngine
   alias Apm.ProjectScanner
 
@@ -216,7 +215,10 @@ defmodule ApmWeb.ActionsLive do
     <span :if={@value} style="display: flex; align-items: center; justify-content: center;">
       <.icon name="hero-check-circle" class="size-4 text-ok" />
     </span>
-    <span :if={!@value} style="display: flex; align-items: center; justify-content: center; opacity: 0.3;">
+    <span
+      :if={!@value}
+      style="display: flex; align-items: center; justify-content: center; opacity: 0.3;"
+    >
       <.icon name="hero-x-circle" class="size-4 text-err" />
     </span>
     """
@@ -234,8 +236,12 @@ defmodule ApmWeb.ActionsLive do
         <%!-- Page header --%>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Actions</h1>
-            <span style="font-size: 12px; color: var(--ccem-fg-muted);">Configure and apply APM integration to your projects</span>
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+              Actions
+            </h1>
+            <span style="font-size: 12px; color: var(--ccem-fg-muted);">
+              Configure and apply APM integration to your projects
+            </span>
           </div>
         </div>
 
@@ -259,19 +265,31 @@ defmodule ApmWeb.ActionsLive do
         <div style="margin-bottom: 24px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 11px; font-weight: 600; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em;">Projects</span>
-              <.badge :if={@projects != []} tone="neutral"><%= to_string(length(@projects)) %> found</.badge>
+              <span style="font-size: 11px; font-weight: 600; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+                Projects
+              </span>
+              <.badge :if={@projects != []} tone="neutral">
+                {to_string(length(@projects))} found
+              </.badge>
             </div>
             <.btn variant="ghost" size="xs" phx-click="scan_projects" disabled={@scanning}>
               <.icon name="hero-arrow-path" class={["size-3", @scanning && "animate-spin"]} />
-              <%= if @scanning, do: "Scanning...", else: "Rescan" %>
+              {if @scanning, do: "Scanning...", else: "Rescan"}
             </.btn>
           </div>
 
           <.card padded={false}>
-            <div :if={@projects == []} style="padding: 32px; text-align: center; color: var(--ccem-fg-muted); font-size: 13px;">
+            <div
+              :if={@projects == []}
+              style="padding: 32px; text-align: center; color: var(--ccem-fg-muted); font-size: 13px;"
+            >
               No projects found.
-              <button phx-click="scan_projects" style="color: var(--ccem-accent); background: none; border: none; cursor: pointer; padding: 0; margin-left: 4px;">Scan now</button>
+              <button
+                phx-click="scan_projects"
+                style="color: var(--ccem-accent); background: none; border: none; cursor: pointer; padding: 0; margin-left: 4px;"
+              >
+                Scan now
+              </button>
             </div>
 
             <table
@@ -291,17 +309,27 @@ defmodule ApmWeb.ActionsLive do
                           do: "deselect_all",
                           else: "select_all"
                       }
-                      checked={
-                        @projects != [] and MapSet.size(@selected_paths) == length(@projects)
-                      }
+                      checked={@projects != [] and MapSet.size(@selected_paths) == length(@projects)}
                     />
                   </th>
-                  <th style="padding: 8px 16px; text-align: left; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Project</th>
-                  <th style="padding: 8px 16px; text-align: left; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Stack</th>
-                  <th style="padding: 8px 16px; text-align: center; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Hooks</th>
-                  <th style="padding: 8px 16px; text-align: center; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Memory</th>
-                  <th style="padding: 8px 16px; text-align: center; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Config</th>
-                  <th style="padding: 8px 16px; text-align: right; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">Actions</th>
+                  <th style="padding: 8px 16px; text-align: left; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">
+                    Project
+                  </th>
+                  <th style="padding: 8px 16px; text-align: left; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">
+                    Stack
+                  </th>
+                  <th style="padding: 8px 16px; text-align: center; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">
+                    Hooks
+                  </th>
+                  <th style="padding: 8px 16px; text-align: center; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">
+                    Memory
+                  </th>
+                  <th style="padding: 8px 16px; text-align: center; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">
+                    Config
+                  </th>
+                  <th style="padding: 8px 16px; text-align: right; font-size: 11px; color: var(--ccem-fg-muted); font-weight: 500;">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -314,7 +342,8 @@ defmodule ApmWeb.ActionsLive do
                     "border-bottom: 1px solid var(--ccem-border); cursor: pointer; transition: background 0.1s;",
                     if(MapSet.member?(@selected_paths, proj.path),
                       do: "background: rgba(var(--ccem-accent-rgb, 99,102,241), 0.06);",
-                      else: "")
+                      else: ""
+                    )
                   ]}
                 >
                   <td style="padding: 10px 12px;" data-no-select="true">
@@ -327,9 +356,13 @@ defmodule ApmWeb.ActionsLive do
                   </td>
                   <td style="padding: 10px 16px;">
                     <div style="font-weight: 500; color: var(--ccem-fg);">{proj.name}</div>
-                    <div style="font-size: 10px; color: var(--ccem-fg-subtle); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px;">{proj.path}</div>
+                    <div style="font-size: 10px; color: var(--ccem-fg-subtle); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px;">
+                      {proj.path}
+                    </div>
                   </td>
-                  <td style="padding: 10px 16px; font-size: 12px; color: var(--ccem-fg-muted);">{format_stack(proj.stack)}</td>
+                  <td style="padding: 10px 16px; font-size: 12px; color: var(--ccem-fg-muted);">
+                    {format_stack(proj.stack)}
+                  </td>
                   <td style="padding: 10px 16px; text-align: center;">
                     <.status_cell value={proj[:has_hooks] || false} />
                   </td>
@@ -362,17 +395,31 @@ defmodule ApmWeb.ActionsLive do
 
         <%!-- Action Catalog --%>
         <div style="margin-bottom: 24px;">
-          <h3 style="font-size: 11px; font-weight: 600; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px 0;">Action Catalog</h3>
+          <h3 style="font-size: 11px; font-weight: 600; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px 0;">
+            Action Catalog
+          </h3>
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
             <.card :for={action <- @catalog} style="padding: 16px;">
               <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
                 <div>
-                  <.badge tone={category_tone(action.category)} square={true}><%= action.category %></.badge>
-                  <div style="font-weight: 500; color: var(--ccem-fg); margin-top: 4px;">{action.name}</div>
+                  <.badge tone={category_tone(action.category)} square={true}>
+                    {action.category}
+                  </.badge>
+                  <div style="font-weight: 500; color: var(--ccem-fg); margin-top: 4px;">
+                    {action.name}
+                  </div>
                 </div>
               </div>
-              <p style="font-size: 12px; color: var(--ccem-fg-muted); margin: 0 0 12px 0;">{action.description}</p>
-              <.btn variant="primary" size="sm" phx-click="open_run_modal" phx-value-action={action.id} style="width: 100%;">
+              <p style="font-size: 12px; color: var(--ccem-fg-muted); margin: 0 0 12px 0;">
+                {action.description}
+              </p>
+              <.btn
+                variant="primary"
+                size="sm"
+                phx-click="open_run_modal"
+                phx-value-action={action.id}
+                style="width: 100%;"
+              >
                 Run
               </.btn>
             </.card>
@@ -381,19 +428,35 @@ defmodule ApmWeb.ActionsLive do
 
         <%!-- Recent Runs --%>
         <div style="padding-bottom: 80px;">
-          <h3 style="font-size: 11px; font-weight: 600; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px 0;">Recent Runs</h3>
+          <h3 style="font-size: 11px; font-weight: 600; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px 0;">
+            Recent Runs
+          </h3>
           <div :if={@runs == []} style="font-size: 13px; color: var(--ccem-fg-muted);">
             No runs yet. Run an action above to get started.
           </div>
           <.card :if={@runs != []} padded={false}>
             <.data_table id="runs-table" rows={@runs}>
-              <:col :let={row} label="Action"><%= row[:action_type] %></:col>
-              <:col :let={row} label="Project"><span style="font-family: monospace; font-size: 11px; color: var(--ccem-fg-muted);"><%= Path.basename(row[:project_path] || "") %></span></:col>
-              <:col :let={row} label="Status"><.badge tone={run_status_tone(row[:status])}><%= row[:status] %></.badge></:col>
-              <:col :let={row} label="Started"><span style="font-size: 11px; color: var(--ccem-fg-subtle);"><%= row[:started_at] %></span></:col>
-              <:col :let={row} label="Duration"><span style="color: var(--ccem-fg-muted);"><%= format_duration(row[:started_at], row[:completed_at]) %></span></:col>
+              <:col :let={row} label="Action">{row[:action_type]}</:col>
+              <:col :let={row} label="Project">
+                <span style="font-family: monospace; font-size: 11px; color: var(--ccem-fg-muted);">
+                  {Path.basename(row[:project_path] || "")}
+                </span>
+              </:col>
+              <:col :let={row} label="Status">
+                <.badge tone={run_status_tone(row[:status])}>{row[:status]}</.badge>
+              </:col>
+              <:col :let={row} label="Started">
+                <span style="font-size: 11px; color: var(--ccem-fg-subtle);">{row[:started_at]}</span>
+              </:col>
+              <:col :let={row} label="Duration">
+                <span style="color: var(--ccem-fg-muted);">
+                  {format_duration(row[:started_at], row[:completed_at])}
+                </span>
+              </:col>
               <:col :let={row} label="Result">
-                <.btn variant="ghost" size="xs" phx-click="view_result" phx-value-id={row[:id]}>View</.btn>
+                <.btn variant="ghost" size="xs" phx-click="view_result" phx-value-id={row[:id]}>
+                  View
+                </.btn>
               </:col>
             </.data_table>
           </.card>
@@ -413,13 +476,28 @@ defmodule ApmWeb.ActionsLive do
       <.btn variant="secondary" size="sm" phx-click="run_bulk_action" phx-value-action="update_hooks">
         <.icon name="hero-code-bracket" class="size-3.5" /> Update Hooks
       </.btn>
-      <.btn variant="secondary" size="sm" phx-click="run_bulk_action" phx-value-action="add_memory_pointer">
+      <.btn
+        variant="secondary"
+        size="sm"
+        phx-click="run_bulk_action"
+        phx-value-action="add_memory_pointer"
+      >
         <.icon name="hero-bookmark" class="size-3.5" /> Add Memory
       </.btn>
-      <.btn variant="secondary" size="sm" phx-click="run_bulk_action" phx-value-action="backfill_apm_config">
+      <.btn
+        variant="secondary"
+        size="sm"
+        phx-click="run_bulk_action"
+        phx-value-action="backfill_apm_config"
+      >
         <.icon name="hero-cog-6-tooth" class="size-3.5" /> Backfill Config
       </.btn>
-      <.btn variant="secondary" size="sm" phx-click="run_bulk_action" phx-value-action="analyze_project">
+      <.btn
+        variant="secondary"
+        size="sm"
+        phx-click="run_bulk_action"
+        phx-value-action="analyze_project"
+      >
         <.icon name="hero-magnifying-glass" class="size-3.5" /> Analyze
       </.btn>
       <div style="flex: 1;"></div>
@@ -436,57 +514,109 @@ defmodule ApmWeb.ActionsLive do
       <div style="background: var(--ccem-surface-1); border: 1px solid var(--ccem-border); border-radius: 12px; width: 66%; max-width: 640px; display: flex; flex-direction: column; max-height: 72vh;">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--ccem-border); flex-shrink: 0;">
           <div>
-            <div style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">{@selected_action.name}</div>
-            <div style="font-size: 12px; color: var(--ccem-fg-muted); margin-top: 2px;">{@selected_action.description}</div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+              {@selected_action.name}
+            </div>
+            <div style="font-size: 12px; color: var(--ccem-fg-muted); margin-top: 2px;">
+              {@selected_action.description}
+            </div>
           </div>
-          <.btn variant="ghost" size="xs" phx-click="close_modal" style="margin-left: 16px; flex-shrink: 0;">
+          <.btn
+            variant="ghost"
+            size="xs"
+            phx-click="close_modal"
+            style="margin-left: 16px; flex-shrink: 0;"
+          >
             <.icon name="hero-x-mark" class="size-3" />
           </.btn>
         </div>
 
         <div style="display: flex; flex-direction: column; min-height: 0; flex: 1;">
           <div style="padding: 8px 20px; flex-shrink: 0;">
-            <span style="font-size: 11px; font-weight: 500; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em;">Select a project</span>
+            <span style="font-size: 11px; font-weight: 500; color: var(--ccem-fg-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+              Select a project
+            </span>
           </div>
 
-          <div :if={@projects == []} style="padding: 12px 20px; font-size: 12px; color: var(--ccem-fg-muted);">
+          <div
+            :if={@projects == []}
+            style="padding: 12px 20px; font-size: 12px; color: var(--ccem-fg-muted);"
+          >
             No projects found. Use the path input below or
-            <button phx-click="scan_projects" style="color: var(--ccem-accent); background: none; border: none; cursor: pointer; padding: 0;">scan</button>
+            <button
+              phx-click="scan_projects"
+              style="color: var(--ccem-accent); background: none; border: none; cursor: pointer; padding: 0;"
+            >
+              scan
+            </button>
             first.
           </div>
 
-          <div :if={@projects != []} style="overflow-y: auto; flex: 1; min-height: 0; border-bottom: 1px solid var(--ccem-border);">
+          <div
+            :if={@projects != []}
+            style="overflow-y: auto; flex: 1; min-height: 0; border-bottom: 1px solid var(--ccem-border);"
+          >
             <button
               :for={proj <- @projects}
               phx-click="select_project"
               phx-value-path={proj.path}
               style={[
                 "width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 20px; text-align: left; border-bottom: 1px solid rgba(var(--ccem-border-rgb,255,255,255),0.06); cursor: pointer; background: none; border-left: none; border-right: none; transition: background 0.1s;",
-                if(@project_path == proj.path, do: "background: rgba(var(--ccem-accent-rgb, 99,102,241), 0.08);", else: "")
+                if(@project_path == proj.path,
+                  do: "background: rgba(var(--ccem-accent-rgb, 99,102,241), 0.08);",
+                  else: ""
+                )
               ]}
             >
               <div style="flex: 1; min-width: 0;">
-                <div style="font-size: 13px; font-weight: 500; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{proj.name}</div>
-                <div style="font-size: 10px; color: var(--ccem-fg-subtle); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{proj.path}</div>
+                <div style="font-size: 13px; font-weight: 500; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  {proj.name}
+                </div>
+                <div style="font-size: 10px; color: var(--ccem-fg-subtle); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  {proj.path}
+                </div>
               </div>
-              <.badge tone={if action_applied?(proj, @selected_action.id), do: "success", else: "neutral"} square={true}>
+              <.badge
+                tone={if action_applied?(proj, @selected_action.id), do: "success", else: "neutral"}
+                square={true}
+              >
                 {if action_applied?(proj, @selected_action.id), do: "applied", else: "pending"}
               </.badge>
-              <.icon :if={@project_path == proj.path} name="hero-check" class="size-4 text-accent flex-shrink-0" />
+              <.icon
+                :if={@project_path == proj.path}
+                name="hero-check"
+                class="size-4 text-accent flex-shrink-0"
+              />
             </button>
           </div>
         </div>
 
-        <form phx-submit="run_action" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; flex-shrink: 0;">
+        <form
+          phx-submit="run_action"
+          style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; flex-shrink: 0;"
+        >
           <div>
             <label style="font-size: 12px; color: var(--ccem-fg-muted); display: block; margin-bottom: 6px;">
               Project path (pre-filled from selection above, or type manually)
             </label>
-            <.ds_input type="text" name="project_path" value={@project_path} phx-change="update_path" placeholder="~/Developer/my-project" />
+            <.ds_input
+              type="text"
+              name="project_path"
+              value={@project_path}
+              phx-change="update_path"
+              placeholder="~/Developer/my-project"
+            />
           </div>
           <div style="display: flex; justify-content: flex-end; gap: 8px;">
             <.btn variant="ghost" size="sm" phx-click="close_modal" type="button">Cancel</.btn>
-            <.btn variant="primary" size="sm" type="submit" disabled={String.trim(@project_path) == ""}>Run Action</.btn>
+            <.btn
+              variant="primary"
+              size="sm"
+              type="submit"
+              disabled={String.trim(@project_path) == ""}
+            >
+              Run Action
+            </.btn>
           </div>
         </form>
       </div>
@@ -507,8 +637,13 @@ defmodule ApmWeb.ActionsLive do
           </.btn>
         </div>
         <div style="padding: 16px; overflow: auto; flex: 1;">
-          <p :if={@selected_run.error} style="color: var(--ccem-err, #ef4444); font-size: 13px;">{@selected_run.error}</p>
-          <pre :if={!@selected_run.error} style="font-size: 11px; color: var(--ccem-ok, #22c55e); white-space: pre-wrap;">{inspect(@selected_run.result, pretty: true)}</pre>
+          <p :if={@selected_run.error} style="color: var(--ccem-err, #ef4444); font-size: 13px;">
+            {@selected_run.error}
+          </p>
+          <pre
+            :if={!@selected_run.error}
+            style="font-size: 11px; color: var(--ccem-ok, #22c55e); white-space: pre-wrap;"
+          >{inspect(@selected_run.result, pretty: true)}</pre>
         </div>
       </div>
     </div>

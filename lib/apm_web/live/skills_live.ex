@@ -27,7 +27,10 @@ defmodule ApmWeb.SkillsLive do
     end
 
     active_session = current_session_id()
-    session_skills = if active_session, do: SkillTracker.get_session_skills(active_session), else: %{}
+
+    session_skills =
+      if active_session, do: SkillTracker.get_session_skills(active_session), else: %{}
+
     catalog = SkillTracker.get_skill_catalog()
     co_occurrence = SkillTracker.get_co_occurrence()
     methodology = if active_session, do: SkillTracker.active_methodology(active_session)
@@ -98,8 +101,10 @@ defmodule ApmWeb.SkillsLive do
           <%!-- Page header --%>
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 12px;">
-              <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Skills</h1>
-              <.badge tone="accent"><%= to_string(length(@registry_skills)) %></.badge>
+              <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+                Skills
+              </h1>
+              <.badge tone="accent">{to_string(length(@registry_skills))}</.badge>
 
               <%!-- Tab list --%>
               <div
@@ -172,9 +177,18 @@ defmodule ApmWeb.SkillsLive do
                 </.btn>
               </div>
               <.badge :if={@tab == :registry and active_filter_count(assigns) > 0} tone="info">
-                {active_filter_count(assigns)} filter{if active_filter_count(assigns) > 1, do: "s", else: ""} active
+                {active_filter_count(assigns)} filter{if active_filter_count(assigns) > 1,
+                  do: "s",
+                  else: ""} active
               </.badge>
-              <.btn :if={@tab == :registry} variant="primary" size="sm" phx-click="audit_all" disabled={@audit_loading} aria-busy={to_string(@audit_loading)}>
+              <.btn
+                :if={@tab == :registry}
+                variant="primary"
+                size="sm"
+                phx-click="audit_all"
+                disabled={@audit_loading}
+                aria-busy={to_string(@audit_loading)}
+              >
                 {if @audit_loading, do: "Scanning…", else: "Audit All"}
               </.btn>
             </div>
@@ -187,7 +201,10 @@ defmodule ApmWeb.SkillsLive do
             aria-label="Filter skills"
             style="margin-bottom: 16px;"
           >
-            <form phx-change="update_filters" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <form
+              phx-change="update_filters"
+              style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;"
+            >
               <label for="skill-search" class="sr-only">Search skills</label>
               <.ds_input
                 id="skill-search"
@@ -209,7 +226,9 @@ defmodule ApmWeb.SkillsLive do
               >
                 <option value="all" selected={@filter_tier == "all"}>All tiers</option>
                 <option value="healthy" selected={@filter_tier == "healthy"}>Healthy</option>
-                <option value="needs_attention" selected={@filter_tier == "needs_attention"}>Needs Attention</option>
+                <option value="needs_attention" selected={@filter_tier == "needs_attention"}>
+                  Needs Attention
+                </option>
                 <option value="critical" selected={@filter_tier == "critical"}>Critical</option>
               </select>
 
@@ -223,7 +242,9 @@ defmodule ApmWeb.SkillsLive do
                 <option value="all" selected={@filter_methodology == "all"}>All methodologies</option>
                 <option value="ralph" selected={@filter_methodology == "ralph"}>Ralph</option>
                 <option value="tdd" selected={@filter_methodology == "tdd"}>TDD</option>
-                <option value="elixir_architect" selected={@filter_methodology == "elixir_architect"}>Elixir Architect</option>
+                <option value="elixir_architect" selected={@filter_methodology == "elixir_architect"}>
+                  Elixir Architect
+                </option>
               </select>
 
               <label for="group-by" class="sr-only">Group by</label>
@@ -236,11 +257,20 @@ defmodule ApmWeb.SkillsLive do
                 <option value="none" selected={@group_by == "none"}>No grouping</option>
                 <option value="tier" selected={@group_by == "tier"}>By Tier</option>
                 <option value="source" selected={@group_by == "source"}>By Source</option>
-                <option value="methodology" selected={@group_by == "methodology"}>By Methodology</option>
+                <option value="methodology" selected={@group_by == "methodology"}>
+                  By Methodology
+                </option>
               </select>
             </form>
 
-            <.btn :if={active_filter_count(assigns) > 0} variant="ghost" size="xs" phx-click="clear_filters" aria-label="Clear all active filters" style="margin-top: 4px;">
+            <.btn
+              :if={active_filter_count(assigns) > 0}
+              variant="ghost"
+              size="xs"
+              phx-click="clear_filters"
+              aria-label="Clear all active filters"
+              style="margin-top: 4px;"
+            >
               ✕ Clear filters
             </.btn>
           </div>
@@ -296,7 +326,9 @@ defmodule ApmWeb.SkillsLive do
               <%!-- Batch action bar --%>
               <%= if MapSet.size(@selected_skills) > 0 do %>
                 <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; margin-bottom: 12px; background: color-mix(in srgb, var(--ccem-accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--ccem-accent) 20%, transparent); border-radius: 6px;">
-                  <span style="font-size: 13px; color: var(--ccem-fg);">{MapSet.size(@selected_skills)} selected</span>
+                  <span style="font-size: 13px; color: var(--ccem-fg);">
+                    {MapSet.size(@selected_skills)} selected
+                  </span>
                   <div style="display: flex; gap: 6px;">
                     <.btn variant="secondary" size="xs" phx-click="batch_fix">Fix Selected</.btn>
                     <.btn variant="secondary" size="xs" phx-click="batch_audit">Audit Selected</.btn>
@@ -309,18 +341,30 @@ defmodule ApmWeb.SkillsLive do
               <%= if @fix_in_progress do %>
                 <.card padded={true} style="margin-bottom: 12px;">
                   <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                    <span style="font-size: 12px; font-weight: 600; color: var(--ccem-fg);">Fixing skills...</span>
+                    <span style="font-size: 12px; font-weight: 600; color: var(--ccem-fg);">
+                      Fixing skills...
+                    </span>
                     <span style="font-size: 11px; color: var(--ccem-fg-subtle);">
-                      {length(Enum.filter(@fix_progress, fn {_, s, _} -> s == :done end))}/{length(@fix_progress)}
+                      {length(Enum.filter(@fix_progress, fn {_, s, _} -> s == :done end))}/{length(
+                        @fix_progress
+                      )}
                     </span>
                   </div>
                   <%= for {name, status, msg} <- @fix_progress do %>
                     <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 4px;">
                       <%= case status do %>
-                        <% :done -> %><span style="color: var(--ccem-ok);"><.icon name="hero-check-circle" class="h-4 w-4" /></span>
-                        <% :running -> %><span style="color: var(--ccem-accent);">⟳</span>
-                        <% :pending -> %><span style="color: var(--ccem-fg-subtle);"><.icon name="hero-clock" class="h-4 w-4" /></span>
-                        <% :error -> %><.icon name="hero-x-circle" class="h-4 w-4 text-err" />
+                        <% :done -> %>
+                          <span style="color: var(--ccem-ok);">
+                            <.icon name="hero-check-circle" class="h-4 w-4" />
+                          </span>
+                        <% :running -> %>
+                          <span style="color: var(--ccem-accent);">⟳</span>
+                        <% :pending -> %>
+                          <span style="color: var(--ccem-fg-subtle);">
+                            <.icon name="hero-clock" class="h-4 w-4" />
+                          </span>
+                        <% :error -> %>
+                          <.icon name="hero-x-circle" class="h-4 w-4 text-err" />
                       <% end %>
                       <span style="font-family: monospace;">{name}</span>
                       <span style="color: var(--ccem-fg-subtle);">{msg}</span>
@@ -340,10 +384,22 @@ defmodule ApmWeb.SkillsLive do
                       </summary>
                       <div style="padding: 0 14px 14px;">
                         <%= if @view_mode == "list" do %>
-                          <.skill_list_view skills={group_skills} selected_skills={@selected_skills} selected_skill={@selected_skill} />
+                          <.skill_list_view
+                            skills={group_skills}
+                            selected_skills={@selected_skills}
+                            selected_skill={@selected_skill}
+                          />
                         <% else %>
-                          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px;" role="list">
-                            <.skill_card :for={skill <- group_skills} skill={skill} selected_skill={@selected_skill} selected_skills={@selected_skills} />
+                          <div
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px;"
+                            role="list"
+                          >
+                            <.skill_card
+                              :for={skill <- group_skills}
+                              skill={skill}
+                              selected_skill={@selected_skill}
+                              selected_skills={@selected_skills}
+                            />
                           </div>
                         <% end %>
                       </div>
@@ -353,7 +409,11 @@ defmodule ApmWeb.SkillsLive do
               <% else %>
                 <%!-- Flat rendering (no grouping) --%>
                 <%= if @view_mode == "list" do %>
-                  <.skill_list_view skills={@filtered_skills} selected_skills={@selected_skills} selected_skill={@selected_skill} />
+                  <.skill_list_view
+                    skills={@filtered_skills}
+                    selected_skills={@selected_skills}
+                    selected_skill={@selected_skill}
+                  />
                 <% else %>
                   <%!-- Tier card sections (critical -> needs attention -> healthy) --%>
                   <% {healthy, needs_attention, critical} = split_tiers(@filtered_skills) %>
@@ -382,7 +442,10 @@ defmodule ApmWeb.SkillsLive do
                 <% end %>
               <% end %>
 
-              <div :if={@registry_skills == []} style="text-align: center; padding: 48px 0; color: var(--ccem-fg-subtle);">
+              <div
+                :if={@registry_skills == []}
+                style="text-align: center; padding: 48px 0; color: var(--ccem-fg-subtle);"
+              >
                 <p style="margin: 0 0 16px;">No skills found in ~/.claude/skills/</p>
                 <.btn variant="primary" size="sm" phx-click="audit_all">Scan Now</.btn>
               </div>
@@ -417,9 +480,16 @@ defmodule ApmWeb.SkillsLive do
                   aria-label="Skill invocation timeline"
                   style="position: relative; padding-left: 24px;"
                 >
-                  <div style="position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: var(--ccem-border);" aria-hidden="true"></div>
+                  <div
+                    style="position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: var(--ccem-border);"
+                    aria-hidden="true"
+                  >
+                  </div>
                   <article
-                    :for={{skill, data} <- Enum.sort_by(@session_skills, fn {_k, v} -> v.last_seen end, :desc)}
+                    :for={
+                      {skill, data} <-
+                        Enum.sort_by(@session_skills, fn {_k, v} -> v.last_seen end, :desc)
+                    }
                     role="listitem"
                     style="position: relative; margin-bottom: 10px;"
                     aria-label={"#{skill}: #{data.count} invocations, last #{format_time(data.last_seen)}"}
@@ -427,12 +497,18 @@ defmodule ApmWeb.SkillsLive do
                     <div
                       style={"position: absolute; left: -20px; top: 8px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ccem-surface); #{if methodology_for_skill(skill), do: "background: var(--ccem-accent);", else: "background: var(--ccem-fg-subtle);"}"}
                       aria-hidden="true"
-                    ></div>
+                    >
+                    </div>
                     <.card padded={true} style="margin-left: 8px;">
                       <div style="display: flex; align-items: center; justify-content: space-between;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                          <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">{skill}</span>
-                          <.badge :if={methodology_for_skill(skill)} tone={methodology_tone(methodology_for_skill(skill))}>
+                          <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+                            {skill}
+                          </span>
+                          <.badge
+                            :if={methodology_for_skill(skill)}
+                            tone={methodology_tone(methodology_for_skill(skill))}
+                          >
                             {methodology_for_skill(skill)}
                           </.badge>
                         </div>
@@ -457,15 +533,22 @@ defmodule ApmWeb.SkillsLive do
                   Skill Catalog
                 </h2>
                 <.card padded={false}>
-                  <.data_table id="skill-catalog-table" rows={Enum.sort_by(@catalog, fn {_k, v} -> -v.total_count end)}>
+                  <.data_table
+                    id="skill-catalog-table"
+                    rows={Enum.sort_by(@catalog, fn {_k, v} -> -v.total_count end)}
+                  >
                     <:col :let={row} label="Skill">
                       <span style="font-weight: 500; color: var(--ccem-fg);">{elem(row, 0)}</span>
                     </:col>
                     <:col :let={row} label="Total Invocations">
-                      <span style="font-variant-numeric: tabular-nums;">{elem(row, 1).total_count}</span>
+                      <span style="font-variant-numeric: tabular-nums;">
+                        {elem(row, 1).total_count}
+                      </span>
                     </:col>
                     <:col :let={row} label="Sessions">
-                      <span style="font-variant-numeric: tabular-nums;">{elem(row, 1).session_count}</span>
+                      <span style="font-variant-numeric: tabular-nums;">
+                        {elem(row, 1).session_count}
+                      </span>
                     </:col>
                     <:col :let={row} label="Source">
                       <.badge tone={source_tone(elem(row, 1).source)}>{elem(row, 1).source}</.badge>
@@ -488,7 +571,10 @@ defmodule ApmWeb.SkillsLive do
                   Skill Co-occurrence
                 </h2>
                 <.card padded={false}>
-                  <.data_table id="cooccurrence-table" rows={Enum.sort_by(@co_occurrence, fn {_k, v} -> -v end)}>
+                  <.data_table
+                    id="cooccurrence-table"
+                    rows={Enum.sort_by(@co_occurrence, fn {_k, v} -> -v end)}
+                  >
                     <:col :let={row} label="Skill A">{elem(elem(row, 0), 0)}</:col>
                     <:col :let={row} label="Skill B">{elem(elem(row, 0), 1)}</:col>
                     <:col :let={row} label="Sessions Together">
@@ -542,7 +628,10 @@ defmodule ApmWeb.SkillsLive do
                 <p style="font-size: 13px; color: var(--ccem-fg-muted); margin: 0 0 16px;">
                   Skills emit AG-UI events when invoked. Each skill connection shows event emission status.
                 </p>
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;" role="list">
+                <div
+                  style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;"
+                  role="list"
+                >
                   <article
                     :for={skill <- @registry_skills}
                     style={"padding: 12px; border-radius: 6px; background: var(--ccem-surface); border: 1px solid #{ag_ui_border_color(skill.health_score)};"}
@@ -550,11 +639,14 @@ defmodule ApmWeb.SkillsLive do
                     aria-label={"Skill #{skill.name}: #{ag_ui_status_label(skill.health_score)}"}
                   >
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                      <span style="font-size: 13px; font-weight: 500; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{skill.name}</span>
+                      <span style="font-size: 13px; font-weight: 500; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        {skill.name}
+                      </span>
                       <div
                         style={"width: 8px; height: 8px; border-radius: 50%; animation: pulse 2s infinite; background: #{ag_ui_dot_color(skill.health_score)};"}
                         aria-hidden="true"
-                      ></div>
+                      >
+                      </div>
                     </div>
                     <div style={"font-size: 10px; margin-bottom: 8px; color: #{ag_ui_text_color(skill.health_score)};"}>
                       {ag_ui_status_label(skill.health_score)}
@@ -593,7 +685,12 @@ defmodule ApmWeb.SkillsLive do
                   >
                     Hook Repair
                   </h2>
-                  <.btn variant="secondary" size="xs" phx-click="repair_hooks" aria-label="Repair broken skill hooks and redeploy AG-UI event bridge">
+                  <.btn
+                    variant="secondary"
+                    size="xs"
+                    phx-click="repair_hooks"
+                    aria-label="Repair broken skill hooks and redeploy AG-UI event bridge"
+                  >
                     <.icon name="hero-wrench-screwdriver" class="size-3" /> Repair All Hooks
                   </.btn>
                 </div>
@@ -602,7 +699,8 @@ defmodule ApmWeb.SkillsLive do
                     <div
                       style={"width: 8px; height: 8px; border-radius: 50%; background: #{if Enum.count(@registry_skills, &(&1.health_score < 50)) == 0, do: "var(--ccem-ok)", else: "var(--ccem-err)"};"}
                       aria-hidden="true"
-                    ></div>
+                    >
+                    </div>
                     <span style="font-weight: 500; color: var(--ccem-fg);">AG-UI Event Bridge</span>
                     <span style="color: var(--ccem-fg-subtle);">
                       {if Enum.count(@registry_skills, &(&1.health_score < 50)) == 0,
@@ -629,7 +727,8 @@ defmodule ApmWeb.SkillsLive do
         style="position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 40;"
         phx-click="close_drawer"
         aria-hidden="true"
-      ></div>
+      >
+      </div>
 
       <%!-- Drawer panel --%>
       <aside
@@ -644,7 +743,10 @@ defmodule ApmWeb.SkillsLive do
           <div style="display: flex; align-items: center; gap: 12px;">
             {health_ring(@selected_skill.health_score)}
             <div>
-              <h2 id="drawer-title" style="font-weight: 600; font-size: 14px; margin: 0 0 4px; color: var(--ccem-fg);">
+              <h2
+                id="drawer-title"
+                style="font-weight: 600; font-size: 14px; margin: 0 0 4px; color: var(--ccem-fg);"
+              >
                 {@selected_skill.name}
               </h2>
               <.badge tone={health_tone(@selected_skill.health_score)}>
@@ -652,7 +754,13 @@ defmodule ApmWeb.SkillsLive do
               </.badge>
             </div>
           </div>
-          <.btn variant="ghost" size="sm" phx-click="close_drawer" aria-label="Close skill details" autofocus>
+          <.btn
+            variant="ghost"
+            size="sm"
+            phx-click="close_drawer"
+            aria-label="Close skill details"
+            autofocus
+          >
             ✕
           </.btn>
         </div>
@@ -744,7 +852,9 @@ defmodule ApmWeb.SkillsLive do
                 <dd style="font-variant-numeric: tabular-nums;">{@selected_skill.file_count}</dd>
               </div>
               <div style="display: flex; gap: 8px;">
-                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">Description Quality:</dt>
+                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">
+                  Description Quality:
+                </dt>
                 <dd>
                   <.badge tone={desc_quality_tone(@selected_skill.description_quality)}>
                     {@selected_skill.description_quality}
@@ -752,15 +862,21 @@ defmodule ApmWeb.SkillsLive do
                 </dd>
               </div>
               <div style="display: flex; gap: 8px;">
-                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">Last Modified:</dt>
+                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">
+                  Last Modified:
+                </dt>
                 <dd>{format_modified(@selected_skill.last_modified)}</dd>
               </div>
               <div style="display: flex; gap: 8px;">
-                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">Has Examples:</dt>
+                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">
+                  Has Examples:
+                </dt>
                 <dd>{if @selected_skill.has_examples, do: "Yes", else: "No"}</dd>
               </div>
               <div style="display: flex; gap: 8px;">
-                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">Has Template:</dt>
+                <dt style="color: var(--ccem-fg-subtle); width: 128px; flex-shrink: 0;">
+                  Has Template:
+                </dt>
                 <dd>{if @selected_skill.has_template, do: "Yes", else: "No"}</dd>
               </div>
             </dl>
@@ -768,39 +884,67 @@ defmodule ApmWeb.SkillsLive do
         </div>
 
         <%!-- AgentLock Authorization Gate --%>
-        <section style="padding: 12px 16px 16px; border-top: 1px solid var(--ccem-border);" aria-label="Authorization gate status">
+        <section
+          style="padding: 12px 16px 16px; border-top: 1px solid var(--ccem-border);"
+          aria-label="Authorization gate status"
+        >
           <h3 style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 8px;">
             AgentLock Authorization
           </h3>
           <div :if={@selected_skill.auth_gated} style="display: flex; align-items: center; gap: 8px;">
             <.badge tone="success">
-              <.icon name="hero-shield-check" class="size-3" />
-              Auth Gated
+              <.icon name="hero-shield-check" class="size-3" /> Auth Gated
             </.badge>
-            <span style="font-size: 11px; color: var(--ccem-fg-subtle);">agentlock_pre_tool.sh active</span>
+            <span style="font-size: 11px; color: var(--ccem-fg-subtle);">
+              agentlock_pre_tool.sh active
+            </span>
           </div>
-          <div :if={not @selected_skill.auth_gated} style="display: flex; flex-direction: column; gap: 8px;">
+          <div
+            :if={not @selected_skill.auth_gated}
+            style="display: flex; flex-direction: column; gap: 8px;"
+          >
             <.badge tone="warning">
-              <.icon name="hero-shield-exclamation" class="size-3" />
-              Auth Missing
+              <.icon name="hero-shield-exclamation" class="size-3" /> Auth Missing
             </.badge>
-            <div :if={length(@selected_skill.auth_missing_tools || []) > 0} style="display: flex; flex-wrap: wrap; gap: 4px;">
+            <div
+              :if={length(@selected_skill.auth_missing_tools || []) > 0}
+              style="display: flex; flex-wrap: wrap; gap: 4px;"
+            >
               <.badge :for={tool <- @selected_skill.auth_missing_tools || []} tone="neutral">
                 {tool}
               </.badge>
             </div>
-            <.btn variant="secondary" size="xs" phx-click="gate_with_agentlock" phx-value-skill={@selected_skill.name} style="width: 100%;">
-              <.icon name="hero-shield-exclamation" class="size-3" />
-              Gate with AgentLock
+            <.btn
+              variant="secondary"
+              size="xs"
+              phx-click="gate_with_agentlock"
+              phx-value-skill={@selected_skill.name}
+              style="width: 100%;"
+            >
+              <.icon name="hero-shield-exclamation" class="size-3" /> Gate with AgentLock
             </.btn>
           </div>
           <%!-- Recent Auth Decisions (CCEM-266) --%>
-          <div :if={@agentlock_status && @agentlock_status.decision_count > 0} style="margin-top: 12px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--ccem-border) 50%, transparent);">
-            <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 4px;">Recent Auth Decisions</p>
+          <div
+            :if={@agentlock_status && @agentlock_status.decision_count > 0}
+            style="margin-top: 12px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--ccem-border) 50%, transparent);"
+          >
+            <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ccem-fg-subtle); margin: 0 0 4px;">
+              Recent Auth Decisions
+            </p>
             <div style="display: flex; flex-direction: column; gap: 4px;">
-              <div :for={decision <- @agentlock_status.recent_decisions} style="display: flex; align-items: center; gap: 4px; font-size: 11px;">
-                <.badge tone={if decision.event == "authorized", do: "success", else: "warning"} dot={true}></.badge>
-                <span style="font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;">{decision.tool}</span>
+              <div
+                :for={decision <- @agentlock_status.recent_decisions}
+                style="display: flex; align-items: center; gap: 4px; font-size: 11px;"
+              >
+                <.badge
+                  tone={if decision.event == "authorized", do: "success", else: "warning"}
+                  dot={true}
+                >
+                </.badge>
+                <span style="font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;">
+                  {decision.tool}
+                </span>
                 <span style="color: var(--ccem-fg-subtle); margin-left: auto;">{decision.event}</span>
               </div>
             </div>
@@ -819,8 +963,8 @@ defmodule ApmWeb.SkillsLive do
               aria-describedby="fix-hint"
               style="width: 100%;"
             >
-              <.icon name="hero-wrench-screwdriver" class="size-4" />
-              Fix Skill <.badge tone="iris" style="margin-left: 4px;">CCEM</.badge>
+              <.icon name="hero-wrench-screwdriver" class="size-4" /> Fix Skill
+              <.badge tone="iris" style="margin-left: 4px;">CCEM</.badge>
             </.btn>
             <p
               :if={@selected_skill.health_score < 80}
@@ -829,23 +973,63 @@ defmodule ApmWeb.SkillsLive do
             >
               Guided repair for frontmatter, description, triggers, templates, and examples
             </p>
-            <p :if={@selected_skill.health_score >= 80} style="font-size: 12px; color: var(--ccem-ok); text-align: center; padding: 4px 0;">
+            <p
+              :if={@selected_skill.health_score >= 80}
+              style="font-size: 12px; color: var(--ccem-ok); text-align: center; padding: 4px 0;"
+            >
               ✓ Skill is healthy — no fixes needed
             </p>
           </div>
 
           <%!-- Fix Wizard Step 1: Diagnose --%>
-          <div :if={@fix_wizard_step == :diagnose} style="display: flex; flex-direction: column; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 4px;" role="navigation" aria-label="Fix wizard steps">
-              <.btn variant="primary" size="xs" phx-click="wizard_step" phx-value-step="1" aria-current="step" aria-label="Step 1: Diagnose (current)">1 Diagnose</.btn>
+          <div
+            :if={@fix_wizard_step == :diagnose}
+            style="display: flex; flex-direction: column; gap: 10px;"
+          >
+            <div
+              style="display: flex; align-items: center; gap: 4px;"
+              role="navigation"
+              aria-label="Fix wizard steps"
+            >
+              <.btn
+                variant="primary"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="1"
+                aria-current="step"
+                aria-label="Step 1: Diagnose (current)"
+              >
+                1 Diagnose
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</.btn>
+              <.btn
+                variant="ghost"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="2"
+                aria-label="Step 2: Select Repairs"
+              >
+                2 Select
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</.btn>
+              <.btn
+                variant="ghost"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="3"
+                aria-label="Step 3: Preview"
+              >
+                3 Preview
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="ghost" size="xs" disabled aria-label="Step 4: Done (not yet available)">4 Done</.btn>
+              <.btn variant="ghost" size="xs" disabled aria-label="Step 4: Done (not yet available)">
+                4 Done
+              </.btn>
             </div>
-            <ul style="font-size: 11px; display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none;" aria-label="Detected skill issues">
+            <ul
+              style="font-size: 11px; display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none;"
+              aria-label="Detected skill issues"
+            >
               <li
                 :if={not @selected_skill.has_frontmatter}
                 style="display: flex; align-items: center; gap: 8px; color: var(--ccem-err);"
@@ -865,29 +1049,71 @@ defmodule ApmWeb.SkillsLive do
               >
                 <span aria-hidden="true">⚠</span> No triggers defined (–20 pts)
               </li>
-              <li :if={not @selected_skill.has_examples} style="display: flex; align-items: center; gap: 8px; color: var(--ccem-fg-subtle);">
+              <li
+                :if={not @selected_skill.has_examples}
+                style="display: flex; align-items: center; gap: 8px; color: var(--ccem-fg-subtle);"
+              >
                 <span aria-hidden="true">·</span> No examples (–15 pts)
               </li>
-              <li :if={not @selected_skill.has_template} style="display: flex; align-items: center; gap: 8px; color: var(--ccem-fg-subtle);">
+              <li
+                :if={not @selected_skill.has_template}
+                style="display: flex; align-items: center; gap: 8px; color: var(--ccem-fg-subtle);"
+              >
                 <span aria-hidden="true">·</span> No template (–10 pts)
               </li>
             </ul>
             <div style="display: flex; gap: 8px;">
-              <.btn variant="primary" size="sm" phx-click="wizard_next" style="flex: 1;">Select Repairs →</.btn>
+              <.btn variant="primary" size="sm" phx-click="wizard_next" style="flex: 1;">
+                Select Repairs →
+              </.btn>
               <.btn variant="ghost" size="sm" phx-click="cancel_fix">Cancel</.btn>
             </div>
           </div>
 
           <%!-- Fix Wizard Step 2: Select --%>
-          <div :if={@fix_wizard_step == :select} style="display: flex; flex-direction: column; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 4px;" role="navigation" aria-label="Fix wizard steps">
-              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</.btn>
+          <div
+            :if={@fix_wizard_step == :select}
+            style="display: flex; flex-direction: column; gap: 10px;"
+          >
+            <div
+              style="display: flex; align-items: center; gap: 4px;"
+              role="navigation"
+              aria-label="Fix wizard steps"
+            >
+              <.btn
+                variant="ghost"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="1"
+                aria-label="Step 1: Diagnose"
+              >
+                1 Diagnose
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="primary" size="xs" phx-click="wizard_step" phx-value-step="2" aria-current="step" aria-label="Step 2: Select Repairs (current)">2 Select</.btn>
+              <.btn
+                variant="primary"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="2"
+                aria-current="step"
+                aria-label="Step 2: Select Repairs (current)"
+              >
+                2 Select
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</.btn>
+              <.btn
+                variant="ghost"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="3"
+                aria-label="Step 3: Preview"
+              >
+                3 Preview
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="ghost" size="xs" disabled aria-label="Step 4: Done (not yet available)">4 Done</.btn>
+              <.btn variant="ghost" size="xs" disabled aria-label="Step 4: Done (not yet available)">
+                4 Done
+              </.btn>
             </div>
             <div style="font-size: 11px; display: flex; flex-direction: column; gap: 8px;">
               <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -932,7 +1158,9 @@ defmodule ApmWeb.SkillsLive do
                 <span>
                   Add triggers
                   <%= if Map.get(@selected_skill, :trigger_count, 0) > 0 do %>
-                    <.badge tone="success" style="margin-left: 4px;">OK (<%= Map.get(@selected_skill, :trigger_count, 0) %>)</.badge>
+                    <.badge tone="success" style="margin-left: 4px;">
+                      OK ({Map.get(@selected_skill, :trigger_count, 0)})
+                    </.badge>
                   <% else %>
                     <.badge tone="warning" style="margin-left: 4px;">none</.badge>
                   <% end %>
@@ -970,7 +1198,9 @@ defmodule ApmWeb.SkillsLive do
                   <% end %>
                 </span>
               </label>
-              <p style="font-size: 10px; color: var(--ccem-fg-subtle); margin: 0;">Items marked OK can still be re-run to regenerate.</p>
+              <p style="font-size: 10px; color: var(--ccem-fg-subtle); margin: 0;">
+                Items marked OK can still be re-run to regenerate.
+              </p>
             </div>
             <div style="display: flex; gap: 8px;">
               <.btn variant="ghost" size="xs" phx-click="wizard_back">← Back</.btn>
@@ -989,30 +1219,81 @@ defmodule ApmWeb.SkillsLive do
           </div>
 
           <%!-- Fix Wizard Step 3: Preview --%>
-          <div :if={@fix_wizard_step == :preview} style="display: flex; flex-direction: column; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 4px;" role="navigation" aria-label="Fix wizard steps">
-              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</.btn>
+          <div
+            :if={@fix_wizard_step == :preview}
+            style="display: flex; flex-direction: column; gap: 10px;"
+          >
+            <div
+              style="display: flex; align-items: center; gap: 4px;"
+              role="navigation"
+              aria-label="Fix wizard steps"
+            >
+              <.btn
+                variant="ghost"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="1"
+                aria-label="Step 1: Diagnose"
+              >
+                1 Diagnose
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</.btn>
+              <.btn
+                variant="ghost"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="2"
+                aria-label="Step 2: Select Repairs"
+              >
+                2 Select
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="primary" size="xs" phx-click="wizard_step" phx-value-step="3" aria-current="step" aria-label="Step 3: Preview (current)">3 Preview</.btn>
+              <.btn
+                variant="primary"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="3"
+                aria-current="step"
+                aria-label="Step 3: Preview (current)"
+              >
+                3 Preview
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="ghost" size="xs" disabled aria-label="Step 4: Done (not yet available)">4 Done</.btn>
+              <.btn variant="ghost" size="xs" disabled aria-label="Step 4: Done (not yet available)">
+                4 Done
+              </.btn>
             </div>
             <p style="font-size: 11px; color: var(--ccem-fg-muted);">
               The following repairs will run on <strong style="color: var(--ccem-fg);">{@selected_skill.name}</strong>:
             </p>
             <%!-- Async diff preview --%>
-            <div :if={@fix_preview_loading} style="display: flex; align-items: center; gap: 8px; padding: 8px 0;" aria-live="polite" aria-busy="true">
+            <div
+              :if={@fix_preview_loading}
+              style="display: flex; align-items: center; gap: 8px; padding: 8px 0;"
+              aria-live="polite"
+              aria-busy="true"
+            >
               <span style="color: var(--ccem-accent);">⟳</span>
-              <span style="font-size: 11px; color: var(--ccem-fg-subtle);">Loading diff preview…</span>
+              <span style="font-size: 11px; color: var(--ccem-fg-subtle);">
+                Loading diff preview…
+              </span>
             </div>
-            <div :if={not @fix_preview_loading and @fix_preview != nil} style="background: var(--ccem-bg); border-radius: 4px; padding: 8px; font-family: monospace; font-size: 11px; display: flex; flex-direction: column; gap: 4px;" aria-label="Diff preview" aria-live="polite">
-              <div style="color: var(--ccem-fg-muted); font-family: sans-serif; margin-bottom: 4px;">{@fix_preview.summary}</div>
+            <div
+              :if={not @fix_preview_loading and @fix_preview != nil}
+              style="background: var(--ccem-bg); border-radius: 4px; padding: 8px; font-family: monospace; font-size: 11px; display: flex; flex-direction: column; gap: 4px;"
+              aria-label="Diff preview"
+              aria-live="polite"
+            >
+              <div style="color: var(--ccem-fg-muted); font-family: sans-serif; margin-bottom: 4px;">
+                {@fix_preview.summary}
+              </div>
               <div style="color: var(--ccem-ok); font-size: 10px;">
                 Health: {@fix_preview.health_before} → {@fix_preview.health_after}
               </div>
-              <div :for={change <- @fix_preview.changes} style="border-left: 2px solid var(--ccem-warn); padding-left: 8px; margin-top: 4px;">
+              <div
+                :for={change <- @fix_preview.changes}
+                style="border-left: 2px solid var(--ccem-warn); padding-left: 8px; margin-top: 4px;"
+              >
                 <div style="color: var(--ccem-warn);">{change.field}: {change.issue}</div>
                 <div style="color: var(--ccem-ok);">+ {change.fix}</div>
               </div>
@@ -1042,18 +1323,59 @@ defmodule ApmWeb.SkillsLive do
           </div>
 
           <%!-- Fix Wizard Step 4: Done --%>
-          <div :if={@fix_wizard_step == :done} style="display: flex; flex-direction: column; gap: 10px; text-align: center;">
-            <div style="display: flex; align-items: center; gap: 4px; justify-content: center;" role="navigation" aria-label="Fix wizard steps">
-              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="1" aria-label="Step 1: Diagnose">1 Diagnose</.btn>
+          <div
+            :if={@fix_wizard_step == :done}
+            style="display: flex; flex-direction: column; gap: 10px; text-align: center;"
+          >
+            <div
+              style="display: flex; align-items: center; gap: 4px; justify-content: center;"
+              role="navigation"
+              aria-label="Fix wizard steps"
+            >
+              <.btn
+                variant="ghost"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="1"
+                aria-label="Step 1: Diagnose"
+              >
+                1 Diagnose
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="2" aria-label="Step 2: Select Repairs">2 Select</.btn>
+              <.btn
+                variant="ghost"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="2"
+                aria-label="Step 2: Select Repairs"
+              >
+                2 Select
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="ghost" size="xs" phx-click="wizard_step" phx-value-step="3" aria-label="Step 3: Preview">3 Preview</.btn>
+              <.btn
+                variant="ghost"
+                size="xs"
+                phx-click="wizard_step"
+                phx-value-step="3"
+                aria-label="Step 3: Preview"
+              >
+                3 Preview
+              </.btn>
               <span style="color: var(--ccem-fg-subtle); font-size: 11px;">→</span>
-              <.btn variant="primary" size="xs" aria-current="step" aria-label="Step 4: Done (current)" disabled>4 Done</.btn>
+              <.btn
+                variant="primary"
+                size="xs"
+                aria-current="step"
+                aria-label="Step 4: Done (current)"
+                disabled
+              >
+                4 Done
+              </.btn>
             </div>
             <div style="color: var(--ccem-ok); font-size: 24px;" aria-hidden="true">✓</div>
-            <p style="font-size: 13px; font-weight: 500; color: var(--ccem-ok); margin: 0;">Fix initiated</p>
+            <p style="font-size: 13px; font-weight: 500; color: var(--ccem-ok); margin: 0;">
+              Fix initiated
+            </p>
             <p style="font-size: 11px; color: var(--ccem-fg-subtle); margin: 0;">
               Repairs queued for <strong style="color: var(--ccem-fg);">{@selected_skill.name}</strong>. Run Audit All to rescan health.
             </p>
@@ -1066,11 +1388,19 @@ defmodule ApmWeb.SkillsLive do
     </div>
 
     <%!-- Dry-run fix preview modal --%>
-    <div :if={@show_dry_run_modal} style="position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5);" role="dialog" aria-modal="true">
+    <div
+      :if={@show_dry_run_modal}
+      style="position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5);"
+      role="dialog"
+      aria-modal="true"
+    >
       <.card padded={true} style="width: 90%; max-width: 600px;">
-        <h3 style="font-weight: 700; font-size: 16px; margin: 0 0 4px; color: var(--ccem-fg);">Fix Preview</h3>
+        <h3 style="font-weight: 700; font-size: 16px; margin: 0 0 4px; color: var(--ccem-fg);">
+          Fix Preview
+        </h3>
         <p style="font-size: 13px; color: var(--ccem-fg-muted); margin: 0 0 16px;">
-          Review proposed changes for <strong style="color: var(--ccem-fg);">{@dry_run_skill && @dry_run_skill.name}</strong>
+          Review proposed changes for
+          <strong style="color: var(--ccem-fg);">{@dry_run_skill && @dry_run_skill.name}</strong>
         </p>
         <div style="background: var(--ccem-bg); border-radius: 6px; padding: 16px; font-family: monospace; font-size: 11px; white-space: pre-wrap; overflow: auto; max-height: 256px; border: 1px solid var(--ccem-border);">
           {@dry_run_preview}
@@ -1078,8 +1408,7 @@ defmodule ApmWeb.SkillsLive do
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
           <.btn variant="ghost" size="sm" phx-click="cancel_dry_run">Cancel</.btn>
           <.btn variant="primary" size="sm" phx-click="confirm_fix">
-            <.icon name="hero-wrench-screwdriver" class="size-3.5" />
-            Confirm & Apply Fix
+            <.icon name="hero-wrench-screwdriver" class="size-3.5" /> Confirm & Apply Fix
           </.btn>
         </div>
       </.card>
@@ -1168,7 +1497,13 @@ defmodule ApmWeb.SkillsLive do
   end
 
   def handle_event("clear_selected", _params, socket) do
-    {:noreply, assign(socket, selected_skill: nil, fix_wizard_step: nil, fix_preview: nil, fix_preview_loading: false)}
+    {:noreply,
+     assign(socket,
+       selected_skill: nil,
+       fix_wizard_step: nil,
+       fix_preview: nil,
+       fix_preview_loading: false
+     )}
   end
 
   def handle_event("close_drawer", _params, socket) do
@@ -1217,7 +1552,11 @@ defmodule ApmWeb.SkillsLive do
   def handle_event("confirm_fix", _params, socket) do
     socket =
       if socket.assigns.dry_run_skill do
-        assign(socket, fix_wizard_step: :diagnose, fix_wizard_selected_repairs: MapSet.new(), selected_skill: socket.assigns.dry_run_skill)
+        assign(socket,
+          fix_wizard_step: :diagnose,
+          fix_wizard_selected_repairs: MapSet.new(),
+          selected_skill: socket.assigns.dry_run_skill
+        )
       else
         socket
       end
@@ -1227,14 +1566,29 @@ defmodule ApmWeb.SkillsLive do
 
   def handle_event("gate_with_agentlock", %{"skill" => skill_name}, socket) do
     Task.start(fn ->
-      body = Jason.encode!(%{action_type: "create_authorization_hooks", params: %{skill_name: skill_name}})
+      body =
+        Jason.encode!(%{
+          action_type: "create_authorization_hooks",
+          params: %{skill_name: skill_name}
+        })
+
       url = ~c"http://localhost:3032/api/actions/run"
       headers = [{~c"content-type", ~c"application/json"}]
-      :httpc.request(:post, {url, headers, ~c"application/json", String.to_charlist(body)}, [{:timeout, 5_000}], [])
+
+      :httpc.request(
+        :post,
+        {url, headers, ~c"application/json", String.to_charlist(body)},
+        [{:timeout, 5_000}],
+        []
+      )
     end)
 
     {:noreply,
-     put_flash(socket, :info, "AgentLock gating initiated for #{skill_name} — check Actions for status")}
+     put_flash(
+       socket,
+       :info,
+       "AgentLock gating initiated for #{skill_name} — check Actions for status"
+     )}
   end
 
   def handle_event("start_fix_wizard", _params, socket) do
@@ -1464,7 +1818,9 @@ defmodule ApmWeb.SkillsLive do
         parent = self()
 
         Task.start(fn ->
-          result = ActionEngine.run_action("fix_skill_frontmatter", "", %{"skill_name" => next_name})
+          result =
+            ActionEngine.run_action("fix_skill_frontmatter", "", %{"skill_name" => next_name})
+
           send(parent, {:fix_step_complete, next_name, result})
         end)
 
@@ -1472,13 +1828,17 @@ defmodule ApmWeb.SkillsLive do
 
       nil ->
         # All done
-        {:noreply, assign(socket, fix_progress: progress, fix_in_progress: false, fix_current: nil)}
+        {:noreply,
+         assign(socket, fix_progress: progress, fix_in_progress: false, fix_current: nil)}
     end
   end
 
   def handle_info({:skill_tracked, _session_id, _skill_name}, socket) do
     active_session = socket.assigns.active_session
-    session_skills = if active_session, do: SkillTracker.get_session_skills(active_session), else: %{}
+
+    session_skills =
+      if active_session, do: SkillTracker.get_session_skills(active_session), else: %{}
+
     catalog = SkillTracker.get_skill_catalog()
     co_occurrence = SkillTracker.get_co_occurrence()
     methodology = if active_session, do: SkillTracker.active_methodology(active_session)
@@ -1539,7 +1899,12 @@ defmodule ApmWeb.SkillsLive do
         role="list"
         style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 8px;"
       >
-        <.skill_card :for={skill <- @skills} skill={skill} selected_skill={@selected} selected_skills={@selected_skills} />
+        <.skill_card
+          :for={skill <- @skills}
+          skill={skill}
+          selected_skill={@selected}
+          selected_skills={@selected_skills}
+        />
       </div>
     </section>
     """
@@ -1577,7 +1942,9 @@ defmodule ApmWeb.SkillsLive do
         </div>
         <div style="flex: 1; min-width: 0;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{@skill.name}</span>
+            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              {@skill.name}
+            </span>
           </div>
           <p style="font-size: 11px; color: var(--ccem-fg-muted); margin: 0 0 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
             {@skill.description || "No description"}
@@ -1616,7 +1983,9 @@ defmodule ApmWeb.SkillsLive do
           style="font-family: monospace; font-size: 11px; color: var(--ccem-fg); cursor: pointer;"
           phx-click="select_skill"
           phx-value-name={row.name}
-        >{row.name}</span>
+        >
+          {row.name}
+        </span>
       </:col>
       <:col :let={row} label="Tier">
         <.badge tone={skill_tier_tone(row)}>{skill_tier_label(row)}</.badge>
@@ -1625,13 +1994,17 @@ defmodule ApmWeb.SkillsLive do
         <span style="font-variant-numeric: tabular-nums;">{row.health_score || "-"}</span>
       </:col>
       <:col :let={row} label="Source">
-        <span style="font-size: 11px; color: var(--ccem-fg-subtle);">{Map.get(row, :source, "user")}</span>
+        <span style="font-size: 11px; color: var(--ccem-fg-subtle);">
+          {Map.get(row, :source, "user")}
+        </span>
       </:col>
       <:col :let={row} label="Triggers">
         <span style="font-variant-numeric: tabular-nums;">{Map.get(row, :trigger_count, 0)}</span>
       </:col>
       <:col :let={row} label="Description">
-        <span style="font-size: 11px; color: var(--ccem-fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; max-width: 240px;">{row.description || "-"}</span>
+        <span style="font-size: 11px; color: var(--ccem-fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; max-width: 240px;">
+          {row.description || "-"}
+        </span>
       </:col>
     </.data_table>
     """
@@ -1653,11 +2026,12 @@ defmodule ApmWeb.SkillsLive do
         aria-valuemax={@max}
         aria-label={@label}
       >
-        <div
-          style={"height: 6px; border-radius: 9999px; width: #{if @max > 0, do: round(@value / @max * 100), else: 0}%; background: #{cond do @value == @max -> "var(--ccem-ok)"; @value > 0 -> "var(--ccem-warn)"; true -> "var(--ccem-bg)" end};"}
-        ></div>
+        <div style={"height: 6px; border-radius: 9999px; width: #{if @max > 0, do: round(@value / @max * 100), else: 0}%; background: #{cond do @value == @max -> "var(--ccem-ok)"; @value > 0 -> "var(--ccem-warn)"; true -> "var(--ccem-bg)" end};"}>
+        </div>
       </div>
-      <div style="font-size: 10px; color: var(--ccem-fg-subtle); margin-top: 4px;">{@value}/{@max}</div>
+      <div style="font-size: 10px; color: var(--ccem-fg-subtle); margin-top: 4px;">
+        {@value}/{@max}
+      </div>
     </div>
     """
   end
@@ -1690,7 +2064,10 @@ defmodule ApmWeb.SkillsLive do
 
   defp filter_by_tier(skills, "all"), do: skills
   defp filter_by_tier(skills, "healthy"), do: Enum.filter(skills, &(&1.health_score >= 80))
-  defp filter_by_tier(skills, "needs_attention"), do: Enum.filter(skills, &(&1.health_score in 50..79))
+
+  defp filter_by_tier(skills, "needs_attention"),
+    do: Enum.filter(skills, &(&1.health_score in 50..79))
+
   defp filter_by_tier(skills, "critical"), do: Enum.filter(skills, &(&1.health_score < 50))
   defp filter_by_tier(skills, _), do: skills
 
@@ -1935,8 +2312,12 @@ defmodule ApmWeb.SkillsLive do
   defp ag_ui_status_label(score) when score >= 50, do: "Degraded"
   defp ag_ui_status_label(_), do: "Broken"
 
-  defp ag_ui_border_color(score) when score >= 80, do: "color-mix(in srgb, var(--ccem-ok) 30%, transparent)"
-  defp ag_ui_border_color(score) when score >= 50, do: "color-mix(in srgb, var(--ccem-warn) 30%, transparent)"
+  defp ag_ui_border_color(score) when score >= 80,
+    do: "color-mix(in srgb, var(--ccem-ok) 30%, transparent)"
+
+  defp ag_ui_border_color(score) when score >= 50,
+    do: "color-mix(in srgb, var(--ccem-warn) 30%, transparent)"
+
   defp ag_ui_border_color(_), do: "color-mix(in srgb, var(--ccem-err) 30%, transparent)"
 
   defp ag_ui_dot_color(score) when score >= 80, do: "var(--ccem-ok)"
@@ -1952,14 +2333,31 @@ defmodule ApmWeb.SkillsLive do
   defp build_dry_run_preview(skill) do
     issues =
       []
-      |> then(fn acc -> if skill.has_frontmatter, do: acc, else: ["- Add YAML frontmatter (name, description, version)" | acc] end)
-      |> then(fn acc -> if skill.description_quality == "good", do: acc, else: ["- Expand description to 100+ chars with trigger keywords" | acc] end)
-      |> then(fn acc -> if skill.has_examples, do: acc, else: ["- Create examples/ subdirectory with sample invocations" | acc] end)
-      |> then(fn acc -> if skill.has_template, do: acc, else: ["- Create template.md file" | acc] end)
       |> then(fn acc ->
-          missing = skill.auth_missing_tools || []
-          if skill.auth_gated or missing == [], do: acc, else: ["- Gate high-risk tools (#{Enum.join(missing, ", ")}) with AgentLock" | acc]
-        end)
+        if skill.has_frontmatter,
+          do: acc,
+          else: ["- Add YAML frontmatter (name, description, version)" | acc]
+      end)
+      |> then(fn acc ->
+        if skill.description_quality == "good",
+          do: acc,
+          else: ["- Expand description to 100+ chars with trigger keywords" | acc]
+      end)
+      |> then(fn acc ->
+        if skill.has_examples,
+          do: acc,
+          else: ["- Create examples/ subdirectory with sample invocations" | acc]
+      end)
+      |> then(fn acc ->
+        if skill.has_template, do: acc, else: ["- Create template.md file" | acc]
+      end)
+      |> then(fn acc ->
+        missing = skill.auth_missing_tools || []
+
+        if skill.auth_gated or missing == [],
+          do: acc,
+          else: ["- Gate high-risk tools (#{Enum.join(missing, ", ")}) with AgentLock" | acc]
+      end)
       |> Enum.reverse()
 
     header = "Proposed changes for: #{skill.name} (score: #{skill.health_score}/100)\n\n"
@@ -1989,7 +2387,14 @@ defmodule ApmWeb.SkillsLive do
       []
       |> then(fn acc ->
         if not Map.get(skill, :has_frontmatter, true) do
-          [%{field: "frontmatter", issue: "Missing YAML frontmatter", fix: "Add name/description/version header"} | acc]
+          [
+            %{
+              field: "frontmatter",
+              issue: "Missing YAML frontmatter",
+              fix: "Add name/description/version header"
+            }
+            | acc
+          ]
         else
           acc
         end
@@ -1998,7 +2403,14 @@ defmodule ApmWeb.SkillsLive do
         quality = Map.get(skill, :description_quality, "good")
 
         if quality in ["missing", "poor"] do
-          [%{field: "description", issue: "Description too short or missing", fix: "Add comprehensive description with 100+ chars"} | acc]
+          [
+            %{
+              field: "description",
+              issue: "Description too short or missing",
+              fix: "Add comprehensive description with 100+ chars"
+            }
+            | acc
+          ]
         else
           acc
         end
@@ -2008,21 +2420,42 @@ defmodule ApmWeb.SkillsLive do
         has_triggers = Map.get(skill, :has_triggers, trigger_count > 0)
 
         if not has_triggers or trigger_count == 0 do
-          [%{field: "triggers", issue: "No trigger keywords defined", fix: "Add relevant trigger keywords"} | acc]
+          [
+            %{
+              field: "triggers",
+              issue: "No trigger keywords defined",
+              fix: "Add relevant trigger keywords"
+            }
+            | acc
+          ]
         else
           acc
         end
       end)
       |> then(fn acc ->
         if not Map.get(skill, :has_templates_section, false) do
-          [%{field: "templates", issue: "No templates section in SKILL.md", fix: "Generate skill templates and boilerplate"} | acc]
+          [
+            %{
+              field: "templates",
+              issue: "No templates section in SKILL.md",
+              fix: "Generate skill templates and boilerplate"
+            }
+            | acc
+          ]
         else
           acc
         end
       end)
       |> then(fn acc ->
         if not Map.get(skill, :has_examples_section, false) do
-          [%{field: "examples", issue: "No examples section in SKILL.md", fix: "Generate usage examples"} | acc]
+          [
+            %{
+              field: "examples",
+              issue: "No examples section in SKILL.md",
+              fix: "Generate usage examples"
+            }
+            | acc
+          ]
         else
           acc
         end
@@ -2035,7 +2468,8 @@ defmodule ApmWeb.SkillsLive do
       health_before: health,
       health_after: min(health + length(changes) * 15, 100),
       changes: changes,
-      summary: "#{length(changes)} improvement#{if length(changes) == 1, do: "", else: "s"} identified"
+      summary:
+        "#{length(changes)} improvement#{if length(changes) == 1, do: "", else: "s"} identified"
     }
   end
 
@@ -2102,5 +2536,4 @@ defmodule ApmWeb.SkillsLive do
       decision_count: length(recent_decisions)
     }
   end
-
 end

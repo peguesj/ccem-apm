@@ -126,16 +126,28 @@ defmodule Apm.Auth.WebAuthnAttestation do
           binary(),
           Wax.Challenge.t()
         ) :: {:ok, credential()} | {:error, term()}
-  def register_authenticator(user_id, attestation_object, client_data_json_raw, %Wax.Challenge{} = challenge) do
+  def register_authenticator(
+        user_id,
+        attestation_object,
+        client_data_json_raw,
+        %Wax.Challenge{} = challenge
+      ) do
     with {:ok, {auth_data, _attestation_result}} <-
            Wax.register(attestation_object, client_data_json_raw, challenge),
-         credential_id when is_binary(credential_id) <- auth_data.attested_credential_data.credential_id,
-         {algorithm, public_key} <- normalize_cose_key(auth_data.attested_credential_data.credential_public_key) do
+         credential_id when is_binary(credential_id) <-
+           auth_data.attested_credential_data.credential_id,
+         {algorithm, public_key} <-
+           normalize_cose_key(auth_data.attested_credential_data.credential_public_key) do
       :ok = put_credential(user_id, credential_id, public_key, auth_data.sign_count, algorithm)
 
-      AuditLog.log(:webauthn_registered, user_id, "credential:" <> Base.encode16(credential_id, case: :lower), %{
-        algorithm: algorithm
-      })
+      AuditLog.log(
+        :webauthn_registered,
+        user_id,
+        "credential:" <> Base.encode16(credential_id, case: :lower),
+        %{
+          algorithm: algorithm
+        }
+      )
 
       {:ok,
        %{
@@ -154,7 +166,13 @@ defmodule Apm.Auth.WebAuthnAttestation do
   provisioning flow (e.g. an admin pre-registering a YubiKey) can call it.
   """
   @spec put_credential(String.t(), binary(), binary(), non_neg_integer(), atom()) :: :ok
-  def put_credential(user_id, credential_id, public_key, sign_count, algorithm \\ @default_algorithm)
+  def put_credential(
+        user_id,
+        credential_id,
+        public_key,
+        sign_count,
+        algorithm \\ @default_algorithm
+      )
       when is_binary(user_id) and is_binary(credential_id) and is_binary(public_key) do
     init_table()
 
@@ -227,9 +245,14 @@ defmodule Apm.Auth.WebAuthnAttestation do
          :ok <- verify_signature(alg, pk, authenticator_data, client_data_json, signature) do
       bump_sign_count(user_id, cred, new_count)
 
-      AuditLog.log(:webauthn_verified, user_id, "credential:" <> Base.encode16(credential_id, case: :lower), %{
-        sign_count: new_count
-      })
+      AuditLog.log(
+        :webauthn_verified,
+        user_id,
+        "credential:" <> Base.encode16(credential_id, case: :lower),
+        %{
+          sign_count: new_count
+        }
+      )
 
       {:ok, %{sign_count: new_count}}
     end
@@ -259,8 +282,10 @@ defmodule Apm.Auth.WebAuthnAttestation do
     end
   end
 
-  defp parse_sign_count(<<_rp_id_hash::binary-size(32), _flags::binary-size(1),
-                          sign_count::unsigned-big-integer-size(32), _rest::binary>>) do
+  defp parse_sign_count(
+         <<_rp_id_hash::binary-size(32), _flags::binary-size(1),
+           sign_count::unsigned-big-integer-size(32), _rest::binary>>
+       ) do
     {:ok, sign_count}
   end
 
@@ -297,7 +322,10 @@ defmodule Apm.Auth.WebAuthnAttestation do
     updated = %{cred | sign_count: new_count}
 
     {:ok, all} = list_credentials(user_id)
-    new_list = Enum.map(all, fn c -> if c.credential_id == cred.credential_id, do: updated, else: c end)
+
+    new_list =
+      Enum.map(all, fn c -> if c.credential_id == cred.credential_id, do: updated, else: c end)
+
     :ets.insert(@ets_table, {user_id, new_list})
     :ok
   end

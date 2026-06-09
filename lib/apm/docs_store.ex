@@ -51,13 +51,17 @@ defmodule Apm.DocsStore do
   @impl true
   def init(_) do
     docs_path = Application.app_dir(:apm, @docs_dir)
-    {:ok, %{pages: %{}, toc: [], meta_index: %{}, ordered_slugs: [], docs_path: docs_path}, {:continue, :load_docs}}
+
+    {:ok, %{pages: %{}, toc: [], meta_index: %{}, ordered_slugs: [], docs_path: docs_path},
+     {:continue, :load_docs}}
   end
 
   @impl true
   def handle_continue(:load_docs, state) do
     {pages, toc, meta_index, ordered_slugs} = load_docs(state.docs_path)
-    {:noreply, %{state | pages: pages, toc: toc, meta_index: meta_index, ordered_slugs: ordered_slugs}}
+
+    {:noreply,
+     %{state | pages: pages, toc: toc, meta_index: meta_index, ordered_slugs: ordered_slugs}}
   end
 
   @impl true
@@ -91,7 +95,14 @@ defmodule Apm.DocsStore do
       |> Enum.map(fn {path, page} ->
         snippet = extract_snippet(page.raw, query_down)
         meta = Map.get(state.meta_index, path, %{})
-        %{path: path, title: page.title, snippet: snippet, description: Map.get(meta, :description), tags: Map.get(meta, :tags, [])}
+
+        %{
+          path: path,
+          title: page.title,
+          snippet: snippet,
+          description: Map.get(meta, :description),
+          tags: Map.get(meta, :tags, [])
+        }
       end)
       |> Enum.sort_by(& &1.title)
 

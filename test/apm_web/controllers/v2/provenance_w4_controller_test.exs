@@ -64,7 +64,10 @@ defmodule ApmWeb.V2.ProvenanceW4ControllerTest do
       assert is_list(body["role_lineage"])
     end
 
-    test "identity_token is a hex string when KeyStore is running", %{conn: conn, agent_id: agent_id} do
+    test "identity_token is a hex string when KeyStore is running", %{
+      conn: conn,
+      agent_id: agent_id
+    } do
       conn = get(conn, "/api/v2/provenance/agents/#{agent_id}")
       assert conn.status == 200
 
@@ -254,7 +257,10 @@ defmodule ApmWeb.V2.ProvenanceW4ControllerTest do
       assert body["error"] == "invalid_signature_encoding"
     end
 
-    test "returns 422 for wrong-length signature (not 64 bytes)", %{conn: conn, agent_id: agent_id} do
+    test "returns 422 for wrong-length signature (not 64 bytes)", %{
+      conn: conn,
+      agent_id: agent_id
+    } do
       # 32 bytes = 64 hex chars — wrong length for Ed25519
       short_sig = Base.encode16(:crypto.strong_rand_bytes(32), case: :lower)
 

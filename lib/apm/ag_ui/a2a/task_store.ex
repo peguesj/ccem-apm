@@ -187,9 +187,7 @@ defmodule Apm.AgUi.A2A.TaskStore do
               {:task_transition, task_id, current, new_status}
             )
 
-            Logger.debug(
-              "[A2A.TaskStore] task=#{task_id} #{current} -> #{new_status}"
-            )
+            Logger.debug("[A2A.TaskStore] task=#{task_id} #{current} -> #{new_status}")
 
             {:ok, updated_task}
         end

@@ -117,7 +117,10 @@ defmodule Apm.Plugins.Builder.BuilderEngine do
       Task.start(fn ->
         case RepositoryAnalyzer.analyze(session.source || "") do
           {:ok, analyzed} ->
-            GenServer.call(__MODULE__, {:update_session, id, %{analyzed: analyzed, status: :analyzed}})
+            GenServer.call(
+              __MODULE__,
+              {:update_session, id, %{analyzed: analyzed, status: :analyzed}}
+            )
 
           {:error, reason} ->
             Logger.warning("[BuilderEngine] analyze failed for #{id}: #{inspect(reason)}")

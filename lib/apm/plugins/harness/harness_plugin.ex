@@ -27,7 +27,8 @@ defmodule Apm.Plugins.Harness.HarnessPlugin do
   @impl true
   @spec plugin_description() :: String.t()
   def plugin_description,
-    do: "Claude Code harness runtime monitor — session state, hook telemetry, harness-mem health, plans lifecycle"
+    do:
+      "Claude Code harness runtime monitor — session state, hook telemetry, harness-mem health, plans lifecycle"
 
   @impl true
   @spec plugin_version() :: String.t()
@@ -208,7 +209,7 @@ defmodule Apm.Plugins.Harness.HarnessPlugin do
 
   # Wraps calls to supervised GenServers so a not-yet-started process doesn't
   # crash the plugin action dispatcher.
-  @spec safe_call((() -> term())) :: {:ok, term()} | {:error, term()}
+  @spec safe_call((-> term())) :: {:ok, term()} | {:error, term()}
   defp safe_call(fun) do
     {:ok, fun.()}
   rescue

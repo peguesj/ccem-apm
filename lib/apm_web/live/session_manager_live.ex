@@ -78,7 +78,9 @@ defmodule ApmWeb.SessionManagerLive do
   def handle_info({:sessions_updated, sessions}, socket) do
     selected =
       case socket.assigns.selected do
-        nil -> List.first(sessions)
+        nil ->
+          List.first(sessions)
+
         s ->
           sid = to_string(s[:session_id] || "")
           Enum.find(sessions, List.first(sessions), &(to_string(&1[:session_id]) == sid))
@@ -140,94 +142,110 @@ defmodule ApmWeb.SessionManagerLive do
     <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
       <:sidebar>
         <.sidebar_nav
-        current_path={@current_path}
-        notification_count={@notification_count}
-        skill_count={@skill_count}
+          current_path={@current_path}
+          notification_count={@notification_count}
+          skill_count={@skill_count}
         />
       </:sidebar>
       <:main>
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Sessions</h2>
-            <div class="badge badge-sm badge-ghost">{length(@sessions)} total</div>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-base-content/40">Auto-refresh 10s</span>
-            <button phx-click="refresh" class="btn btn-ghost btn-xs">
-              <.icon name="hero-arrow-path" class="size-3.5" />
-            </button>
-          </div>
-        </header>
-
-        <div class="flex flex-1 overflow-hidden">
-          <!-- Session List Panel -->
-          <div class="w-80 bg-base-200 border-r border-base-300 flex flex-col overflow-hidden">
-
-          <!-- Filter Bar -->
-          <div class="p-2 border-b border-base-300 space-y-2">
-            <form phx-change="filter_search" class="relative">
-              <input
-                type="text"
-                name="search"
-                value={@filter_search}
-                placeholder="Search sessions..."
-                phx-debounce="200"
-                class="input input-xs input-bordered w-full pl-7 text-xs"
-              />
-              <.icon name="hero-magnifying-glass" class="size-3 absolute left-2 top-1/2 -translate-y-1/2 text-base-content/40" />
-            </form>
-            <div class="flex items-center gap-2">
-              <select
-                name="group_by"
-                phx-change="set_group_by"
-                class="select select-xs select-bordered flex-1 text-xs"
-              >
-                <option value="none" selected={@group_by == "none"}>No grouping</option>
-                <option value="date" selected={@group_by == "date"}>By date</option>
-                <option value="project" selected={@group_by == "project"}>By project</option>
-                <option value="context" selected={@group_by == "context"}>By init context</option>
-                <option value="working_context" selected={@group_by == "working_context"}>By branch/worktree</option>
-              </select>
-              <label class="flex items-center gap-1 cursor-pointer" title="Active only">
-                <input
-                  type="checkbox"
-                  checked={@filter_active_only}
-                  phx-click="toggle_active_filter"
-                  class="checkbox checkbox-xs checkbox-primary"
-                />
-                <span class="text-[10px] text-base-content/60">Active</span>
-              </label>
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+              <h2 class="text-sm font-semibold text-base-content">Sessions</h2>
+              <div class="badge badge-sm badge-ghost">{length(@sessions)} total</div>
             </div>
-            <%= if @hidden_count > 0 do %>
-              <div class="flex items-center gap-1">
-                <label class="flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={@show_hidden}
-                    phx-click="toggle_show_hidden"
-                    class="checkbox checkbox-xs"
-                  />
-                  <span class="text-[10px] text-base-content/50">
-                    Show hidden (<%= @hidden_count %>)
-                  </span>
-                </label>
-              </div>
-            <% end %>
-          </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-base-content/40">Auto-refresh 10s</span>
+              <button phx-click="refresh" class="btn btn-ghost btn-xs">
+                <.icon name="hero-arrow-path" class="size-3.5" />
+              </button>
+            </div>
+          </header>
 
-          <!-- Session List -->
-          <div class="flex-1 overflow-y-auto p-2 space-y-1">
-            <%= for {group_name, group_sessions} <- @grouped do %>
-              <%= if @group_by != "none" do %>
-                <div class="collapse collapse-arrow bg-base-300/50 rounded-lg mb-1">
-                  <input type="checkbox" checked />
-                  <div class="collapse-title text-xs font-semibold py-2 min-h-0">
-                    <%= group_name %>
-                    <span class="badge badge-xs badge-neutral ml-1"><%= length(group_sessions) %></span>
+          <div class="flex flex-1 overflow-hidden">
+            <!-- Session List Panel -->
+            <div class="w-80 bg-base-200 border-r border-base-300 flex flex-col overflow-hidden">
+              
+    <!-- Filter Bar -->
+              <div class="p-2 border-b border-base-300 space-y-2">
+                <form phx-change="filter_search" class="relative">
+                  <input
+                    type="text"
+                    name="search"
+                    value={@filter_search}
+                    placeholder="Search sessions..."
+                    phx-debounce="200"
+                    class="input input-xs input-bordered w-full pl-7 text-xs"
+                  />
+                  <.icon
+                    name="hero-magnifying-glass"
+                    class="size-3 absolute left-2 top-1/2 -translate-y-1/2 text-base-content/40"
+                  />
+                </form>
+                <div class="flex items-center gap-2">
+                  <select
+                    name="group_by"
+                    phx-change="set_group_by"
+                    class="select select-xs select-bordered flex-1 text-xs"
+                  >
+                    <option value="none" selected={@group_by == "none"}>No grouping</option>
+                    <option value="date" selected={@group_by == "date"}>By date</option>
+                    <option value="project" selected={@group_by == "project"}>By project</option>
+                    <option value="context" selected={@group_by == "context"}>By init context</option>
+                    <option value="working_context" selected={@group_by == "working_context"}>
+                      By branch/worktree
+                    </option>
+                  </select>
+                  <label class="flex items-center gap-1 cursor-pointer" title="Active only">
+                    <input
+                      type="checkbox"
+                      checked={@filter_active_only}
+                      phx-click="toggle_active_filter"
+                      class="checkbox checkbox-xs checkbox-primary"
+                    />
+                    <span class="text-[10px] text-base-content/60">Active</span>
+                  </label>
+                </div>
+                <%= if @hidden_count > 0 do %>
+                  <div class="flex items-center gap-1">
+                    <label class="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={@show_hidden}
+                        phx-click="toggle_show_hidden"
+                        class="checkbox checkbox-xs"
+                      />
+                      <span class="text-[10px] text-base-content/50">
+                        Show hidden ({@hidden_count})
+                      </span>
+                    </label>
                   </div>
-                  <div class="collapse-content px-1 pb-1 space-y-1">
+                <% end %>
+              </div>
+              
+    <!-- Session List -->
+              <div class="flex-1 overflow-y-auto p-2 space-y-1">
+                <%= for {group_name, group_sessions} <- @grouped do %>
+                  <%= if @group_by != "none" do %>
+                    <div class="collapse collapse-arrow bg-base-300/50 rounded-lg mb-1">
+                      <input type="checkbox" checked />
+                      <div class="collapse-title text-xs font-semibold py-2 min-h-0">
+                        {group_name}
+                        <span class="badge badge-xs badge-neutral ml-1">
+                          {length(group_sessions)}
+                        </span>
+                      </div>
+                      <div class="collapse-content px-1 pb-1 space-y-1">
+                        <%= for session <- group_sessions do %>
+                          <.session_row
+                            session={session}
+                            selected={@selected}
+                            hidden_sessions={@hidden_sessions}
+                          />
+                        <% end %>
+                      </div>
+                    </div>
+                  <% else %>
                     <%= for session <- group_sessions do %>
                       <.session_row
                         session={session}
@@ -235,93 +253,87 @@ defmodule ApmWeb.SessionManagerLive do
                         hidden_sessions={@hidden_sessions}
                       />
                     <% end %>
-                  </div>
-                </div>
-              <% else %>
-                <%= for session <- group_sessions do %>
-                  <.session_row
-                    session={session}
-                    selected={@selected}
-                    hidden_sessions={@hidden_sessions}
-                  />
+                  <% end %>
                 <% end %>
-              <% end %>
-            <% end %>
-            <%= if Enum.all?(@grouped, fn {_, sessions} -> Enum.empty?(sessions) end) do %>
-              <div class="text-center text-base-content/40 text-xs py-8">No sessions match filters</div>
-            <% end %>
-          </div>
-        </div>
-
-        <!-- Detail Panel -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-          <%= if @selected do %>
-            <% session = @selected %>
-            <% sid = to_string(session[:session_id] || "") %>
-            <div class="p-4 border-b border-base-300 bg-base-100">
-              <div class="flex items-start justify-between">
-                <div>
-                  <h1 class="text-lg font-bold">
-                    <%= session[:project_name] || "Unknown Project" %>
-                  </h1>
-                  <div class="text-xs font-mono text-base-content/40 mt-0.5"><%= sid %></div>
-                  <div class="text-xs text-base-content/50 mt-0.5">
-                    <%= session[:project_root] %>
+                <%= if Enum.all?(@grouped, fn {_, sessions} -> Enum.empty?(sessions) end) do %>
+                  <div class="text-center text-base-content/40 text-xs py-8">
+                    No sessions match filters
+                  </div>
+                <% end %>
+              </div>
+            </div>
+            
+    <!-- Detail Panel -->
+            <div class="flex-1 flex flex-col overflow-hidden">
+              <%= if @selected do %>
+                <% session = @selected %>
+                <% sid = to_string(session[:session_id] || "") %>
+                <div class="p-4 border-b border-base-300 bg-base-100">
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <h1 class="text-lg font-bold">
+                        {session[:project_name] || "Unknown Project"}
+                      </h1>
+                      <div class="text-xs font-mono text-base-content/40 mt-0.5">{sid}</div>
+                      <div class="text-xs text-base-content/50 mt-0.5">
+                        {session[:project_root]}
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <%= if to_string(session[:status]) == "active" do %>
+                        <span class="badge badge-success">active</span>
+                      <% else %>
+                        <span class="badge badge-ghost">inactive</span>
+                      <% end %>
+                    </div>
+                  </div>
+                  
+    <!-- Tabs -->
+                  <div class="tabs tabs-bordered mt-4">
+                    <%= for {tab_id, tab_label} <- [{"overview", "Overview"}, {"claude_config", "Claude Config"}, {"agents", "Agents"}, {"ports", "Ports"}, {"plugins", "Plugins"}] do %>
+                      <button
+                        phx-click="set_tab"
+                        phx-value-tab={tab_id}
+                        class={"tab text-xs #{if @active_tab == tab_id, do: "tab-active font-semibold"}"}
+                      >
+                        {tab_label}
+                        <%= if tab_id == "agents" && (session[:agent_count] || 0) > 0 do %>
+                          <span class="badge badge-xs badge-primary ml-1">
+                            {session[:agent_count]}
+                          </span>
+                        <% end %>
+                      </button>
+                    <% end %>
                   </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <%= if to_string(session[:status]) == "active" do %>
-                    <span class="badge badge-success">active</span>
-                  <% else %>
-                    <span class="badge badge-ghost">inactive</span>
+
+                <div class="flex-1 overflow-y-auto p-4">
+                  <%= case @active_tab do %>
+                    <% "overview" -> %>
+                      <.tab_overview session={session} />
+                    <% "claude_config" -> %>
+                      <.tab_claude_config session={session} />
+                    <% "agents" -> %>
+                      <.tab_agents session={session} />
+                    <% "ports" -> %>
+                      <.tab_ports session={session} />
+                    <% "plugins" -> %>
+                      <.tab_plugins session={session} />
+                    <% _ -> %>
+                      <div class="text-base-content/40 text-sm">Select a tab above.</div>
                   <% end %>
                 </div>
-              </div>
-
-              <!-- Tabs -->
-              <div class="tabs tabs-bordered mt-4">
-                <%= for {tab_id, tab_label} <- [{"overview", "Overview"}, {"claude_config", "Claude Config"}, {"agents", "Agents"}, {"ports", "Ports"}, {"plugins", "Plugins"}] do %>
-                  <button
-                    phx-click="set_tab"
-                    phx-value-tab={tab_id}
-                    class={"tab text-xs #{if @active_tab == tab_id, do: "tab-active font-semibold"}"}
-                  >
-                    <%= tab_label %>
-                    <%= if tab_id == "agents" && (session[:agent_count] || 0) > 0 do %>
-                      <span class="badge badge-xs badge-primary ml-1"><%= session[:agent_count] %></span>
-                    <% end %>
-                  </button>
-                <% end %>
-              </div>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-4">
-              <%= case @active_tab do %>
-                <% "overview" -> %>
-                  <.tab_overview session={session} />
-                <% "claude_config" -> %>
-                  <.tab_claude_config session={session} />
-                <% "agents" -> %>
-                  <.tab_agents session={session} />
-                <% "ports" -> %>
-                  <.tab_ports session={session} />
-                <% "plugins" -> %>
-                  <.tab_plugins session={session} />
-                <% _ -> %>
-                  <div class="text-base-content/40 text-sm">Select a tab above.</div>
+              <% else %>
+                <div class="flex-1 flex items-center justify-center text-base-content/30">
+                  <div class="text-center">
+                    <.icon name="hero-computer-desktop" class="size-12 mb-3 mx-auto" />
+                    <div class="text-sm">Select a session to view details</div>
+                  </div>
+                </div>
               <% end %>
             </div>
-          <% else %>
-            <div class="flex-1 flex items-center justify-center text-base-content/30">
-              <div class="text-center">
-                <.icon name="hero-computer-desktop" class="size-12 mb-3 mx-auto" />
-                <div class="text-sm">Select a session to view details</div>
-              </div>
-            </div>
-          <% end %>
+          </div>
         </div>
-      </div>
-      </div>
       </:main>
     </.page_layout>
     """
@@ -347,58 +359,73 @@ defmodule ApmWeb.SessionManagerLive do
         <div class="min-w-0">
           <div class="flex items-center gap-2 mb-1">
             <h3 class="text-base font-bold text-base-content truncate">
-              <%= @session[:project_name] || "Unknown Project" %>
+              {@session[:project_name] || "Unknown Project"}
             </h3>
             <%= if @is_active do %>
               <span class="badge badge-sm badge-success gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-success-content animate-pulse"></span>
-                live
+                <span class="w-1.5 h-1.5 rounded-full bg-success-content animate-pulse"></span> live
               </span>
             <% else %>
               <span class="badge badge-sm badge-ghost">inactive</span>
             <% end %>
           </div>
           <div class="text-xs text-base-content/50">
-            Session scope · <%= @session[:git_branch] || "no branch" %>
+            Session scope · {@session[:git_branch] || "no branch"}
           </div>
         </div>
         <div class="text-right flex-shrink-0">
           <div class="text-[10px] uppercase tracking-wide text-base-content/40">Enriched</div>
-          <div class="text-xs text-base-content/70"><%= @freshness %></div>
+          <div class="text-xs text-base-content/70">{@freshness}</div>
         </div>
       </div>
     </div>
 
     <!-- Clickable stat cards — each pushes set_tab for deep-dive -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-      <button phx-click="set_tab" phx-value-tab="agents" class="card bg-base-200 p-3 text-left hover:bg-base-300 transition-colors">
+      <button
+        phx-click="set_tab"
+        phx-value-tab="agents"
+        class="card bg-base-200 p-3 text-left hover:bg-base-300 transition-colors"
+      >
         <div class="flex items-center gap-2 mb-1">
           <.icon name="hero-user-group" class="size-3.5 text-base-content/40" />
           <span class="text-xs text-base-content/50">Agents</span>
         </div>
-        <div class="text-2xl font-bold text-base-content"><%= @session[:agent_count] || 0 %></div>
+        <div class="text-2xl font-bold text-base-content">{@session[:agent_count] || 0}</div>
       </button>
-      <button phx-click="set_tab" phx-value-tab="ports" class="card bg-base-200 p-3 text-left hover:bg-base-300 transition-colors">
+      <button
+        phx-click="set_tab"
+        phx-value-tab="ports"
+        class="card bg-base-200 p-3 text-left hover:bg-base-300 transition-colors"
+      >
         <div class="flex items-center gap-2 mb-1">
           <.icon name="hero-signal" class="size-3.5 text-base-content/40" />
           <span class="text-xs text-base-content/50">Ports</span>
         </div>
-        <div class="text-2xl font-bold text-base-content"><%= @session[:port_count] || 0 %></div>
+        <div class="text-2xl font-bold text-base-content">{@session[:port_count] || 0}</div>
       </button>
-      <button phx-click="set_tab" phx-value-tab="plugins" class="card bg-base-200 p-3 text-left hover:bg-base-300 transition-colors">
+      <button
+        phx-click="set_tab"
+        phx-value-tab="plugins"
+        class="card bg-base-200 p-3 text-left hover:bg-base-300 transition-colors"
+      >
         <div class="flex items-center gap-2 mb-1">
           <.icon name="hero-puzzle-piece" class="size-3.5 text-base-content/40" />
           <span class="text-xs text-base-content/50">Plugins</span>
         </div>
-        <div class="text-2xl font-bold text-base-content"><%= @session[:plugin_count] || 0 %></div>
+        <div class="text-2xl font-bold text-base-content">{@session[:plugin_count] || 0}</div>
       </button>
-      <button phx-click="set_tab" phx-value-tab="claude_config" class="card bg-base-200 p-3 text-left hover:bg-base-300 transition-colors">
+      <button
+        phx-click="set_tab"
+        phx-value-tab="claude_config"
+        class="card bg-base-200 p-3 text-left hover:bg-base-300 transition-colors"
+      >
         <div class="flex items-center gap-2 mb-1">
           <.icon name="hero-sparkles" class="size-3.5 text-base-content/40" />
           <span class="text-xs text-base-content/50">Skills</span>
         </div>
         <div class="text-2xl font-bold text-base-content">
-          <%= get_in(@session, [:claude_config, :skill_count]) || 0 %>
+          {get_in(@session, [:claude_config, :skill_count]) || 0}
         </div>
       </button>
     </div>
@@ -412,7 +439,8 @@ defmodule ApmWeb.SessionManagerLive do
         data-diagram-type="topology"
         data-diagram-payload={@topology_payload}
         class="w-full min-h-[320px]"
-      ></div>
+      >
+      </div>
     </.collapsible>
 
     <.collapsible title="Session Metadata" open={false}>
@@ -450,7 +478,7 @@ defmodule ApmWeb.SessionManagerLive do
       <div class="col-span-2 card bg-base-200 p-3">
         <div class="text-xs text-base-content/50 mb-1">CLAUDE.md</div>
         <div class={"text-sm font-semibold #{if @config[:has_claude_md], do: "text-success", else: "text-base-content/30"}"}>
-          <%= if @config[:has_claude_md], do: "Present", else: "Not found" %>
+          {if @config[:has_claude_md], do: "Present", else: "Not found"}
         </div>
       </div>
     </div>
@@ -458,7 +486,7 @@ defmodule ApmWeb.SessionManagerLive do
     <%= if @config[:claude_md_preview] && @config[:claude_md_preview] != "" do %>
       <.collapsible title="CLAUDE.md Preview" open={true}>
         <div class="doc-content prose prose-sm prose-invert max-w-none text-base-content/80">
-          <%= render_markdown(@config[:claude_md_preview]) %>
+          {render_markdown(@config[:claude_md_preview])}
         </div>
         <%= if String.length(@config[:claude_md_preview] || "") >= 498 do %>
           <div class="text-xs text-base-content/30 mt-2">... (truncated — full file not loaded)</div>
@@ -468,8 +496,8 @@ defmodule ApmWeb.SessionManagerLive do
 
     <.collapsible title="Hook Lifecycle" open={false}>
       <div class="text-xs text-base-content/50 mb-2">
-        <%= @config[:hook_count] || 0 %> hook script<%= if (@config[:hook_count] || 0) == 1, do: "", else: "s" %>
-        registered in <code class="text-[11px]">~/Developer/ccem/apm/hooks/</code>
+        {@config[:hook_count] || 0} hook script{if (@config[:hook_count] || 0) == 1, do: "", else: "s"} registered in
+        <code class="text-[11px]">~/Developer/ccem/apm/hooks/</code>
       </div>
       <div
         id={"claude-config-hook-lifecycle-#{to_string(@session[:session_id] || "none")}"}
@@ -478,7 +506,8 @@ defmodule ApmWeb.SessionManagerLive do
         data-diagram-type="hook-lifecycle"
         data-diagram-payload={@hook_payload}
         class="w-full min-h-[260px]"
-      ></div>
+      >
+      </div>
     </.collapsible>
     """
   end
@@ -499,11 +528,16 @@ defmodule ApmWeb.SessionManagerLive do
 
     ~H"""
     <%= if Enum.empty?(@agents) do %>
-      <div class="text-center text-base-content/40 text-sm py-8">No agents registered for this session</div>
+      <div class="text-center text-base-content/40 text-sm py-8">
+        No agents registered for this session
+      </div>
     <% else %>
       <!-- Grouped by wave -->
       <%= for {{wave, wave_agents}, idx} <- Enum.with_index(@waves) do %>
-        <.collapsible title={"Wave #{wave} · #{length(wave_agents)} agent#{if length(wave_agents) == 1, do: "", else: "s"}"} open={idx == 0}>
+        <.collapsible
+          title={"Wave #{wave} · #{length(wave_agents)} agent#{if length(wave_agents) == 1, do: "", else: "s"}"}
+          open={idx == 0}
+        >
           <div class="space-y-2">
             <%= for agent <- wave_agents do %>
               <% agent_id = to_string(Map.get(agent, :agent_id, "unknown")) %>
@@ -518,28 +552,30 @@ defmodule ApmWeb.SessionManagerLive do
               <div class="card bg-base-100 p-3 border border-base-300">
                 <div class="flex items-center justify-between gap-2">
                   <span class="tooltip tooltip-left min-w-0" data-tip={agent_id}>
-                    <div class="text-sm font-semibold truncate"><%= display_label %></div>
+                    <div class="text-sm font-semibold truncate">{display_label}</div>
                   </span>
                   <span class={"badge badge-xs flex-shrink-0 #{status_badge_class(to_string(Map.get(agent, :status, "")))}"}>
-                    <%= Map.get(agent, :status, "unknown") %>
+                    {Map.get(agent, :status, "unknown")}
                   </span>
                 </div>
                 <div class="text-xs text-base-content/50 mt-1">
-                  Role: <%= Map.get(agent, :role, "—") %>
+                  Role: {Map.get(agent, :role, "—")}
                   <%= if Map.get(agent, :formation_role) do %>
-                    · <%= Map.get(agent, :formation_role) %>
+                    · {Map.get(agent, :formation_role)}
                   <% end %>
                 </div>
                 <%= if Map.get(agent, :task_subject) do %>
-                  <div class="text-xs text-base-content/60 mt-0.5 truncate"><%= Map.get(agent, :task_subject) %></div>
+                  <div class="text-xs text-base-content/60 mt-0.5 truncate">
+                    {Map.get(agent, :task_subject)}
+                  </div>
                 <% end %>
               </div>
             <% end %>
           </div>
         </.collapsible>
       <% end %>
-
-      <!-- Formation tree diagram -->
+      
+    <!-- Formation tree diagram -->
       <.collapsible title="Formation Tree" open={false}>
         <div
           id={"agents-formation-tree-#{to_string(@session[:session_id] || "none")}"}
@@ -548,7 +584,8 @@ defmodule ApmWeb.SessionManagerLive do
           data-diagram-type="formation-tree"
           data-diagram-payload={@formation_payload}
           class="w-full min-h-[320px]"
-        ></div>
+        >
+        </div>
       </.collapsible>
     <% end %>
     """
@@ -575,18 +612,22 @@ defmodule ApmWeb.SessionManagerLive do
               <% cmd = Map.get(port, :command) || Map.get(port, :process) || Map.get(port, :name, "") %>
               <div class="card bg-base-100 p-3 border border-base-300">
                 <div class="flex flex-row items-center gap-4">
-                  <div class="font-mono text-lg font-bold text-primary"><%= port_num %></div>
+                  <div class="font-mono text-lg font-bold text-primary">{port_num}</div>
                   <div class="flex-1 min-w-0">
                     <span class="tooltip tooltip-left block" data-tip={to_string(cmd)}>
-                      <div class="text-xs font-semibold truncate"><%= Map.get(port, :name, "unknown") %></div>
+                      <div class="text-xs font-semibold truncate">
+                        {Map.get(port, :name, "unknown")}
+                      </div>
                     </span>
-                    <div class="text-xs text-base-content/50 truncate"><%= Map.get(port, :project, "") %></div>
+                    <div class="text-xs text-base-content/50 truncate">
+                      {Map.get(port, :project, "")}
+                    </div>
                   </div>
                   <span class="badge badge-xs badge-success flex-shrink-0">in use</span>
                 </div>
                 <%= if Map.get(port, :session_id) do %>
                   <div class="text-xs opacity-60 mt-1 font-mono truncate">
-                    session: <%= Map.get(port, :session_id) %>
+                    session: {Map.get(port, :session_id)}
                   </div>
                 <% end %>
               </div>
@@ -602,12 +643,16 @@ defmodule ApmWeb.SessionManagerLive do
               <% port_num = Map.get(port, :port, "?") %>
               <% cmd = Map.get(port, :command) || Map.get(port, :process) || Map.get(port, :name, "") %>
               <div class="card bg-base-100 p-3 border border-base-300 flex flex-row items-center gap-4">
-                <div class="font-mono text-lg font-bold text-base-content/50"><%= port_num %></div>
+                <div class="font-mono text-lg font-bold text-base-content/50">{port_num}</div>
                 <div class="flex-1 min-w-0">
                   <span class="tooltip tooltip-left block" data-tip={to_string(cmd)}>
-                    <div class="text-xs font-semibold truncate"><%= Map.get(port, :name, "unknown") %></div>
+                    <div class="text-xs font-semibold truncate">
+                      {Map.get(port, :name, "unknown")}
+                    </div>
                   </span>
-                  <div class="text-xs text-base-content/50 truncate"><%= Map.get(port, :project, "") %></div>
+                  <div class="text-xs text-base-content/50 truncate">
+                    {Map.get(port, :project, "")}
+                  </div>
                 </div>
                 <span class="badge badge-xs badge-ghost flex-shrink-0">free</span>
               </div>
@@ -634,30 +679,30 @@ defmodule ApmWeb.SessionManagerLive do
         <details class="collapse collapse-arrow bg-base-200 mb-2">
           <summary class="collapse-title text-sm font-semibold">
             <div class="flex items-center justify-between gap-2">
-              <span class="truncate"><%= name %></span>
-              <span class="badge badge-xs badge-info flex-shrink-0"><%= version %></span>
+              <span class="truncate">{name}</span>
+              <span class="badge badge-xs badge-info flex-shrink-0">{version}</span>
             </div>
           </summary>
           <div class="collapse-content text-sm">
             <%= if description != "" do %>
-              <div class="text-xs text-base-content/60 mb-2"><%= description %></div>
+              <div class="text-xs text-base-content/60 mb-2">{description}</div>
             <% end %>
             <%= if skills != [] do %>
               <div class="text-xs mb-1">
                 <span class="text-base-content/40">Skills:</span>
-                <span class="text-base-content/70"><%= Enum.join(skills, ", ") %></span>
+                <span class="text-base-content/70">{Enum.join(skills, ", ")}</span>
               </div>
             <% end %>
             <%= if commands != [] do %>
               <div class="text-xs mb-1">
                 <span class="text-base-content/40">Commands:</span>
-                <span class="text-base-content/70"><%= Enum.join(commands, ", ") %></span>
+                <span class="text-base-content/70">{Enum.join(commands, ", ")}</span>
               </div>
             <% end %>
             <%= if hooks != [] do %>
               <div class="text-xs mb-1">
                 <span class="text-base-content/40">Hooks:</span>
-                <span class="text-base-content/70"><%= Enum.join(hooks, ", ") %></span>
+                <span class="text-base-content/70">{Enum.join(hooks, ", ")}</span>
               </div>
             <% end %>
             <%= if skills == [] and commands == [] and hooks == [] and description == "" do %>
@@ -699,13 +744,14 @@ defmodule ApmWeb.SessionManagerLive do
             <div class="w-1.5 h-1.5 rounded-full bg-base-content/20 flex-shrink-0"></div>
           <% end %>
           <span class="text-xs font-mono truncate">
-            <%= NamespaceResolver.session_label(@sid,
-                  project: @session[:project_name],
-                  branch: @session[:git_branch]) %>
+            {NamespaceResolver.session_label(@sid,
+              project: @session[:project_name],
+              branch: @session[:git_branch]
+            )}
           </span>
         </div>
         <div class="text-[10px] text-zinc-500 font-mono mt-0.5 truncate">
-          <%= String.slice(@sid, 0, 12) %>
+          {String.slice(@sid, 0, 12)}
         </div>
         <div class="flex items-center gap-2 mt-1">
           <%= if @is_active do %>
@@ -714,7 +760,7 @@ defmodule ApmWeb.SessionManagerLive do
             <span class="badge badge-xs badge-ghost">inactive</span>
           <% end %>
           <%= if (@session[:agent_count] || 0) > 0 do %>
-            <span class="text-[10px] text-base-content/40"><%= @session[:agent_count] %> agents</span>
+            <span class="text-[10px] text-base-content/40">{@session[:agent_count]} agents</span>
           <% end %>
         </div>
       </button>
@@ -821,7 +867,9 @@ defmodule ApmWeb.SessionManagerLive do
 
   defp date_bucket(session, today, yesterday, week_ago) do
     case parse_session_date(session[:start_time]) do
-      nil -> "Unknown"
+      nil ->
+        "Unknown"
+
       date ->
         cond do
           Date.compare(date, today) == :eq -> "Today"
@@ -902,9 +950,9 @@ defmodule ApmWeb.SessionManagerLive do
     <div class="card bg-base-200 p-3">
       <div class="flex items-center gap-2 mb-1">
         <.icon name={@icon} class="size-3.5 text-base-content/40" />
-        <span class="text-xs text-base-content/50"><%= @label %></span>
+        <span class="text-xs text-base-content/50">{@label}</span>
       </div>
-      <div class="text-2xl font-bold text-base-content"><%= @value %></div>
+      <div class="text-2xl font-bold text-base-content">{@value}</div>
     </div>
     """
   end
@@ -914,8 +962,10 @@ defmodule ApmWeb.SessionManagerLive do
 
     ~H"""
     <div class="flex gap-3 text-xs">
-      <div class="w-28 flex-shrink-0 text-base-content/40 font-semibold"><%= @label %></div>
-      <div class={"flex-1 truncate #{if @mono, do: "font-mono text-base-content/70", else: "text-base-content/70"}"}><%= @value %></div>
+      <div class="w-28 flex-shrink-0 text-base-content/40 font-semibold">{@label}</div>
+      <div class={"flex-1 truncate #{if @mono, do: "font-mono text-base-content/70", else: "text-base-content/70"}"}>
+        {@value}
+      </div>
     </div>
     """
   end
@@ -951,10 +1001,34 @@ defmodule ApmWeb.SessionManagerLive do
     }
 
     satellites = [
-      %{id: "agents", label: "Agents · #{session[:agent_count] || 0}", type: "agents", x: 60, y: 130},
-      %{id: "ports", label: "Ports · #{session[:port_count] || 0}", type: "ports", x: 440, y: 130},
-      %{id: "plugins", label: "Plugins · #{session[:plugin_count] || 0}", type: "plugins", x: 60, y: 270},
-      %{id: "skills", label: "Skills · #{config[:skill_count] || 0}", type: "skills", x: 440, y: 270},
+      %{
+        id: "agents",
+        label: "Agents · #{session[:agent_count] || 0}",
+        type: "agents",
+        x: 60,
+        y: 130
+      },
+      %{
+        id: "ports",
+        label: "Ports · #{session[:port_count] || 0}",
+        type: "ports",
+        x: 440,
+        y: 130
+      },
+      %{
+        id: "plugins",
+        label: "Plugins · #{session[:plugin_count] || 0}",
+        type: "plugins",
+        x: 60,
+        y: 270
+      },
+      %{
+        id: "skills",
+        label: "Skills · #{config[:skill_count] || 0}",
+        type: "skills",
+        x: 440,
+        y: 270
+      },
       %{id: "hooks", label: "Hooks · #{config[:hook_count] || 0}", type: "hooks", x: 250, y: 340}
     ]
 
@@ -1000,6 +1074,7 @@ defmodule ApmWeb.SessionManagerLive do
       |> Enum.with_index()
       |> Enum.map(fn {{id, label}, i} ->
         angle = :math.pi() * 2 * i / count - :math.pi() / 2
+
         %{
           id: id,
           label: label,
@@ -1157,9 +1232,9 @@ defmodule ApmWeb.SessionManagerLive do
   defp collapsible(assigns) do
     ~H"""
     <details class="collapse collapse-arrow bg-base-200 mb-2" open={@open}>
-      <summary class="collapse-title text-sm font-semibold"><%= @title %></summary>
+      <summary class="collapse-title text-sm font-semibold">{@title}</summary>
       <div class="collapse-content text-sm">
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
       </div>
     </details>
     """

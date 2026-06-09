@@ -109,8 +109,7 @@ defmodule Apm.Plugins.Mirofish.MirofishPlugin do
       },
       %{
         action: "coalesce_findings",
-        description:
-          "Create a grid of sticky notes from a list of findings — one per finding",
+        description: "Create a grid of sticky notes from a list of findings — one per finding",
         params: %{
           board_id: "string (required)",
           findings: "list of {title, body, position?} maps (required)",
@@ -213,15 +212,16 @@ defmodule Apm.Plugins.Mirofish.MirofishPlugin do
     coalesce(board_id, findings, p)
   end
 
-  defp dispatch(action, _params) when action in [
-         "get_board",
-         "create_sticky",
-         "create_frame",
-         "create_text",
-         "list_items",
-         "delete_item",
-         "coalesce_findings"
-       ] do
+  defp dispatch(action, _params)
+       when action in [
+              "get_board",
+              "create_sticky",
+              "create_frame",
+              "create_text",
+              "list_items",
+              "delete_item",
+              "coalesce_findings"
+            ] do
     {:error, {:invalid_params, action}}
   end
 

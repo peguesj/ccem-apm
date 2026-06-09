@@ -95,7 +95,8 @@ defmodule Apm.Plugins.Orchestration.OrchestrationPlugin do
       },
       %{
         action: "list_types",
-        description: "Enumerate all supported orchestration types with semantics and required params",
+        description:
+          "Enumerate all supported orchestration types with semantics and required params",
         params: %{}
       },
       %{

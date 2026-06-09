@@ -24,12 +24,13 @@ defmodule ApmWeb.WellKnownController do
   alias Apm.AgentRegistry
 
   @doc "GET /.well-known/agent-card.json — APM's own AgentCard"
-  operation :agent_card,
+  operation(:agent_card,
     summary: "Agent card",
     tags: ["Well Known"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def agent_card(conn, _params) do
     base_url = build_base_url(conn)
@@ -41,12 +42,13 @@ defmodule ApmWeb.WellKnownController do
   end
 
   @doc "GET /api/v2/agents/:agent_id/agent-card.json — per-agent AgentCard"
-  operation :agent_card_for_agent,
+  operation(:agent_card_for_agent,
     summary: "Agent card for agent",
     tags: ["Well Known"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def agent_card_for_agent(conn, %{"agent_id" => agent_id}) do
     base_url = build_base_url(conn)

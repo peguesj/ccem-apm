@@ -38,7 +38,7 @@ defmodule ApmWeb.Components.Composite.Field do
           <% end %>
         </label>
       <% end %>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
       <%= cond do %>
         <% @error -> %>
           <span class="apm-field__error" role="alert">{@error}</span>

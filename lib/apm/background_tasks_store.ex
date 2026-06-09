@@ -113,7 +113,8 @@ defmodule Apm.BackgroundTasksStore do
         updated = Map.merge(task, atomize_keys(attrs))
 
         updated =
-          if Map.get(attrs, "status") in ["completed", "failed", "stopped"] && is_nil(updated.completed_at) do
+          if Map.get(attrs, "status") in ["completed", "failed", "stopped"] &&
+               is_nil(updated.completed_at) do
             Map.put(updated, :completed_at, DateTime.utc_now() |> DateTime.to_iso8601())
           else
             updated
@@ -166,7 +167,12 @@ defmodule Apm.BackgroundTasksStore do
         if task.pid do
           System.cmd("kill", ["-TERM", to_string(task.pid)], stderr_to_stdout: true)
         end
-        updated = task |> Map.put(:status, "stopped") |> Map.put(:completed_at, DateTime.utc_now() |> DateTime.to_iso8601())
+
+        updated =
+          task
+          |> Map.put(:status, "stopped")
+          |> Map.put(:completed_at, DateTime.utc_now() |> DateTime.to_iso8601())
+
         new_state = put_in(state, [:tasks, id], updated)
         {:noreply, new_state}
     end
@@ -180,7 +186,9 @@ defmodule Apm.BackgroundTasksStore do
   # --- Helpers ---
 
   defp maybe_filter_by(list, _key, nil), do: list
-  defp maybe_filter_by(list, key, value), do: Enum.filter(list, &(to_string(Map.get(&1, key)) == to_string(value)))
+
+  defp maybe_filter_by(list, key, value),
+    do: Enum.filter(list, &(to_string(Map.get(&1, key)) == to_string(value)))
 
   defp atomize_keys(map) do
     Map.new(map, fn

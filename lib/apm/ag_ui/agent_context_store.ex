@@ -106,17 +106,20 @@ defmodule Apm.AgUi.AgentContextStore do
     event_type = Map.get(event, :type) || Map.get(event, "type") || "CUSTOM"
     tool_name = get_in(event, [:data, :tool_name]) || get_in(event, ["data", "tool_name"])
 
-    existing = case :ets.lookup(@table, agent_id) do
-      [{^agent_id, ctx}] -> ctx
-      [] -> %{started_at: now, recent_events: []}
-    end
+    existing =
+      case :ets.lookup(@table, agent_id) do
+        [{^agent_id, ctx}] -> ctx
+        [] -> %{started_at: now, recent_events: []}
+      end
 
     label = activity_label_for(event_type, tool_name, event)
 
-    recent = [
-      %{type: event_type, tool: tool_name, ts: now, label: label}
-      | Map.get(existing, :recent_events, [])
-    ] |> Enum.take(@max_recent_events)
+    recent =
+      [
+        %{type: event_type, tool: tool_name, ts: now, label: label}
+        | Map.get(existing, :recent_events, [])
+      ]
+      |> Enum.take(@max_recent_events)
 
     updated = %{
       agent_id: agent_id,
@@ -140,48 +143,64 @@ defmodule Apm.AgUi.AgentContextStore do
   # Maps AG-UI event type + tool name to a human-readable activity label.
   defp activity_label_for("RUN_STARTED", _tool, _event), do: "Starting..."
   defp activity_label_for("RUN_FINISHED", _tool, _event), do: "Completed"
+
   defp activity_label_for("RUN_ERROR", _tool, event) do
     msg = get_in(event, [:data, :message]) || get_in(event, ["data", "message"]) || "error"
     "Error: #{truncate(msg, 30)}"
   end
+
   defp activity_label_for("STEP_STARTED", _tool, event) do
     step = get_in(event, [:data, :step_name]) || get_in(event, ["data", "step_name"]) || "step"
     "Step: #{truncate(step, 30)}"
   end
+
   defp activity_label_for("STEP_FINISHED", _tool, event) do
     step = get_in(event, [:data, :step_name]) || get_in(event, ["data", "step_name"]) || "step"
     "Done: #{truncate(step, 30)}"
   end
+
   defp activity_label_for("TOOL_CALL_START", tool, _event) when is_binary(tool),
     do: "Running: #{tool}"
+
   defp activity_label_for("TOOL_CALL_START", _tool, _event), do: "Running tool..."
+
   defp activity_label_for("TOOL_CALL_ARGS", tool, _event) when is_binary(tool),
     do: "Running: #{tool}"
+
   defp activity_label_for("TOOL_CALL_ARGS", _tool, _event), do: "Running tool..."
   defp activity_label_for("TOOL_CALL_END", _tool, _event), do: "Tool done"
   defp activity_label_for("TOOL_CALL_RESULT", _tool, _event), do: "Processing result..."
   defp activity_label_for("TEXT_MESSAGE_START", _tool, _event), do: "Writing..."
+
   defp activity_label_for("TEXT_MESSAGE_CONTENT", _tool, event) do
     delta = get_in(event, [:data, :delta]) || get_in(event, ["data", "delta"]) || ""
     "Writing: #{truncate(delta, 40)}"
   end
+
   defp activity_label_for("TEXT_MESSAGE_END", _tool, _event), do: "Message sent"
   defp activity_label_for("THINKING_START", _tool, _event), do: "Thinking..."
+
   defp activity_label_for("THINKING_CONTENT", _tool, event) do
     delta = get_in(event, [:data, :delta]) || get_in(event, ["data", "delta"]) || ""
     "Thinking: #{truncate(delta, 40)}"
   end
+
   defp activity_label_for("THINKING_END", _tool, _event), do: "Thought complete"
   defp activity_label_for("STATE_DELTA", _tool, _event), do: "State update"
+
   defp activity_label_for("CUSTOM", _tool, event) do
-    name = get_in(event, [:data, :name]) || get_in(event, ["data", "name"]) ||
-           get_in(event, [:name]) || get_in(event, ["name"]) || "custom"
+    name =
+      get_in(event, [:data, :name]) || get_in(event, ["data", "name"]) ||
+        get_in(event, [:name]) || get_in(event, ["name"]) || "custom"
+
     "Event: #{truncate(name, 30)}"
   end
+
   defp activity_label_for(type, _tool, _event), do: truncate(type, 40)
 
   defp truncate(str, max) when is_binary(str) and byte_size(str) > max,
     do: String.slice(str, 0, max) <> "..."
+
   defp truncate(str, _) when is_binary(str), do: str
   defp truncate(other, _), do: inspect(other)
 end

@@ -101,7 +101,13 @@ defmodule Apm.ProjectScanner do
     new_state = %{state | status: :scanning, base_path: path}
 
     results = do_scan(path)
-    final_state = %{new_state | results: results, status: :done, scanned_at: DateTime.utc_now() |> DateTime.to_iso8601()}
+
+    final_state = %{
+      new_state
+      | results: results,
+        status: :done,
+        scanned_at: DateTime.utc_now() |> DateTime.to_iso8601()
+    }
 
     {:reply, {:ok, results}, final_state}
   end
@@ -111,18 +117,19 @@ defmodule Apm.ProjectScanner do
   end
 
   def handle_call(:get_status, _from, state) do
-    {:reply, %{
-      status: state.status,
-      scanned_at: state.scanned_at,
-      project_count: length(state.results),
-      base_path: state.base_path
-    }, state}
+    {:reply,
+     %{
+       status: state.status,
+       scanned_at: state.scanned_at,
+       project_count: length(state.results),
+       base_path: state.base_path
+     }, state}
   end
 
   # --- Scanning logic ---
 
   defp do_scan(base_path) do
-    unless File.exists?(base_path), do: (return [])
+    unless File.exists?(base_path), do: return([])
 
     base_path
     |> File.ls!()
@@ -177,6 +184,7 @@ defmodule Apm.ProjectScanner do
       Enum.any?(indicators, fn indicator ->
         if String.contains?(indicator, "*") do
           pattern = Path.join(path, indicator)
+
           case Path.wildcard(pattern) do
             [] -> false
             _ -> true
@@ -196,11 +204,14 @@ defmodule Apm.ProjectScanner do
     env_files
     |> Enum.flat_map(fn f ->
       file_path = Path.join(path, f)
+
       case File.read(file_path) do
         {:ok, content} ->
           Regex.scan(port_regex, content)
           |> Enum.map(fn [_, port] -> String.to_integer(port) end)
-        _ -> []
+
+        _ ->
+          []
       end
     end)
     |> Enum.uniq()
@@ -244,7 +255,9 @@ defmodule Apm.ProjectScanner do
         |> NaiveDateTime.from_erl!()
         |> DateTime.from_naive!("Etc/UTC")
         |> DateTime.to_iso8601()
-      _ -> nil
+
+      _ ->
+        nil
     end
   end
 

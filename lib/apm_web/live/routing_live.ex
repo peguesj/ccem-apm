@@ -30,7 +30,9 @@ defmodule ApmWeb.RoutingLive do
       |> assign(audit_trail: [])
       |> push_routing_data()
 
-    {:ok, socket |> assign(:sidebar_collapsed, false)
+    {:ok,
+     socket
+     |> assign(:sidebar_collapsed, false)
      |> assign(:inspector_open, false)
      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -44,7 +46,10 @@ defmodule ApmWeb.RoutingLive do
   @impl true
   def handle_info({:auth_granted, _}, socket), do: {:noreply, push_routing_data(socket)}
   def handle_info({:auth_denied, _}, socket), do: {:noreply, push_routing_data(socket)}
-  def handle_info({:trust_ceiling_changed, _, _}, socket), do: {:noreply, push_routing_data(socket)}
+
+  def handle_info({:trust_ceiling_changed, _, _}, socket),
+    do: {:noreply, push_routing_data(socket)}
+
   def handle_info({:agent_registered, _}, socket), do: {:noreply, push_routing_data(socket)}
   def handle_info(_, socket), do: {:noreply, socket}
 
@@ -105,58 +110,68 @@ defmodule ApmWeb.RoutingLive do
         <.sidebar_nav current_path="/routing" />
       </:sidebar>
       <:main>
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Authorization Routing Graph</h2>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="badge badge-success badge-sm gap-1">
-              <span class="w-2 h-2 rounded-full bg-success"></span> Authorized
-            </span>
-            <span class="badge badge-error badge-sm gap-1">
-              <span class="w-2 h-2 rounded-full bg-error"></span> Denied
-            </span>
-            <span class="badge badge-warning badge-sm gap-1">
-              <span class="w-2 h-2 rounded-full bg-warning"></span> Pending
-            </span>
-          </div>
-        </header>
-
-        <main class="flex-1 overflow-y-auto p-4">
-        <div class="flex gap-4 h-full">
-          <!-- Graph Canvas -->
-          <div class="flex-1 bg-base-200 rounded-lg" style="min-height: 600px;">
-            <div id="routing-graph" phx-hook="RoutingGraph" phx-update="ignore" class="w-full h-full" style="min-height: 600px;"></div>
-          </div>
-
-          <!-- Audit Side Panel -->
-          <%= if @selected_agent do %>
-            <div class="w-80 bg-base-200 rounded-lg p-4">
-              <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-sm">Audit Trail</h3>
-                <button class="btn btn-ghost btn-xs" phx-click="select_agent" phx-value-id="">Close</button>
-              </div>
-              <p class="text-xs text-base-content/60 mb-4 font-mono"><%= @selected_agent %></p>
-              <div class="space-y-2">
-                <%= for entry <- @audit_trail do %>
-                  <div class="card card-compact bg-base-300">
-                    <div class="card-body py-2">
-                      <span class="text-xs font-mono"><%= Map.get(entry, :event_type, "") %></span>
-                      <span class="text-xs text-base-content/60"><%= Map.get(entry, :timestamp, "") %></span>
-                    </div>
-                  </div>
-                <% end %>
-                <%= if @audit_trail == [] do %>
-                  <p class="text-xs text-base-content/40 text-center">No audit entries</p>
-                <% end %>
-              </div>
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+              <h2 class="text-sm font-semibold text-base-content">Authorization Routing Graph</h2>
             </div>
-          <% end %>
+            <div class="flex items-center gap-2">
+              <span class="badge badge-success badge-sm gap-1">
+                <span class="w-2 h-2 rounded-full bg-success"></span> Authorized
+              </span>
+              <span class="badge badge-error badge-sm gap-1">
+                <span class="w-2 h-2 rounded-full bg-error"></span> Denied
+              </span>
+              <span class="badge badge-warning badge-sm gap-1">
+                <span class="w-2 h-2 rounded-full bg-warning"></span> Pending
+              </span>
+            </div>
+          </header>
+
+          <main class="flex-1 overflow-y-auto p-4">
+            <div class="flex gap-4 h-full">
+              <!-- Graph Canvas -->
+              <div class="flex-1 bg-base-200 rounded-lg" style="min-height: 600px;">
+                <div
+                  id="routing-graph"
+                  phx-hook="RoutingGraph"
+                  phx-update="ignore"
+                  class="w-full h-full"
+                  style="min-height: 600px;"
+                >
+                </div>
+              </div>
+              
+    <!-- Audit Side Panel -->
+              <%= if @selected_agent do %>
+                <div class="w-80 bg-base-200 rounded-lg p-4">
+                  <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-sm">Audit Trail</h3>
+                    <button class="btn btn-ghost btn-xs" phx-click="select_agent" phx-value-id="">
+                      Close
+                    </button>
+                  </div>
+                  <p class="text-xs text-base-content/60 mb-4 font-mono">{@selected_agent}</p>
+                  <div class="space-y-2">
+                    <%= for entry <- @audit_trail do %>
+                      <div class="card card-compact bg-base-300">
+                        <div class="card-body py-2">
+                          <span class="text-xs font-mono">{Map.get(entry, :event_type, "")}</span>
+                          <span class="text-xs text-base-content/60">
+                            {Map.get(entry, :timestamp, "")}
+                          </span>
+                        </div>
+                      </div>
+                    <% end %>
+                    <%= if @audit_trail == [] do %>
+                      <p class="text-xs text-base-content/40 text-center">No audit entries</p>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </main>
         </div>
-        </main>
-      </div>
       </:main>
     </.page_layout>
     """
@@ -168,8 +183,20 @@ defmodule ApmWeb.RoutingLive do
 
   defp push_routing_data(socket) do
     graph = build_routing_graph()
-    summary = try do AuthorizationGate.summary() rescue _ -> %{} end
-    trust_ceilings = try do ContextTracker.all_trust_ceilings() rescue _ -> %{} end
+
+    summary =
+      try do
+        AuthorizationGate.summary()
+      rescue
+        _ -> %{}
+      end
+
+    trust_ceilings =
+      try do
+        ContextTracker.all_trust_ceilings()
+      rescue
+        _ -> %{}
+      end
 
     recent_decisions =
       try do
@@ -200,8 +227,19 @@ defmodule ApmWeb.RoutingLive do
         :exit, _ -> []
       end
 
-    sessions = try do SessionStore.list_active() rescue _ -> [] end
-    tools = try do AuthorizationGate.list_tools() rescue _ -> [] end
+    sessions =
+      try do
+        SessionStore.list_active()
+      rescue
+        _ -> []
+      end
+
+    tools =
+      try do
+        AuthorizationGate.list_tools()
+      rescue
+        _ -> []
+      end
 
     pending_gates =
       try do

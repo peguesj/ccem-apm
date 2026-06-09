@@ -70,7 +70,9 @@ defmodule ApmWeb.Components.InspectorPanel do
     >
       <!-- Header: 40px -->
       <div style="padding: 0 12px; height: 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--ccem-line-subtle);">
-        <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg); letter-spacing: 0.01em;">Inspector</span>
+        <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg); letter-spacing: 0.01em;">
+          Inspector
+        </span>
         <button
           phx-click={@on_close}
           style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: transparent; border: none; border-radius: 4px; color: var(--ccem-fg-dim); cursor: pointer; font-size: 14px; line-height: 1;"
@@ -105,9 +107,12 @@ defmodule ApmWeb.Components.InspectorPanel do
       <!-- Content: flex-1, scrollable -->
       <div style="flex: 1; overflow-y: auto; padding: 12px;">
         <%= case @mode do %>
-          <% "selection" -> %><%= render_slot(@selection) %>
-          <% "copilot" -> %><%= render_slot(@copilot) %>
-          <% "filters" -> %><%= render_slot(@filters) %>
+          <% "selection" -> %>
+            {render_slot(@selection)}
+          <% "copilot" -> %>
+            {render_slot(@copilot)}
+          <% "filters" -> %>
+            {render_slot(@filters)}
           <% _ -> %>
         <% end %>
       </div>

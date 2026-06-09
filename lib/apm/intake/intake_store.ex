@@ -67,6 +67,7 @@ defmodule Apm.Intake.Store do
       Apm.Intake.Watchers.LogWatcher,
       Apm.Intake.Watchers.UatWatcher
     ]
+
     {:ok, %{watchers: watchers, count: 0}}
   end
 
@@ -105,6 +106,7 @@ defmodule Apm.Intake.Store do
         {_k, event} -> {:ok, event}
         nil -> {:error, :not_found}
       end
+
     {:reply, result, state}
   end
 
@@ -144,12 +146,16 @@ defmodule Apm.Intake.Store do
   defp filter_by_source(events, source), do: Enum.filter(events, &(&1.source == source))
 
   defp filter_by_event_type(events, nil), do: events
-  defp filter_by_event_type(events, event_type), do: Enum.filter(events, &(&1.event_type == event_type))
+
+  defp filter_by_event_type(events, event_type),
+    do: Enum.filter(events, &(&1.event_type == event_type))
 
   defp trim_table do
     count = :ets.info(@table, :size)
+
     if count > @max_events do
       excess = count - @max_events
+
       :ets.tab2list(@table)
       |> Enum.sort_by(fn {k, _} -> k end)
       |> Enum.take(excess)

@@ -23,12 +23,13 @@ defmodule ApmWeb.V2.A2ATasksController do
 
   @doc "Return a single A2A task by id."
   @spec show(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :show,
+  operation(:show,
     summary: "Get one",
     tags: ["A2A Tasks"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def show(conn, %{"task_id" => task_id}) do
     case TaskStore.get_task(task_id) do
@@ -46,12 +47,13 @@ defmodule ApmWeb.V2.A2ATasksController do
 
   @doc "List A2A tasks, optionally filtered by agent_id and/or status."
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["A2A Tasks"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, params) do
     tasks =

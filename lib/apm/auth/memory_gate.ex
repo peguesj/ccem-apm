@@ -108,8 +108,7 @@ defmodule Apm.Auth.MemoryGate do
         :ok
 
       [{type, _match} | _] ->
-        {:error, :memory_prohibited_content,
-         "Content contains prohibited pattern: #{type}"}
+        {:error, :memory_prohibited_content, "Content contains prohibited pattern: #{type}"}
     end
   end
 
@@ -126,8 +125,7 @@ defmodule Apm.Auth.MemoryGate do
         :ok
 
       {:session, :untrusted} ->
-        {:error, :memory_write_denied,
-         "Session persistence blocked at untrusted trust ceiling"}
+        {:error, :memory_write_denied, "Session persistence blocked at untrusted trust ceiling"}
 
       _ ->
         :ok
@@ -136,10 +134,11 @@ defmodule Apm.Auth.MemoryGate do
 
   defp check_rate_limit(agent_id) do
     case Apm.Auth.RateLimiter.check(agent_id, "memory_write") do
-      :ok -> :ok
+      :ok ->
+        :ok
+
       {:error, :rate_limited, retry_after} ->
-        {:error, :memory_rate_limited,
-         "Memory write rate limited; retry after #{retry_after}ms"}
+        {:error, :memory_rate_limited, "Memory write rate limited; retry after #{retry_after}ms"}
     end
   end
 

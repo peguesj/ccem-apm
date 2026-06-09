@@ -122,16 +122,24 @@ defmodule Apm.CommandRunner do
     task =
       Task.async(fn ->
         port =
-          Port.open({:spawn_executable, "/bin/sh"},
-            [:binary, :exit_status, :stderr_to_stdout,
-             args: ["-c", command], cd: to_charlist(cwd)]
+          Port.open(
+            {:spawn_executable, "/bin/sh"},
+            [
+              :binary,
+              :exit_status,
+              :stderr_to_stdout,
+              args: ["-c", command],
+              cd: to_charlist(cwd)
+            ]
           )
 
         # Store the task pid so kill/1 can find it
         case :ets.lookup(table, request_id) do
           [{^request_id, info}] ->
             :ets.insert(table, {request_id, %{info | pid: self()}})
-          _ -> :ok
+
+          _ ->
+            :ok
         end
 
         collect_output(port, "", topic)
@@ -142,7 +150,12 @@ defmodule Apm.CommandRunner do
         result
 
       nil ->
-        Phoenix.PubSub.broadcast(Apm.PubSub, topic, {:output, "[timeout after #{div(timeout, 1000)}s]\n"})
+        Phoenix.PubSub.broadcast(
+          Apm.PubSub,
+          topic,
+          {:output, "[timeout after #{div(timeout, 1000)}s]\n"}
+        )
+
         %{exit_code: 124, output: "[command timed out]"}
     end
   end
@@ -162,6 +175,8 @@ defmodule Apm.CommandRunner do
   end
 
   defp generate_id do
-    :crypto.strong_rand_bytes(8) |> Base.hex_encode32(case: :lower, padding: false) |> String.slice(0, 12)
+    :crypto.strong_rand_bytes(8)
+    |> Base.hex_encode32(case: :lower, padding: false)
+    |> String.slice(0, 12)
   end
 end

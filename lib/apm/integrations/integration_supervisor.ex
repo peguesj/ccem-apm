@@ -11,7 +11,9 @@ defmodule Apm.Integrations.IntegrationSupervisor do
   def init(_init_arg), do: DynamicSupervisor.init(strategy: :one_for_one)
 
   @doc "Start all child specs returned by an integration's supervisor_children/0."
-  @spec start_integration_children([Supervisor.child_spec()]) :: [DynamicSupervisor.on_start_child()]
+  @spec start_integration_children([Supervisor.child_spec()]) :: [
+          DynamicSupervisor.on_start_child()
+        ]
   def start_integration_children(children) when is_list(children) do
     Enum.map(children, &DynamicSupervisor.start_child(__MODULE__, &1))
   end

@@ -17,7 +17,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "deploy_apm_hooks",
       name: "Deploy APM Hook Scripts",
-      description: "Create Claude Code bash hook scripts (.claude/hooks/) to report to CCEM APM. Creates session_init.sh, pre_tool_use.sh, post_tool_use.sh.",
+      description:
+        "Create Claude Code bash hook scripts (.claude/hooks/) to report to CCEM APM. Creates session_init.sh, pre_tool_use.sh, post_tool_use.sh.",
       category: "hooks",
       icon: "hook",
       params: []
@@ -25,7 +26,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "add_memory_pointer",
       name: "Add Memory Pointer",
-      description: "Add CCEM APM memory pointers to the project's .claude/CLAUDE.md. Inserts APM port, config path, and dashboard URL references.",
+      description:
+        "Add CCEM APM memory pointers to the project's .claude/CLAUDE.md. Inserts APM port, config path, and dashboard URL references.",
       category: "memory",
       icon: "bookmark",
       params: []
@@ -33,7 +35,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "backfill_apm_config",
       name: "Backfill APM Config",
-      description: "Create or update apm_config.json for the project. Fills in project_name, project_root, apm_url, and skills path.",
+      description:
+        "Create or update apm_config.json for the project. Fills in project_name, project_root, apm_url, and skills path.",
       category: "config",
       icon: "settings",
       params: []
@@ -41,7 +44,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "analyze_project",
       name: "Analyze Project",
-      description: "Scan project structure and return findings: stack, agents, formations, config completeness, and drift between actual and configured.",
+      description:
+        "Scan project structure and return findings: stack, agents, formations, config completeness, and drift between actual and configured.",
       category: "analysis",
       icon: "search",
       params: []
@@ -49,7 +53,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "fix_skill_frontmatter",
       name: "Fix Skill Frontmatter",
-      description: "Read SKILL.md for a given skill and add/update YAML frontmatter with name and description fields.",
+      description:
+        "Read SKILL.md for a given skill and add/update YAML frontmatter with name and description fields.",
       category: "skill_audit",
       icon: "pencil",
       params: [%{name: "skill_name", type: "string", required: true}]
@@ -57,7 +62,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "complete_skill_description",
       name: "Complete Skill Description",
-      description: "Extend a truncated skill description in SKILL.md frontmatter to at least 100 characters.",
+      description:
+        "Extend a truncated skill description in SKILL.md frontmatter to at least 100 characters.",
       category: "skill_audit",
       icon: "document-text",
       params: [%{name: "skill_name", type: "string", required: true}]
@@ -65,7 +71,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "add_skill_triggers",
       name: "Add Skill Triggers",
-      description: "Append trigger keyword section to SKILL.md content to improve health score trigger detection.",
+      description:
+        "Append trigger keyword section to SKILL.md content to improve health score trigger detection.",
       category: "skill_audit",
       icon: "bolt",
       params: [%{name: "skill_name", type: "string", required: true}]
@@ -73,7 +80,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "add_skill_templates",
       name: "Add Skill Templates",
-      description: "Generate a templates section in SKILL.md with boilerplate/template content for the skill.",
+      description:
+        "Generate a templates section in SKILL.md with boilerplate/template content for the skill.",
       category: "skill_audit",
       icon: "document-duplicate",
       params: [%{name: "skill_name", type: "string", required: true}]
@@ -81,7 +89,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "add_skill_examples",
       name: "Add Skill Examples",
-      description: "Generate a usage examples section in SKILL.md demonstrating how to invoke and use the skill.",
+      description:
+        "Generate a usage examples section in SKILL.md demonstrating how to invoke and use the skill.",
       category: "skill_audit",
       icon: "code-bracket",
       params: [%{name: "skill_name", type: "string", required: true}]
@@ -89,7 +98,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "backfill_project_memory",
       name: "Backfill Project Memory",
-      description: "Read project directory and generate a CCEM APM memory section for .claude/CLAUDE.md.",
+      description:
+        "Read project directory and generate a CCEM APM memory section for .claude/CLAUDE.md.",
       category: "skill_audit",
       icon: "archive-box",
       params: []
@@ -97,7 +107,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "update_hooks",
       name: "Update Settings Hooks",
-      description: "Read .claude/settings.json and add missing CCEM APM hooks configuration entries.",
+      description:
+        "Read .claude/settings.json and add missing CCEM APM hooks configuration entries.",
       category: "skill_audit",
       icon: "cog",
       params: []
@@ -105,7 +116,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "discover_migrate_showcases",
       name: "Discover & Migrate Showcases",
-      description: "Scan registered projects for standalone showcase directories (showcase/client/showcase.js). Copies assets to APM static paths and registers showcase_data_path in project config. Reports per-project outcome.",
+      description:
+        "Scan registered projects for standalone showcase directories (showcase/client/showcase.js). Copies assets to APM static paths and registers showcase_data_path in project config. Reports per-project outcome.",
       category: "showcase",
       icon: "presentation-chart-bar",
       params: []
@@ -113,7 +125,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "register_all_ports",
       name: "Register All Ports",
-      description: "Scan all configured projects and register/assign ports for any missing port assignments. Uses PortManager to detect and fill gaps.",
+      description:
+        "Scan all configured projects and register/assign ports for any missing port assignments. Uses PortManager to detect and fill gaps.",
       category: "ports",
       icon: "server",
       params: []
@@ -121,18 +134,25 @@ defmodule Apm.ActionEngine do
     %{
       id: "update_port_namespace",
       name: "Update Port Namespace",
-      description: "Update port namespace assignment for a project. Moves the project's port to a different namespace range.",
+      description:
+        "Update port namespace assignment for a project. Moves the project's port to a different namespace range.",
       category: "ports",
       icon: "arrows-right-left",
       params: [
         %{name: "project", type: "string", required: true},
-        %{name: "namespace", type: "string", required: true, options: ["web", "api", "service", "tool"]}
+        %{
+          name: "namespace",
+          type: "string",
+          required: true,
+          options: ["web", "api", "service", "tool"]
+        }
       ]
     },
     %{
       id: "analyze_port_assignment",
       name: "Analyze Port Assignment",
-      description: "Analyze port utilization across all projects. Returns namespace distribution, active vs inactive counts, clash summary, and utilization percentage.",
+      description:
+        "Analyze port utilization across all projects. Returns namespace distribution, active vs inactive counts, clash summary, and utilization percentage.",
       category: "ports",
       icon: "chart-bar",
       params: []
@@ -140,7 +160,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "smart_reassign_ports",
       name: "Smart Reassign Ports",
-      description: "Intelligently reassign conflicting ports using AG-UI event flow. Analyzes clashes, proposes resolutions, and confirms via chat before applying.",
+      description:
+        "Intelligently reassign conflicting ports using AG-UI event flow. Analyzes clashes, proposes resolutions, and confirms via chat before applying.",
       category: "ports",
       icon: "bolt",
       params: []
@@ -149,7 +170,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "create_authorization_hooks",
       name: "Create Authorization Hooks",
-      description: "Deploy AgentLock PreToolUse/PostToolUse hooks (agentlock_pre_tool.sh, agentlock_post_tool.sh, agentlock_context.sh) to target project's hook directory.",
+      description:
+        "Deploy AgentLock PreToolUse/PostToolUse hooks (agentlock_pre_tool.sh, agentlock_post_tool.sh, agentlock_context.sh) to target project's hook directory.",
       category: "authorization",
       icon: "shield-check",
       params: []
@@ -157,7 +179,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "register_tool_permissions",
       name: "Register Tool Permissions",
-      description: "Batch register Claude Code tools with AgentLock risk levels. Configures default policies: Read=none, Write=medium, Bash=high, Agent=low.",
+      description:
+        "Batch register Claude Code tools with AgentLock risk levels. Configures default policies: Read=none, Write=medium, Bash=high, Agent=low.",
       category: "authorization",
       icon: "key",
       params: []
@@ -165,7 +188,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "audit_authorization_compliance",
       name: "Audit Authorization Compliance",
-      description: "Scan authorization audit log for unauthorized patterns, missing tokens, expired sessions. Returns compliance report with risk distribution.",
+      description:
+        "Scan authorization audit log for unauthorized patterns, missing tokens, expired sessions. Returns compliance report with risk distribution.",
       category: "authorization",
       icon: "clipboard-document-check",
       params: []
@@ -173,18 +197,25 @@ defmodule Apm.ActionEngine do
     %{
       id: "manage_agent_lifecycle",
       name: "Manage Agent Lifecycle",
-      description: "Start/stop/restart agent with authorization checkpoint. Validates token before state transition. Supports PENDING→AUTHORIZED→RUNNING lifecycle.",
+      description:
+        "Start/stop/restart agent with authorization checkpoint. Validates token before state transition. Supports PENDING→AUTHORIZED→RUNNING lifecycle.",
       category: "process_management",
       icon: "play",
       params: [
         %{name: "agent_id", type: "string", required: true},
-        %{name: "action", type: "string", required: true, options: ["start", "stop", "restart", "authorize"]}
+        %{
+          name: "action",
+          type: "string",
+          required: true,
+          options: ["start", "stop", "restart", "authorize"]
+        }
       ]
     },
     %{
       id: "enforce_data_boundaries",
       name: "Enforce Data Boundaries",
-      description: "Apply RedactionEngine patterns to specified output. Scans for sensitive data (SSN, CC, API keys, etc.) and reports findings. Optionally redacts in-place.",
+      description:
+        "Apply RedactionEngine patterns to specified output. Scans for sensitive data (SSN, CC, API keys, etc.) and reports findings. Optionally redacts in-place.",
       category: "authorization",
       icon: "eye-slash",
       params: [
@@ -195,7 +226,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "align_skill_paths",
       name: "Align Skill Path Resolution",
-      description: "Scans user-scope skill definitions (~/.claude/skills/) for path resolution issues. Detects skills that reference state files (prd.json, progress.txt, upm_config.json) using user-level paths (~/.claude/skills/) instead of the project-level .claude directory. Emits AG-UI event with findings and optionally writes corrected path instructions.",
+      description:
+        "Scans user-scope skill definitions (~/.claude/skills/) for path resolution issues. Detects skills that reference state files (prd.json, progress.txt, upm_config.json) using user-level paths (~/.claude/skills/) instead of the project-level .claude directory. Emits AG-UI event with findings and optionally writes corrected path instructions.",
       category: "skill_audit",
       icon: "folder-arrow-down",
       params: [
@@ -206,7 +238,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "agent_alignment_audit",
       name: "Agent Alignment Audit",
-      description: "Scans all skills in ~/.claude/skills/ and audits agent definition quality: checks APM registration patterns (fire-and-forget curl to /api/register), formation_role enum usage (orchestrator|squadron_lead|swarm_agent|cluster_agent|individual), fmt-YYYYMMDD convention, and structural vs runtime-only definitions. Returns a scored alignment_report with gaps and recommendations.",
+      description:
+        "Scans all skills in ~/.claude/skills/ and audits agent definition quality: checks APM registration patterns (fire-and-forget curl to /api/register), formation_role enum usage (orchestrator|squadron_lead|swarm_agent|cluster_agent|individual), fmt-YYYYMMDD convention, and structural vs runtime-only definitions. Returns a scored alignment_report with gaps and recommendations.",
       category: "skill_audit",
       icon: "magnifying-glass-circle",
       params: []
@@ -214,7 +247,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "lvm_integration_setup",
       name: "LVM Integration Setup",
-      description: "Configures the Claude Platform LVM integration. Verifies model capability data is available, registers known models in ClaudeUsageStore, and validates the LvmIntegration is active in the IntegrationRegistry.",
+      description:
+        "Configures the Claude Platform LVM integration. Verifies model capability data is available, registers known models in ClaudeUsageStore, and validates the LvmIntegration is active in the IntegrationRegistry.",
       category: "integration",
       icon: "cpu-chip",
       params: []
@@ -222,7 +256,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "manage_showcases",
       name: "Manage Project Showcases",
-      description: "Discover, manage, and create project showcases. Lists all projects with showcase status (standalone/central/unconfigured). Integrates with /upm plan/build, /plane-pm align daemon, /apm reporting, and /apm-auth approval gates. Can generate central showcase entries or link standalone project showcases.",
+      description:
+        "Discover, manage, and create project showcases. Lists all projects with showcase status (standalone/central/unconfigured). Integrates with /upm plan/build, /plane-pm align daemon, /apm reporting, and /apm-auth approval gates. Can generate central showcase entries or link standalone project showcases.",
       category: "showcase",
       icon: "presentation-chart-bar",
       params: [
@@ -234,7 +269,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "repair_hooks",
       name: "Repair Hook Filesystem",
-      description: "Scan all project directories under ~/Developer for missing or root-owned .remember/logs/hook-errors.log paths. Creates missing dirs/files for user-owned paths. Emits a notification with the sudo chown command for any root-owned paths that require elevated repair. Idempotent — safe to run repeatedly.",
+      description:
+        "Scan all project directories under ~/Developer for missing or root-owned .remember/logs/hook-errors.log paths. Creates missing dirs/files for user-owned paths. Emits a notification with the sudo chown command for any root-owned paths that require elevated repair. Idempotent — safe to run repeatedly.",
       category: "hooks",
       icon: "wrench",
       params: [
@@ -245,7 +281,8 @@ defmodule Apm.ActionEngine do
     %{
       id: "audit_hook_performance",
       name: "Audit Hook Performance",
-      description: "Scan Claude Code hook scripts for performance culprits: cold-start npx, blocking network calls, heavy shell ops that add latency or block interrupts",
+      description:
+        "Scan Claude Code hook scripts for performance culprits: cold-start npx, blocking network calls, heavy shell ops that add latency or block interrupts",
       category: "hooks",
       icon: "clock",
       dangerous: false,
@@ -318,6 +355,7 @@ defmodule Apm.ActionEngine do
       {:reply, {:error, :unknown_action}, state}
     else
       run_id = Apm.Correlation.generate()
+
       run = %{
         id: run_id,
         action_type: action_type,
@@ -333,6 +371,7 @@ defmodule Apm.ActionEngine do
 
       # Run async
       server = self()
+
       Task.start(fn ->
         result = execute_action(action_type, project_path, params)
         GenServer.cast(server, {:action_done, run_id, result})
@@ -349,6 +388,7 @@ defmodule Apm.ActionEngine do
       state.runs
       |> Map.values()
       |> Enum.sort_by(& &1.started_at, :desc)
+
     {:reply, runs, state}
   end
 
@@ -409,7 +449,9 @@ defmodule Apm.ActionEngine do
     dropped = map_size(state.runs) - map_size(pruned)
 
     if dropped > 0 do
-      Logger.info("ActionEngine: pruned #{dropped} runs (older than 24h or over #{@max_runs} limit)")
+      Logger.info(
+        "ActionEngine: pruned #{dropped} runs (older than 24h or over #{@max_runs} limit)"
+      )
     end
 
     schedule_prune()
@@ -430,6 +472,7 @@ defmodule Apm.ActionEngine do
 
   defp check_hooks_present(path) do
     hooks_dir = Path.join(path, ".claude/hooks")
+
     Enum.all?(["session_init.sh", "pre_tool_use.sh", "post_tool_use.sh"], fn hook ->
       File.exists?(Path.join(hooks_dir, hook))
     end)
@@ -462,6 +505,7 @@ defmodule Apm.ActionEngine do
     results =
       Enum.map(hooks, fn {filename, content} ->
         path = Path.join(hooks_dir, filename)
+
         case File.write(path, content) do
           :ok ->
             File.chmod(path, 0o755)
@@ -490,19 +534,20 @@ defmodule Apm.ActionEngine do
 
     pointer = """
 
-## CCEM APM Integration
+    ## CCEM APM Integration
 
-- **APM Dashboard**: http://localhost:3032
-- **APM Config**: #{Path.join(project_path, "apm/apm_config.json")}
-- **APM Port**: 3032
-- **Skills Path**: ~/.claude/skills/
-- **APM Log**: ~/Developer/ccem/apm/hooks/apm_server.log
-"""
+    - **APM Dashboard**: http://localhost:3032
+    - **APM Config**: #{Path.join(project_path, "apm/apm_config.json")}
+    - **APM Port**: 3032
+    - **Skills Path**: ~/.claude/skills/
+    - **APM Log**: ~/Developer/ccem/apm/hooks/apm_server.log
+    """
 
-    existing = case File.read(claude_md) do
-      {:ok, content} -> content
-      _ -> ""
-    end
+    existing =
+      case File.read(claude_md) do
+        {:ok, content} -> content
+        _ -> ""
+      end
 
     if String.contains?(existing, "CCEM APM Integration") do
       {:ok, %{message: "Memory pointer already present", file: claude_md}}
@@ -540,28 +585,34 @@ defmodule Apm.ActionEngine do
   end
 
   defp execute_action("analyze_project", project_path, _params) do
-    files = case File.ls(project_path) do
-      {:ok, f} -> f
-      _ -> []
-    end
+    files =
+      case File.ls(project_path) do
+        {:ok, f} -> f
+        _ -> []
+      end
 
     has_claude = ".claude" in files
-    has_apm_config = File.exists?(Path.join(project_path, "apm/apm_config.json")) or
-                     File.exists?(Path.join(project_path, ".claude/apm_config.json"))
+
+    has_apm_config =
+      File.exists?(Path.join(project_path, "apm/apm_config.json")) or
+        File.exists?(Path.join(project_path, ".claude/apm_config.json"))
 
     stack = detect_basic_stack(files)
-    agent_count = count_dir(Path.join(project_path, ".claude/skills")) +
-                  count_dir(Path.join(project_path, ".claude/agents"))
 
-    {:ok, %{
-      project_name: Path.basename(project_path),
-      project_path: project_path,
-      has_claude_config: has_claude,
-      has_apm_config: has_apm_config,
-      stack: stack,
-      agent_count: agent_count,
-      recommendations: build_recommendations(has_claude, has_apm_config)
-    }}
+    agent_count =
+      count_dir(Path.join(project_path, ".claude/skills")) +
+        count_dir(Path.join(project_path, ".claude/agents"))
+
+    {:ok,
+     %{
+       project_name: Path.basename(project_path),
+       project_path: project_path,
+       has_claude_config: has_claude,
+       has_apm_config: has_apm_config,
+       stack: stack,
+       agent_count: agent_count,
+       recommendations: build_recommendations(has_claude, has_apm_config)
+     }}
   rescue
     e -> {:error, Exception.message(e)}
   end
@@ -588,14 +639,18 @@ defmodule Apm.ActionEngine do
           {updated, ["updated existing frontmatter"]}
         else
           # Prepend new frontmatter
-          frontmatter = "---\nname: #{skill_name}\ndescription: #{skill_name} skill — add a detailed description here.\n---\n\n"
+          frontmatter =
+            "---\nname: #{skill_name}\ndescription: #{skill_name} skill — add a detailed description here.\n---\n\n"
+
           {frontmatter <> content, ["added frontmatter"]}
         end
 
       case File.write(skill_md, new_content) do
         :ok ->
           notify_skill_audit_complete(skill_name, "fix_skill_frontmatter")
-          {:ok, %{status: "ok", message: "Frontmatter updated", changes: changes, skill: skill_name}}
+
+          {:ok,
+           %{status: "ok", message: "Frontmatter updated", changes: changes, skill: skill_name}}
 
         {:error, reason} ->
           {:error, "Failed to write #{skill_md}: #{reason}"}
@@ -615,14 +670,24 @@ defmodule Apm.ActionEngine do
     case File.read(skill_md) do
       {:ok, content} ->
         updated =
-          ensure_frontmatter_key(content, "description",
+          ensure_frontmatter_key(
+            content,
+            "description",
             "#{skill_name} skill — a Claude Code skill that provides specialized capabilities. " <>
-              "Use this skill when working with #{skill_name}-related tasks.")
+              "Use this skill when working with #{skill_name}-related tasks."
+          )
 
         case File.write(skill_md, updated) do
           :ok ->
             notify_skill_audit_complete(skill_name, "complete_skill_description")
-            {:ok, %{status: "ok", message: "Description extended", skill: skill_name, changes: ["description updated"]}}
+
+            {:ok,
+             %{
+               status: "ok",
+               message: "Description extended",
+               skill: skill_name,
+               changes: ["description updated"]
+             }}
 
           {:error, reason} ->
             {:error, "write failed: #{reason}"}
@@ -646,24 +711,32 @@ defmodule Apm.ActionEngine do
       {:ok, content} ->
         triggers_section = """
 
-## When to use
+        ## When to use
 
-**Trigger keywords**: trigger, invoke, use when, keywords
-- Use this skill when you need to work with #{skill_name}
-- Invoke when: #{skill_name}-related tasks are required
-"""
+        **Trigger keywords**: trigger, invoke, use when, keywords
+        - Use this skill when you need to work with #{skill_name}
+        - Invoke when: #{skill_name}-related tasks are required
+        """
 
         unless String.contains?(content, "When to use") do
           case File.write(skill_md, content <> triggers_section) do
             :ok ->
               notify_skill_audit_complete(skill_name, "add_skill_triggers")
-              {:ok, %{status: "ok", message: "Triggers section added", skill: skill_name, changes: ["triggers section appended"]}}
+
+              {:ok,
+               %{
+                 status: "ok",
+                 message: "Triggers section added",
+                 skill: skill_name,
+                 changes: ["triggers section appended"]
+               }}
 
             {:error, reason} ->
               {:error, "write failed: #{reason}"}
           end
         else
-          {:ok, %{status: "ok", message: "Triggers already present", skill: skill_name, changes: []}}
+          {:ok,
+           %{status: "ok", message: "Triggers already present", skill: skill_name, changes: []}}
         end
 
       _ ->
@@ -685,31 +758,44 @@ defmodule Apm.ActionEngine do
         content_lower = String.downcase(content)
 
         if String.contains?(content_lower, "## template") do
-          {:ok, %{status: "ok", message: "Templates section already present", skill: skill_name, changes: []}}
+          {:ok,
+           %{
+             status: "ok",
+             message: "Templates section already present",
+             skill: skill_name,
+             changes: []
+           }}
         else
           templates_section = """
 
-## Templates
+          ## Templates
 
-### Basic Usage Template
+          ### Basic Usage Template
 
-```
-/<#{skill_name}> <args>
-```
+          ```
+          /<#{skill_name}> <args>
+          ```
 
-### Configuration Template
+          ### Configuration Template
 
-```yaml
-# #{skill_name} configuration
-enabled: true
-options: {}
-```
-"""
+          ```yaml
+          # #{skill_name} configuration
+          enabled: true
+          options: {}
+          ```
+          """
 
           case File.write(skill_md, content <> templates_section) do
             :ok ->
               notify_skill_audit_complete(skill_name, "add_skill_templates")
-              {:ok, %{status: "ok", message: "Templates section added", skill: skill_name, changes: ["templates section appended"]}}
+
+              {:ok,
+               %{
+                 status: "ok",
+                 message: "Templates section added",
+                 skill: skill_name,
+                 changes: ["templates section appended"]
+               }}
 
             {:error, reason} ->
               {:error, "write failed: #{reason}"}
@@ -735,33 +821,46 @@ options: {}
         content_lower = String.downcase(content)
 
         if String.contains?(content_lower, "## example") do
-          {:ok, %{status: "ok", message: "Examples section already present", skill: skill_name, changes: []}}
+          {:ok,
+           %{
+             status: "ok",
+             message: "Examples section already present",
+             skill: skill_name,
+             changes: []
+           }}
         else
           examples_section = """
 
-## Examples
+          ## Examples
 
-### Example 1: Basic invocation
+          ### Example 1: Basic invocation
 
-```
-/#{skill_name}
-```
+          ```
+          /#{skill_name}
+          ```
 
-Runs the skill with default options.
+          Runs the skill with default options.
 
-### Example 2: With arguments
+          ### Example 2: With arguments
 
-```
-/#{skill_name} --option value
-```
+          ```
+          /#{skill_name} --option value
+          ```
 
-Runs the skill with custom configuration.
-"""
+          Runs the skill with custom configuration.
+          """
 
           case File.write(skill_md, content <> examples_section) do
             :ok ->
               notify_skill_audit_complete(skill_name, "add_skill_examples")
-              {:ok, %{status: "ok", message: "Examples section added", skill: skill_name, changes: ["examples section appended"]}}
+
+              {:ok,
+               %{
+                 status: "ok",
+                 message: "Examples section added",
+                 skill: skill_name,
+                 changes: ["examples section appended"]
+               }}
 
             {:error, reason} ->
               {:error, "write failed: #{reason}"}
@@ -789,20 +888,21 @@ Runs the skill with custom configuration.
 
     memory_section = """
 
-## CCEM APM Memory
+    ## CCEM APM Memory
 
-- **Project**: #{project_name}
-- **Path**: #{project_path}
-- **Stack**: #{Enum.join(stack_info, ", ")}
-- **APM Dashboard**: http://localhost:3032
-- **Skills Path**: ~/.claude/skills/
-- **Generated**: #{DateTime.utc_now() |> DateTime.to_iso8601()}
-"""
+    - **Project**: #{project_name}
+    - **Path**: #{project_path}
+    - **Stack**: #{Enum.join(stack_info, ", ")}
+    - **APM Dashboard**: http://localhost:3032
+    - **Skills Path**: ~/.claude/skills/
+    - **Generated**: #{DateTime.utc_now() |> DateTime.to_iso8601()}
+    """
 
-    existing = case File.read(claude_md) do
-      {:ok, content} -> content
-      _ -> ""
-    end
+    existing =
+      case File.read(claude_md) do
+        {:ok, content} -> content
+        _ -> ""
+      end
 
     new_content =
       if String.contains?(existing, "## CCEM APM Memory") do
@@ -813,12 +913,13 @@ Runs the skill with custom configuration.
 
     case File.write(claude_md, new_content) do
       :ok ->
-        {:ok, %{
-          status: "ok",
-          message: "Project memory backfilled",
-          file: claude_md,
-          changes: ["CCEM APM Memory section added"]
-        }}
+        {:ok,
+         %{
+           status: "ok",
+           message: "Project memory backfilled",
+           file: claude_md,
+           changes: ["CCEM APM Memory section added"]
+         }}
 
       {:error, reason} ->
         {:error, "write failed: #{reason}"}
@@ -849,7 +950,8 @@ Runs the skill with custom configuration.
           "hooks" => [
             %{
               "type" => "command",
-              "command" => "curl -s -X POST http://localhost:3032/api/heartbeat -H 'Content-Type: application/json' -d '{\"agent_id\":\"$CLAUDE_SESSION_ID\",\"status\":\"working\",\"message\":\"PreToolUse\"}' >/dev/null 2>&1"
+              "command" =>
+                "curl -s -X POST http://localhost:3032/api/heartbeat -H 'Content-Type: application/json' -d '{\"agent_id\":\"$CLAUDE_SESSION_ID\",\"status\":\"working\",\"message\":\"PreToolUse\"}' >/dev/null 2>&1"
             }
           ]
         }
@@ -864,12 +966,13 @@ Runs the skill with custom configuration.
 
     case File.write(settings_path, Jason.encode!(updated_settings, pretty: true)) do
       :ok ->
-        {:ok, %{
-          status: "ok",
-          message: "Settings hooks updated",
-          file: settings_path,
-          changes: ["APM hooks added to settings.json"]
-        }}
+        {:ok,
+         %{
+           status: "ok",
+           message: "Settings hooks updated",
+           file: settings_path,
+           changes: ["APM hooks added to settings.json"]
+         }}
 
       {:error, reason} ->
         {:error, "write failed: #{reason}"}
@@ -911,7 +1014,11 @@ Runs the skill with custom configuration.
                 %{project: name, status: :skipped, reason: "no showcase/client/showcase.js found"}
 
               Map.get(project, "showcase_data_path") != nil ->
-                %{project: name, status: :skipped, reason: "already migrated (showcase_data_path set)"}
+                %{
+                  project: name,
+                  status: :skipped,
+                  reason: "already migrated (showcase_data_path set)"
+                }
 
               true ->
                 dest = Path.join(static_base, name)
@@ -1038,19 +1145,27 @@ Runs the skill with custom configuration.
     newly_assigned = Enum.filter(results, &match?({:assigned, _, _}, &1))
     failed = Enum.filter(results, &match?({:failed, _, _}, &1))
 
-    {:ok, %{
-      total_projects: length(results),
-      already_assigned: length(assigned),
-      newly_assigned: length(newly_assigned),
-      failed: length(failed),
-      assignments: Enum.map(newly_assigned, fn {:assigned, name, port} -> %{project: name, port: port} end),
-      errors: Enum.map(failed, fn {:failed, name, reason} -> %{project: name, reason: inspect(reason)} end)
-    }}
+    {:ok,
+     %{
+       total_projects: length(results),
+       already_assigned: length(assigned),
+       newly_assigned: length(newly_assigned),
+       failed: length(failed),
+       assignments:
+         Enum.map(newly_assigned, fn {:assigned, name, port} -> %{project: name, port: port} end),
+       errors:
+         Enum.map(failed, fn {:failed, name, reason} ->
+           %{project: name, reason: inspect(reason)}
+         end)
+     }}
   rescue
     e -> {:error, Exception.message(e)}
   end
 
-  defp execute_action("update_port_namespace", _project_path, %{"project" => project_name, "namespace" => namespace_str}) do
+  defp execute_action("update_port_namespace", _project_path, %{
+         "project" => project_name,
+         "namespace" => namespace_str
+       }) do
     namespace = String.to_existing_atom(namespace_str)
     ranges = Apm.PortManager.get_port_ranges()
 
@@ -1061,12 +1176,13 @@ Runs the skill with custom configuration.
         {:ok, new_port} ->
           case Apm.PortManager.reassign_port(project_name, new_port) do
             {:ok, assigned_port} ->
-              {:ok, %{
-                project: project_name,
-                namespace: namespace_str,
-                new_port: assigned_port,
-                message: "Port reassigned to #{namespace_str} namespace (port #{assigned_port})"
-              }}
+              {:ok,
+               %{
+                 project: project_name,
+                 namespace: namespace_str,
+                 new_port: assigned_port,
+                 message: "Port reassigned to #{namespace_str} namespace (port #{assigned_port})"
+               }}
 
             {:error, reason} ->
               {:error, "Failed to reassign port for #{project_name}: #{inspect(reason)}"}
@@ -1108,6 +1224,7 @@ Runs the skill with custom configuration.
           port = clash.port
           projects = clash.projects
           primary = List.first(projects)
+
           %{
             port: port,
             projects: projects,
@@ -1115,16 +1232,16 @@ Runs the skill with custom configuration.
           }
         end)
 
-      {:ok, %{
-        clashes: length(clashes),
-        suggestions: suggestions,
-        message: "Review suggestions and use update_port_namespace to apply"
-      }}
+      {:ok,
+       %{
+         clashes: length(clashes),
+         suggestions: suggestions,
+         message: "Review suggestions and use update_port_namespace to apply"
+       }}
     end
   rescue
     e -> {:error, Exception.message(e)}
   end
-
 
   # -- AgentLock authorization actions (v7.0.0) --
 
@@ -1167,13 +1284,14 @@ Runs the skill with custom configuration.
     token_stats = Apm.Auth.TokenStore.stats()
     rate_stats = Apm.Auth.RateLimiter.stats()
 
-    {:ok, %{
-      summary: summary,
-      active_sessions: length(sessions),
-      token_stats: token_stats,
-      rate_limit_stats: rate_stats,
-      compliance_status: if(summary.total_denied == 0, do: "clean", else: "has_denials")
-    }}
+    {:ok,
+     %{
+       summary: summary,
+       active_sessions: length(sessions),
+       token_stats: token_stats,
+       rate_limit_stats: rate_stats,
+       compliance_status: if(summary.total_denied == 0, do: "clean", else: "has_denials")
+     }}
   rescue
     e -> {:error, Exception.message(e)}
   end
@@ -1210,11 +1328,23 @@ Runs the skill with custom configuration.
     case mode do
       "scan" ->
         matches = Apm.Auth.RedactionEngine.scan(text)
-        {:ok, %{mode: "scan", matches: length(matches), findings: Enum.map(matches, fn {type, _text, pos} -> %{type: type, position: pos} end)}}
+
+        {:ok,
+         %{
+           mode: "scan",
+           matches: length(matches),
+           findings: Enum.map(matches, fn {type, _text, pos} -> %{type: type, position: pos} end)
+         }}
 
       "redact" ->
         result = Apm.Auth.RedactionEngine.redact(text, :auto)
-        {:ok, %{mode: "redact", had_redactions: result.had_redactions, redaction_count: length(result.redactions)}}
+
+        {:ok,
+         %{
+           mode: "redact",
+           had_redactions: result.had_redactions,
+           redaction_count: length(result.redactions)
+         }}
 
       _ ->
         {:error, "Unknown mode: #{mode}"}
@@ -1250,6 +1380,7 @@ Runs the skill with custom configuration.
         skill_md_issues =
           if File.exists?(skill_md) do
             content = File.read!(skill_md)
+
             []
             |> then(fn issues ->
               if Regex.match?(~r/~\/\.claude\/skills\/#{skill}\/prd\.json/, content) ||
@@ -1268,6 +1399,7 @@ Runs the skill with custom configuration.
           end
 
         projects_root = Path.expand("~/Developer")
+
         claude_md_issues =
           case File.ls(projects_root) do
             {:ok, dirs} ->
@@ -1275,21 +1407,28 @@ Runs the skill with custom configuration.
               |> Enum.take(20)
               |> Enum.flat_map(fn dir ->
                 claude_md = Path.join([projects_root, dir, "CLAUDE.md"])
+
                 if File.exists?(claude_md) do
                   content = File.read!(claude_md)
+
                   if String.contains?(content, "prd.json in the current directory"),
-                    do: ["#{dir}/CLAUDE.md: 'prd.json in the current directory' without explicit path"],
+                    do: [
+                      "#{dir}/CLAUDE.md: 'prd.json in the current directory' without explicit path"
+                    ],
                     else: []
                 else
                   []
                 end
               end)
-            _ -> []
+
+            _ ->
+              []
           end
 
         corrected_instruction =
           if fix_mode && target_skill == skill,
-            do: "Alignment fix: state files must resolve to {project_root}/.claude/#{skill}/ not ~/.claude/skills/#{skill}/",
+            do:
+              "Alignment fix: state files must resolve to {project_root}/.claude/#{skill}/ not ~/.claude/skills/#{skill}/",
             else: nil
 
         %{
@@ -1297,7 +1436,11 @@ Runs the skill with custom configuration.
           state_files_at_user_level: misrouted_files,
           skill_md_issues: skill_md_issues,
           claude_md_issues: claude_md_issues,
-          status: if(misrouted_files == [] && skill_md_issues == [] && claude_md_issues == [], do: "aligned", else: "misaligned"),
+          status:
+            if(misrouted_files == [] && skill_md_issues == [] && claude_md_issues == [],
+              do: "aligned",
+              else: "misaligned"
+            ),
           corrected_instruction: corrected_instruction,
           recommended_path: "{project_root}/.claude/#{skill}/prd.json"
         }
@@ -1305,7 +1448,14 @@ Runs the skill with custom configuration.
 
     misaligned = Enum.filter(findings, &(&1.status == "misaligned"))
     aligned = Enum.filter(findings, &(&1.status == "aligned"))
-    summary = %{total_checked: length(findings), misaligned: length(misaligned), aligned: length(aligned), findings: findings, fix_mode: fix_mode}
+
+    summary = %{
+      total_checked: length(findings),
+      misaligned: length(misaligned),
+      aligned: length(aligned),
+      findings: findings,
+      fix_mode: fix_mode
+    }
 
     try do
       Apm.AgUi.EventBus.publish("special:custom", %{
@@ -1320,22 +1470,31 @@ Runs the skill with custom configuration.
     end
 
     try do
-      Phoenix.PubSub.broadcast(Apm.PubSub, "notifications", {:new_notification, %{
-        type: if(length(misaligned) > 0, do: "warning", else: "success"),
-        title: "Skill Path Alignment",
-        message: "#{length(misaligned)} misaligned / #{length(aligned)} aligned across #{length(findings)} skills",
-        category: "skill_alignment",
-        data: Jason.encode!(summary)
-      }})
+      Phoenix.PubSub.broadcast(
+        Apm.PubSub,
+        "notifications",
+        {:new_notification,
+         %{
+           type: if(length(misaligned) > 0, do: "warning", else: "success"),
+           title: "Skill Path Alignment",
+           message:
+             "#{length(misaligned)} misaligned / #{length(aligned)} aligned across #{length(findings)} skills",
+           category: "skill_alignment",
+           data: Jason.encode!(summary)
+         }}
+      )
     rescue
       _ -> :ok
     catch
       _, _ -> :ok
     end
 
-    msg = if length(misaligned) > 0,
-      do: "#{length(misaligned)} misaligned: #{Enum.map(misaligned, & &1.skill) |> Enum.join(", ")}",
-      else: "All #{length(aligned)} skills aligned."
+    msg =
+      if length(misaligned) > 0,
+        do:
+          "#{length(misaligned)} misaligned: #{Enum.map(misaligned, & &1.skill) |> Enum.join(", ")}",
+        else: "All #{length(aligned)} skills aligned."
+
     {:ok, "Checked #{length(findings)} skills. #{msg}"}
   rescue
     e -> {:error, Exception.message(e)}
@@ -1350,7 +1509,9 @@ Runs the skill with custom configuration.
           dirs
           |> Enum.filter(fn d -> File.dir?(Path.join(skills_root, d)) end)
           |> Enum.sort()
-        _ -> []
+
+        _ ->
+          []
       end
 
     skill_results =
@@ -1402,10 +1563,42 @@ Runs the skill with custom configuration.
 
             gaps =
               []
-              |> then(fn g -> if has_register, do: g, else: [{skill, "missing_apm_registration", "Add fire-and-forget curl to POST /api/register on agent spawn"} | g] end)
-              |> then(fn g -> if has_formation_role, do: g, else: [{skill, "missing_formation_role", "Add formation_role enum: orchestrator|squadron_lead|swarm_agent|cluster_agent|individual"} | g] end)
-              |> then(fn g -> if has_agent_type, do: g, else: [{skill, "missing_agent_type", "Add agent_type field matching formation_role value"} | g] end)
-              |> then(fn g -> if has_fmt_id || agent_id_count == 0, do: g, else: [{skill, "missing_fmt_convention", "Use fmt-YYYYMMDD-NNN-role-seq naming convention for agent IDs"} | g] end)
+              |> then(fn g ->
+                if has_register,
+                  do: g,
+                  else: [
+                    {skill, "missing_apm_registration",
+                     "Add fire-and-forget curl to POST /api/register on agent spawn"}
+                    | g
+                  ]
+              end)
+              |> then(fn g ->
+                if has_formation_role,
+                  do: g,
+                  else: [
+                    {skill, "missing_formation_role",
+                     "Add formation_role enum: orchestrator|squadron_lead|swarm_agent|cluster_agent|individual"}
+                    | g
+                  ]
+              end)
+              |> then(fn g ->
+                if has_agent_type,
+                  do: g,
+                  else: [
+                    {skill, "missing_agent_type",
+                     "Add agent_type field matching formation_role value"}
+                    | g
+                  ]
+              end)
+              |> then(fn g ->
+                if has_fmt_id || agent_id_count == 0,
+                  do: g,
+                  else: [
+                    {skill, "missing_fmt_convention",
+                     "Use fmt-YYYYMMDD-NNN-role-seq naming convention for agent IDs"}
+                    | g
+                  ]
+              end)
 
             %{
               skill: skill,
@@ -1460,15 +1653,26 @@ Runs the skill with custom configuration.
 
     alignment_report = %{
       total_skills: length(skills),
-      skills_with_agents: Enum.map(skills_with_agents, fn s ->
-        %{name: s.skill, agent_count: s.agent_count, integrity_score: s.integrity_score}
-      end),
-      aligned: Enum.map(aligned, fn s ->
-        %{skill: s.skill, agent_type: s.registration_pattern, registration_pattern: s.registration_pattern}
-      end),
-      partial: Enum.map(partial, fn s ->
-        %{skill: s.skill, registration_pattern: s.registration_pattern, integrity_score: s.integrity_score}
-      end),
+      skills_with_agents:
+        Enum.map(skills_with_agents, fn s ->
+          %{name: s.skill, agent_count: s.agent_count, integrity_score: s.integrity_score}
+        end),
+      aligned:
+        Enum.map(aligned, fn s ->
+          %{
+            skill: s.skill,
+            agent_type: s.registration_pattern,
+            registration_pattern: s.registration_pattern
+          }
+        end),
+      partial:
+        Enum.map(partial, fn s ->
+          %{
+            skill: s.skill,
+            registration_pattern: s.registration_pattern,
+            integrity_score: s.integrity_score
+          }
+        end),
       gaps: all_gaps,
       overall_score: overall_score,
       summary: %{
@@ -1484,7 +1688,11 @@ Runs the skill with custom configuration.
 
     # Broadcast to PubSub for live graph update
     try do
-      Phoenix.PubSub.broadcast(Apm.PubSub, "alignment:update", {:alignment_report, alignment_report})
+      Phoenix.PubSub.broadcast(
+        Apm.PubSub,
+        "alignment:update",
+        {:alignment_report, alignment_report}
+      )
     rescue
       _ -> :ok
     catch
@@ -1493,13 +1701,19 @@ Runs the skill with custom configuration.
 
     # Notify
     try do
-      Phoenix.PubSub.broadcast(Apm.PubSub, "notifications", {:new_notification, %{
-        type: if(overall_score >= 70, do: "success", else: "warning"),
-        title: "Agent Alignment Audit",
-        message: "Score: #{overall_score}/100 — #{length(aligned)} aligned, #{length(partial)} partial, #{length(missing)} missing",
-        category: "skill_audit",
-        data: Jason.encode!(%{overall_score: overall_score, gap_count: length(all_gaps)})
-      }})
+      Phoenix.PubSub.broadcast(
+        Apm.PubSub,
+        "notifications",
+        {:new_notification,
+         %{
+           type: if(overall_score >= 70, do: "success", else: "warning"),
+           title: "Agent Alignment Audit",
+           message:
+             "Score: #{overall_score}/100 — #{length(aligned)} aligned, #{length(partial)} partial, #{length(missing)} missing",
+           category: "skill_audit",
+           data: Jason.encode!(%{overall_score: overall_score, gap_count: length(all_gaps)})
+         }}
+      )
     rescue
       _ -> :ok
     catch
@@ -1543,9 +1757,10 @@ Runs the skill with custom configuration.
         _, _ -> []
       end
 
-    lvm_active = Enum.any?(integrations, fn i ->
-      match?(%{name: "lvm_manager"}, i) || match?(%{name: :lvm_manager}, i)
-    end)
+    lvm_active =
+      Enum.any?(integrations, fn i ->
+        match?(%{name: "lvm_manager"}, i) || match?(%{name: :lvm_manager}, i)
+      end)
 
     # Step 3: Build report
     report = %{
@@ -1559,13 +1774,19 @@ Runs the skill with custom configuration.
 
     # Notify
     try do
-      Phoenix.PubSub.broadcast(Apm.PubSub, "notifications", {:new_notification, %{
-        type: if(lvm_active, do: "success", else: "warning"),
-        title: "LVM Integration Setup",
-        message: "#{length(model_names)} models seeded, integration #{if lvm_active, do: "active", else: "not registered"}",
-        category: "integration",
-        data: Jason.encode!(report)
-      }})
+      Phoenix.PubSub.broadcast(
+        Apm.PubSub,
+        "notifications",
+        {:new_notification,
+         %{
+           type: if(lvm_active, do: "success", else: "warning"),
+           title: "LVM Integration Setup",
+           message:
+             "#{length(model_names)} models seeded, integration #{if lvm_active, do: "active", else: "not registered"}",
+           category: "integration",
+           data: Jason.encode!(report)
+         }}
+      )
     rescue
       _ -> :ok
     catch
@@ -1594,29 +1815,43 @@ Runs the skill with custom configuration.
 
       case System.cmd("bash", [repair_script | args], stderr_to_stdout: true) do
         {output, 0} ->
-          {find_output, _} = System.cmd("find",
-            [dev_root, "-maxdepth", "3", "-name", ".remember", "-not", "-user", current_user],
-            stderr_to_stdout: true)
+          {find_output, _} =
+            System.cmd(
+              "find",
+              [dev_root, "-maxdepth", "3", "-name", ".remember", "-not", "-user", current_user],
+              stderr_to_stdout: true
+            )
 
-          needs_sudo = find_output |> String.trim() |> String.split("\n") |> Enum.reject(&(&1 == ""))
+          needs_sudo =
+            find_output |> String.trim() |> String.split("\n") |> Enum.reject(&(&1 == ""))
 
           result = %{
             script_output: output,
             needs_sudo: needs_sudo,
-            sudo_command: if(needs_sudo != [],
-              do: "sudo chown -R #{current_user}:staff " <> Enum.join(needs_sudo, " "),
-              else: nil
-            )
+            sudo_command:
+              if(needs_sudo != [],
+                do: "sudo chown -R #{current_user}:staff " <> Enum.join(needs_sudo, " "),
+                else: nil
+              )
           }
 
           notif =
             if needs_sudo != [],
-              do: %{type: "warning", title: "Hook Repair: sudo required",
-                    message: "#{length(needs_sudo)} path(s) owned by root — copy sudo_command from result",
-                    category: "hooks", data: Jason.encode!(%{needs_sudo: needs_sudo})},
-              else: %{type: "success", title: "Hook Filesystem Repaired",
-                    message: "All .remember/logs/hook-errors.log paths are healthy.",
-                    category: "hooks", data: "{}"}
+              do: %{
+                type: "warning",
+                title: "Hook Repair: sudo required",
+                message:
+                  "#{length(needs_sudo)} path(s) owned by root — copy sudo_command from result",
+                category: "hooks",
+                data: Jason.encode!(%{needs_sudo: needs_sudo})
+              },
+              else: %{
+                type: "success",
+                title: "Hook Filesystem Repaired",
+                message: "All .remember/logs/hook-errors.log paths are healthy.",
+                category: "hooks",
+                data: "{}"
+              }
 
           try do
             Phoenix.PubSub.broadcast(Apm.PubSub, "notifications", {:new_notification, notif})
@@ -1675,19 +1910,27 @@ Runs the skill with custom configuration.
   end
 
   defp notify_skill_audit_complete(skill_name, action) do
-    payload = Jason.encode!(%{
-      type: "success",
-      title: "Skill Audit Complete",
-      message: "#{action} applied to #{skill_name}",
-      category: "skill"
-    })
+    payload =
+      Jason.encode!(%{
+        type: "success",
+        title: "Skill Audit Complete",
+        message: "#{action} applied to #{skill_name}",
+        category: "skill"
+      })
 
     Task.start(fn ->
-      System.cmd("curl", [
-        "-s", "-X", "POST", "http://localhost:3032/api/notify",
-        "-H", "Content-Type: application/json",
-        "-d", payload
-      ], stderr_to_stdout: true)
+      System.cmd(
+        "curl",
+        [
+          "-s",
+          "-X",
+          "POST",
+          "http://localhost:3032/api/notify",
+          "-H",
+          "Content-Type: application/json",
+          "-d",
+          payload
+        ], stderr_to_stdout: true)
     end)
   end
 
@@ -1717,10 +1960,14 @@ Runs the skill with custom configuration.
   defp build_recommendations(has_claude, has_apm_config) do
     []
     |> then(fn recs ->
-      if has_claude, do: recs, else: ["Run 'add_memory_pointer' to create .claude/CLAUDE.md" | recs]
+      if has_claude,
+        do: recs,
+        else: ["Run 'add_memory_pointer' to create .claude/CLAUDE.md" | recs]
     end)
     |> then(fn recs ->
-      if has_apm_config, do: recs, else: ["Run 'backfill_apm_config' to create apm_config.json" | recs]
+      if has_apm_config,
+        do: recs,
+        else: ["Run 'backfill_apm_config' to create apm_config.json" | recs]
     end)
     |> then(fn recs ->
       if has_claude, do: recs, else: ["Run 'update_hooks' to configure session reporting" | recs]
@@ -1795,7 +2042,8 @@ Runs the skill with custom configuration.
     clash_count = length(clashes)
 
     by_namespace =
-      Enum.reduce(port_map, %{web: 0, api: 0, service: 0, tool: 0, other: 0}, fn {_port, info}, acc ->
+      Enum.reduce(port_map, %{web: 0, api: 0, service: 0, tool: 0, other: 0}, fn {_port, info},
+                                                                                 acc ->
         ns = Map.get(info, :namespace, :other)
         Map.update(acc, ns, 1, &(&1 + 1))
       end)
@@ -1813,9 +2061,10 @@ Runs the skill with custom configuration.
       utilization_percent: utilization,
       by_namespace: by_namespace,
       namespace_capacity: namespace_capacity,
-      clash_details: Enum.map(clashes, fn c ->
-        %{port: c.port, projects: c.projects, owner: c.owner}
-      end)
+      clash_details:
+        Enum.map(clashes, fn c ->
+          %{port: c.port, projects: c.projects, owner: c.owner}
+        end)
     }
   end
 
@@ -1840,6 +2089,7 @@ Runs the skill with custom configuration.
             cond do
               File.dir?(src) ->
                 File.mkdir_p(dst)
+
                 case copy_showcase_assets(src, dst) do
                   {:ok, n} -> acc + n
                   _ -> acc
@@ -1859,5 +2109,4 @@ Runs the skill with custom configuration.
         {:ok, copied}
     end
   end
-
 end

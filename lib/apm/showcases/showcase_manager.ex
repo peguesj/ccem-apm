@@ -15,7 +15,8 @@ defmodule Apm.Showcases.ShowcaseManager do
 
   @ccem_showcase_dir Path.expand("~/Developer/ccem/showcase")
   @developer_dir Path.expand("~/Developer")
-  @refresh_interval_ms 300_000  # 5 minutes
+  # 5 minutes
+  @refresh_interval_ms 300_000
 
   # --- Client API ---
 
@@ -183,13 +184,16 @@ defmodule Apm.Showcases.ShowcaseManager do
             showcase_path = Path.join(@ccem_showcase_dir, entry)
 
             case File.dir?(showcase_path) do
-              false -> acc
-              true -> Map.update(acc, project_name, %{}, fn info ->
-                Map.merge(info, %{
-                  showcase_type: "central",
-                  central_path: showcase_path
-                })
-              end)
+              false ->
+                acc
+
+              true ->
+                Map.update(acc, project_name, %{}, fn info ->
+                  Map.merge(info, %{
+                    showcase_type: "central",
+                    central_path: showcase_path
+                  })
+                end)
             end
           end
         end)
@@ -200,14 +204,21 @@ defmodule Apm.Showcases.ShowcaseManager do
   end
 
   defp should_skip_ccem_entry?(entry) do
-    Enum.any?([
-      "client", "data", "diagrams", ".git", "SKILL.md"
-    ], &(entry == &1)) ||
-    String.starts_with?(entry, ".") ||
-    String.ends_with?(entry, ".md") ||
-    String.ends_with?(entry, ".json") ||
-    String.ends_with?(entry, ".html") ||
-    String.ends_with?(entry, ".sh")
+    Enum.any?(
+      [
+        "client",
+        "data",
+        "diagrams",
+        ".git",
+        "SKILL.md"
+      ],
+      &(entry == &1)
+    ) ||
+      String.starts_with?(entry, ".") ||
+      String.ends_with?(entry, ".md") ||
+      String.ends_with?(entry, ".json") ||
+      String.ends_with?(entry, ".html") ||
+      String.ends_with?(entry, ".sh")
   end
 
   defp analyze_project(name, path) do
@@ -230,7 +241,11 @@ defmodule Apm.Showcases.ShowcaseManager do
       showcase_type: showcase_type,
       has_standalone: has_standalone,
       has_claude_md: has_claude_md,
-      url: if(has_standalone, do: "http://localhost:3001/client/index.html?project=#{name}", else: nil),
+      url:
+        if(has_standalone,
+          do: "http://localhost:3001/client/index.html?project=#{name}",
+          else: nil
+        ),
       created_at: File.stat!(path) |> then(& &1.ctime)
     }
   end
@@ -251,20 +266,22 @@ defmodule Apm.Showcases.ShowcaseManager do
 
     case project_info.showcase_type do
       "standalone" ->
-        {:ok, %{
-          message: "Project already has standalone showcase",
-          project: project_name,
-          url: project_info.url,
-          type: "standalone"
-        }}
+        {:ok,
+         %{
+           message: "Project already has standalone showcase",
+           project: project_name,
+           url: project_info.url,
+           type: "standalone"
+         }}
 
       "central" ->
-        {:ok, %{
-          message: "Project already configured in CCEM central showcase",
-          project: project_name,
-          path: project_info.central_path,
-          type: "central"
-        }}
+        {:ok,
+         %{
+           message: "Project already configured in CCEM central showcase",
+           project: project_name,
+           path: project_info.central_path,
+           type: "central"
+         }}
 
       "none" ->
         # Register in CCEM central showcase
@@ -272,13 +289,14 @@ defmodule Apm.Showcases.ShowcaseManager do
 
         case create_central_showcase_entry(central_project_dir, project_info, config) do
           :ok ->
-            {:ok, %{
-              message: "Created central showcase entry",
-              project: project_name,
-              path: central_project_dir,
-              type: "central",
-              config: config
-            }}
+            {:ok,
+             %{
+               message: "Created central showcase entry",
+               project: project_name,
+               path: central_project_dir,
+               type: "central",
+               config: config
+             }}
 
           {:error, reason} ->
             {:error, reason}

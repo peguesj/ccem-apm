@@ -16,7 +16,8 @@ defmodule Apm.Plugins.Builder.BuilderSession do
     created_at: nil
   ]
 
-  @type status :: :draft | :analyzing | :analyzed | :generating | :preview | :writing | :complete | :error
+  @type status ::
+          :draft | :analyzing | :analyzed | :generating | :preview | :writing | :complete | :error
 
   @type t :: %__MODULE__{
           id: String.t(),

@@ -72,7 +72,7 @@ defmodule Apm.Coalesce.DecisionGateStore do
   def list_for_run(run_id) do
     :ets.tab2list(@table)
     |> Enum.map(fn {_id, gate} -> gate end)
-    |> Enum.filter(& &1.run_id == run_id)
+    |> Enum.filter(&(&1.run_id == run_id))
     |> Enum.sort_by(& &1.registered_at)
   end
 
@@ -81,7 +81,7 @@ defmodule Apm.Coalesce.DecisionGateStore do
   def pending_count do
     :ets.tab2list(@table)
     |> Enum.map(fn {_id, gate} -> gate end)
-    |> Enum.count(& &1.status == :pending and &1.type == :human)
+    |> Enum.count(&(&1.status == :pending and &1.type == :human))
   end
 
   @doc "List all pending human gates across all runs."
@@ -89,7 +89,7 @@ defmodule Apm.Coalesce.DecisionGateStore do
   def list_pending do
     :ets.tab2list(@table)
     |> Enum.map(fn {_id, gate} -> gate end)
-    |> Enum.filter(& &1.status == :pending and &1.type == :human)
+    |> Enum.filter(&(&1.status == :pending and &1.type == :human))
     |> Enum.sort_by(& &1.registered_at)
   end
 
@@ -151,18 +151,26 @@ defmodule Apm.Coalesce.DecisionGateStore do
 
     :ets.tab2list(@table)
     |> Enum.map(fn {_id, gate} -> gate end)
-    |> Enum.filter(& &1.status == :pending)
+    |> Enum.filter(&(&1.status == :pending))
     |> Enum.each(fn gate ->
       registered_at = gate.registered_at |> DateTime.from_iso8601() |> elem(1)
       age_ms = DateTime.diff(now, registered_at, :millisecond)
 
       if age_ms > gate.timeout_ms do
-        expired = %{gate | status: :expired, decided_at: DateTime.utc_now() |> DateTime.to_iso8601()}
+        expired = %{
+          gate
+          | status: :expired,
+            decided_at: DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+
         :ets.insert(@table, {gate.composite_id, expired})
         _emit_event("coalesce_gate_expired", expired)
 
         # Notify orchestrator
-        send(Apm.Coalesce.CoalesceOrchestrator, {:gate_decided, gate.run_id, gate.gate_id, :expired})
+        send(
+          Apm.Coalesce.CoalesceOrchestrator,
+          {:gate_decided, gate.run_id, gate.gate_id, :expired}
+        )
       end
     end)
 
@@ -177,7 +185,8 @@ defmodule Apm.Coalesce.DecisionGateStore do
   defp _transition(composite_id, new_status, extra, state) do
     case :ets.lookup(@table, composite_id) do
       [{^composite_id, %{status: :pending} = gate}] ->
-        updated = gate
+        updated =
+          gate
           |> Map.merge(%{
             status: new_status,
             decided_at: DateTime.utc_now() |> DateTime.to_iso8601()
@@ -188,8 +197,10 @@ defmodule Apm.Coalesce.DecisionGateStore do
         _emit_event("coalesce_gate_#{new_status}", updated)
 
         # Notify orchestrator
-        send(Apm.Coalesce.CoalesceOrchestrator,
-          {:gate_decided, gate.run_id, gate.gate_id, new_status})
+        send(
+          Apm.Coalesce.CoalesceOrchestrator,
+          {:gate_decided, gate.run_id, gate.gate_id, new_status}
+        )
 
         {:reply, :ok, state}
 

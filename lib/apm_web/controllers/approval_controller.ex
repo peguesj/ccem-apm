@@ -26,7 +26,7 @@ defmodule ApmWeb.V2.ApprovalController do
   alias Apm.AgUi.ApprovalGate
   alias Apm.Auth.WebAuthnAttestation
 
-  operation :index,
+  operation(:index,
     summary: "List approval gates",
     description: "Returns all approval gates, optionally filtered by status.",
     tags: ["Approvals"],
@@ -41,8 +41,9 @@ defmodule ApmWeb.V2.ApprovalController do
     responses: [
       ok: {"Approval list", "application/json", Schemas.ApprovalList}
     ]
+  )
 
-  operation :show,
+  operation(:show,
     summary: "Get approval gate",
     description: "Returns a single approval gate by ID.",
     tags: ["Approvals"],
@@ -53,17 +54,21 @@ defmodule ApmWeb.V2.ApprovalController do
       ok: {"Approval gate", "application/json", Schemas.ApprovalGate},
       not_found: {"Not found", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :request,
+  operation(:request,
     summary: "Request approval",
-    description: "Creates a new approval gate for a tool invocation. Notifies connected dashboards via PubSub.",
+    description:
+      "Creates a new approval gate for a tool invocation. Notifies connected dashboards via PubSub.",
     tags: ["Approvals"],
-    request_body: {"Approval request", "application/json", Schemas.ApprovalRequestBody, required: true},
+    request_body:
+      {"Approval request", "application/json", Schemas.ApprovalRequestBody, required: true},
     responses: [
       created: {"Gate created", "application/json", Schemas.ApprovalRequestResult}
     ]
+  )
 
-  operation :approve,
+  operation(:approve,
     summary: "Approve a gate",
     description: "Marks an approval gate as approved. Broadcasts decision via PubSub.",
     tags: ["Approvals"],
@@ -76,8 +81,9 @@ defmodule ApmWeb.V2.ApprovalController do
       not_found: {"Not found", "application/json", Schemas.ErrorResponse},
       conflict: {"Not pending", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :reject,
+  operation(:reject,
     summary: "Reject a gate",
     description: "Marks an approval gate as rejected with an optional reason.",
     tags: ["Approvals"],
@@ -90,6 +96,7 @@ defmodule ApmWeb.V2.ApprovalController do
       not_found: {"Not found", "application/json", Schemas.ErrorResponse},
       conflict: {"Not pending", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
   def index(conn, params) do
     gates =
@@ -126,9 +133,14 @@ defmodule ApmWeb.V2.ApprovalController do
     case verify_webauthn(approver, params) do
       :ok ->
         case ApprovalGate.approve(id, approver) do
-          :ok -> json(conn, %{status: "approved"})
-          {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "Gate not found"})
-          {:error, :not_pending} -> conn |> put_status(409) |> json(%{error: "Gate is not pending"})
+          :ok ->
+            json(conn, %{status: "approved"})
+
+          {:error, :not_found} ->
+            conn |> put_status(404) |> json(%{error: "Gate not found"})
+
+          {:error, :not_pending} ->
+            conn |> put_status(409) |> json(%{error: "Gate is not pending"})
         end
 
       {:error, reason} ->
@@ -142,9 +154,12 @@ defmodule ApmWeb.V2.ApprovalController do
   # policy gate is off, or because a valid assertion accompanies the request).
   defp verify_webauthn(approver, params) do
     if WebAuthnAttestation.require_webauthn?() do
-      with %{"credential_id" => cred_id_b64, "signature" => sig_b64,
+      with %{
+             "credential_id" => cred_id_b64,
+             "signature" => sig_b64,
              "authenticator_data" => auth_data_b64,
-             "client_data_json" => client_data_b64} <- params["webauthn_assertion"] || %{},
+             "client_data_json" => client_data_b64
+           } <- params["webauthn_assertion"] || %{},
            user_id when is_binary(user_id) <- approver["user_id"] || params["user_id"],
            {:ok, cred_id} <- Base.url_decode64(cred_id_b64, padding: false),
            {:ok, sig} <- Base.url_decode64(sig_b64, padding: false),

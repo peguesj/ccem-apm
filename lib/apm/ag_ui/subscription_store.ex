@@ -68,11 +68,16 @@ defmodule Apm.AgUi.SubscriptionStore do
           {:ok, entries} when is_list(entries) ->
             Enum.each(entries, fn entry ->
               pattern = entry["pattern"]
-              :ets.insert(@table, {pattern, %{
-                pattern: pattern,
-                subscriber_module: entry["subscriber_module"],
-                registered_at: entry["registered_at"]
-              }})
+
+              :ets.insert(
+                @table,
+                {pattern,
+                 %{
+                   pattern: pattern,
+                   subscriber_module: entry["subscriber_module"],
+                   registered_at: entry["registered_at"]
+                 }}
+              )
             end)
 
             entries

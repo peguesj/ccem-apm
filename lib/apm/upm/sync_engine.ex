@@ -163,11 +163,12 @@ defmodule Apm.UPM.SyncEngine do
             Enum.reduce(issues, {0, 0}, fn issue, {s, d} ->
               normalized = apply(adapter, :normalize, [issue])
 
-              attrs = Map.merge(normalized, %{
-                project_id: project_id,
-                pm_integration_id: integration.id,
-                id: build_item_id(integration.id, normalized[:platform_id] || "")
-              })
+              attrs =
+                Map.merge(normalized, %{
+                  project_id: project_id,
+                  pm_integration_id: integration.id,
+                  id: build_item_id(integration.id, normalized[:platform_id] || "")
+                })
 
               case Apm.UPM.WorkItemStore.upsert_item(attrs) do
                 {:ok, item} ->

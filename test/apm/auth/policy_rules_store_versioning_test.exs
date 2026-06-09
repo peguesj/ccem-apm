@@ -26,7 +26,13 @@ defmodule Apm.Auth.PolicyRulesStoreVersioningTest do
 
     # Clean up test keys and history on exit
     on_exit(fn ->
-      for tool <- ["versioned_tool", "attested_tool", "expiring_tool", "hist_tool_a", "hist_tool_b"] do
+      for tool <- [
+            "versioned_tool",
+            "attested_tool",
+            "expiring_tool",
+            "hist_tool_a",
+            "hist_tool_b"
+          ] do
         PolicyRulesStore.remove_rule(tool)
         PolicyRulesStore.clear_tool_history(tool)
       end
@@ -73,7 +79,10 @@ defmodule Apm.Auth.PolicyRulesStoreVersioningTest do
 
   describe "attestation fields" do
     test "created_by is stored and returned" do
-      PolicyRulesStore.add_rule("attested_tool", :always_allow, created_by: "operator@example.com")
+      PolicyRulesStore.add_rule("attested_tool", :always_allow,
+        created_by: "operator@example.com"
+      )
+
       entry = PolicyRulesStore.get_rule_entry("attested_tool")
       assert entry.created_by == "operator@example.com"
     end
@@ -148,7 +157,11 @@ defmodule Apm.Auth.PolicyRulesStoreVersioningTest do
 
     test "returns ordered changelog on multiple updates" do
       PolicyRulesStore.add_rule("hist_tool_a", :always_allow, created_by: "agent-1")
-      PolicyRulesStore.add_rule("hist_tool_a", :always_deny, created_by: "agent-2", approved_by: "admin")
+
+      PolicyRulesStore.add_rule("hist_tool_a", :always_deny,
+        created_by: "agent-2",
+        approved_by: "admin"
+      )
 
       history = PolicyRulesStore.policy_history("hist_tool_a")
       assert length(history) == 2

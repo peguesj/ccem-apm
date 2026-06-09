@@ -271,10 +271,8 @@ defmodule Apm.Plugins.ClaudeCodePluginBridge do
               installed_at: Map.get(record, "installedAt"),
               last_updated: Map.get(record, "lastUpdated"),
               enabled: Map.get(enabled_map, key) == true,
-              description:
-                marketplace_meta[:description] || install_path_meta[:description],
-              author:
-                marketplace_meta[:author] || install_path_meta[:author],
+              description: marketplace_meta[:description] || install_path_meta[:description],
+              author: marketplace_meta[:author] || install_path_meta[:author],
               category: marketplace_meta[:category],
               skills: install_path_meta[:skills] || [],
               scope: Map.get(record, "scope", "user")

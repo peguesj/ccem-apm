@@ -113,11 +113,14 @@ defmodule Apm.ConfigLoader do
     # Move disk persistence off the GenServer loop so concurrent get_config/1
     # reads are never blocked by File.write. State update is synchronous.
     config_path = state.config_path
+
     Task.start(fn ->
       case Jason.encode(new_config, pretty: true) do
         {:ok, json} ->
           case File.write(config_path, json) do
-            :ok -> :ok
+            :ok ->
+              :ok
+
             {:error, reason} ->
               require Logger
               Logger.error("[ConfigLoader] Failed to persist config: #{inspect(reason)}")

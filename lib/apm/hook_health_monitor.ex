@@ -68,6 +68,7 @@ defmodule Apm.HookHealthMonitor do
   @impl true
   def init([]) do
     schedule_scan()
+
     state = %{
       health: %{healthy: 0, unhealthy: 0, projects: []},
       prev_statuses: %{}
@@ -296,7 +297,15 @@ defmodule Apm.HookHealthMonitor do
 
         old_status ->
           proj = Enum.find(projects, &(&1.project == project))
-          [%{project: project, from: old_status, to: new_status, issues: proj && proj.issues || []}]
+
+          [
+            %{
+              project: project,
+              from: old_status,
+              to: new_status,
+              issues: (proj && proj.issues) || []
+            }
+          ]
       end
     end)
   end

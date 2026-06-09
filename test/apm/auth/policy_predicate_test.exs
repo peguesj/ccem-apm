@@ -27,6 +27,7 @@ defmodule Apm.Auth.PolicyPredicateTest do
 
     test "matches when current hour equals from_hour" do
       now = DateTime.utc_now()
+
       pred = %PolicyPredicate{
         type: :time_window,
         params: %{from_hour: now.hour, to_hour: now.hour}
@@ -46,6 +47,7 @@ defmodule Apm.Auth.PolicyPredicateTest do
       # Pick a window guaranteed not to include now.hour
       # Use from_hour = to_hour = (now.hour + 12) mod 24
       other_hour = rem(now.hour + 12, 24)
+
       pred = %PolicyPredicate{
         type: :time_window,
         params: %{from_hour: other_hour, to_hour: other_hour}
@@ -164,7 +166,8 @@ defmodule Apm.Auth.PolicyPredicateTest do
         %PolicyPredicate{type: :formation_role, params: %{role: :orchestrator}}
       ]
 
-      assert PolicyPredicate.evaluate_all(preds, %{env: :prod, formation_role: :orchestrator}) == :match
+      assert PolicyPredicate.evaluate_all(preds, %{env: :prod, formation_role: :orchestrator}) ==
+               :match
     end
 
     test "one failing predicate returns :no_match" do
@@ -173,7 +176,8 @@ defmodule Apm.Auth.PolicyPredicateTest do
         %PolicyPredicate{type: :formation_role, params: %{role: :orchestrator}}
       ]
 
-      assert PolicyPredicate.evaluate_all(preds, %{env: :staging, formation_role: :orchestrator}) == :no_match
+      assert PolicyPredicate.evaluate_all(preds, %{env: :staging, formation_role: :orchestrator}) ==
+               :no_match
     end
   end
 

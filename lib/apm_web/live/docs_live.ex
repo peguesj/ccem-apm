@@ -61,7 +61,9 @@ defmodule ApmWeb.DocsLive do
       |> assign(:latest_version, versions_data["latest"] || "8.9.0")
       |> assign(:selected_version, nil)
 
-    {:ok, socket |> assign(:sidebar_collapsed, false)
+    {:ok,
+     socket
+     |> assign(:sidebar_collapsed, false)
      |> assign(:inspector_open, false)
      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -159,13 +161,15 @@ defmodule ApmWeb.DocsLive do
 
   def handle_event("select_version", %{"version" => v}, socket) do
     version = Enum.find(socket.assigns.versions, &(&1["version"] == v))
-    {:noreply, assign(socket,
-      selected_version: version,
-      doc_html: nil,
-      doc_title: nil,
-      current_path: nil,
-      page_headings: []
-    )}
+
+    {:noreply,
+     assign(socket,
+       selected_version: version,
+       doc_html: nil,
+       doc_title: nil,
+       current_path: nil,
+       page_headings: []
+     )}
   end
 
   @impl true
@@ -176,333 +180,405 @@ defmodule ApmWeb.DocsLive do
         <.sidebar_nav current_path="/docs" skill_count={@active_skill_count} />
       </:sidebar>
       <:main>
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <button phx-click="toggle_mobile_toc" class="btn btn-ghost btn-xs btn-square lg:hidden">
-              <.icon name="hero-bars-3" class="size-4" />
-            </button>
-            <h2 class="text-sm font-semibold text-base-content">Documentation</h2>
-            <span :if={@doc_title && @current_path != "index"} class="text-xs text-base-content/50 truncate">
-              / {@doc_title}
-            </span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-base-content/40">v{@latest_version}</span>
-          </div>
-        </header>
-
-        <div class="flex-1 flex overflow-hidden">
-
-        <%!-- Mobile TOC overlay --%>
-        <div
-          :if={@mobile_toc_open}
-          class="lg:hidden fixed inset-0 z-40 bg-black/50"
-          phx-click="toggle_mobile_toc"
-        >
-          <div class="w-72 h-full bg-base-200 overflow-y-auto" phx-click-away="toggle_mobile_toc">
-            <div class="p-4 border-b border-base-300 flex items-center justify-between">
-              <span class="text-sm font-semibold text-primary">Documentation</span>
-              <button phx-click="toggle_mobile_toc" class="btn btn-ghost btn-xs btn-square">
-                <.icon name="hero-x-mark" class="size-4" />
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+              <button phx-click="toggle_mobile_toc" class="btn btn-ghost btn-xs btn-square lg:hidden">
+                <.icon name="hero-bars-3" class="size-4" />
               </button>
-            </div>
-            <.toc_content
-              toc={@toc}
-              current_path={@current_path}
-              collapsed_categories={@collapsed_categories}
-              search_query={@search_query}
-              search_results={@search_results}
-            />
-          </div>
-        </div>
-
-        <%!-- Desktop TOC panel --%>
-        <div class="w-64 bg-base-200 border-r border-base-300 flex-col flex-shrink-0 overflow-hidden hidden lg:flex">
-          <div class="p-4 border-b border-base-300">
-            <a href="/docs" class="flex items-center gap-2 mb-3">
-              <.icon name="hero-book-open" class="size-5 text-primary" />
-              <span class="text-base font-bold text-base-content">Documentation</span>
-            </a>
-            <%!-- Version selector --%>
-            <form phx-change="select_version" class="mb-3">
-              <select
-                name="version"
-                class="select select-bordered select-xs w-full bg-base-300/50 text-xs"
-                aria-label="Select version"
+              <h2 class="text-sm font-semibold text-base-content">Documentation</h2>
+              <span
+                :if={@doc_title && @current_path != "index"}
+                class="text-xs text-base-content/50 truncate"
               >
-                <option value="">Current (v{@latest_version})</option>
-                <option
-                  :for={v <- @versions}
-                  value={v["version"]}
-                  selected={@selected_version != nil && @selected_version["version"] == v["version"]}
-                >
-                  {v["label"]}
-                </option>
-              </select>
-            </form>
-            <%!-- Search box --%>
-            <form phx-change="search" phx-submit="search" class="relative">
-              <.icon name="hero-magnifying-glass" class="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/30" />
-              <input
-                type="text"
-                name="query"
-                value={@search_query}
-                placeholder="Search docs..."
-                phx-debounce="200"
-                class="input input-sm input-bordered w-full pl-8 pr-14 bg-base-300/50 text-xs focus:bg-base-300"
-              />
-              <kbd class="absolute right-2 top-1/2 -translate-y-1/2 kbd kbd-xs text-base-content/30">
-                Cmd+K
-              </kbd>
-            </form>
-          </div>
+                / {@doc_title}
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-base-content/40">v{@latest_version}</span>
+            </div>
+          </header>
 
-          <div class="flex-1 overflow-y-auto">
-            <.toc_content
-              toc={@toc}
-              current_path={@current_path}
-              collapsed_categories={@collapsed_categories}
-              search_query={@search_query}
-              search_results={@search_results}
-            />
-          </div>
-        </div>
-
-        <%!-- Content area --%>
-        <div class="flex-1 flex overflow-hidden lg:mt-0 mt-12">
-          <div class="flex-1 overflow-y-auto" id="docs-content-scroll">
-            <%!-- Version detail panel --%>
-            <div :if={@selected_version} class="max-w-4xl mx-auto px-6 py-8 lg:px-10 lg:py-10">
-              <nav class="flex items-center gap-1.5 text-xs text-base-content/40 mb-4">
-                <a href="/docs" phx-click="select_version" phx-value-version="" class="hover:text-primary transition-colors">Docs</a>
-                <.icon name="hero-chevron-right" class="size-3" />
-                <span class="text-base-content/50">Release Notes</span>
-                <.icon name="hero-chevron-right" class="size-3" />
-                <span class="text-base-content/60">{@selected_version["label"]}</span>
-              </nav>
-
-              <div class="flex items-start gap-4 mb-6">
-                <div class="flex-1">
-                  <h1 class="text-3xl font-extrabold text-base-content tracking-tight">{@selected_version["label"]}</h1>
-                  <p class="mt-2 text-base text-base-content/50 leading-relaxed">{@selected_version["summary"]}</p>
+          <div class="flex-1 flex overflow-hidden">
+            <%!-- Mobile TOC overlay --%>
+            <div
+              :if={@mobile_toc_open}
+              class="lg:hidden fixed inset-0 z-40 bg-black/50"
+              phx-click="toggle_mobile_toc"
+            >
+              <div class="w-72 h-full bg-base-200 overflow-y-auto" phx-click-away="toggle_mobile_toc">
+                <div class="p-4 border-b border-base-300 flex items-center justify-between">
+                  <span class="text-sm font-semibold text-primary">Documentation</span>
+                  <button phx-click="toggle_mobile_toc" class="btn btn-ghost btn-xs btn-square">
+                    <.icon name="hero-x-mark" class="size-4" />
+                  </button>
                 </div>
-                <span class="badge badge-lg badge-outline text-primary border-primary/30 font-mono shrink-0 mt-1">
-                  v{@selected_version["version"]}
-                </span>
+                <.toc_content
+                  toc={@toc}
+                  current_path={@current_path}
+                  collapsed_categories={@collapsed_categories}
+                  search_query={@search_query}
+                  search_results={@search_results}
+                />
+              </div>
+            </div>
+
+            <%!-- Desktop TOC panel --%>
+            <div class="w-64 bg-base-200 border-r border-base-300 flex-col flex-shrink-0 overflow-hidden hidden lg:flex">
+              <div class="p-4 border-b border-base-300">
+                <a href="/docs" class="flex items-center gap-2 mb-3">
+                  <.icon name="hero-book-open" class="size-5 text-primary" />
+                  <span class="text-base font-bold text-base-content">Documentation</span>
+                </a>
+                <%!-- Version selector --%>
+                <form phx-change="select_version" class="mb-3">
+                  <select
+                    name="version"
+                    class="select select-bordered select-xs w-full bg-base-300/50 text-xs"
+                    aria-label="Select version"
+                  >
+                    <option value="">Current (v{@latest_version})</option>
+                    <option
+                      :for={v <- @versions}
+                      value={v["version"]}
+                      selected={
+                        @selected_version != nil && @selected_version["version"] == v["version"]
+                      }
+                    >
+                      {v["label"]}
+                    </option>
+                  </select>
+                </form>
+                <%!-- Search box --%>
+                <form phx-change="search" phx-submit="search" class="relative">
+                  <.icon
+                    name="hero-magnifying-glass"
+                    class="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/30"
+                  />
+                  <input
+                    type="text"
+                    name="query"
+                    value={@search_query}
+                    placeholder="Search docs..."
+                    phx-debounce="200"
+                    class="input input-sm input-bordered w-full pl-8 pr-14 bg-base-300/50 text-xs focus:bg-base-300"
+                  />
+                  <kbd class="absolute right-2 top-1/2 -translate-y-1/2 kbd kbd-xs text-base-content/30">
+                    Cmd+K
+                  </kbd>
+                </form>
               </div>
 
-              <div class="flex items-center gap-3 mb-6">
-                <span class="badge badge-sm badge-ghost gap-1">
-                  <.icon name="hero-calendar-days" class="size-3" />
-                  {@selected_version["date"]}
-                </span>
-                <span class="badge badge-sm badge-ghost gap-1">
-                  <.icon name="hero-sparkles" class="size-3" />
-                  {length(@selected_version["features"] || [])} features
-                </span>
-                <span :if={length(@selected_version["new_endpoints"] || []) > 0} class="badge badge-sm badge-ghost gap-1">
-                  <.icon name="hero-arrows-right-left" class="size-3" />
-                  {length(@selected_version["new_endpoints"])} new endpoints
-                </span>
+              <div class="flex-1 overflow-y-auto">
+                <.toc_content
+                  toc={@toc}
+                  current_path={@current_path}
+                  collapsed_categories={@collapsed_categories}
+                  search_query={@search_query}
+                  search_results={@search_results}
+                />
               </div>
+            </div>
 
-              <div class="divider mt-0 mb-6"></div>
+            <%!-- Content area --%>
+            <div class="flex-1 flex overflow-hidden lg:mt-0 mt-12">
+              <div class="flex-1 overflow-y-auto" id="docs-content-scroll">
+                <%!-- Version detail panel --%>
+                <div :if={@selected_version} class="max-w-4xl mx-auto px-6 py-8 lg:px-10 lg:py-10">
+                  <nav class="flex items-center gap-1.5 text-xs text-base-content/40 mb-4">
+                    <a
+                      href="/docs"
+                      phx-click="select_version"
+                      phx-value-version=""
+                      class="hover:text-primary transition-colors"
+                    >
+                      Docs
+                    </a>
+                    <.icon name="hero-chevron-right" class="size-3" />
+                    <span class="text-base-content/50">Release Notes</span>
+                    <.icon name="hero-chevron-right" class="size-3" />
+                    <span class="text-base-content/60">{@selected_version["label"]}</span>
+                  </nav>
 
-              <%!-- Features --%>
-              <div :if={@selected_version["features"] && @selected_version["features"] != []} class="mb-8">
-                <h2 class="text-lg font-semibold text-base-content mb-4 flex items-center gap-2">
-                  <.icon name="hero-sparkles" class="size-5 text-primary" />
-                  What's New
-                </h2>
-                <ul class="space-y-2">
-                  <li :for={feat <- @selected_version["features"]} class="flex items-start gap-3 text-sm text-base-content/70">
-                    <span class="text-primary mt-0.5 shrink-0">›</span>
-                    <span>{feat}</span>
-                  </li>
-                </ul>
-              </div>
+                  <div class="flex items-start gap-4 mb-6">
+                    <div class="flex-1">
+                      <h1 class="text-3xl font-extrabold text-base-content tracking-tight">
+                        {@selected_version["label"]}
+                      </h1>
+                      <p class="mt-2 text-base text-base-content/50 leading-relaxed">
+                        {@selected_version["summary"]}
+                      </p>
+                    </div>
+                    <span class="badge badge-lg badge-outline text-primary border-primary/30 font-mono shrink-0 mt-1">
+                      v{@selected_version["version"]}
+                    </span>
+                  </div>
 
-              <%!-- New endpoints --%>
-              <div :if={@selected_version["new_endpoints"] && @selected_version["new_endpoints"] != []} class="mb-8">
-                <h2 class="text-lg font-semibold text-base-content mb-4 flex items-center gap-2">
-                  <.icon name="hero-arrows-right-left" class="size-5 text-amber-400" />
-                  New API Endpoints
-                </h2>
-                <div class="space-y-1.5">
-                  <div :for={ep <- @selected_version["new_endpoints"]} class="flex items-center gap-3">
-                    <code class="text-xs bg-neutral px-2.5 py-1 rounded font-mono text-amber-300 border border-base-300/50">
-                      {ep}
-                    </code>
+                  <div class="flex items-center gap-3 mb-6">
+                    <span class="badge badge-sm badge-ghost gap-1">
+                      <.icon name="hero-calendar-days" class="size-3" />
+                      {@selected_version["date"]}
+                    </span>
+                    <span class="badge badge-sm badge-ghost gap-1">
+                      <.icon name="hero-sparkles" class="size-3" />
+                      {length(@selected_version["features"] || [])} features
+                    </span>
+                    <span
+                      :if={length(@selected_version["new_endpoints"] || []) > 0}
+                      class="badge badge-sm badge-ghost gap-1"
+                    >
+                      <.icon name="hero-arrows-right-left" class="size-3" />
+                      {length(@selected_version["new_endpoints"])} new endpoints
+                    </span>
+                  </div>
+
+                  <div class="divider mt-0 mb-6"></div>
+
+                  <%!-- Features --%>
+                  <div
+                    :if={@selected_version["features"] && @selected_version["features"] != []}
+                    class="mb-8"
+                  >
+                    <h2 class="text-lg font-semibold text-base-content mb-4 flex items-center gap-2">
+                      <.icon name="hero-sparkles" class="size-5 text-primary" /> What's New
+                    </h2>
+                    <ul class="space-y-2">
+                      <li
+                        :for={feat <- @selected_version["features"]}
+                        class="flex items-start gap-3 text-sm text-base-content/70"
+                      >
+                        <span class="text-primary mt-0.5 shrink-0">›</span>
+                        <span>{feat}</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <%!-- New endpoints --%>
+                  <div
+                    :if={
+                      @selected_version["new_endpoints"] && @selected_version["new_endpoints"] != []
+                    }
+                    class="mb-8"
+                  >
+                    <h2 class="text-lg font-semibold text-base-content mb-4 flex items-center gap-2">
+                      <.icon name="hero-arrows-right-left" class="size-5 text-amber-400" />
+                      New API Endpoints
+                    </h2>
+                    <div class="space-y-1.5">
+                      <div
+                        :for={ep <- @selected_version["new_endpoints"]}
+                        class="flex items-center gap-3"
+                      >
+                        <code class="text-xs bg-neutral px-2.5 py-1 rounded font-mono text-amber-300 border border-base-300/50">
+                          {ep}
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+
+                  <%!-- New pages --%>
+                  <div
+                    :if={@selected_version["new_pages"] && @selected_version["new_pages"] != []}
+                    class="mb-8"
+                  >
+                    <h2 class="text-lg font-semibold text-base-content mb-4 flex items-center gap-2">
+                      <.icon name="hero-rectangle-stack" class="size-5 text-emerald-400" />
+                      New LiveViews
+                    </h2>
+                    <div class="flex flex-wrap gap-2">
+                      <a
+                        :for={pg <- @selected_version["new_pages"]}
+                        href={pg}
+                        class="badge badge-outline badge-sm font-mono text-emerald-400 border-emerald-400/30 hover:bg-emerald-400/10 transition-colors"
+                      >
+                        {pg}
+                      </a>
+                    </div>
+                  </div>
+
+                  <%!-- Version navigation --%>
+                  <div class="mt-10 pt-6 border-t border-base-300 flex gap-3 flex-wrap">
+                    <button
+                      phx-click="select_version"
+                      phx-value-version=""
+                      class="btn btn-sm btn-outline btn-primary gap-2"
+                    >
+                      <.icon name="hero-arrow-left" class="size-4" /> Back to current docs
+                    </button>
+                    <a href="/api/v2/openapi.json" target="_blank" class="btn btn-sm btn-ghost gap-2">
+                      <.icon name="hero-arrow-top-right-on-square" class="size-4" /> OpenAPI spec
+                    </a>
                   </div>
                 </div>
-              </div>
 
-              <%!-- New pages --%>
-              <div :if={@selected_version["new_pages"] && @selected_version["new_pages"] != []} class="mb-8">
-                <h2 class="text-lg font-semibold text-base-content mb-4 flex items-center gap-2">
-                  <.icon name="hero-rectangle-stack" class="size-5 text-emerald-400" />
-                  New LiveViews
-                </h2>
-                <div class="flex flex-wrap gap-2">
-                  <a
-                    :for={pg <- @selected_version["new_pages"]}
-                    href={pg}
-                    class="badge badge-outline badge-sm font-mono text-emerald-400 border-emerald-400/30 hover:bg-emerald-400/10 transition-colors"
-                  >
-                    {pg}
-                  </a>
-                </div>
-              </div>
-
-              <%!-- Version navigation --%>
-              <div class="mt-10 pt-6 border-t border-base-300 flex gap-3 flex-wrap">
-                <button
-                  phx-click="select_version"
-                  phx-value-version=""
-                  class="btn btn-sm btn-outline btn-primary gap-2"
+                <div
+                  :if={@selected_version == nil && @doc_html}
+                  class="max-w-4xl mx-auto px-6 py-8 lg:px-10 lg:py-10"
                 >
-                  <.icon name="hero-arrow-left" class="size-4" />
-                  Back to current docs
-                </button>
-                <a href={"/api/v2/openapi.json"} target="_blank" class="btn btn-sm btn-ghost gap-2">
-                  <.icon name="hero-arrow-top-right-on-square" class="size-4" />
-                  OpenAPI spec
-                </a>
-              </div>
-            </div>
+                  <%!-- Page header --%>
+                  <div class="mb-8">
+                    <%!-- Breadcrumb --%>
+                    <nav class="flex items-center gap-1.5 text-xs text-base-content/40 mb-4">
+                      <a href="/docs" class="hover:text-primary transition-colors">Docs</a>
+                      <span
+                        :if={@doc_category && @doc_category != "root"}
+                        class="flex items-center gap-1.5"
+                      >
+                        <.icon name="hero-chevron-right" class="size-3" />
+                        <span class="text-base-content/50">{format_category(@doc_category)}</span>
+                      </span>
+                      <span :if={@current_path != "index"} class="flex items-center gap-1.5">
+                        <.icon name="hero-chevron-right" class="size-3" />
+                        <span class="text-base-content/60">{@doc_title}</span>
+                      </span>
+                    </nav>
 
-            <div :if={@selected_version == nil && @doc_html} class="max-w-4xl mx-auto px-6 py-8 lg:px-10 lg:py-10">
-              <%!-- Page header --%>
-              <div class="mb-8">
-                <%!-- Breadcrumb --%>
-                <nav class="flex items-center gap-1.5 text-xs text-base-content/40 mb-4">
-                  <a href="/docs" class="hover:text-primary transition-colors">Docs</a>
-                  <span :if={@doc_category && @doc_category != "root"} class="flex items-center gap-1.5">
-                    <.icon name="hero-chevron-right" class="size-3" />
-                    <span class="text-base-content/50">{format_category(@doc_category)}</span>
-                  </span>
-                  <span :if={@current_path != "index"} class="flex items-center gap-1.5">
-                    <.icon name="hero-chevron-right" class="size-3" />
-                    <span class="text-base-content/60">{@doc_title}</span>
-                  </span>
-                </nav>
+                    <%!-- Title and meta --%>
+                    <h1 class="text-3xl lg:text-4xl font-extrabold text-base-content tracking-tight leading-tight">
+                      {@doc_title}
+                    </h1>
+                    <p
+                      :if={@doc_description}
+                      class="mt-3 text-base text-base-content/50 leading-relaxed"
+                    >
+                      {@doc_description}
+                    </p>
+                    <div class="flex items-center gap-3 mt-4">
+                      <span
+                        :if={@doc_category && @doc_category != "root"}
+                        class="badge badge-sm badge-outline gap-1.5"
+                      >
+                        <.icon name={category_icon(@doc_category)} class="size-3" />
+                        {format_category(@doc_category)}
+                      </span>
+                      <span :if={@doc_read_time} class="badge badge-sm badge-ghost gap-1">
+                        <.icon name="hero-clock" class="size-3" />
+                        {@doc_read_time} min read
+                      </span>
+                    </div>
+                    <div class="divider mt-6 mb-0"></div>
+                  </div>
 
-                <%!-- Title and meta --%>
-                <h1 class="text-3xl lg:text-4xl font-extrabold text-base-content tracking-tight leading-tight">
-                  {@doc_title}
-                </h1>
-                <p :if={@doc_description} class="mt-3 text-base text-base-content/50 leading-relaxed">
-                  {@doc_description}
-                </p>
-                <div class="flex items-center gap-3 mt-4">
-                  <span :if={@doc_category && @doc_category != "root"} class="badge badge-sm badge-outline gap-1.5">
-                    <.icon name={category_icon(@doc_category)} class="size-3" />
-                    {format_category(@doc_category)}
-                  </span>
-                  <span :if={@doc_read_time} class="badge badge-sm badge-ghost gap-1">
-                    <.icon name="hero-clock" class="size-3" />
-                    {@doc_read_time} min read
-                  </span>
-                </div>
-                <div class="divider mt-6 mb-0"></div>
-              </div>
-
-              <%!-- Rendered markdown content --%>
-              <div id={"doc-content-#{@current_path}"} phx-hook="DocContent" class="doc-content docs-prose prose prose-invert max-w-none
+                  <%!-- Rendered markdown content --%>
+                  <div
+                    id={"doc-content-#{@current_path}"}
+                    phx-hook="DocContent"
+                    class="doc-content docs-prose prose prose-invert max-w-none
                 prose-headings:scroll-mt-20
                 prose-a:text-primary prose-a:no-underline hover:prose-a:underline
                 prose-code:text-primary prose-code:bg-base-300 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:text-[0.8125em] prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
                 prose-pre:bg-neutral prose-pre:rounded-xl prose-pre:border prose-pre:border-base-300/50 prose-pre:shadow-md
                 prose-img:rounded-lg prose-img:shadow-md prose-img:mx-auto
-              ">
-                {raw(@doc_html)}
-              </div>
-
-              <%!-- Prev/Next navigation --%>
-              <div :if={@prev_page || @next_page} class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12 pt-8 border-t border-base-300">
-                <div>
-                  <a
-                    :if={@prev_page}
-                    href={"/docs/#{@prev_page.slug}"}
-                    class="group flex items-center gap-3 p-4 rounded-xl border border-base-300 bg-base-200/50 hover:border-primary/30 hover:bg-base-200 transition-all"
+              "
                   >
-                    <.icon name="hero-arrow-left" class="size-5 text-base-content/30 group-hover:text-primary transition-colors flex-shrink-0" />
-                    <div class="text-right flex-1 min-w-0">
-                      <div class="text-[10px] uppercase tracking-wider text-base-content/30 mb-0.5">Previous</div>
-                      <div class="text-sm font-medium text-base-content/80 group-hover:text-primary transition-colors truncate">
-                        {@prev_page.title}
-                      </div>
-                    </div>
-                  </a>
-                </div>
-                <div>
-                  <a
-                    :if={@next_page}
-                    href={"/docs/#{@next_page.slug}"}
-                    class="group flex items-center gap-3 p-4 rounded-xl border border-base-300 bg-base-200/50 hover:border-primary/30 hover:bg-base-200 transition-all"
+                    {raw(@doc_html)}
+                  </div>
+
+                  <%!-- Prev/Next navigation --%>
+                  <div
+                    :if={@prev_page || @next_page}
+                    class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12 pt-8 border-t border-base-300"
                   >
-                    <div class="flex-1 min-w-0">
-                      <div class="text-[10px] uppercase tracking-wider text-base-content/30 mb-0.5">Next</div>
-                      <div class="text-sm font-medium text-base-content/80 group-hover:text-primary transition-colors truncate">
-                        {@next_page.title}
-                      </div>
+                    <div>
+                      <a
+                        :if={@prev_page}
+                        href={"/docs/#{@prev_page.slug}"}
+                        class="group flex items-center gap-3 p-4 rounded-xl border border-base-300 bg-base-200/50 hover:border-primary/30 hover:bg-base-200 transition-all"
+                      >
+                        <.icon
+                          name="hero-arrow-left"
+                          class="size-5 text-base-content/30 group-hover:text-primary transition-colors flex-shrink-0"
+                        />
+                        <div class="text-right flex-1 min-w-0">
+                          <div class="text-[10px] uppercase tracking-wider text-base-content/30 mb-0.5">
+                            Previous
+                          </div>
+                          <div class="text-sm font-medium text-base-content/80 group-hover:text-primary transition-colors truncate">
+                            {@prev_page.title}
+                          </div>
+                        </div>
+                      </a>
                     </div>
-                    <.icon name="hero-arrow-right" class="size-5 text-base-content/30 group-hover:text-primary transition-colors flex-shrink-0" />
-                  </a>
+                    <div>
+                      <a
+                        :if={@next_page}
+                        href={"/docs/#{@next_page.slug}"}
+                        class="group flex items-center gap-3 p-4 rounded-xl border border-base-300 bg-base-200/50 hover:border-primary/30 hover:bg-base-200 transition-all"
+                      >
+                        <div class="flex-1 min-w-0">
+                          <div class="text-[10px] uppercase tracking-wider text-base-content/30 mb-0.5">
+                            Next
+                          </div>
+                          <div class="text-sm font-medium text-base-content/80 group-hover:text-primary transition-colors truncate">
+                            {@next_page.title}
+                          </div>
+                        </div>
+                        <.icon
+                          name="hero-arrow-right"
+                          class="size-5 text-base-content/30 group-hover:text-primary transition-colors flex-shrink-0"
+                        />
+                      </a>
+                    </div>
+                  </div>
+
+                  <%!-- Footer --%>
+                  <div class="mt-12 pt-6 border-t border-base-300 text-center">
+                    <p class="text-xs text-base-content/30">
+                      CCEM APM Documentation
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <%!-- Footer --%>
-              <div class="mt-12 pt-6 border-t border-base-300 text-center">
-                <p class="text-xs text-base-content/30">
-                  CCEM APM Documentation
-                </p>
-              </div>
-            </div>
-
-            <%!-- Not found state --%>
-            <div :if={!@doc_html && @current_path} class="flex flex-col items-center justify-center py-24 px-6 text-center">
-              <div class="w-16 h-16 rounded-2xl bg-base-200 flex items-center justify-center mb-6">
-                <.icon name="hero-document-magnifying-glass" class="size-8 text-base-content/20" />
-              </div>
-              <h2 class="text-lg font-semibold text-base-content/60 mb-2">Page Not Found</h2>
-              <p class="text-sm text-base-content/40 mb-6 max-w-sm">
-                The page <code class="text-primary bg-neutral/50 px-1.5 py-0.5 rounded text-xs">{@current_path}</code> does not exist.
-              </p>
-              <a href="/docs" class="btn btn-primary btn-sm gap-2">
-                <.icon name="hero-arrow-left" class="size-4" />
-                Back to docs
-              </a>
-            </div>
-          </div>
-
-          <%!-- On-page TOC (right sidebar) --%>
-          <div :if={@doc_html && @page_headings != []} class="w-48 flex-shrink-0 hidden xl:block border-l border-base-300 overflow-y-auto">
-            <div class="p-4 sticky top-0">
-              <h4 class="text-[10px] uppercase tracking-widest text-base-content/30 font-semibold mb-3">
-                On this page
-              </h4>
-              <nav class="space-y-0.5">
-                <a
-                  :for={heading <- @page_headings}
-                  href={"##{heading.id}"}
-                  class={[
-                    "block text-xs transition-colors hover:text-primary truncate",
-                    heading.level == 2 && "text-base-content/60 py-1",
-                    heading.level == 3 && "text-base-content/40 py-0.5 pl-3"
-                  ]}
+                <%!-- Not found state --%>
+                <div
+                  :if={!@doc_html && @current_path}
+                  class="flex flex-col items-center justify-center py-24 px-6 text-center"
                 >
-                  {heading.text}
-                </a>
-              </nav>
+                  <div class="w-16 h-16 rounded-2xl bg-base-200 flex items-center justify-center mb-6">
+                    <.icon name="hero-document-magnifying-glass" class="size-8 text-base-content/20" />
+                  </div>
+                  <h2 class="text-lg font-semibold text-base-content/60 mb-2">Page Not Found</h2>
+                  <p class="text-sm text-base-content/40 mb-6 max-w-sm">
+                    The page
+                    <code class="text-primary bg-neutral/50 px-1.5 py-0.5 rounded text-xs">
+                      {@current_path}
+                    </code>
+                    does not exist.
+                  </p>
+                  <a href="/docs" class="btn btn-primary btn-sm gap-2">
+                    <.icon name="hero-arrow-left" class="size-4" /> Back to docs
+                  </a>
+                </div>
+              </div>
+
+              <%!-- On-page TOC (right sidebar) --%>
+              <div
+                :if={@doc_html && @page_headings != []}
+                class="w-48 flex-shrink-0 hidden xl:block border-l border-base-300 overflow-y-auto"
+              >
+                <div class="p-4 sticky top-0">
+                  <h4 class="text-[10px] uppercase tracking-widest text-base-content/30 font-semibold mb-3">
+                    On this page
+                  </h4>
+                  <nav class="space-y-0.5">
+                    <a
+                      :for={heading <- @page_headings}
+                      href={"##{heading.id}"}
+                      class={[
+                        "block text-xs transition-colors hover:text-primary truncate",
+                        heading.level == 2 && "text-base-content/60 py-1",
+                        heading.level == 3 && "text-base-content/40 py-0.5 pl-3"
+                      ]}
+                    >
+                      {heading.text}
+                    </a>
+                  </nav>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      </div>
-    <.wizard page="welcome" dom_id="ccem-wizard-welcome-docs" />
+        <.wizard page="welcome" dom_id="ccem-wizard-welcome-docs" />
       </:main>
     </.page_layout>
     """
@@ -563,16 +639,26 @@ defmodule ApmWeb.DocsLive do
             phx-value-category={group[:category] || group[:id]}
             class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider text-base-content/40 hover:text-base-content/60 hover:bg-base-300/50 transition-all group"
           >
-            <.icon name={category_icon(group[:category] || group[:id])} class="size-3.5 text-base-content/30 group-hover:text-primary/60 transition-colors" />
+            <.icon
+              name={category_icon(group[:category] || group[:id])}
+              class="size-3.5 text-base-content/30 group-hover:text-primary/60 transition-colors"
+            />
             <span class="flex-1 text-left">{format_category(group[:category] || group[:id])}</span>
             <.icon
-              name={if MapSet.member?(@collapsed_categories, group[:category] || group[:id]), do: "hero-chevron-right", else: "hero-chevron-down"}
+              name={
+                if MapSet.member?(@collapsed_categories, group[:category] || group[:id]),
+                  do: "hero-chevron-right",
+                  else: "hero-chevron-down"
+              }
               class="size-3 text-base-content/20 transition-transform"
             />
           </button>
 
           <%!-- Category items --%>
-          <div :if={!MapSet.member?(@collapsed_categories, group[:category] || group[:id])} class="mt-0.5 space-y-0.5 ml-2">
+          <div
+            :if={!MapSet.member?(@collapsed_categories, group[:category] || group[:id])}
+            class="mt-0.5 space-y-0.5 ml-2"
+          >
             <a
               :for={item <- group.items}
               href={"/docs/#{item.slug}"}
@@ -604,7 +690,10 @@ defmodule ApmWeb.DocsLive do
           target="_blank"
           class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-base-content/50 hover:text-primary hover:bg-base-300/50 transition-all group"
         >
-          <.icon name="hero-arrow-top-right-on-square" class="size-3.5 text-base-content/30 group-hover:text-primary/60 transition-colors" />
+          <.icon
+            name="hero-arrow-top-right-on-square"
+            class="size-3.5 text-base-content/30 group-hover:text-primary/60 transition-colors"
+          />
           <span class="font-medium">API Reference</span>
           <span class="text-[10px] text-base-content/25 ml-auto">OpenAPI</span>
         </a>
@@ -717,6 +806,7 @@ defmodule ApmWeb.DocsLive do
 
   defp load_versions do
     path = Application.app_dir(:apm, "priv/docs/versions.json")
+
     case File.read(path) do
       {:ok, content} -> Jason.decode!(content)
       {:error, _} -> %{"latest" => "8.9.0", "versions" => []}

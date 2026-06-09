@@ -87,8 +87,7 @@ defmodule Apm.SloEngine do
     # Scan the ordered_set for keys in range {name, start_hour} to {name, now_hour}
     :ets.select(@history_table, [
       {{{:"$1", :"$2"}, :"$3"},
-       [{:==, :"$1", name}, {:>=, :"$2", start_hour}, {:"=<", :"$2", now_hour}],
-       [:"$3"]}
+       [{:==, :"$1", name}, {:>=, :"$2", start_hour}, {:"=<", :"$2", now_hour}], [:"$3"]}
     ])
     |> Enum.sort_by(& &1.hour)
   end
@@ -131,7 +130,12 @@ defmodule Apm.SloEngine do
       [{^sli_name, sli}] ->
         new_total = sli.total_events + 1
         new_errors = if outcome == :error, do: sli.error_events + 1, else: sli.error_events
-        new_value = if new_total > 0, do: Float.round((new_total - new_errors) / new_total * 100.0, 2), else: 100.0
+
+        new_value =
+          if new_total > 0,
+            do: Float.round((new_total - new_errors) / new_total * 100.0, 2),
+            else: 100.0
+
         old_status = sli.status
         new_status = if new_value >= sli.target, do: :met, else: :breached
 
@@ -140,20 +144,25 @@ defmodule Apm.SloEngine do
         # Track event in recent window for burn rate
         recent = [{now, outcome} | Enum.take(sli.recent_events, 9_999)]
 
-        updated = %{sli |
-          current_value: new_value,
-          total_events: new_total,
-          error_events: new_errors,
-          status: new_status,
-          recent_events: recent,
-          updated_at: DateTime.utc_now() |> DateTime.to_iso8601()
+        updated = %{
+          sli
+          | current_value: new_value,
+            total_events: new_total,
+            error_events: new_errors,
+            status: new_status,
+            recent_events: recent,
+            updated_at: DateTime.utc_now() |> DateTime.to_iso8601()
         }
 
         :ets.insert(@current_table, {sli_name, updated})
 
         if old_status != new_status do
           try do
-            Phoenix.PubSub.broadcast(@pubsub, @topic, {:slo_transition, sli_name, old_status, new_status})
+            Phoenix.PubSub.broadcast(
+              @pubsub,
+              @topic,
+              {:slo_transition, sli_name, old_status, new_status}
+            )
           rescue
             ArgumentError -> :ok
           end

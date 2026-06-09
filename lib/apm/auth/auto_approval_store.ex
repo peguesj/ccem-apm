@@ -38,8 +38,10 @@ defmodule Apm.Auth.AutoApprovalStore do
   require Logger
 
   @table :auto_approval_policies
-  @ttl_seconds 3600  # Policies expire after 1 hour by default
-  @sweep_ms 30_000   # Check for expired policies every 30 seconds
+  # Policies expire after 1 hour by default
+  @ttl_seconds 3600
+  # Check for expired policies every 30 seconds
+  @sweep_ms 30_000
 
   # ── Client API ──────────────────────────────────────────────────────────────
 
@@ -82,12 +84,17 @@ defmodule Apm.Auth.AutoApprovalStore do
   @spec list_active() :: [map()]
   def list_active do
     now = DateTime.utc_now()
+
     case :ets.info(@table) do
-      :undefined -> []
+      :undefined ->
+        []
+
       _ ->
         :ets.tab2list(@table)
         |> Enum.map(fn {_id, policy} -> policy end)
-        |> Enum.filter(&(DateTime.after?(&1.expires_at, now) and DateTime.before?(&1.active_from, now)))
+        |> Enum.filter(
+          &(DateTime.after?(&1.expires_at, now) and DateTime.before?(&1.active_from, now))
+        )
         |> Enum.sort_by(& &1.updated_at, {:desc, DateTime})
     end
   end
@@ -104,15 +111,23 @@ defmodule Apm.Auth.AutoApprovalStore do
   - Optional: action_type can be used to restrict by command category (:read, :write, :destructive)
   """
   @spec find_matching(
-    String.t() | nil,
-    String.t() | nil,
-    String.t() | nil,
-    String.t() | nil,
-    String.t(),
-    atom(),
-    atom() | nil
-  ) :: map() | nil
-  def find_matching(agent_id, formation_id, session_id, project, tool_name, risk_level, action_type \\ nil) do
+          String.t() | nil,
+          String.t() | nil,
+          String.t() | nil,
+          String.t() | nil,
+          String.t(),
+          atom(),
+          atom() | nil
+        ) :: map() | nil
+  def find_matching(
+        agent_id,
+        formation_id,
+        session_id,
+        project,
+        tool_name,
+        risk_level,
+        action_type \\ nil
+      ) do
     list_active()
     |> Enum.filter(fn p ->
       matches_scope?(p, agent_id, formation_id, session_id, project) &&
@@ -303,10 +318,10 @@ defmodule Apm.Auth.AutoApprovalStore do
 
   defp specificity_score(policy) do
     score =
-      (if policy.agent_id, do: 4, else: 0) +
-        (if policy.formation_id, do: 3, else: 0) +
-        (if policy.session_id, do: 2, else: 0) +
-        (if policy.project, do: 1, else: 0)
+      if(policy.agent_id, do: 4, else: 0) +
+        if(policy.formation_id, do: 3, else: 0) +
+        if(policy.session_id, do: 2, else: 0) +
+        if policy.project, do: 1, else: 0
 
     {score, policy.updated_at}
   end

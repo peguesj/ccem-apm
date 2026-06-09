@@ -80,6 +80,7 @@ defmodule Apm.Plugins.Builder.RepositoryAnalyzer do
   defp read_readme(dir) do
     Enum.find_value(["README.md", "README"], fn filename ->
       path = Path.join(dir, filename)
+
       case File.read(path) do
         {:ok, contents} -> contents
         _ -> nil

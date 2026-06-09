@@ -18,7 +18,8 @@ defmodule Apm.Skills.SkillHealthScorer do
   require Logger
 
   @table :skill_health_cache
-  @health_refresh_interval 10 * 60 * 1000  # 10 minutes
+  # 10 minutes
+  @health_refresh_interval 10 * 60 * 1000
 
   @required_frontmatter_fields [:name, :description, :type, :triggers]
   @valid_types ~w(general utility transformation analysis quality deployment integration utility_pattern behavioral_pattern)
@@ -101,7 +102,9 @@ defmodule Apm.Skills.SkillHealthScorer do
   @spec perform_scoring() :: :ok
   defp perform_scoring do
     graph = Apm.Skills.SkillAnalyzer.get_graph()
-    all_skills = graph |> Map.keys() |> Enum.map(&Apm.Skills.SkillAnalyzer.get_skill/1) |> Enum.filter(& &1)
+
+    all_skills =
+      graph |> Map.keys() |> Enum.map(&Apm.Skills.SkillAnalyzer.get_skill/1) |> Enum.filter(& &1)
 
     scores =
       all_skills
@@ -170,7 +173,7 @@ defmodule Apm.Skills.SkillHealthScorer do
   defp score_frontmatter_completeness(skill) do
     present = @required_frontmatter_fields |> Enum.count(&(&1 in Map.keys(skill)))
     total = length(@required_frontmatter_fields)
-    (present / total) * 100
+    present / total * 100
   end
 
   @spec score_trigger_coverage(map()) :: float()
@@ -213,7 +216,7 @@ defmodule Apm.Skills.SkillHealthScorer do
           Apm.Skills.SkillAnalyzer.get_skill(dep) != nil
         end)
 
-      (healthy_count / length(deps)) * 100
+      healthy_count / length(deps) * 100
     end
   end
 

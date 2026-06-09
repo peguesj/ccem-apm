@@ -94,12 +94,16 @@ defmodule Apm.ColdStartResilienceTest do
 
   defp ensure_started(mod) do
     case Process.whereis(mod) do
-      pid when is_pid(pid) -> :ok
+      pid when is_pid(pid) ->
+        :ok
+
       nil ->
         # Wait for the supervisor to bring it back
         Enum.reduce_while(1..20, :pending, fn _, _ ->
           case Process.whereis(mod) do
-            pid when is_pid(pid) -> {:halt, :ok}
+            pid when is_pid(pid) ->
+              {:halt, :ok}
+
             nil ->
               Process.sleep(10)
               {:cont, :pending}

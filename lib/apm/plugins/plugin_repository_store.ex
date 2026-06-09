@@ -205,7 +205,8 @@ defmodule Apm.Plugins.PluginRepositoryStore do
                 builtin: true,
                 plugin_count: count_marketplace_plugins(name),
                 last_synced: Map.get(info, "lastUpdated"),
-                added_at: Map.get(info, "lastUpdated", DateTime.utc_now() |> DateTime.to_iso8601())
+                added_at:
+                  Map.get(info, "lastUpdated", DateTime.utc_now() |> DateTime.to_iso8601())
               }
 
               :ets.insert(@table, {name, repo})

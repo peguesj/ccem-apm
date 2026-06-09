@@ -68,6 +68,7 @@ defmodule Apm.AgUi.MetricsBridge do
 
       "TOOL_CALL_END" ->
         safe_record(agent_id, "tool_calls_completed", 1)
+
         if data[:duration_ms] do
           safe_record(agent_id, "tool_call_duration_ms", data[:duration_ms])
         end

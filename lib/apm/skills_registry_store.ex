@@ -125,13 +125,17 @@ defmodule Apm.SkillsRegistryStore do
     :ets.new(@ets_table, [:named_table, :public, :set, read_concurrency: true])
     send(self(), :scan)
 
-    initial_repos = %{@mcp_market_repo.id => Map.put(@mcp_market_repo, :added_at, DateTime.utc_now() |> DateTime.to_iso8601())}
+    initial_repos = %{
+      @mcp_market_repo.id =>
+        Map.put(@mcp_market_repo, :added_at, DateTime.utc_now() |> DateTime.to_iso8601())
+    }
 
-    {:ok, %{
-      last_scanned: nil,
-      permissive: MapSet.new(@default_permissive),
-      repositories: initial_repos
-    }}
+    {:ok,
+     %{
+       last_scanned: nil,
+       permissive: MapSet.new(@default_permissive),
+       repositories: initial_repos
+     }}
   end
 
   @impl true
@@ -206,7 +210,13 @@ defmodule Apm.SkillsRegistryStore do
   @impl true
   def handle_call({:add_repository, attrs}, _from, state) do
     id = attrs[:id] || attrs["id"] || "repo-#{System.unique_integer([:positive])}"
-    repo = Map.merge(%{id: id, added_at: DateTime.utc_now() |> DateTime.to_iso8601(), last_synced: nil}, attrs)
+
+    repo =
+      Map.merge(
+        %{id: id, added_at: DateTime.utc_now() |> DateTime.to_iso8601(), last_synced: nil},
+        attrs
+      )
+
     {:reply, {:ok, repo}, %{state | repositories: Map.put(state.repositories, id, repo)}}
   end
 
@@ -391,7 +401,13 @@ defmodule Apm.SkillsRegistryStore do
     :ok
   end
 
-  defp compute_health(has_full_frontmatter, desc_quality, trigger_count, has_examples, has_template) do
+  defp compute_health(
+         has_full_frontmatter,
+         desc_quality,
+         trigger_count,
+         has_examples,
+         has_template
+       ) do
     score = 0
     score = if has_full_frontmatter, do: score + 30, else: score
 

@@ -25,12 +25,13 @@ defmodule ApmWeb.V2.MemoryBridgeController do
 
   @doc "Search observations by query string."
   @spec observations(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :observations,
+  operation(:observations,
     summary: "Observations",
     tags: ["Memory"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def observations(conn, params) do
     query = Map.get(params, "query", "")
@@ -56,12 +57,13 @@ defmodule ApmWeb.V2.MemoryBridgeController do
 
   @doc "Return all observations for a given memory_session_id."
   @spec session(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :session,
+  operation(:session,
     summary: "Session",
     tags: ["Memory"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def session(conn, %{"session_id" => session_id}) do
     case ClaudeMemBridge.session(session_id) do
@@ -84,12 +86,13 @@ defmodule ApmWeb.V2.MemoryBridgeController do
 
   @doc "Return aggregate stats: observation count, min ts, max ts."
   @spec stats(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :stats,
+  operation(:stats,
     summary: "Statistics",
     tags: ["Memory"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def stats(conn, _params) do
     case ClaudeMemBridge.stats() do

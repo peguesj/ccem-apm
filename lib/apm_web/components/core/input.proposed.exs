@@ -44,7 +44,7 @@ defmodule ApmWeb.Components.Core.Input do
     ]}>
       <%= if @icon != [] do %>
         <span class="apm-input__icon" aria-hidden="true">
-          <%= render_slot(@icon) %>
+          {render_slot(@icon)}
         </span>
       <% end %>
       <input
@@ -62,7 +62,7 @@ defmodule ApmWeb.Components.Core.Input do
       />
       <%= if @suffix != [] do %>
         <span class="apm-input__suffix">
-          <%= render_slot(@suffix) %>
+          {render_slot(@suffix)}
         </span>
       <% end %>
     </div>

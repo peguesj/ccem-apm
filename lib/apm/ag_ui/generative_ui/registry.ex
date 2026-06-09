@@ -150,10 +150,17 @@ defmodule Apm.AgUi.GenerativeUI.Registry do
     type = spec["type"] || spec[:type]
 
     cond do
-      is_nil(type) -> {:error, "type is required"}
-      type not in @valid_types -> {:error, "invalid type: #{type}. Must be one of #{inspect(@valid_types)}"}
-      not is_map(spec["props"] || spec[:props] || %{}) -> {:error, "props must be a map"}
-      true -> :ok
+      is_nil(type) ->
+        {:error, "type is required"}
+
+      type not in @valid_types ->
+        {:error, "invalid type: #{type}. Must be one of #{inspect(@valid_types)}"}
+
+      not is_map(spec["props"] || spec[:props] || %{}) ->
+        {:error, "props must be a map"}
+
+      true ->
+        :ok
     end
   end
 

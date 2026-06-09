@@ -117,7 +117,12 @@ defmodule Apm.Auth.PolicyPriorityResolverTest do
 
     test "allow with specificity 1 beats wildcard deny" do
       rules = [
-        %{tool_name: "*", action: :always_deny, inserted_at: ~U[2025-01-01 00:00:00Z], specificity: 0},
+        %{
+          tool_name: "*",
+          action: :always_deny,
+          inserted_at: ~U[2025-01-01 00:00:00Z],
+          specificity: 0
+        },
         allow_rule("Bash", specificity: 1)
       ]
 
@@ -136,8 +141,18 @@ defmodule Apm.Auth.PolicyPriorityResolverTest do
 
     test "higher specificity allow wins over lower specificity deny" do
       rules = [
-        %{tool_name: "Bash", action: :always_deny, inserted_at: ~U[2025-01-01 00:00:00Z], specificity: 3},
-        %{tool_name: "Bash", action: :always_allow, inserted_at: ~U[2025-01-02 00:00:00Z], specificity: 5}
+        %{
+          tool_name: "Bash",
+          action: :always_deny,
+          inserted_at: ~U[2025-01-01 00:00:00Z],
+          specificity: 3
+        },
+        %{
+          tool_name: "Bash",
+          action: :always_allow,
+          inserted_at: ~U[2025-01-02 00:00:00Z],
+          specificity: 5
+        }
       ]
 
       assert PolicyPriorityResolver.resolve(rules, :most_specific) == :always_allow

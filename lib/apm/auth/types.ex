@@ -188,14 +188,12 @@ defmodule Apm.Auth.Types do
             needs_approval: boolean(),
             constraints: map()
           }
-    defstruct [
-      allowed: false,
-      risk_level: :none,
-      reason: nil,
-      detail: "",
-      needs_approval: false,
-      constraints: %{}
-    ]
+    defstruct allowed: false,
+              risk_level: :none,
+              reason: nil,
+              detail: "",
+              needs_approval: false,
+              constraints: %{}
   end
 
   defmodule ContextEntry do
@@ -220,11 +218,9 @@ defmodule Apm.Auth.Types do
             mode: :auto | :manual | :none,
             had_redactions: boolean()
           }
-    defstruct [
-      redacted_text: "",
-      redactions: [],
-      mode: :auto,
-      had_redactions: false
-    ]
+    defstruct redacted_text: "",
+              redactions: [],
+              mode: :auto,
+              had_redactions: false
   end
 end

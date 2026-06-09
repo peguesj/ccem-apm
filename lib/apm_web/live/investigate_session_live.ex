@@ -130,7 +130,13 @@ defmodule ApmWeb.InvestigateSessionLive do
     # POST /api/v2/circuit-breaker/close — fire and forget
     Task.start(fn ->
       try do
-        :httpc.request(:post, {~c"http://localhost:3032/api/v2/circuit-breaker/close", [], ~c"application/json", ~c"{}"}, [], [])
+        :httpc.request(
+          :post,
+          {~c"http://localhost:3032/api/v2/circuit-breaker/close", [], ~c"application/json",
+           ~c"{}"},
+          [],
+          []
+        )
       rescue
         _ -> :ok
       end
@@ -158,6 +164,7 @@ defmodule ApmWeb.InvestigateSessionLive do
   def handle_event("open_cmd_k", _params, socket), do: {:noreply, socket}
   def handle_event("open_notifications", _params, socket), do: {:noreply, socket}
   def handle_event("open_project_switcher", _params, socket), do: {:noreply, socket}
+
   def handle_event("retry", _params, socket) do
     {:noreply, load_session(socket, socket.assigns.session_id)}
   end
@@ -201,7 +208,12 @@ defmodule ApmWeb.InvestigateSessionLive do
               </CoreBadge.badge>
             </:badge>
             <:actions>
-              <CoreButton.button variant="ghost" size="sm" phx-click="navigate" phx-value-id="inv-audit">
+              <CoreButton.button
+                variant="ghost"
+                size="sm"
+                phx-click="navigate"
+                phx-value-id="inv-audit"
+              >
                 Audit trail →
               </CoreButton.button>
               <CoreButton.button variant="outline" size="sm">
@@ -239,8 +251,13 @@ defmodule ApmWeb.InvestigateSessionLive do
 
           <%!-- Circuit-breaker banner (when open) --%>
           <%= if @breaker_open do %>
-            <div class="apm-cb-banner apm-status-error-soft apm-cb-trace" style="padding:10px 20px;display:flex;align-items:center;gap:12px;border:1px solid var(--apm-status-error)">
-              <span style="color:var(--apm-status-error);font-size:13px;font-weight:500">Circuit breaker open</span>
+            <div
+              class="apm-cb-banner apm-status-error-soft apm-cb-trace"
+              style="padding:10px 20px;display:flex;align-items:center;gap:12px;border:1px solid var(--apm-status-error)"
+            >
+              <span style="color:var(--apm-status-error);font-size:13px;font-weight:500">
+                Circuit breaker open
+              </span>
               <CoreButton.button variant="danger" size="sm" phx-click="close_breaker_confirm">
                 Close breaker
               </CoreButton.button>
@@ -305,7 +322,10 @@ defmodule ApmWeb.InvestigateSessionLive do
                           </CoreBadge.badge>
 
                           <div style="flex:1;min-width:0">
-                            <div class="apm-mono" style="font-size:11.5px;color:var(--apm-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                            <div
+                              class="apm-mono"
+                              style="font-size:11.5px;color:var(--apm-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                            >
                               {truncate_args(tc[:args])}
                             </div>
                             <%= if tc[:duration_ms] do %>
@@ -354,7 +374,10 @@ defmodule ApmWeb.InvestigateSessionLive do
 
                         <%!-- Arguments --%>
                         <div>
-                          <div class="apm-mono apm-upper" style="font-size:9.5px;color:var(--apm-text-dim);margin-bottom:6px;letter-spacing:0.1em">
+                          <div
+                            class="apm-mono apm-upper"
+                            style="font-size:9.5px;color:var(--apm-text-dim);margin-bottom:6px;letter-spacing:0.1em"
+                          >
                             Arguments
                           </div>
                           <JsonViewer.json_viewer data={@selected_call_data[:args] || %{}} />
@@ -363,7 +386,10 @@ defmodule ApmWeb.InvestigateSessionLive do
                         <%!-- Result --%>
                         <%= if @selected_call_data[:result] do %>
                           <div>
-                            <div class="apm-mono apm-upper" style="font-size:9.5px;color:var(--apm-text-dim);margin-bottom:6px;letter-spacing:0.1em">
+                            <div
+                              class="apm-mono apm-upper"
+                              style="font-size:9.5px;color:var(--apm-text-dim);margin-bottom:6px;letter-spacing:0.1em"
+                            >
                               Result
                             </div>
                             <JsonViewer.json_viewer data={@selected_call_data[:result]} />
@@ -373,11 +399,17 @@ defmodule ApmWeb.InvestigateSessionLive do
                         <%!-- Audit cross-ref --%>
                         <%= if @audit_entries != [] do %>
                           <div>
-                            <div class="apm-mono apm-upper" style="font-size:9.5px;color:var(--apm-text-dim);margin-bottom:6px;letter-spacing:0.1em">
+                            <div
+                              class="apm-mono apm-upper"
+                              style="font-size:9.5px;color:var(--apm-text-dim);margin-bottom:6px;letter-spacing:0.1em"
+                            >
                               Audit ({length(@audit_entries)})
                             </div>
                             <%= for entry <- @audit_entries do %>
-                              <div class="apm-audit-entry" style="font-size:11.5px;padding:6px 0;border-bottom:1px solid var(--apm-border-subtle)">
+                              <div
+                                class="apm-audit-entry"
+                                style="font-size:11.5px;padding:6px 0;border-bottom:1px solid var(--apm-border-subtle)"
+                              >
                                 <%!-- Redact-reveal micro-interaction: hover **** → blur→text via CSS --%>
                                 <span class="apm-redact-reveal apm-mono">
                                   {Map.get(entry, :payload_preview, "****")}
@@ -438,8 +470,12 @@ defmodule ApmWeb.InvestigateSessionLive do
             Ensure the underlying issue is resolved before proceeding.
           </p>
           <:footer>
-            <CoreButton.button variant="ghost" phx-click="cancel_close_breaker">Cancel</CoreButton.button>
-            <CoreButton.button variant="danger" phx-click="close_breaker">Close breaker</CoreButton.button>
+            <CoreButton.button variant="ghost" phx-click="cancel_close_breaker">
+              Cancel
+            </CoreButton.button>
+            <CoreButton.button variant="danger" phx-click="close_breaker">
+              Close breaker
+            </CoreButton.button>
           </:footer>
         </Modal.modal>
       <% end %>
@@ -487,12 +523,14 @@ defmodule ApmWeb.InvestigateSessionLive do
 
   defp schedule_refresh, do: Process.send_after(self(), :refresh, @refresh_ms)
 
-  defp empty_metrics, do: %{duration_s: nil, tokens_in: 0, tokens_out: 0, tool_calls: 0, cost_usd: nil}
+  defp empty_metrics,
+    do: %{duration_s: nil, tokens_in: 0, tokens_out: 0, tool_calls: 0, cost_usd: nil}
 
   defp find_call(_tool_calls, nil), do: nil
   defp find_call(tool_calls, id), do: Enum.find(tool_calls, &(&1[:id] == id))
 
   defp first_call_ms([]), do: System.system_time(:millisecond)
+
   defp first_call_ms([first | _]) do
     case first[:started_at] do
       %DateTime{} = dt -> DateTime.to_unix(dt, :millisecond)
@@ -531,9 +569,11 @@ defmodule ApmWeb.InvestigateSessionLive do
   defp truncate(s, _), do: s || ""
 
   defp truncate_args(nil), do: ""
+
   defp truncate_args(args) when is_map(args) do
     args |> Jason.encode!() |> truncate(60)
   end
+
   defp truncate_args(args), do: truncate(inspect(args), 60)
 
   defp session_title(nil, id), do: id

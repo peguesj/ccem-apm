@@ -94,79 +94,84 @@ defmodule ApmWeb.Components.RateLimitWidget do
     ~H"""
     <div class="rate-limit-widget p-4 bg-base-200 rounded-lg space-y-6">
       <h2 class="text-lg font-semibold">Rate Limiting</h2>
-
-      <!-- Fuse circuit-breaker states -->
+      
+    <!-- Fuse circuit-breaker states -->
       <section>
         <h3 class="text-sm font-medium text-base-content/70 mb-2">Circuit Breakers</h3>
         <div class="grid grid-cols-3 gap-3">
           <%= for {_name, label, state} <- @fuse_states do %>
             <div class={"flex items-center gap-2 px-3 py-2 rounded text-sm font-medium " <> fuse_class(state)}>
               <span class={"w-2 h-2 rounded-full " <> dot_class(state)}></span>
-              <%= label %>
-              <span class="ml-auto text-xs opacity-75"><%= fuse_label(state) %></span>
+              {label}
+              <span class="ml-auto text-xs opacity-75">{fuse_label(state)}</span>
             </div>
           <% end %>
         </div>
       </section>
-
-      <!-- Adaptive load factor sparkline -->
+      
+    <!-- Adaptive load factor sparkline -->
       <section>
         <h3 class="text-sm font-medium text-base-content/70 mb-2">
           Adaptive Load Factor
-          <span class="ml-2 font-mono text-primary"><%= format_factor(@factor) %></span>
+          <span class="ml-2 font-mono text-primary">{format_factor(@factor)}</span>
         </h3>
         <div class="h-16 bg-base-300 rounded flex items-end px-1 gap-px overflow-hidden">
           <%= for v <- Enum.take(@sparkline, -60) do %>
             <div
               class="flex-1 min-w-0 bg-primary rounded-sm transition-all duration-300"
               style={"height: #{round(v * 100)}%;"}
-            ></div>
+            >
+            </div>
           <% end %>
           <%= if @sparkline == [] do %>
             <span class="text-xs text-base-content/40 m-auto">No data yet</span>
           <% end %>
         </div>
       </section>
-
-      <!-- Top rate-limited agents (rl-s9: powered by FormationRateLimiter.top_n_agents/2) -->
+      
+    <!-- Top rate-limited agents (rl-s9: powered by FormationRateLimiter.top_n_agents/2) -->
       <section>
         <h3 class="text-sm font-medium text-base-content/70 mb-2">Top Rate-Limited Agents</h3>
         <%= if @top_limited == [] do %>
           <p class="text-xs text-base-content/40 italic">
-            <%= if is_nil(@formation_id), do: "Pass formation_id to widget to show live data.", else: "No agents with active bucket usage." %>
+            {if is_nil(@formation_id),
+              do: "Pass formation_id to widget to show live data.",
+              else: "No agents with active bucket usage."}
           </p>
         <% else %>
           <ul class="space-y-1">
             <%= for %{agent_id: agent_id, tool_name: tool_name, used: used} <- @top_limited do %>
               <li class="flex justify-between text-sm">
                 <span class="font-mono truncate" title={"#{agent_id}:#{tool_name}"}>
-                  <%= agent_id %>
-                  <span class="text-base-content/50">:<%= tool_name %></span>
+                  {agent_id}
+                  <span class="text-base-content/50">:{tool_name}</span>
                 </span>
-                <span class="text-error font-semibold"><%= used %></span>
+                <span class="text-error font-semibold">{used}</span>
               </li>
             <% end %>
           </ul>
         <% end %>
       </section>
-
-      <!-- Per-formation utilization heat map (rl-s10: powered by FormationRateLimiter.heatmap_data/1) -->
+      
+    <!-- Per-formation utilization heat map (rl-s10: powered by FormationRateLimiter.heatmap_data/1) -->
       <section>
         <h3 class="text-sm font-medium text-base-content/70 mb-2">Formation Utilization</h3>
         <%= if map_size(@formation_util) == 0 do %>
           <p class="text-xs text-base-content/40 italic">
-            <%= if is_nil(@formation_id), do: "Pass formation_id to widget to show live data.", else: "No tool activity recorded for this formation." %>
+            {if is_nil(@formation_id),
+              do: "Pass formation_id to widget to show live data.",
+              else: "No tool activity recorded for this formation."}
           </p>
         <% else %>
           <div class="grid grid-cols-3 gap-2">
             <%= for {tool_name, pct} <- Enum.sort(@formation_util) do %>
               <div class="space-y-1">
-                <div class="text-xs text-base-content/60 truncate" title={tool_name}><%= tool_name %></div>
+                <div class="text-xs text-base-content/60 truncate" title={tool_name}>{tool_name}</div>
                 <div
                   class="h-5 rounded text-xs flex items-center justify-center font-mono text-white"
                   style={"background: hsl(#{round((1 - pct / 100) * 120)}, 60%, 40%);"}
                 >
-                  <%= :erlang.float_to_binary(pct / 1, decimals: 1) %>%
+                  {:erlang.float_to_binary(pct / 1, decimals: 1)}%
                 </div>
               </div>
             <% end %>

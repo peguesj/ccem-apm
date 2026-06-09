@@ -84,7 +84,10 @@ defmodule ApmWeb.MemoryLive do
         <.top_bar project_name="CCEM APM" />
       </:topbar>
       <:main>
-        <div phx-window-keydown="keydown" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+        <div
+          phx-window-keydown="keydown"
+          style="display:flex;flex-direction:column;height:100%;overflow:hidden;"
+        >
           <%!-- Header --%>
           <div style="padding:1.5rem 1.5rem 0;">
             <h1 style="font-size:1.5rem;font-weight:700;color:var(--ccem-text-primary);">Memory</h1>
@@ -108,7 +111,6 @@ defmodule ApmWeb.MemoryLive do
 
           <%!-- Tab content --%>
           <div style="flex:1;overflow-y:auto;padding:1.5rem;">
-
             <%!-- Browse tab --%>
             <div :if={@tab == :browse}>
               <%!-- Filters --%>
@@ -129,9 +131,14 @@ defmodule ApmWeb.MemoryLive do
                 </select>
               </div>
 
-              <div :if={@observations == []} style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);">
+              <div
+                :if={@observations == []}
+                style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);"
+              >
                 <p style="font-weight:500;">No observations in cache</p>
-                <p style="font-size:0.875rem;margin-top:0.25rem;">Observations will appear as agents run</p>
+                <p style="font-size:0.875rem;margin-top:0.25rem;">
+                  Observations will appear as agents run
+                </p>
               </div>
 
               <div :if={@observations != []} style="display:flex;flex-direction:column;gap:0.5rem;">
@@ -139,7 +146,10 @@ defmodule ApmWeb.MemoryLive do
               </div>
 
               <%!-- Pagination --%>
-              <div :if={@observations != []} style="display:flex;align-items:center;justify-content:space-between;margin-top:1rem;">
+              <div
+                :if={@observations != []}
+                style="display:flex;align-items:center;justify-content:space-between;margin-top:1rem;"
+              >
                 <span style="font-size:0.875rem;color:var(--ccem-text-muted);">Page {@page}</span>
                 <div style="display:flex;gap:0.5rem;">
                   <.btn variant="ghost" size="sm" phx-click="prev_page">Previous</.btn>
@@ -153,19 +163,29 @@ defmodule ApmWeb.MemoryLive do
                   style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;user-select:none;margin-bottom:0.5rem;"
                   phx-click="toggle_sessions_section"
                 >
-                  <span style={"display:inline-block;transition:transform 0.15s;transform:#{if @sessions_collapsed, do: "rotate(0deg)", else: "rotate(90deg)"};font-size:0.75rem;color:var(--ccem-text-muted);"}>&#9654;</span>
-                  <span style="font-size:0.875rem;font-weight:600;color:var(--ccem-text-secondary,var(--ccem-text-muted));">Related Sessions</span>
+                  <span style={"display:inline-block;transition:transform 0.15s;transform:#{if @sessions_collapsed, do: "rotate(0deg)", else: "rotate(90deg)"};font-size:0.75rem;color:var(--ccem-text-muted);"}>
+                    &#9654;
+                  </span>
+                  <span style="font-size:0.875rem;font-weight:600;color:var(--ccem-text-secondary,var(--ccem-text-muted));">
+                    Related Sessions
+                  </span>
                   <.badge tone="neutral">{length(@related_sessions)}</.badge>
                 </div>
 
                 <div :if={!@sessions_collapsed}>
-                  <div :if={@related_sessions == []} style="font-size:0.875rem;color:var(--ccem-text-muted);padding:0.75rem 0 0.75rem 1.5rem;">
+                  <div
+                    :if={@related_sessions == []}
+                    style="font-size:0.875rem;color:var(--ccem-text-muted);padding:0.75rem 0 0.75rem 1.5rem;"
+                  >
                     No related sessions found for the current project
                   </div>
-                  <div :if={@related_sessions != []} style="display:flex;flex-direction:column;gap:0.5rem;padding-left:1.5rem;">
+                  <div
+                    :if={@related_sessions != []}
+                    style="display:flex;flex-direction:column;gap:0.5rem;padding-left:1.5rem;"
+                  >
                     <.link
                       :for={sess <- @related_sessions}
-                      navigate={"/conversations"}
+                      navigate="/conversations"
                       style="display:flex;align-items:center;gap:0.75rem;background:var(--ccem-bg-secondary);border-radius:0.5rem;padding:0.5rem 0.75rem;text-decoration:none;"
                     >
                       <div style="flex:1;min-width:0;">
@@ -207,7 +227,10 @@ defmodule ApmWeb.MemoryLive do
                 <p style="font-size:0.875rem;">Enter a query above to search observations</p>
               </div>
 
-              <div :if={@searching} style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);">
+              <div
+                :if={@searching}
+                style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);"
+              >
                 <p style="font-size:0.875rem;margin-top:0.5rem;">Searching...</p>
               </div>
 
@@ -218,7 +241,10 @@ defmodule ApmWeb.MemoryLive do
                 <p style="font-weight:500;">No results for "{@search_query}"</p>
               </div>
 
-              <div :if={!@searching && @search_results != []} style="display:flex;flex-direction:column;gap:0.5rem;">
+              <div
+                :if={!@searching && @search_results != []}
+                style="display:flex;flex-direction:column;gap:0.5rem;"
+              >
                 <p style="font-size:0.875rem;color:var(--ccem-text-muted);margin-bottom:0.5rem;">
                   {length(@search_results)} result(s) for "{@search_query}"
                 </p>
@@ -228,16 +254,27 @@ defmodule ApmWeb.MemoryLive do
 
             <%!-- Timeline tab --%>
             <div :if={@tab == :timeline}>
-              <div :if={!@timeline_loaded} style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);">
+              <div
+                :if={!@timeline_loaded}
+                style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);"
+              >
                 <p style="font-size:0.875rem;margin-top:0.5rem;">Loading timeline...</p>
               </div>
 
-              <div :if={@timeline_loaded && @timeline_groups == []} style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);">
+              <div
+                :if={@timeline_loaded && @timeline_groups == []}
+                style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);"
+              >
                 <p style="font-weight:500;">No timeline data available</p>
-                <p style="font-size:0.875rem;margin-top:0.25rem;">Timeline requires the claude-mem worker to be running</p>
+                <p style="font-size:0.875rem;margin-top:0.25rem;">
+                  Timeline requires the claude-mem worker to be running
+                </p>
               </div>
 
-              <div :if={@timeline_loaded && @timeline_groups != []} style="display:flex;flex-direction:column;gap:1rem;">
+              <div
+                :if={@timeline_loaded && @timeline_groups != []}
+                style="display:flex;flex-direction:column;gap:1rem;"
+              >
                 <div :for={{date_label, group_obs} <- @timeline_groups}>
                   <%!-- Date header --%>
                   <div
@@ -245,8 +282,12 @@ defmodule ApmWeb.MemoryLive do
                     phx-click="toggle_date"
                     phx-value-date={date_label}
                   >
-                    <span style={"display:inline-block;transition:transform 0.15s;transform:#{if MapSet.member?(@collapsed_dates, date_label), do: "rotate(0deg)", else: "rotate(90deg)"};font-size:0.75rem;color:var(--ccem-text-muted);"}>&#9654;</span>
-                    <span style="font-size:1rem;font-weight:600;color:var(--ccem-text-primary);">{date_label}</span>
+                    <span style={"display:inline-block;transition:transform 0.15s;transform:#{if MapSet.member?(@collapsed_dates, date_label), do: "rotate(0deg)", else: "rotate(90deg)"};font-size:0.75rem;color:var(--ccem-text-muted);"}>
+                      &#9654;
+                    </span>
+                    <span style="font-size:1rem;font-weight:600;color:var(--ccem-text-primary);">
+                      {date_label}
+                    </span>
                     <.badge tone="neutral">{length(group_obs)}</.badge>
                   </div>
 
@@ -260,7 +301,6 @@ defmodule ApmWeb.MemoryLive do
                 </div>
               </div>
             </div>
-
           </div>
         </div>
 
@@ -273,7 +313,8 @@ defmodule ApmWeb.MemoryLive do
           <div
             style="position:fixed;inset:0;background:rgba(0,0,0,0.4);"
             phx-click="close_detail"
-          ></div>
+          >
+          </div>
 
           <%!-- Panel --%>
           <div style="position:relative;margin-left:auto;width:100%;max-width:32rem;background:var(--ccem-bg-secondary);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
@@ -281,7 +322,9 @@ defmodule ApmWeb.MemoryLive do
             <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--ccem-border);">
               <div style="display:flex;align-items:center;gap:0.5rem;">
                 <.type_badge type={observation_type(@selected_observation)} />
-                <span style="font-size:0.875rem;font-weight:600;color:var(--ccem-text-primary);">Observation Detail</span>
+                <span style="font-size:0.875rem;font-weight:600;color:var(--ccem-text-primary);">
+                  Observation Detail
+                </span>
               </div>
               <.btn variant="ghost" size="sm" phx-click="close_detail">X</.btn>
             </div>
@@ -290,7 +333,9 @@ defmodule ApmWeb.MemoryLive do
             <div style="flex:1;overflow-y:auto;padding:1rem 1.25rem;display:flex;flex-direction:column;gap:1.25rem;">
               <%!-- ID --%>
               <div>
-                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">ID</p>
+                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">
+                  ID
+                </p>
                 <p style="font-size:0.875rem;font-family:monospace;color:var(--ccem-text-primary);word-break:break-all;">
                   {Map.get(@selected_observation, "id") || Map.get(@selected_observation, :id) || "—"}
                 </p>
@@ -298,15 +343,22 @@ defmodule ApmWeb.MemoryLive do
 
               <%!-- Source --%>
               <div>
-                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Source</p>
+                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">
+                  Source
+                </p>
                 <p style="font-size:0.875rem;color:var(--ccem-text-primary);">
-                  {to_string(Map.get(@selected_observation, "source") || Map.get(@selected_observation, :source) || "—")}
+                  {to_string(
+                    Map.get(@selected_observation, "source") ||
+                      Map.get(@selected_observation, :source) || "—"
+                  )}
                 </p>
               </div>
 
               <%!-- Timestamp --%>
               <div>
-                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Timestamp</p>
+                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">
+                  Timestamp
+                </p>
                 <p style="font-size:0.875rem;font-family:monospace;color:var(--ccem-text-primary);">
                   {observation_timestamp(@selected_observation)}
                 </p>
@@ -314,13 +366,18 @@ defmodule ApmWeb.MemoryLive do
 
               <%!-- Tags --%>
               <div>
-                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Tags</p>
+                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">
+                  Tags
+                </p>
                 <div style="display:flex;flex-wrap:wrap;gap:0.25rem;">
                   <%= for tag <- (Map.get(@selected_observation, "tags") || Map.get(@selected_observation, :tags) || []) do %>
                     <.badge tone="neutral">{tag}</.badge>
                   <% end %>
                   <span
-                    :if={(Map.get(@selected_observation, "tags") || Map.get(@selected_observation, :tags) || []) == []}
+                    :if={
+                      (Map.get(@selected_observation, "tags") || Map.get(@selected_observation, :tags) ||
+                         []) == []
+                    }
                     style="font-size:0.875rem;color:var(--ccem-text-muted);"
                   >
                     None
@@ -330,7 +387,9 @@ defmodule ApmWeb.MemoryLive do
 
               <%!-- Content / narrative --%>
               <div>
-                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Content</p>
+                <p style="font-size:0.75rem;font-weight:500;color:var(--ccem-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">
+                  Content
+                </p>
                 <pre style="font-size:0.875rem;color:var(--ccem-text-primary);background:var(--ccem-bg-tertiary,var(--ccem-bg-secondary));border-radius:0.5rem;padding:0.75rem;white-space:pre-wrap;word-break:break-words;line-height:1.625;max-height:20rem;overflow-y:auto;">
                   {Map.get(@selected_observation, "narrative") || Map.get(@selected_observation, :narrative) || "(no content)"}
                 </pre>

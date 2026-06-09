@@ -150,7 +150,11 @@ defmodule Apm.Plugins.Devops.DevopsPlugin do
     {:ok, %{actions: catalog, count: length(catalog)}}
   end
 
-  def handle_action("run_action", %{"action_type" => action_type, "project_path" => project_path} = params, _opts) do
+  def handle_action(
+        "run_action",
+        %{"action_type" => action_type, "project_path" => project_path} = params,
+        _opts
+      ) do
     action_params = Map.get(params, "params", %{})
 
     case ActionEngine.run_action(action_type, project_path, action_params) do

@@ -32,12 +32,13 @@ defmodule ApmWeb.V2.GovernanceController do
   @doc """
   Returns the full ControlRegistry as JSON.
   """
-  operation :list_controls,
+  operation(:list_controls,
     summary: "List controls",
     tags: ["Governance"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def list_controls(conn, _params) do
     controls =
@@ -73,12 +74,13 @@ defmodule ApmWeb.V2.GovernanceController do
 
   Pass `?format=md` or `?format=markdown` for a Markdown rendering.
   """
-  operation :report,
+  operation(:report,
     summary: "Report",
     tags: ["Governance"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def report(conn, params) do
     format = Map.get(params, "format", "json")
@@ -102,12 +104,13 @@ defmodule ApmWeb.V2.GovernanceController do
   @doc """
   Forces cache invalidation and regenerates the compliance report.
   """
-  operation :refresh_report,
+  operation(:refresh_report,
     summary: "Refresh report",
     tags: ["Governance"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def refresh_report(conn, _params) do
     report = ComplianceReportEngine.refresh()
@@ -121,12 +124,13 @@ defmodule ApmWeb.V2.GovernanceController do
   @doc """
   Returns all currently active circuit breaker entries.
   """
-  operation :list_circuit_breakers,
+  operation(:list_circuit_breakers,
     summary: "List circuit breakers",
     tags: ["Governance"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def list_circuit_breakers(conn, _params) do
     circuits = IncidentResponseEngine.list_active_circuits()
@@ -141,12 +145,13 @@ defmodule ApmWeb.V2.GovernanceController do
   Manually closes a circuit breaker for the given session_id, restoring
   normal policy evaluation.
   """
-  operation :close_circuit,
+  operation(:close_circuit,
     summary: "Close circuit",
     tags: ["Governance"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def close_circuit(conn, %{"session_id" => session_id}) do
     case IncidentResponseEngine.close_circuit(session_id) do

@@ -40,7 +40,11 @@ defmodule Apm.Provenance.DelegationChainTest do
   describe "new_chain/3" do
     test "returns {:ok, chain} with a single hop" do
       assert {:ok, chain} =
-               DelegationChain.new_chain("did:key:z6MkHuman", "did:key:z6MkOrchestrator", "sess-001")
+               DelegationChain.new_chain(
+                 "did:key:z6MkHuman",
+                 "did:key:z6MkOrchestrator",
+                 "sess-001"
+               )
 
       assert length(chain.hops) == 1
       hop = hd(chain.hops)

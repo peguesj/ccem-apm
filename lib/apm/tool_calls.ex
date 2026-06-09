@@ -75,11 +75,11 @@ defmodule Apm.ToolCalls do
   - lanes: distinct tool names as lanes
   - events: one event per tool call, positioned by timestamp
   """
-  @spec to_timeline([ map()]) :: {[map()], [map()]}
+  @spec to_timeline([map()]) :: {[map()], [map()]}
   def to_timeline(tool_calls) when is_list(tool_calls) do
     lanes =
       tool_calls
-      |> Enum.map(& &1[:tool_name] || "unknown")
+      |> Enum.map(&(&1[:tool_name] || "unknown"))
       |> Enum.uniq()
       |> Enum.map(fn name -> %{id: name, label: name, color: nil} end)
 

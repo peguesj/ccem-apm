@@ -35,16 +35,87 @@ defmodule Apm.WorkflowRegistry do
         %{id: "done", label: "Done", color: "#10b981"}
       ],
       steps: [
-        %{id: "1", label: "Write PRD", description: "Author a Product Requirements Document with user stories and acceptance criteria.", phase: "setup", x: 200, y: 60},
-        %{id: "2", label: "Convert to prd.json", description: "Convert PRD to structured prd.json format using the /ralph skill.", phase: "setup", x: 200, y: 140},
-        %{id: "3", label: "Run ralph.sh", description: "Execute the ralph autonomous agent loop to start implementing stories.", phase: "setup", x: 200, y: 220},
-        %{id: "4", label: "Pick Story", description: "Select the highest-priority story where passes: false.", phase: "loop", x: 200, y: 320},
-        %{id: "5", label: "Implement", description: "Agent implements the story: write code, create files, run tests.", phase: "loop", x: 200, y: 400},
-        %{id: "6", label: "Quality Checks", description: "Run mix compile --warnings-as-errors and mix test.", phase: "loop", x: 200, y: 480},
-        %{id: "7", label: "Commit", description: "Commit with message: feat: [Story ID] - [Story Title]", phase: "loop", x: 200, y: 560},
-        %{id: "8", label: "Update PRD", description: "Set story passes: true in prd.json.", phase: "loop", x: 200, y: 640},
-        %{id: "9", label: "More Stories?", description: "Check if any remaining stories have passes: false.", phase: "decision", x: 200, y: 740},
-        %{id: "10", label: "Complete", description: "All stories implemented. Formation complete.", phase: "done", x: 200, y: 840}
+        %{
+          id: "1",
+          label: "Write PRD",
+          description:
+            "Author a Product Requirements Document with user stories and acceptance criteria.",
+          phase: "setup",
+          x: 200,
+          y: 60
+        },
+        %{
+          id: "2",
+          label: "Convert to prd.json",
+          description: "Convert PRD to structured prd.json format using the /ralph skill.",
+          phase: "setup",
+          x: 200,
+          y: 140
+        },
+        %{
+          id: "3",
+          label: "Run ralph.sh",
+          description: "Execute the ralph autonomous agent loop to start implementing stories.",
+          phase: "setup",
+          x: 200,
+          y: 220
+        },
+        %{
+          id: "4",
+          label: "Pick Story",
+          description: "Select the highest-priority story where passes: false.",
+          phase: "loop",
+          x: 200,
+          y: 320
+        },
+        %{
+          id: "5",
+          label: "Implement",
+          description: "Agent implements the story: write code, create files, run tests.",
+          phase: "loop",
+          x: 200,
+          y: 400
+        },
+        %{
+          id: "6",
+          label: "Quality Checks",
+          description: "Run mix compile --warnings-as-errors and mix test.",
+          phase: "loop",
+          x: 200,
+          y: 480
+        },
+        %{
+          id: "7",
+          label: "Commit",
+          description: "Commit with message: feat: [Story ID] - [Story Title]",
+          phase: "loop",
+          x: 200,
+          y: 560
+        },
+        %{
+          id: "8",
+          label: "Update PRD",
+          description: "Set story passes: true in prd.json.",
+          phase: "loop",
+          x: 200,
+          y: 640
+        },
+        %{
+          id: "9",
+          label: "More Stories?",
+          description: "Check if any remaining stories have passes: false.",
+          phase: "decision",
+          x: 200,
+          y: 740
+        },
+        %{
+          id: "10",
+          label: "Complete",
+          description: "All stories implemented. Formation complete.",
+          phase: "done",
+          x: 200,
+          y: 840
+        }
       ],
       edges: [
         %{source: "1", target: "2", label: nil},
@@ -72,15 +143,82 @@ defmodule Apm.WorkflowRegistry do
         %{id: "ship", label: "Ship", color: "#10b981"}
       ],
       steps: [
-        %{id: "1", label: "/upm plan", description: "Generate Ralph prd.json, create Plane issues, add CLAUDE.md checkpoints.", phase: "plan", x: 200, y: 60},
-        %{id: "2", label: "Formation Deploy", description: "Analyze story dependencies, group into waves, deploy hierarchical agent formation.", phase: "build", x: 200, y: 160},
-        %{id: "3", label: "Wave 1", description: "Execute independent stories concurrently. Each agent fires-and-forgets APM telemetry.", phase: "build", x: 200, y: 260},
-        %{id: "4", label: "tsc Gate", description: "Run npx tsc --noEmit or mix compile. Hard gate — next wave does not start on failure.", phase: "build", x: 200, y: 360},
-        %{id: "5", label: "Wave N", description: "Execute dependent stories after previous wave gate passes.", phase: "build", x: 200, y: 460},
-        %{id: "6", label: "Kill Criteria?", description: "If 3+ agents fail in the same wave, stop and report.", phase: "build", x: 200, y: 560},
-        %{id: "7", label: "/upm verify", description: "TypeScript/Elixir check + live integration testing + TDD unit verification.", phase: "verify", x: 200, y: 660},
-        %{id: "8", label: "All Pass?", description: "Hard gate: never ship on a failing verify.", phase: "verify", x: 200, y: 760},
-        %{id: "9", label: "/upm ship", description: "Atomic commit, push, PR, Plane → Done, CLAUDE.md checkpoints → [x].", phase: "ship", x: 200, y: 860}
+        %{
+          id: "1",
+          label: "/upm plan",
+          description: "Generate Ralph prd.json, create Plane issues, add CLAUDE.md checkpoints.",
+          phase: "plan",
+          x: 200,
+          y: 60
+        },
+        %{
+          id: "2",
+          label: "Formation Deploy",
+          description:
+            "Analyze story dependencies, group into waves, deploy hierarchical agent formation.",
+          phase: "build",
+          x: 200,
+          y: 160
+        },
+        %{
+          id: "3",
+          label: "Wave 1",
+          description:
+            "Execute independent stories concurrently. Each agent fires-and-forgets APM telemetry.",
+          phase: "build",
+          x: 200,
+          y: 260
+        },
+        %{
+          id: "4",
+          label: "tsc Gate",
+          description:
+            "Run npx tsc --noEmit or mix compile. Hard gate — next wave does not start on failure.",
+          phase: "build",
+          x: 200,
+          y: 360
+        },
+        %{
+          id: "5",
+          label: "Wave N",
+          description: "Execute dependent stories after previous wave gate passes.",
+          phase: "build",
+          x: 200,
+          y: 460
+        },
+        %{
+          id: "6",
+          label: "Kill Criteria?",
+          description: "If 3+ agents fail in the same wave, stop and report.",
+          phase: "build",
+          x: 200,
+          y: 560
+        },
+        %{
+          id: "7",
+          label: "/upm verify",
+          description:
+            "TypeScript/Elixir check + live integration testing + TDD unit verification.",
+          phase: "verify",
+          x: 200,
+          y: 660
+        },
+        %{
+          id: "8",
+          label: "All Pass?",
+          description: "Hard gate: never ship on a failing verify.",
+          phase: "verify",
+          x: 200,
+          y: 760
+        },
+        %{
+          id: "9",
+          label: "/upm ship",
+          description: "Atomic commit, push, PR, Plane → Done, CLAUDE.md checkpoints → [x].",
+          phase: "ship",
+          x: 200,
+          y: 860
+        }
       ],
       edges: [
         %{source: "1", target: "2", label: nil},
@@ -99,7 +237,8 @@ defmodule Apm.WorkflowRegistry do
     "skill_chain" => %{
       id: "skill_chain",
       title: "Skill Chain Pipeline",
-      description: "Linear pipeline: /upm → /formation → /apm-auth → /coalesce → /plane-pm → /yougotit",
+      description:
+        "Linear pipeline: /upm → /formation → /apm-auth → /coalesce → /plane-pm → /yougotit",
       orchestration_type: :pipeline,
       icon: "hero-link",
       phases: [
@@ -109,12 +248,54 @@ defmodule Apm.WorkflowRegistry do
         %{id: "ship", label: "Ship", color: "#10b981"}
       ],
       steps: [
-        %{id: "1", label: "/upm", description: "Unified project management — plan and issue creation.", phase: "plan", x: 200, y: 60},
-        %{id: "2", label: "/formation", description: "Agent formation deployment with wave orchestration.", phase: "build", x: 200, y: 160},
-        %{id: "3", label: "/apm-auth", description: "Agent authentication and session registration.", phase: "build", x: 200, y: 260},
-        %{id: "4", label: "/coalesce", description: "Skill/doc coalesce to sync all references.", phase: "sync", x: 200, y: 360},
-        %{id: "5", label: "/plane-pm", description: "Plane PM issue updates and status sync.", phase: "sync", x: 200, y: 460},
-        %{id: "6", label: "/yougotit", description: "Ship completion gate — notify and close.", phase: "ship", x: 200, y: 560}
+        %{
+          id: "1",
+          label: "/upm",
+          description: "Unified project management — plan and issue creation.",
+          phase: "plan",
+          x: 200,
+          y: 60
+        },
+        %{
+          id: "2",
+          label: "/formation",
+          description: "Agent formation deployment with wave orchestration.",
+          phase: "build",
+          x: 200,
+          y: 160
+        },
+        %{
+          id: "3",
+          label: "/apm-auth",
+          description: "Agent authentication and session registration.",
+          phase: "build",
+          x: 200,
+          y: 260
+        },
+        %{
+          id: "4",
+          label: "/coalesce",
+          description: "Skill/doc coalesce to sync all references.",
+          phase: "sync",
+          x: 200,
+          y: 360
+        },
+        %{
+          id: "5",
+          label: "/plane-pm",
+          description: "Plane PM issue updates and status sync.",
+          phase: "sync",
+          x: 200,
+          y: 460
+        },
+        %{
+          id: "6",
+          label: "/yougotit",
+          description: "Ship completion gate — notify and close.",
+          phase: "ship",
+          x: 200,
+          y: 560
+        }
       ],
       edges: [
         %{source: "1", target: "2", label: nil},
@@ -136,11 +317,46 @@ defmodule Apm.WorkflowRegistry do
         %{id: "write", label: "Write", color: "#10b981"}
       ],
       steps: [
-        %{id: "1", label: "Read git state", description: "Read current worktree and branch state from git.", phase: "read", x: 200, y: 60},
-        %{id: "2", label: "Read ETS state", description: "Read current worktree records from ETS WorktreeStore.", phase: "read", x: 200, y: 160},
-        %{id: "3", label: "Diff", description: "Compute delta between git and ETS state.", phase: "reconcile", x: 200, y: 260},
-        %{id: "4", label: "Apply to ETS", description: "Update ETS records to reflect git truth.", phase: "write", x: 200, y: 360},
-        %{id: "5", label: "Broadcast", description: "PubSub broadcast of reconciliation result.", phase: "write", x: 200, y: 460}
+        %{
+          id: "1",
+          label: "Read git state",
+          description: "Read current worktree and branch state from git.",
+          phase: "read",
+          x: 200,
+          y: 60
+        },
+        %{
+          id: "2",
+          label: "Read ETS state",
+          description: "Read current worktree records from ETS WorktreeStore.",
+          phase: "read",
+          x: 200,
+          y: 160
+        },
+        %{
+          id: "3",
+          label: "Diff",
+          description: "Compute delta between git and ETS state.",
+          phase: "reconcile",
+          x: 200,
+          y: 260
+        },
+        %{
+          id: "4",
+          label: "Apply to ETS",
+          description: "Update ETS records to reflect git truth.",
+          phase: "write",
+          x: 200,
+          y: 360
+        },
+        %{
+          id: "5",
+          label: "Broadcast",
+          description: "PubSub broadcast of reconciliation result.",
+          phase: "write",
+          x: 200,
+          y: 460
+        }
       ],
       edges: [
         %{source: "1", target: "3", label: nil},
@@ -161,10 +377,38 @@ defmodule Apm.WorkflowRegistry do
         %{id: "remediate", label: "Remediate", color: "#10b981"}
       ],
       steps: [
-        %{id: "1", label: "Health Scan", description: "Scan all active sessions for stale or missing heartbeats.", phase: "check", x: 200, y: 60},
-        %{id: "2", label: "Expired?", description: "Identify sessions that have exceeded the TTL threshold.", phase: "triage", x: 200, y: 160},
-        %{id: "3", label: "Evict Sessions", description: "Remove expired sessions from ETS and log to audit.", phase: "remediate", x: 200, y: 260},
-        %{id: "4", label: "Notify APM", description: "Emit cleanup telemetry event to APM dashboard.", phase: "remediate", x: 200, y: 360}
+        %{
+          id: "1",
+          label: "Health Scan",
+          description: "Scan all active sessions for stale or missing heartbeats.",
+          phase: "check",
+          x: 200,
+          y: 60
+        },
+        %{
+          id: "2",
+          label: "Expired?",
+          description: "Identify sessions that have exceeded the TTL threshold.",
+          phase: "triage",
+          x: 200,
+          y: 160
+        },
+        %{
+          id: "3",
+          label: "Evict Sessions",
+          description: "Remove expired sessions from ETS and log to audit.",
+          phase: "remediate",
+          x: 200,
+          y: 260
+        },
+        %{
+          id: "4",
+          label: "Notify APM",
+          description: "Emit cleanup telemetry event to APM dashboard.",
+          phase: "remediate",
+          x: 200,
+          y: 360
+        }
       ],
       edges: [
         %{source: "1", target: "2", label: nil},

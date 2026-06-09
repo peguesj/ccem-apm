@@ -64,11 +64,11 @@ defmodule ApmWeb.Components.Data.DataTable do
     ~H"""
     <%= cond do %>
       <% @is_loading -> %>
-        <%= render_slot(@loading) %>
+        {render_slot(@loading)}
       <% @error_message -> %>
-        <%= render_slot(@error) %>
+        {render_slot(@error)}
       <% @rows == [] -> %>
-        <%= render_slot(@empty) %>
+        {render_slot(@empty)}
       <% true -> %>
         <div
           id={@id}
@@ -111,7 +111,7 @@ defmodule ApmWeb.Components.Data.DataTable do
                       ]}
                       style={"text-align:#{col[:align] || "left"}"}
                     >
-                      <%= render_slot(col, row) %>
+                      {render_slot(col, row)}
                     </td>
                   <% end %>
                 </tr>

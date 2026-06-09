@@ -40,6 +40,7 @@ defmodule ApmWeb.IconHelpers do
   # Fallback: unknown icon name → dashed-circle placeholder in sprite
   def render(_unknown, s) do
     s_str = to_string(s)
+
     ~s(<svg width="#{s_str}" height="#{s_str}" class="apm-icon" aria-hidden="true"><use href="/images/apm-sprite.svg#icon-unknown"/></svg>)
   end
 end

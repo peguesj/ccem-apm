@@ -24,7 +24,8 @@ defmodule Apm.Plugins.Ralph.RalphPlugin do
   @impl true
   @spec plugin_description() :: String.t()
   def plugin_description,
-    do: "Ralph PRD reader and D3.js flowchart generator — load prd.json, build flowcharts, list runs"
+    do:
+      "Ralph PRD reader and D3.js flowchart generator — load prd.json, build flowcharts, list runs"
 
   @impl true
   @spec plugin_version() :: String.t()
@@ -43,7 +44,13 @@ defmodule Apm.Plugins.Ralph.RalphPlugin do
 
   @impl true
   def default_config do
-    %{prd_path: ".claude/ralph/prd.json", max_iterations: 50, backpressure_threshold: 10, auto_commit: true, log_level: "info"}
+    %{
+      prd_path: ".claude/ralph/prd.json",
+      max_iterations: 50,
+      backpressure_threshold: 10,
+      auto_commit: true,
+      log_level: "info"
+    }
   end
 
   @impl true
@@ -52,7 +59,8 @@ defmodule Apm.Plugins.Ralph.RalphPlugin do
     [
       %{
         action: "start_loop",
-        description: "Load a prd.json file and return parsed Ralph data with flowchart nodes/edges",
+        description:
+          "Load a prd.json file and return parsed Ralph data with flowchart nodes/edges",
         params: %{path: "string (optional — path to prd.json; uses config default if omitted)"}
       },
       %{
@@ -161,7 +169,12 @@ defmodule Apm.Plugins.Ralph.RalphPlugin do
         %{id: "write_prd", name: "Write PRD", type: :action, config: %{}},
         %{id: "pick_story", name: "Pick Story", type: :action, config: %{}},
         %{id: "implement", name: "Implement", type: :action, config: %{}},
-        %{id: "quality_check", name: "Quality Check", type: :gate, config: %{gate_type: :compile}},
+        %{
+          id: "quality_check",
+          name: "Quality Check",
+          type: :gate,
+          config: %{gate_type: :compile}
+        },
         %{id: "commit", name: "Commit", type: :action, config: %{}},
         %{id: "update_prd", name: "Update PRD", type: :action, config: %{}},
         %{id: "more_stories", name: "More Stories?", type: :decision, config: %{}}

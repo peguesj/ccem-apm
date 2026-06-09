@@ -76,6 +76,7 @@ defmodule ApmWeb.ApprovalControllerWebAuthnTest do
         conn
         |> put_req_header("content-type", "application/json")
         |> post(~p"/api/v2/approvals/#{gate_id}/approve", Jason.encode!(params))
+
       body = json_response(conn, 401)
       assert body["reason"] =~ "credential_not_found"
     end
@@ -104,6 +105,7 @@ defmodule ApmWeb.ApprovalControllerWebAuthnTest do
         conn
         |> put_req_header("content-type", "application/json")
         |> post(~p"/api/v2/approvals/#{gate_id}/approve", Jason.encode!(params))
+
       assert json_response(conn, 200) == %{"status" => "approved"}
     end
   end
@@ -113,8 +115,10 @@ defmodule ApmWeb.ApprovalControllerWebAuthnTest do
     flags = <<0x01>>
     sign_count_bin = <<sign_count::unsigned-big-integer-size(32)>>
     auth_data = rp_id_hash <> flags <> sign_count_bin
+
     client_data_json =
       Jason.encode!(%{type: "webauthn.get", challenge: "test", origin: "http://localhost"})
+
     client_data_hash = :crypto.hash(:sha256, client_data_json)
     sig = :crypto.sign(:eddsa, :none, auth_data <> client_data_hash, [priv, :ed25519])
     {auth_data, sig, client_data_json}

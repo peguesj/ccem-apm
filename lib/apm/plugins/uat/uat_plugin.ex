@@ -24,7 +24,8 @@ defmodule Apm.Plugins.Uat.UatPlugin do
   @impl true
   @spec plugin_description() :: String.t()
   def plugin_description,
-    do: "UAT intake watcher — list test submissions, query results, and submit synthetic UAT events via the intake pipeline"
+    do:
+      "UAT intake watcher — list test submissions, query results, and submit synthetic UAT events via the intake pipeline"
 
   @impl true
   @spec plugin_version() :: String.t()
@@ -37,7 +38,10 @@ defmodule Apm.Plugins.Uat.UatPlugin do
       %{
         action: "list_tests",
         description: "List all UAT intake events (submissions and context fetches)",
-        params: %{limit: "integer (optional — default 50)", source: "string (optional — filter by source)"}
+        params: %{
+          limit: "integer (optional — default 50)",
+          source: "string (optional — filter by source)"
+        }
       },
       %{
         action: "run_test",

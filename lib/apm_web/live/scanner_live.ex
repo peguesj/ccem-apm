@@ -8,7 +8,6 @@ defmodule ApmWeb.ScannerLive do
 
   use ApmWeb, :live_view
 
-
   alias Apm.ProjectScanner
 
   @refresh_interval 3_000
@@ -22,15 +21,21 @@ defmodule ApmWeb.ScannerLive do
     end
 
     status =
-      try do ProjectScanner.get_status()
-      rescue _ -> %{status: :offline, message: "ProjectScanner not running"}
-      catch :exit, _ -> %{status: :offline, message: "ProjectScanner not running"}
+      try do
+        ProjectScanner.get_status()
+      rescue
+        _ -> %{status: :offline, message: "ProjectScanner not running"}
+      catch
+        :exit, _ -> %{status: :offline, message: "ProjectScanner not running"}
       end
 
     results =
-      try do ProjectScanner.get_results()
-      rescue _ -> []
-      catch :exit, _ -> []
+      try do
+        ProjectScanner.get_results()
+      rescue
+        _ -> []
+      catch
+        :exit, _ -> []
       end
 
     {:ok,
@@ -49,10 +54,14 @@ defmodule ApmWeb.ScannerLive do
   @impl true
   def handle_info(:refresh, socket) do
     status =
-      try do ProjectScanner.get_status()
-      rescue _ -> %{status: :offline, message: "ProjectScanner not running"}
-      catch :exit, _ -> %{status: :offline, message: "ProjectScanner not running"}
+      try do
+        ProjectScanner.get_status()
+      rescue
+        _ -> %{status: :offline, message: "ProjectScanner not running"}
+      catch
+        :exit, _ -> %{status: :offline, message: "ProjectScanner not running"}
       end
+
     scanning = status.status == :scanning
 
     socket =
@@ -62,7 +71,15 @@ defmodule ApmWeb.ScannerLive do
 
     socket =
       if not scanning and socket.assigns.scanning do
-        results = try do ProjectScanner.get_results() rescue _ -> [] catch :exit, _ -> [] end
+        results =
+          try do
+            ProjectScanner.get_results()
+          rescue
+            _ -> []
+          catch
+            :exit, _ -> []
+          end
+
         assign(socket, :results, results)
       else
         socket
@@ -74,8 +91,15 @@ defmodule ApmWeb.ScannerLive do
   @impl true
   def handle_event("scan", %{"base_path" => path}, socket) do
     Task.start(fn ->
-      try do ProjectScanner.scan(path) rescue _ -> :ok catch :exit, _ -> :ok end
+      try do
+        ProjectScanner.scan(path)
+      rescue
+        _ -> :ok
+      catch
+        :exit, _ -> :ok
+      end
     end)
+
     {:noreply, socket |> assign(:scanning, true) |> assign(:base_path, path)}
   end
 
@@ -121,22 +145,28 @@ defmodule ApmWeb.ScannerLive do
 
   defp scanner_status_text(%{status: :idle}), do: "Idle — not yet scanned"
   defp scanner_status_text(%{status: :scanning}), do: "Scanning..."
+
   defp scanner_status_text(%{status: :done, project_count: n, scanned_at: ts}) do
     "Last scan: #{relative_time(ts)} · #{n} projects found"
   end
+
   defp scanner_status_text(_), do: "Unknown"
 
   defp relative_time(nil), do: "never"
+
   defp relative_time(iso) do
     case DateTime.from_iso8601(iso) do
       {:ok, dt, _} ->
         diff = DateTime.diff(DateTime.utc_now(), dt)
+
         cond do
           diff < 60 -> "#{diff}s ago"
           diff < 3600 -> "#{div(diff, 60)}m ago"
           true -> "#{div(diff, 3600)}h ago"
         end
-      _ -> iso
+
+      _ ->
+        iso
     end
   end
 
@@ -150,13 +180,23 @@ defmodule ApmWeb.ScannerLive do
         <%!-- Page header --%>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Project Scanner</h1>
-            <.badge tone={scanner_status_tone(@scanner_status)}><%= scanner_status_text(@scanner_status) %></.badge>
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+              Project Scanner
+            </h1>
+            <.badge tone={scanner_status_tone(@scanner_status)}>
+              {scanner_status_text(@scanner_status)}
+            </.badge>
           </div>
           <form phx-submit="scan" style="display: flex; align-items: center; gap: 8px;">
-            <.ds_input type="text" name="base_path" value={@base_path} phx-change="update_path" placeholder="~/Developer" />
+            <.ds_input
+              type="text"
+              name="base_path"
+              value={@base_path}
+              phx-change="update_path"
+              placeholder="~/Developer"
+            />
             <.btn variant="primary" size="sm" type="submit" disabled={@scanning}>
-              <%= if @scanning, do: "Scanning...", else: "Run Scan" %>
+              {if @scanning, do: "Scanning...", else: "Run Scan"}
             </.btn>
           </form>
         </div>
@@ -167,48 +207,75 @@ defmodule ApmWeb.ScannerLive do
             <.stat_tile label="Projects Found" value={to_string(length(@results))} />
           </.card>
           <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
-            <.stat_tile label="With Claude Config" value={to_string(Enum.count(@results, & &1[:has_claude_config]))} />
+            <.stat_tile
+              label="With Claude Config"
+              value={to_string(Enum.count(@results, & &1[:has_claude_config]))}
+            />
           </.card>
           <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
-            <.stat_tile label="Total Agents" value={to_string(Enum.sum(Enum.map(@results, & (&1[:agent_count] || 0))))} />
+            <.stat_tile
+              label="Total Agents"
+              value={to_string(Enum.sum(Enum.map(@results, &(&1[:agent_count] || 0))))}
+            />
           </.card>
           <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
-            <.stat_tile label="Formations" value={to_string(Enum.sum(Enum.map(@results, & (&1[:formation_count] || 0))))} />
+            <.stat_tile
+              label="Formations"
+              value={to_string(Enum.sum(Enum.map(@results, &(&1[:formation_count] || 0))))}
+            />
           </.card>
         </div>
 
         <%!-- Empty state --%>
-        <div :if={@results == [] and not @scanning} style="text-align: center; padding: 48px 0; color: var(--ccem-fg-muted);">
+        <div
+          :if={@results == [] and not @scanning}
+          style="text-align: center; padding: 48px 0; color: var(--ccem-fg-muted);"
+        >
           No results yet. Enter a base path and click Run Scan.
         </div>
 
         <%!-- Scanning indicator --%>
-        <div :if={@scanning and @results == []} style="text-align: center; padding: 48px 0; color: var(--ccem-fg-muted);">
+        <div
+          :if={@scanning and @results == []}
+          style="text-align: center; padding: 48px 0; color: var(--ccem-fg-muted);"
+        >
           <.badge tone="info" dot={true}>Scanning...</.badge>
         </div>
 
         <%!-- Results table --%>
         <.card :if={@results != []} padded={false}>
           <.data_table id="scanner-results-table" rows={@results}>
-            <:col :let={row} label="Name"><span style="font-weight: 500; color: var(--ccem-fg);"><%= row[:name] %></span></:col>
+            <:col :let={row} label="Name">
+              <span style="font-weight: 500; color: var(--ccem-fg);">{row[:name]}</span>
+            </:col>
             <:col :let={row} label="Stack">
               <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                <.badge :for={lang <- (row[:stack] || [])} tone={stack_tone(lang)} square={true}><%= lang %></.badge>
+                <.badge :for={lang <- row[:stack] || []} tone={stack_tone(lang)} square={true}>
+                  {lang}
+                </.badge>
               </div>
             </:col>
             <:col :let={row} label="Ports">
               <span style="color: var(--ccem-fg-muted);">
-                <%= if (row[:ports] || []) == [], do: "—", else: Enum.join(row[:ports], ", ") %>
+                {if (row[:ports] || []) == [], do: "—", else: Enum.join(row[:ports], ", ")}
               </span>
             </:col>
             <:col :let={row} label="Claude Config">
               <.badge tone={if row[:has_claude_config], do: "success", else: "neutral"}>
-                <%= if row[:has_claude_config], do: "yes", else: "no" %>
+                {if row[:has_claude_config], do: "yes", else: "no"}
               </.badge>
             </:col>
-            <:col :let={row} label="Agents"><span style="color: var(--ccem-fg-muted);"><%= row[:agent_count] || 0 %></span></:col>
-            <:col :let={row} label="Formations"><span style="color: var(--ccem-fg-muted);"><%= row[:formation_count] || 0 %></span></:col>
-            <:col :let={row} label="Path"><span style="font-size: 11px; font-family: monospace; color: var(--ccem-fg-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; display: block;"><%= row[:path] %></span></:col>
+            <:col :let={row} label="Agents">
+              <span style="color: var(--ccem-fg-muted);">{row[:agent_count] || 0}</span>
+            </:col>
+            <:col :let={row} label="Formations">
+              <span style="color: var(--ccem-fg-muted);">{row[:formation_count] || 0}</span>
+            </:col>
+            <:col :let={row} label="Path">
+              <span style="font-size: 11px; font-family: monospace; color: var(--ccem-fg-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; display: block;">
+                {row[:path]}
+              </span>
+            </:col>
             <:col :let={row} label="">
               <.btn variant="ghost" size="xs" phx-click="select_project" phx-value-path={row[:path]}>
                 View
@@ -221,17 +288,23 @@ defmodule ApmWeb.ScannerLive do
         <%= if @selected_project do %>
           <div style="padding: var(--ccem-space-4); display: flex; flex-direction: column; gap: var(--ccem-space-3);">
             <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: var(--ccem-text-sm); font-weight: 600; color: var(--ccem-fg-primary);">Project Detail</span>
+              <span style="font-size: var(--ccem-text-sm); font-weight: 600; color: var(--ccem-fg-primary);">
+                Project Detail
+              </span>
               <.btn variant="ghost" size="xs" phx-click="close_inspector">Close</.btn>
             </div>
             <div style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); word-break: break-all;">
-              <div><strong>Name:</strong> <%= @selected_project[:name] %></div>
-              <div><strong>Path:</strong> <%= @selected_project[:path] %></div>
-              <div><strong>Stack:</strong> <%= Enum.join(@selected_project[:stack] || [], ", ") %></div>
-              <div><strong>Ports:</strong> <%= Enum.join(@selected_project[:ports] || [], ", ") %></div>
-              <div><strong>Claude Config:</strong> <%= if @selected_project[:has_claude_config], do: "yes", else: "no" %></div>
-              <div><strong>Agents:</strong> <%= @selected_project[:agent_count] || 0 %></div>
-              <div><strong>Formations:</strong> <%= @selected_project[:formation_count] || 0 %></div>
+              <div><strong>Name:</strong> {@selected_project[:name]}</div>
+              <div><strong>Path:</strong> {@selected_project[:path]}</div>
+              <div><strong>Stack:</strong> {Enum.join(@selected_project[:stack] || [], ", ")}</div>
+              <div><strong>Ports:</strong> {Enum.join(@selected_project[:ports] || [], ", ")}</div>
+              <div>
+                <strong>Claude Config:</strong> {if @selected_project[:has_claude_config],
+                  do: "yes",
+                  else: "no"}
+              </div>
+              <div><strong>Agents:</strong> {@selected_project[:agent_count] || 0}</div>
+              <div><strong>Formations:</strong> {@selected_project[:formation_count] || 0}</div>
             </div>
           </div>
         <% end %>

@@ -98,36 +98,45 @@ defmodule Apm.Auth.CommandContextExtractor do
   defp analyze_bash(%{"command" => command}) when is_binary(command) do
     cond do
       destructive_bash?(command) ->
-        {:ok, %{
-          action_type: :destructive,
-          action_detail: extract_bash_operation(command, "destructive"),
-          risk_rationale: "Destructive shell operation — deletes, kills, or modifies system state",
-          approval_reasoning: "This approval allows: executing shell commands that DELETE FILES, DIRECTORIES, PROCESSES, or modify the system. Use with extreme caution. This operation cannot be undone."
-        }}
+        {:ok,
+         %{
+           action_type: :destructive,
+           action_detail: extract_bash_operation(command, "destructive"),
+           risk_rationale:
+             "Destructive shell operation — deletes, kills, or modifies system state",
+           approval_reasoning:
+             "This approval allows: executing shell commands that DELETE FILES, DIRECTORIES, PROCESSES, or modify the system. Use with extreme caution. This operation cannot be undone."
+         }}
 
       read_bash?(command) ->
-        {:ok, %{
-          action_type: :read,
-          action_detail: extract_bash_operation(command, "read"),
-          risk_rationale: "Read-only shell operation — no modifications",
-          approval_reasoning: "This approval allows: executing shell commands that READ file contents or query the system. No files or processes are modified."
-        }}
+        {:ok,
+         %{
+           action_type: :read,
+           action_detail: extract_bash_operation(command, "read"),
+           risk_rationale: "Read-only shell operation — no modifications",
+           approval_reasoning:
+             "This approval allows: executing shell commands that READ file contents or query the system. No files or processes are modified."
+         }}
 
       write_bash?(command) ->
-        {:ok, %{
-          action_type: :write,
-          action_detail: extract_bash_operation(command, "write"),
-          risk_rationale: "Write/modify shell operation",
-          approval_reasoning: "This approval allows: executing shell commands that CREATE, COPY, MOVE, or MODIFY files. These changes may impact your project."
-        }}
+        {:ok,
+         %{
+           action_type: :write,
+           action_detail: extract_bash_operation(command, "write"),
+           risk_rationale: "Write/modify shell operation",
+           approval_reasoning:
+             "This approval allows: executing shell commands that CREATE, COPY, MOVE, or MODIFY files. These changes may impact your project."
+         }}
 
       true ->
-        {:ok, %{
-          action_type: :unknown,
-          action_detail: extract_bash_operation(command, "unknown"),
-          risk_rationale: "Shell operation (type unclear)",
-          approval_reasoning: "This approval allows: executing a shell command. Review the command carefully before approving."
-        }}
+        {:ok,
+         %{
+           action_type: :unknown,
+           action_detail: extract_bash_operation(command, "unknown"),
+           risk_rationale: "Shell operation (type unclear)",
+           approval_reasoning:
+             "This approval allows: executing a shell command. Review the command carefully before approving."
+         }}
     end
   end
 
@@ -136,12 +145,14 @@ defmodule Apm.Auth.CommandContextExtractor do
   # ── File Write Analysis ─────────────────────────────────────────────────────
 
   defp analyze_write(%{"file_path" => file_path}) when is_binary(file_path) do
-    {:ok, %{
-      action_type: :write,
-      action_detail: "write to file (#{truncate_path(file_path)})",
-      risk_rationale: "Modify file — may affect project or system behavior",
-      approval_reasoning: "This approval allows: writing to or creating the file at '#{truncate_path(file_path)}'. This will permanently modify that file."
-    }}
+    {:ok,
+     %{
+       action_type: :write,
+       action_detail: "write to file (#{truncate_path(file_path)})",
+       risk_rationale: "Modify file — may affect project or system behavior",
+       approval_reasoning:
+         "This approval allows: writing to or creating the file at '#{truncate_path(file_path)}'. This will permanently modify that file."
+     }}
   end
 
   defp analyze_write(_), do: {:error, :missing_file_path}
@@ -149,12 +160,14 @@ defmodule Apm.Auth.CommandContextExtractor do
   # ── File Edit Analysis ──────────────────────────────────────────────────────
 
   defp analyze_edit(%{"file_path" => file_path}) when is_binary(file_path) do
-    {:ok, %{
-      action_type: :write,
-      action_detail: "edit file (#{truncate_path(file_path)})",
-      risk_rationale: "Modify existing file — may affect project or system behavior",
-      approval_reasoning: "This approval allows: modifying the file at '#{truncate_path(file_path)}'. The file will be changed."
-    }}
+    {:ok,
+     %{
+       action_type: :write,
+       action_detail: "edit file (#{truncate_path(file_path)})",
+       risk_rationale: "Modify existing file — may affect project or system behavior",
+       approval_reasoning:
+         "This approval allows: modifying the file at '#{truncate_path(file_path)}'. The file will be changed."
+     }}
   end
 
   defp analyze_edit(_), do: {:error, :missing_file_path}
@@ -164,12 +177,14 @@ defmodule Apm.Auth.CommandContextExtractor do
   defp analyze_multiedit(params) when is_map(params) do
     file_count = count_files_in_params(params)
 
-    {:ok, %{
-      action_type: :write,
-      action_detail: "edit #{file_count} file(s)",
-      risk_rationale: "Modify multiple files — broad impact on project",
-      approval_reasoning: "This approval allows: modifying #{file_count} file(s) in bulk. Multiple files will be changed."
-    }}
+    {:ok,
+     %{
+       action_type: :write,
+       action_detail: "edit #{file_count} file(s)",
+       risk_rationale: "Modify multiple files — broad impact on project",
+       approval_reasoning:
+         "This approval allows: modifying #{file_count} file(s) in bulk. Multiple files will be changed."
+     }}
   end
 
   defp analyze_multiedit(_), do: {:error, :invalid_multiedit}
@@ -190,7 +205,8 @@ defmodule Apm.Auth.CommandContextExtractor do
       action_type: :read,
       action_detail: "grep for pattern (#{truncate_string(pattern, 40)})",
       risk_rationale: "Read-only operation",
-      approval_reasoning: "This approval allows: searching files for a pattern. No files are modified."
+      approval_reasoning:
+        "This approval allows: searching files for a pattern. No files are modified."
     }
   end
 
@@ -199,7 +215,8 @@ defmodule Apm.Auth.CommandContextExtractor do
       action_type: :read,
       action_detail: "grep search",
       risk_rationale: "Read-only operation",
-      approval_reasoning: "This approval allows: searching files for a pattern. No files are modified."
+      approval_reasoning:
+        "This approval allows: searching files for a pattern. No files are modified."
     }
   end
 
@@ -208,7 +225,8 @@ defmodule Apm.Auth.CommandContextExtractor do
       action_type: :read,
       action_detail: "glob files (#{truncate_string(pattern, 40)})",
       risk_rationale: "Read-only operation",
-      approval_reasoning: "This approval allows: finding files matching a pattern. No files are modified."
+      approval_reasoning:
+        "This approval allows: finding files matching a pattern. No files are modified."
     }
   end
 
@@ -217,7 +235,8 @@ defmodule Apm.Auth.CommandContextExtractor do
       action_type: :read,
       action_detail: "glob search",
       risk_rationale: "Read-only operation",
-      approval_reasoning: "This approval allows: finding files matching a pattern. No files are modified."
+      approval_reasoning:
+        "This approval allows: finding files matching a pattern. No files are modified."
     }
   end
 
@@ -226,7 +245,8 @@ defmodule Apm.Auth.CommandContextExtractor do
       action_type: :unknown,
       action_detail: "#{tool_name} operation",
       risk_rationale: "Operation type unclear",
-      approval_reasoning: "This approval allows: invoking the #{tool_name} tool. Review the tool's documentation before approving."
+      approval_reasoning:
+        "This approval allows: invoking the #{tool_name} tool. Review the tool's documentation before approving."
     }
   end
 

@@ -22,7 +22,10 @@ defmodule ApmWeb.V2.AsyncApiControllerTest do
 
     test "returns YAML content (text/yaml or application/yaml content-type)", %{conn: conn} do
       conn = get(conn, "/api/v2/asyncapi.yaml")
-      content_type = conn |> get_resp_header("content-type") |> List.first("") |> String.downcase()
+
+      content_type =
+        conn |> get_resp_header("content-type") |> List.first("") |> String.downcase()
+
       assert content_type =~ "yaml" or content_type =~ "text/plain"
     end
 
@@ -83,7 +86,8 @@ defmodule ApmWeb.V2.AsyncApiControllerTest do
       body = conn.resp_body
 
       # Core topics that MUST be documented
-      required_topics = ~w[apm_agents apm_hooks apm_formations apm_notifications auth_decisions governance_circuits]
+      required_topics =
+        ~w[apm_agents apm_hooks apm_formations apm_notifications auth_decisions governance_circuits]
 
       Enum.each(required_topics, fn topic ->
         assert body =~ topic,

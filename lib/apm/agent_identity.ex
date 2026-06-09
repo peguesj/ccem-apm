@@ -47,67 +47,67 @@ defmodule Apm.AgentIdentity do
   """
 
   @type role() ::
-    :orchestrator
-    | :squadron_lead
-    | :swarm_agent
-    | :cluster_agent
-    | :individual
-    | :persistent_service
-    | :quality_agent
-    | :unknown
+          :orchestrator
+          | :squadron_lead
+          | :swarm_agent
+          | :cluster_agent
+          | :individual
+          | :persistent_service
+          | :quality_agent
+          | :unknown
 
   @type asl_tier() :: :asl1 | :asl2 | :asl3 | nil
 
   @type ai_act_risk_class() :: :minimal | :limited | :high | :unacceptable | nil
 
   @type t() :: %__MODULE__{
-    # OTel gen_ai.agent.* fields
-    agent_id:          String.t(),
-    agent_name:        String.t(),
-    agent_description: String.t() | nil,
-    agent_version:     String.t() | nil,
+          # OTel gen_ai.agent.* fields
+          agent_id: String.t(),
+          agent_name: String.t(),
+          agent_description: String.t() | nil,
+          agent_version: String.t() | nil,
 
-    # CCEM role + hierarchy
-    role:              String.t(),
-    agent_type:        String.t(),
-    display_name:      String.t(),
-    formation_id:      String.t() | nil,
-    squadron:          String.t() | nil,
-    swarm:             String.t() | nil,
-    cluster:           String.t() | nil,
-    wave:              integer() | nil,
-    formation_scope:   String.t() | nil,
+          # CCEM role + hierarchy
+          role: String.t(),
+          agent_type: String.t(),
+          display_name: String.t(),
+          formation_id: String.t() | nil,
+          squadron: String.t() | nil,
+          swarm: String.t() | nil,
+          cluster: String.t() | nil,
+          wave: integer() | nil,
+          formation_scope: String.t() | nil,
 
-    # Provenance
-    invoked_by:        String.t() | nil,
-    parent_agent_id:   String.t() | nil,
-    definition_path:   String.t() | nil,
-    session_id:        String.t() | nil,
-    project:           String.t() | nil,
+          # Provenance
+          invoked_by: String.t() | nil,
+          parent_agent_id: String.t() | nil,
+          definition_path: String.t() | nil,
+          session_id: String.t() | nil,
+          project: String.t() | nil,
 
-    # UPM
-    story_id:          String.t() | nil,
-    plane_issue_id:    String.t() | nil,
-    work_item_title:   String.t() | nil,
-    upm_session_id:    String.t() | nil,
-    upm_context:       map(),
+          # UPM
+          story_id: String.t() | nil,
+          plane_issue_id: String.t() | nil,
+          work_item_title: String.t() | nil,
+          upm_session_id: String.t() | nil,
+          upm_context: map(),
 
-    # AgentLock
-    authorization:     map(),
+          # AgentLock
+          authorization: map(),
 
-    # A2A v0.3.0 — Skills declaration for AgentCard (coord-a1 v9.2.1).
-    # Each skill: %{id, name, description, inputModes, outputModes, tags, examples}
-    skills:            [map()],
+          # A2A v0.3.0 — Skills declaration for AgentCard (coord-a1 v9.2.1).
+          # Each skill: %{id, name, description, inputModes, outputModes, tags, examples}
+          skills: [map()],
 
-    # Governance — Responsible Scaling Policy + EU AI Act (comp-map1 / CP-230)
-    # asl_tier: Anthropic RSP capability ceiling declaration (ASL-1..3).
-    # ai_act_risk_class: EU AI Act Article 6 / Annex III risk classification.
-    # disclosure_text: EU AI Act Article 52 transparency disclosure string,
-    #   surfaced to end users when the agent is deployed in an interactive context.
-    asl_tier:          asl_tier(),
-    ai_act_risk_class: ai_act_risk_class(),
-    disclosure_text:   String.t() | nil
-  }
+          # Governance — Responsible Scaling Policy + EU AI Act (comp-map1 / CP-230)
+          # asl_tier: Anthropic RSP capability ceiling declaration (ASL-1..3).
+          # ai_act_risk_class: EU AI Act Article 6 / Annex III risk classification.
+          # disclosure_text: EU AI Act Article 52 transparency disclosure string,
+          #   surfaced to end users when the agent is deployed in an interactive context.
+          asl_tier: asl_tier(),
+          ai_act_risk_class: ai_act_risk_class(),
+          disclosure_text: String.t() | nil
+        }
 
   defstruct [
     :agent_id,
@@ -158,78 +158,83 @@ defmodule Apm.AgentIdentity do
   def build(agent_id, params) when is_binary(agent_id) do
     p = normalize_keys(params)
 
-    role       = get_p(p, "role") || get_p(p, "formation_role") || "individual"
+    role = get_p(p, "role") || get_p(p, "formation_role") || "individual"
     agent_type = normalize_agent_type(get_p(p, "agent_type") || role)
     formation_id = get_p(p, "formation_id")
-    squadron   = get_p(p, "squadron")
-    swarm      = get_p(p, "swarm")
-    cluster    = get_p(p, "cluster")
-    wave       = parse_int(get_p(p, "wave") || get_p(p, "wave_number"))
-    project    = get_p(p, "project_name") || get_p(p, "project")
+    squadron = get_p(p, "squadron")
+    swarm = get_p(p, "swarm")
+    cluster = get_p(p, "cluster")
+    wave = parse_int(get_p(p, "wave") || get_p(p, "wave_number"))
+    project = get_p(p, "project_name") || get_p(p, "project")
 
     # OTel gen_ai.agent.name — explicit > synthesized > fallback to id
     explicit_name = get_p(p, "agent_name") || get_p(p, "name")
+
     agent_name =
       if meaningful?(explicit_name, agent_id),
         do: explicit_name,
         else: synthesize_name(agent_type, formation_id, squadron, wave, agent_id)
 
-    agent_description = get_p(p, "agent_description") || get_p(p, "agent_definition") || get_p(p, "role")
-    agent_version     = get_p(p, "agent_version")
+    agent_description =
+      get_p(p, "agent_description") || get_p(p, "agent_definition") || get_p(p, "role")
 
-    invoked_by      = get_p(p, "invoked_by") || get_p(p, "parent_agent_id")
+    agent_version = get_p(p, "agent_version")
+
+    invoked_by = get_p(p, "invoked_by") || get_p(p, "parent_agent_id")
     parent_agent_id = get_p(p, "parent_agent_id") || get_p(p, "parent_id")
     definition_path = get_p(p, "definition_path") || get_p(p, "path")
-    session_id      = get_p(p, "session_id")
+    session_id = get_p(p, "session_id")
 
     formation_scope = build_formation_scope(formation_id, squadron, swarm, cluster)
 
     display_name = build_display_name(agent_name, agent_type, formation_id, squadron, project)
 
-    upm_ctx = %{}
-    |> maybe_add("story_id",       get_p(p, "story_id"))
-    |> maybe_add("plane_issue_id", get_p(p, "plane_issue_id"))
-    |> maybe_add("work_item",      get_p(p, "work_item_title"))
-    |> maybe_add("upm_session_id", get_p(p, "upm_session_id"))
-    |> maybe_add("wave",           wave)
+    upm_ctx =
+      %{}
+      |> maybe_add("story_id", get_p(p, "story_id"))
+      |> maybe_add("plane_issue_id", get_p(p, "plane_issue_id"))
+      |> maybe_add("work_item", get_p(p, "work_item_title"))
+      |> maybe_add("upm_session_id", get_p(p, "upm_session_id"))
+      |> maybe_add("wave", wave)
 
-    auth_ctx = %{}
-    |> maybe_add("risk_level",   get_p(p, "risk_level"))
-    |> maybe_add("trust_level",  get_p(p, "trust_level"))
+    auth_ctx =
+      %{}
+      |> maybe_add("risk_level", get_p(p, "risk_level"))
+      |> maybe_add("trust_level", get_p(p, "trust_level"))
 
     # Governance fields (comp-map1 / CP-230)
-    asl_tier          = parse_asl_tier(get_p(p, "asl_tier"))
+    asl_tier = parse_asl_tier(get_p(p, "asl_tier"))
     ai_act_risk_class = parse_ai_act_risk_class(get_p(p, "ai_act_risk_class"))
-    disclosure_text   = get_p(p, "disclosure_text")
+    disclosure_text = get_p(p, "disclosure_text")
 
     %__MODULE__{
-      agent_id:          agent_id,
-      agent_name:        agent_name,
+      agent_id: agent_id,
+      agent_name: agent_name,
       agent_description: agent_description,
-      agent_version:     agent_version,
-      role:              role,
-      agent_type:        agent_type,
-      display_name:      display_name,
-      formation_id:      formation_id,
-      squadron:          squadron,
-      swarm:             swarm,
-      cluster:           cluster,
-      wave:              wave,
-      formation_scope:   formation_scope,
-      invoked_by:        invoked_by,
-      parent_agent_id:   parent_agent_id,
-      definition_path:   definition_path,
-      session_id:        session_id,
-      project:           project,
-      story_id:          get_p(p, "story_id"),
-      plane_issue_id:    get_p(p, "plane_issue_id"),
-      work_item_title:   get_p(p, "work_item_title"),
-      upm_session_id:    get_p(p, "upm_session_id"),
-      upm_context:       upm_ctx,
-      authorization:     auth_ctx,
-      asl_tier:          asl_tier,
+      agent_version: agent_version,
+      role: role,
+      agent_type: agent_type,
+      display_name: display_name,
+      formation_id: formation_id,
+      squadron: squadron,
+      swarm: swarm,
+      cluster: cluster,
+      wave: wave,
+      formation_scope: formation_scope,
+      invoked_by: invoked_by,
+      parent_agent_id: parent_agent_id,
+      definition_path: definition_path,
+      session_id: session_id,
+      project: project,
+      story_id: get_p(p, "story_id"),
+      plane_issue_id: get_p(p, "plane_issue_id"),
+      work_item_title: get_p(p, "work_item_title"),
+      upm_session_id: get_p(p, "upm_session_id"),
+      upm_context: upm_ctx,
+      authorization: auth_ctx,
+      asl_tier: asl_tier,
       ai_act_risk_class: ai_act_risk_class,
-      disclosure_text:   disclosure_text
+      disclosure_text: disclosure_text
     }
   end
 
@@ -242,45 +247,45 @@ defmodule Apm.AgentIdentity do
   def to_map(%__MODULE__{} = id) do
     %{
       # OTel gen_ai.agent.*
-      agent_id:          id.agent_id,
-      agent_name:        id.agent_name,
+      agent_id: id.agent_id,
+      agent_name: id.agent_name,
       agent_description: id.agent_description,
-      agent_version:     id.agent_version,
+      agent_version: id.agent_version,
       # display / naming
-      display_name:      id.display_name,
-      name:              id.agent_name,
+      display_name: id.display_name,
+      name: id.agent_name,
       # role / hierarchy
-      role:              id.role,
-      agent_type:        id.agent_type,
-      formation_id:      id.formation_id,
-      squadron:          id.squadron,
-      swarm:             id.swarm,
-      cluster:           id.cluster,
-      wave:              id.wave,
-      wave_number:       id.wave,
-      formation_scope:   id.formation_scope,
+      role: id.role,
+      agent_type: id.agent_type,
+      formation_id: id.formation_id,
+      squadron: id.squadron,
+      swarm: id.swarm,
+      cluster: id.cluster,
+      wave: id.wave,
+      wave_number: id.wave,
+      formation_scope: id.formation_scope,
       # provenance
-      invoked_by:        id.invoked_by,
-      parent_id:         id.parent_agent_id,
-      parent_agent_id:   id.parent_agent_id,
-      definition_path:   id.definition_path,
-      agent_definition:  id.agent_description,
-      path:              id.definition_path,
-      session_id:        id.session_id,
-      project:           id.project,
-      project_name:      id.project,
+      invoked_by: id.invoked_by,
+      parent_id: id.parent_agent_id,
+      parent_agent_id: id.parent_agent_id,
+      definition_path: id.definition_path,
+      agent_definition: id.agent_description,
+      path: id.definition_path,
+      session_id: id.session_id,
+      project: id.project,
+      project_name: id.project,
       # UPM
-      story_id:          id.story_id,
-      plane_issue_id:    id.plane_issue_id,
-      work_item_title:   id.work_item_title,
-      upm_session_id:    id.upm_session_id,
-      upm_context:       id.upm_context,
+      story_id: id.story_id,
+      plane_issue_id: id.plane_issue_id,
+      work_item_title: id.work_item_title,
+      upm_session_id: id.upm_session_id,
+      upm_context: id.upm_context,
       # AgentLock
-      authorization:     id.authorization,
+      authorization: id.authorization,
       # Governance (comp-map1 / CP-230)
-      asl_tier:          id.asl_tier,
+      asl_tier: id.asl_tier,
       ai_act_risk_class: id.ai_act_risk_class,
-      disclosure_text:   id.disclosure_text
+      disclosure_text: id.disclosure_text
     }
   end
 
@@ -293,6 +298,7 @@ defmodule Apm.AgentIdentity do
     cand = String.replace(type, "-", "_")
     if cand in @valid_agent_types, do: cand, else: "unknown"
   end
+
   defp normalize_agent_type(type) when is_atom(type), do: normalize_agent_type(to_string(type))
   defp normalize_agent_type(_), do: "unknown"
 
@@ -304,15 +310,19 @@ defmodule Apm.AgentIdentity do
   # Synthesizes a human-readable name from structural context
   defp synthesize_name(agent_type, formation_id, squadron, wave, agent_id) do
     type_slug = agent_type |> String.replace("_", "-")
-    scope = cond do
-      squadron && formation_id ->
-        short_formation = formation_id |> String.split("-") |> Enum.take(3) |> Enum.join("-")
-        "#{squadron}.#{short_formation}"
-      formation_id ->
-        formation_id |> String.split("-") |> Enum.take(3) |> Enum.join("-")
-      true ->
-        String.slice(agent_id, -8, 8)
-    end
+
+    scope =
+      cond do
+        squadron && formation_id ->
+          short_formation = formation_id |> String.split("-") |> Enum.take(3) |> Enum.join("-")
+          "#{squadron}.#{short_formation}"
+
+        formation_id ->
+          formation_id |> String.split("-") |> Enum.take(3) |> Enum.join("-")
+
+        true ->
+          String.slice(agent_id, -8, 8)
+      end
 
     wave_part = if wave, do: ".w#{wave}", else: ""
     "#{type_slug}.#{scope}#{wave_part}"
@@ -320,18 +330,27 @@ defmodule Apm.AgentIdentity do
 
   # Builds a human-readable display name for UI labels — never a raw hash
   defp build_display_name(agent_name, agent_type, formation_id, squadron, project) do
-    type_label = agent_type |> String.replace("_", " ") |> String.split() |> Enum.map(&String.capitalize/1) |> Enum.join(" ")
+    type_label =
+      agent_type
+      |> String.replace("_", " ")
+      |> String.split()
+      |> Enum.map(&String.capitalize/1)
+      |> Enum.join(" ")
 
     cond do
       agent_name && agent_name != "" ->
         agent_name
 
       squadron && formation_id ->
-        short_fmt = formation_id |> String.split("-") |> Enum.drop(1) |> Enum.take(2) |> Enum.join("-")
+        short_fmt =
+          formation_id |> String.split("-") |> Enum.drop(1) |> Enum.take(2) |> Enum.join("-")
+
         "#{type_label} · #{squadron} / #{short_fmt}"
 
       formation_id ->
-        short_fmt = formation_id |> String.split("-") |> Enum.drop(1) |> Enum.take(2) |> Enum.join("-")
+        short_fmt =
+          formation_id |> String.split("-") |> Enum.drop(1) |> Enum.take(2) |> Enum.join("-")
+
         "#{type_label} · #{short_fmt}"
 
       project ->
@@ -343,6 +362,7 @@ defmodule Apm.AgentIdentity do
   end
 
   defp build_formation_scope(nil, _sq, _sw, _cl), do: nil
+
   defp build_formation_scope(fmt_id, squadron, swarm, cluster) do
     [fmt_id, squadron, swarm, cluster]
     |> Enum.reject(&is_nil/1)
@@ -352,12 +372,14 @@ defmodule Apm.AgentIdentity do
 
   defp parse_int(nil), do: nil
   defp parse_int(v) when is_integer(v), do: v
+
   defp parse_int(v) when is_binary(v) do
     case Integer.parse(v) do
       {n, _} -> n
       :error -> nil
     end
   end
+
   defp parse_int(_), do: nil
 
   # ---------------------------------------------------------------------------
@@ -368,28 +390,34 @@ defmodule Apm.AgentIdentity do
 
   @doc false
   defp parse_asl_tier(nil), do: nil
+
   defp parse_asl_tier(v) when is_atom(v) do
     s = Atom.to_string(v)
     if s in @valid_asl_tiers, do: String.to_existing_atom(s), else: nil
   end
+
   defp parse_asl_tier(v) when is_binary(v) do
     normalized = String.downcase(v)
     if normalized in @valid_asl_tiers, do: String.to_atom(normalized), else: nil
   end
+
   defp parse_asl_tier(_), do: nil
 
   @valid_ai_act_classes ~w(minimal limited high unacceptable)
 
   @doc false
   defp parse_ai_act_risk_class(nil), do: nil
+
   defp parse_ai_act_risk_class(v) when is_atom(v) do
     s = Atom.to_string(v)
     if s in @valid_ai_act_classes, do: String.to_existing_atom(s), else: nil
   end
+
   defp parse_ai_act_risk_class(v) when is_binary(v) do
     normalized = String.downcase(v)
     if normalized in @valid_ai_act_classes, do: String.to_atom(normalized), else: nil
   end
+
   defp parse_ai_act_risk_class(_), do: nil
 
   defp get_p(map, key), do: Map.get(map, key)

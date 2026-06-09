@@ -25,8 +25,17 @@ defmodule Apm.Auth.AuthorizationGate do
 
   alias Apm.Auth.Types
   alias Apm.Auth.Types.AuthTool
-  alias Apm.Auth.{PolicyEngine, TokenStore, SessionStore, RateLimiter, FormationRateLimiter,
-                     ContextTracker, PolicyRulesStore, PendingDecisions}
+
+  alias Apm.Auth.{
+    PolicyEngine,
+    TokenStore,
+    SessionStore,
+    RateLimiter,
+    FormationRateLimiter,
+    ContextTracker,
+    PolicyRulesStore,
+    PendingDecisions
+  }
 
   @tool_registry :agentlock_tool_registry
 
@@ -137,7 +146,9 @@ defmodule Apm.Auth.AuthorizationGate do
   @spec list_tools() :: [AuthTool.t()]
   def list_tools do
     case :ets.info(@tool_registry) do
-      :undefined -> []
+      :undefined ->
+        []
+
       _ ->
         :ets.tab2list(@tool_registry)
         |> Enum.map(fn {_name, tool} -> tool end)
@@ -214,7 +225,11 @@ defmodule Apm.Auth.AuthorizationGate do
     # 2. Check rate limits before policy evaluation
     case RateLimiter.check(agent_id, tool_name) do
       {:error, :rate_limited, retry_after_ms} ->
-        broadcast({:auth_rate_limited, %{tool_name: tool_name, agent_id: agent_id, retry_after_ms: retry_after_ms}})
+        broadcast(
+          {:auth_rate_limited,
+           %{tool_name: tool_name, agent_id: agent_id, retry_after_ms: retry_after_ms}}
+        )
+
         broadcast_decision(tool_name, :rate_limited, :medium, session_id)
 
         log_audit("auth:rate_limited", tool_name, %{
@@ -230,6 +245,7 @@ defmodule Apm.Auth.AuthorizationGate do
         # 2b. Formation-level rate check (sqrt-scaled aggregate budget)
         formation_id = Map.get(params, :formation_id) || Map.get(params, "formation_id")
         tool_risk = get_tool_risk(tool_name)
+
         formation_check =
           if is_binary(formation_id) and byte_size(formation_id) > 0 do
             FormationRateLimiter.check(agent_id, formation_id, tool_name, tool_risk)
@@ -239,10 +255,29 @@ defmodule Apm.Auth.AuthorizationGate do
 
         case formation_check do
           {:deny, scope} ->
-            broadcast({:auth_rate_limited, %{tool_name: tool_name, agent_id: agent_id, scope: scope, formation_id: formation_id, retry_after_ms: 1_000}})
+            broadcast(
+              {:auth_rate_limited,
+               %{
+                 tool_name: tool_name,
+                 agent_id: agent_id,
+                 scope: scope,
+                 formation_id: formation_id,
+                 retry_after_ms: 1_000
+               }}
+            )
+
             broadcast_decision(tool_name, :rate_limited, :medium, session_id)
-            log_audit("auth:formation_rate_limited", tool_name, %{agent_id: agent_id, formation_id: formation_id, scope: scope})
-            result = {:error, :rate_limited, "Formation rate limit exceeded (scope: #{scope}). Retry after 1000ms"}
+
+            log_audit("auth:formation_rate_limited", tool_name, %{
+              agent_id: agent_id,
+              formation_id: formation_id,
+              scope: scope
+            })
+
+            result =
+              {:error, :rate_limited,
+               "Formation rate limit exceeded (scope: #{scope}). Retry after 1000ms"}
+
             new_state = %{state | total_denied: state.total_denied + 1}
             {:reply, result, new_state}
 
@@ -250,176 +285,216 @@ defmodule Apm.Auth.AuthorizationGate do
             # 3a. Check permanent policy rules (always_allow / always_deny override)
             policy_rule = PolicyRulesStore.check_rule(tool_name)
 
-        # 3b. Build evaluation context
-        trust_ceiling = get_trust_ceiling(session_id)
+            # 3b. Build evaluation context
+            trust_ceiling = get_trust_ceiling(session_id)
 
-        context =
-          Map.merge(params, %{
-            trust_ceiling: trust_ceiling,
-            tool_registry: tool,
-            data_boundary: Map.get(params, :data_boundary, :authenticated_user_only),
-            policy_rule: policy_rule,
-            agent_id: agent_id,
-            session_id: session_id,
-            formation_id: Map.get(params, :formation_id),
-            project: Map.get(params, :project)
-          })
+            context =
+              Map.merge(params, %{
+                trust_ceiling: trust_ceiling,
+                tool_registry: tool,
+                data_boundary: Map.get(params, :data_boundary, :authenticated_user_only),
+                policy_rule: policy_rule,
+                agent_id: agent_id,
+                session_id: session_id,
+                formation_id: Map.get(params, :formation_id),
+                project: Map.get(params, :project)
+              })
 
-        # 4. Evaluate policy (policy_rule override may short-circuit)
-        decision = PolicyEngine.evaluate(tool_name, role, context)
+            # 4. Evaluate policy (policy_rule override may short-circuit)
+            decision = PolicyEngine.evaluate(tool_name, role, context)
 
-        # 5. Process decision
-        {result, new_state} =
-          case {decision.allowed, decision.needs_approval} do
-            {true, false} ->
-              # Permitted — issue token
-              case TokenStore.generate(agent_id, session_id, tool_name, params) do
-                {:ok, token_id} ->
-                  SessionStore.increment_tool_calls(session_id)
-
-                  broadcast({:auth_granted, %{
-                    token_id: token_id,
-                    tool_name: tool_name,
-                    agent_id: agent_id,
-                    risk_level: decision.risk_level
-                  }})
-                  broadcast_decision(tool_name, :granted, decision.risk_level, session_id)
-
-                  log_audit("auth:authorization_granted", tool_name, %{
-                    agent_id: agent_id,
-                    token_id: token_id,
-                    risk_level: decision.risk_level
-                  })
-
-                  {{:ok, token_id}, %{state | total_authorized: state.total_authorized + 1}}
-              end
-
-            {false, true} ->
-              # Needs approval — check for auto-approval policies first
-              auto_approval_policy = Apm.Auth.AutoApprovalStore.find_matching(
-                agent_id,
-                Map.get(context, :formation_id),
-                session_id,
-                Map.get(context, :project),
-                tool_name,
-                decision.risk_level
-              )
-
-              case auto_approval_policy do
-                nil ->
-                  # No matching auto-approval policy — escalate to human
-                  # KRI: escalation_rate
-                  :telemetry.execute(
-                    [:apm, :governance, :escalation_rate],
-                    %{count: 1},
-                    %{tool_name: tool_name, agent_id: agent_id, session_id: session_id}
-                  )
-
-                  {:ok, request_id} =
-                    PendingDecisions.add(tool_name, session_id, decision.risk_level, agent_id, params)
-
-                  gate_id =
-                    try do
-                      case Apm.AgUi.ApprovalGate.request_approval(agent_id, %{
-                        tool_name: tool_name,
-                        risk_level: decision.risk_level,
-                        reason: decision.detail
-                      }) do
-                        {:ok, gid} -> gid
-                        _ -> request_id
-                      end
-                    rescue
-                      _ -> request_id
-                    end
-
-                  broadcast({:auth_escalated, %{
-                    gate_id: gate_id,
-                    request_id: request_id,
-                    tool_name: tool_name,
-                    agent_id: agent_id,
-                    risk_level: decision.risk_level
-                  }})
-                  broadcast_decision(tool_name, :escalated, decision.risk_level, session_id)
-
-                  log_audit("auth:authorization_escalated", tool_name, %{
-                    agent_id: agent_id,
-                    gate_id: gate_id,
-                    request_id: request_id,
-                    risk_level: decision.risk_level
-                  })
-
-                  {{:error, :approval_required,
-                    "Pending approval queued: #{request_id}. Use /authorization to approve."},
-                   %{state | total_escalated: state.total_escalated + 1}}
-
-                policy ->
-                  # Auto-approval policy matched — auto-approve and issue token
+            # 5. Process decision
+            {result, new_state} =
+              case {decision.allowed, decision.needs_approval} do
+                {true, false} ->
+                  # Permitted — issue token
                   case TokenStore.generate(agent_id, session_id, tool_name, params) do
                     {:ok, token_id} ->
                       SessionStore.increment_tool_calls(session_id)
-                      Apm.Auth.AutoApprovalStore.increment_approval_count(policy.policy_id)
 
-                      broadcast({:auth_auto_approved, %{
-                        token_id: token_id,
-                        tool_name: tool_name,
-                        agent_id: agent_id,
-                        policy_id: policy.policy_id,
-                        risk_level: decision.risk_level
-                      }})
-                      broadcast_decision(tool_name, :auto_approved, decision.risk_level, session_id)
+                      broadcast(
+                        {:auth_granted,
+                         %{
+                           token_id: token_id,
+                           tool_name: tool_name,
+                           agent_id: agent_id,
+                           risk_level: decision.risk_level
+                         }}
+                      )
 
-                      log_audit("auth:auto_approval_granted", tool_name, %{
+                      broadcast_decision(tool_name, :granted, decision.risk_level, session_id)
+
+                      log_audit("auth:authorization_granted", tool_name, %{
                         agent_id: agent_id,
                         token_id: token_id,
-                        policy_id: policy.policy_id,
                         risk_level: decision.risk_level
                       })
 
                       {{:ok, token_id}, %{state | total_authorized: state.total_authorized + 1}}
+                  end
 
-                    _ ->
-                      # Token generation failed — escalate
-                      {:ok, _request_id} =
-                        PendingDecisions.add(tool_name, session_id, decision.risk_level, agent_id, params)
+                {false, true} ->
+                  # Needs approval — check for auto-approval policies first
+                  auto_approval_policy =
+                    Apm.Auth.AutoApprovalStore.find_matching(
+                      agent_id,
+                      Map.get(context, :formation_id),
+                      session_id,
+                      Map.get(context, :project),
+                      tool_name,
+                      decision.risk_level
+                    )
 
-                      log_audit("auth:auto_approval_token_failed", tool_name, %{
+                  case auto_approval_policy do
+                    nil ->
+                      # No matching auto-approval policy — escalate to human
+                      # KRI: escalation_rate
+                      :telemetry.execute(
+                        [:apm, :governance, :escalation_rate],
+                        %{count: 1},
+                        %{tool_name: tool_name, agent_id: agent_id, session_id: session_id}
+                      )
+
+                      {:ok, request_id} =
+                        PendingDecisions.add(
+                          tool_name,
+                          session_id,
+                          decision.risk_level,
+                          agent_id,
+                          params
+                        )
+
+                      gate_id =
+                        try do
+                          case Apm.AgUi.ApprovalGate.request_approval(agent_id, %{
+                                 tool_name: tool_name,
+                                 risk_level: decision.risk_level,
+                                 reason: decision.detail
+                               }) do
+                            {:ok, gid} -> gid
+                            _ -> request_id
+                          end
+                        rescue
+                          _ -> request_id
+                        end
+
+                      broadcast(
+                        {:auth_escalated,
+                         %{
+                           gate_id: gate_id,
+                           request_id: request_id,
+                           tool_name: tool_name,
+                           agent_id: agent_id,
+                           risk_level: decision.risk_level
+                         }}
+                      )
+
+                      broadcast_decision(tool_name, :escalated, decision.risk_level, session_id)
+
+                      log_audit("auth:authorization_escalated", tool_name, %{
                         agent_id: agent_id,
-                        policy_id: policy.policy_id
+                        gate_id: gate_id,
+                        request_id: request_id,
+                        risk_level: decision.risk_level
                       })
 
-                      {{:error, :token_generation_failed, "Failed to generate token for auto-approval"},
-                       %{state | total_denied: state.total_denied + 1}}
+                      {{:error, :approval_required,
+                        "Pending approval queued: #{request_id}. Use /authorization to approve."},
+                       %{state | total_escalated: state.total_escalated + 1}}
+
+                    policy ->
+                      # Auto-approval policy matched — auto-approve and issue token
+                      case TokenStore.generate(agent_id, session_id, tool_name, params) do
+                        {:ok, token_id} ->
+                          SessionStore.increment_tool_calls(session_id)
+                          Apm.Auth.AutoApprovalStore.increment_approval_count(policy.policy_id)
+
+                          broadcast(
+                            {:auth_auto_approved,
+                             %{
+                               token_id: token_id,
+                               tool_name: tool_name,
+                               agent_id: agent_id,
+                               policy_id: policy.policy_id,
+                               risk_level: decision.risk_level
+                             }}
+                          )
+
+                          broadcast_decision(
+                            tool_name,
+                            :auto_approved,
+                            decision.risk_level,
+                            session_id
+                          )
+
+                          log_audit("auth:auto_approval_granted", tool_name, %{
+                            agent_id: agent_id,
+                            token_id: token_id,
+                            policy_id: policy.policy_id,
+                            risk_level: decision.risk_level
+                          })
+
+                          {{:ok, token_id},
+                           %{state | total_authorized: state.total_authorized + 1}}
+
+                        _ ->
+                          # Token generation failed — escalate
+                          {:ok, _request_id} =
+                            PendingDecisions.add(
+                              tool_name,
+                              session_id,
+                              decision.risk_level,
+                              agent_id,
+                              params
+                            )
+
+                          log_audit("auth:auto_approval_token_failed", tool_name, %{
+                            agent_id: agent_id,
+                            policy_id: policy.policy_id
+                          })
+
+                          {{:error, :token_generation_failed,
+                            "Failed to generate token for auto-approval"},
+                           %{state | total_denied: state.total_denied + 1}}
+                      end
                   end
+
+                {false, false} ->
+                  # Denied — KRI: denial_rate
+                  :telemetry.execute(
+                    [:apm, :governance, :denial_rate],
+                    %{count: 1},
+                    %{
+                      tool_name: tool_name,
+                      agent_id: agent_id,
+                      session_id: session_id,
+                      reason: decision.reason
+                    }
+                  )
+
+                  SessionStore.increment_denied(session_id)
+
+                  broadcast(
+                    {:auth_denied,
+                     %{
+                       tool_name: tool_name,
+                       agent_id: agent_id,
+                       reason: decision.reason,
+                       risk_level: decision.risk_level
+                     }}
+                  )
+
+                  broadcast_decision(tool_name, :denied, decision.risk_level, session_id)
+
+                  log_audit("auth:authorization_denied", tool_name, %{
+                    agent_id: agent_id,
+                    reason: decision.reason,
+                    detail: decision.detail
+                  })
+
+                  {{:error, decision.reason, decision.detail},
+                   %{state | total_denied: state.total_denied + 1}}
               end
-
-            {false, false} ->
-              # Denied — KRI: denial_rate
-              :telemetry.execute(
-                [:apm, :governance, :denial_rate],
-                %{count: 1},
-                %{tool_name: tool_name, agent_id: agent_id, session_id: session_id,
-                  reason: decision.reason}
-              )
-
-              SessionStore.increment_denied(session_id)
-
-              broadcast({:auth_denied, %{
-                tool_name: tool_name,
-                agent_id: agent_id,
-                reason: decision.reason,
-                risk_level: decision.risk_level
-              }})
-              broadcast_decision(tool_name, :denied, decision.risk_level, session_id)
-
-              log_audit("auth:authorization_denied", tool_name, %{
-                agent_id: agent_id,
-                reason: decision.reason,
-                detail: decision.detail
-              })
-
-              {{:error, decision.reason, decision.detail},
-               %{state | total_denied: state.total_denied + 1}}
-          end
 
             {:reply, result, new_state}
         end
@@ -491,8 +566,10 @@ defmodule Apm.Auth.AuthorizationGate do
     try do
       # Extract causation_id from incoming trace_context.parent_span_id (obs-s3).
       causation_id =
-        with tc when is_map(tc) <- Map.get(details, :trace_context, Map.get(details, "trace_context")),
-             psid when is_binary(psid) <- Map.get(tc, :parent_span_id) || Map.get(tc, "parent_span_id") do
+        with tc when is_map(tc) <-
+               Map.get(details, :trace_context, Map.get(details, "trace_context")),
+             psid when is_binary(psid) <-
+               Map.get(tc, :parent_span_id) || Map.get(tc, "parent_span_id") do
           psid
         else
           _ ->
@@ -503,7 +580,9 @@ defmodule Apm.Auth.AuthorizationGate do
                   [_ver, _tid, parent_sid | _] -> parent_sid
                   _ -> nil
                 end
-              _ -> nil
+
+              _ ->
+                nil
             end
         end
 

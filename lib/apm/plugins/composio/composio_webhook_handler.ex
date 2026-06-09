@@ -64,15 +64,23 @@ defmodule Apm.Plugins.Composio.ComposioWebhookHandler do
   defp verify_signature(conn, body) do
     case System.get_env("COMPOSIO_WEBHOOK_SECRET") do
       nil ->
-        Logger.warning("[ComposioWebhookHandler] COMPOSIO_WEBHOOK_SECRET not set, skipping HMAC validation")
+        Logger.warning(
+          "[ComposioWebhookHandler] COMPOSIO_WEBHOOK_SECRET not set, skipping HMAC validation"
+        )
+
         :ok
 
       "" ->
-        Logger.warning("[ComposioWebhookHandler] COMPOSIO_WEBHOOK_SECRET is empty, skipping HMAC validation")
+        Logger.warning(
+          "[ComposioWebhookHandler] COMPOSIO_WEBHOOK_SECRET is empty, skipping HMAC validation"
+        )
+
         :ok
 
       secret ->
-        expected = "sha256=" <> (:crypto.mac(:hmac, :sha256, secret, body) |> Base.encode16(case: :lower))
+        expected =
+          "sha256=" <> (:crypto.mac(:hmac, :sha256, secret, body) |> Base.encode16(case: :lower))
+
         received = get_req_header(conn, "x-composio-signature") |> List.first("") |> String.trim()
 
         if Plug.Crypto.secure_compare(expected, received) do

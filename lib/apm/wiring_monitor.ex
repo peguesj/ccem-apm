@@ -61,10 +61,14 @@ defmodule Apm.WiringMonitor do
   @doc """
   Summarise findings into a counts map by severity.
   """
-  @spec summary([Finding.t()]) :: %{error: non_neg_integer(), warning: non_neg_integer(), success: non_neg_integer()}
+  @spec summary([Finding.t()]) :: %{
+          error: non_neg_integer(),
+          warning: non_neg_integer(),
+          success: non_neg_integer()
+        }
   def summary(findings) do
     %{
-      error:   Enum.count(findings, &(&1.severity == :error)),
+      error: Enum.count(findings, &(&1.severity == :error)),
       warning: Enum.count(findings, &(&1.severity == :warning)),
       success: Enum.count(findings, &(&1.severity == :success))
     }
@@ -85,10 +89,10 @@ defmodule Apm.WiringMonitor do
   def check_route_resolution do
     routes()
     |> Enum.map(fn route ->
-      mod    = route[:plug]
+      mod = route[:plug]
       action = route[:plug_opts]
-      path   = route[:path] || "(unknown)"
-      is_lv  = route[:is_live] || false
+      path = route[:path] || "(unknown)"
+      is_lv = route[:is_live] || false
 
       cond do
         not is_atom(mod) ->
@@ -108,7 +112,12 @@ defmodule Apm.WiringMonitor do
           if function_exported?(mod, action, 2) do
             Finding.new(:W1, :success, path, "#{inspect(mod)}.#{action}/2 ok")
           else
-            Finding.new(:W1, :warning, path, "#{inspect(mod)}.#{action}/2 not found (may be plug or plug_pipeline)")
+            Finding.new(
+              :W1,
+              :warning,
+              path,
+              "#{inspect(mod)}.#{action}/2 not found (may be plug or plug_pipeline)"
+            )
           end
 
         true ->
@@ -146,8 +155,12 @@ defmodule Apm.WiringMonitor do
       live_modules
       |> Enum.reject(&MapSet.member?(routed_modules, &1))
       |> Enum.map(fn mod ->
-        Finding.new(:W2, :warning, inspect(mod),
-          "LiveView module has no route referencing it (orphan)")
+        Finding.new(
+          :W2,
+          :warning,
+          inspect(mod),
+          "LiveView module has no route referencing it (orphan)"
+        )
       end)
 
     unreachable_findings =
@@ -155,8 +168,12 @@ defmodule Apm.WiringMonitor do
       |> Enum.filter(fn r -> r[:is_live] == true and is_atom(r[:plug]) end)
       |> Enum.reject(fn r -> function_exported?(r[:plug], :mount, 3) end)
       |> Enum.map(fn r ->
-        Finding.new(:W2, :error, r[:path] || "?",
-          "#{inspect(r[:plug])} routed as LiveView but missing mount/3")
+        Finding.new(
+          :W2,
+          :error,
+          r[:path] || "?",
+          "#{inspect(r[:plug])} routed as LiveView but missing mount/3"
+        )
       end)
 
     ok_count = Enum.count(live_modules) - Enum.count(orphan_findings)
@@ -186,21 +203,29 @@ defmodule Apm.WiringMonitor do
   """
   @spec check_hook_registration() :: [Finding.t()]
   def check_hook_registration do
-    emitted    = emitted_hooks()
+    emitted = emitted_hooks()
     registered = registered_hooks()
 
     unregistered =
       MapSet.difference(emitted, registered)
       |> Enum.map(fn name ->
-        Finding.new(:W3, :error, name,
-          "phx-hook=\"#{name}\" used in template but not registered in app.js Hooks")
+        Finding.new(
+          :W3,
+          :error,
+          name,
+          "phx-hook=\"#{name}\" used in template but not registered in app.js Hooks"
+        )
       end)
 
     dead_hooks =
       MapSet.difference(registered, emitted)
       |> Enum.map(fn name ->
-        Finding.new(:W3, :warning, name,
-          "Hook \"#{name}\" registered in app.js but not used in any template (dead code)")
+        Finding.new(
+          :W3,
+          :warning,
+          name,
+          "Hook \"#{name}\" registered in app.js but not used in any template (dead code)"
+        )
       end)
 
     healthy = MapSet.intersection(emitted, registered) |> MapSet.size()
@@ -235,22 +260,30 @@ defmodule Apm.WiringMonitor do
   @spec check_pubsub_coverage() :: [Finding.t()]
   def check_pubsub_coverage do
     subscribed = subscribed_topics()
-    broadcast  = broadcast_topics()
+    broadcast = broadcast_topics()
 
     orphan_subscribers =
       MapSet.difference(subscribed, broadcast)
       |> Enum.reject(&topic_covered_by_wildcard?(&1, broadcast))
       |> Enum.map(fn topic ->
-        Finding.new(:W4, :warning, topic,
-          "PubSub topic subscribed but never broadcast (LiveView will never update)")
+        Finding.new(
+          :W4,
+          :warning,
+          topic,
+          "PubSub topic subscribed but never broadcast (LiveView will never update)"
+        )
       end)
 
     orphan_publishers =
       MapSet.difference(broadcast, subscribed)
       |> Enum.reject(&topic_covered_by_wildcard?(&1, subscribed))
       |> Enum.map(fn topic ->
-        Finding.new(:W4, :warning, topic,
-          "PubSub topic broadcast but no subscriber (events dropped)")
+        Finding.new(
+          :W4,
+          :warning,
+          topic,
+          "PubSub topic broadcast but no subscriber (events dropped)"
+        )
       end)
 
     healthy_count =
@@ -294,10 +327,10 @@ defmodule Apm.WiringMonitor do
           end
 
         %{
-          path:      Map.get(route, :path),
-          plug:      actual_plug,
+          path: Map.get(route, :path),
+          plug: actual_plug,
           plug_opts: Map.get(route, :plug_opts),
-          is_live:   live_mod != nil
+          is_live: live_mod != nil
         }
       end)
     else
@@ -313,6 +346,7 @@ defmodule Apm.WiringMonitor do
     mods
     |> Enum.filter(fn mod ->
       name = to_string(mod)
+
       String.contains?(name, "ApmWeb") and
         String.ends_with?(name, "Live") and
         function_exported?(mod, :mount, 3)
@@ -470,7 +504,6 @@ defmodule Apm.WiringMonitor do
   # Private helpers
   # ---------------------------------------------------------------------------
 
-
   defp extract_phx_hook_names(content) do
     Regex.scan(~r/phx-hook="([^"]+)"/, content, capture: :all_but_first)
     |> List.flatten()
@@ -521,7 +554,7 @@ defmodule Apm.WiringMonitor do
           {true, 1, acc}
 
         in_block ->
-          opens  = trimmed |> String.graphemes() |> Enum.count(&(&1 == "{"))
+          opens = trimmed |> String.graphemes() |> Enum.count(&(&1 == "{"))
           closes = trimmed |> String.graphemes() |> Enum.count(&(&1 == "}"))
           new_depth = depth + opens - closes
 

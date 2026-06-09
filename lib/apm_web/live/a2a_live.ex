@@ -150,7 +150,10 @@ defmodule ApmWeb.A2ALive do
             <.stat_tile label="Expired" value={to_string(@stats[:expired_count] || 0)} />
           </.card>
           <.card style="flex: 1; min-width: 120px; padding: 12px 16px;">
-            <.stat_tile label="Active Queues" value={to_string(map_size(@stats[:queue_depths] || %{}))} />
+            <.stat_tile
+              label="Active Queues"
+              value={to_string(map_size(@stats[:queue_depths] || %{}))}
+            />
           </.card>
         </div>
 
@@ -158,7 +161,9 @@ defmodule ApmWeb.A2ALive do
         <%= if length(@graph_nodes) > 1 do %>
           <.card style="margin-bottom: 16px; padding: 0; overflow: hidden;">
             <div style="padding: 12px 16px 8px; border-bottom: 1px solid var(--ccem-line);">
-              <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">Message Routing Graph</span>
+              <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+                Message Routing Graph
+              </span>
             </div>
             <svg
               id="a2a-graph"
@@ -191,7 +196,9 @@ defmodule ApmWeb.A2ALive do
         <%!-- Route table --%>
         <.card padded={false} style="margin-bottom: 16px;">
           <div style="padding: 12px 16px 8px; border-bottom: 1px solid var(--ccem-line);">
-            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">Queue Depths</span>
+            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+              Queue Depths
+            </span>
           </div>
           <.data_table id="a2a-routes-table" rows={@queue_pairs}>
             <:col :let={row} label="Agent">
@@ -270,9 +277,17 @@ defmodule ApmWeb.A2ALive do
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                   <.inspector_kv label="Sent" value={to_string(@stats[:sent_count] || 0)} mono />
-                  <.inspector_kv label="Delivered" value={to_string(@stats[:delivered_count] || 0)} mono />
+                  <.inspector_kv
+                    label="Delivered"
+                    value={to_string(@stats[:delivered_count] || 0)}
+                    mono
+                  />
                   <.inspector_kv label="Expired" value={to_string(@stats[:expired_count] || 0)} mono />
-                  <.inspector_kv label="Active Queues" value={to_string(map_size(@stats[:queue_depths] || %{}))} mono />
+                  <.inspector_kv
+                    label="Active Queues"
+                    value={to_string(map_size(@stats[:queue_depths] || %{}))}
+                    mono
+                  />
                 </div>
               </div>
 
@@ -364,7 +379,12 @@ defmodule ApmWeb.A2ALive do
       agents =
         queues
         |> Enum.map(fn {agent_id, _depth} ->
-          %{id: to_string(agent_id), label: truncate(to_string(agent_id), 12), role: "individual", status: "active"}
+          %{
+            id: to_string(agent_id),
+            label: truncate(to_string(agent_id), 12),
+            role: "individual",
+            status: "active"
+          }
         end)
 
       [hub | agents]
@@ -428,5 +448,4 @@ defmodule ApmWeb.A2ALive do
   @spec truncate(String.t(), integer()) :: String.t()
   defp truncate(s, max) when byte_size(s) > max, do: String.slice(s, 0, max) <> "…"
   defp truncate(s, _max), do: s
-
 end

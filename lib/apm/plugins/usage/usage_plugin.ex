@@ -41,7 +41,12 @@ defmodule Apm.Plugins.Usage.UsagePlugin do
       %{
         action: "record",
         description: "Record a usage event",
-        params: %{project: "string", model: "string", input_tokens: "integer", output_tokens: "integer"}
+        params: %{
+          project: "string",
+          model: "string",
+          input_tokens: "integer",
+          output_tokens: "integer"
+        }
       },
       %{
         action: "by_project",

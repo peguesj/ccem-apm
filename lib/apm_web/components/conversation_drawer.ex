@@ -134,7 +134,11 @@ defmodule ApmWeb.Components.ConversationDrawer do
       </button>
 
       <%!-- ── Tab bar ────────────────────────────────────────────────── --%>
-      <div role="tablist" aria-label="Conversation Inspector tabs" class="flex items-center gap-1 px-3 h-6">
+      <div
+        role="tablist"
+        aria-label="Conversation Inspector tabs"
+        class="flex items-center gap-1 px-3 h-6"
+      >
         <button
           :for={tab <- @tray_tabs}
           role="tab"
@@ -146,7 +150,7 @@ defmodule ApmWeb.Components.ConversationDrawer do
           phx-value-tab={tab.id}
           class={[
             "btn btn-xs rounded-full px-3 transition-colors relative",
-            @tray_tab == tab.id && "btn-primary" || "btn-ghost text-base-content/60"
+            (@tray_tab == tab.id && "btn-primary") || "btn-ghost text-base-content/60"
           ]}
         >
           {tab.label}

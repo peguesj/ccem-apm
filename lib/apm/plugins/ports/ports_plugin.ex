@@ -96,9 +96,10 @@ defmodule Apm.Plugins.Ports.PortsPlugin do
   end
 
   def handle_action("assign_port", %{"namespace" => namespace}, _opts) do
-    ns = if namespace in ["web", "api", "service", "tool"],
-      do: String.to_existing_atom(namespace),
-      else: namespace
+    ns =
+      if namespace in ["web", "api", "service", "tool"],
+        do: String.to_existing_atom(namespace),
+        else: namespace
 
     case PortManager.assign_port(ns) do
       {:ok, port} -> {:ok, %{port: port, namespace: namespace}}

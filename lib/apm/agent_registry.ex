@@ -79,9 +79,20 @@ defmodule Apm.AgentRegistry do
     current_wave = if wave_numbers == [], do: 0, else: Enum.max(wave_numbers)
     total_waves = if wave_totals == [], do: 0, else: Enum.max(wave_totals)
     agents_in_wave = Enum.count(agents, &(Map.get(&1, :wave_number) == current_wave))
-    agents_complete = Enum.count(agents, &(Map.get(&1, :wave_number) == current_wave and Map.get(&1, :status) in ["idle", "completed", "done"]))
 
-    %{current_wave: current_wave, total_waves: total_waves, agents_in_wave: agents_in_wave, agents_complete: agents_complete}
+    agents_complete =
+      Enum.count(
+        agents,
+        &(Map.get(&1, :wave_number) == current_wave and
+            Map.get(&1, :status) in ["idle", "completed", "done"])
+      )
+
+    %{
+      current_wave: current_wave,
+      total_waves: total_waves,
+      agents_in_wave: agents_in_wave,
+      agents_complete: agents_complete
+    }
   end
 
   @doc "Update an agent's status. Returns :ok or {:error, :not_found}."
@@ -222,7 +233,10 @@ defmodule Apm.AgentRegistry do
       Map.get(metadata, :formation_id, Map.get(metadata, "formation_id"))
 
     agent_name = Map.get(metadata, :agent_name, Map.get(metadata, "agent_name"))
-    agent_description = Map.get(metadata, :agent_description, Map.get(metadata, "agent_description"))
+
+    agent_description =
+      Map.get(metadata, :agent_description, Map.get(metadata, "agent_description"))
+
     agent_version = Map.get(metadata, :agent_version, Map.get(metadata, "agent_version"))
 
     span_opts =
@@ -232,9 +246,14 @@ defmodule Apm.AgentRegistry do
       |> maybe_add_opt(:agent_version, agent_version)
 
     result =
-      Apm.Tracing.with_agent_span(agent_id, formation_id, fn ->
-        do_register_agent(agent_id, metadata, project_name)
-      end, span_opts)
+      Apm.Tracing.with_agent_span(
+        agent_id,
+        formation_id,
+        fn ->
+          do_register_agent(agent_id, metadata, project_name)
+        end,
+        span_opts
+      )
 
     # Issue a W3C Verifiable Credential alongside registration (CP-300 / comp-v10.3-s2).
     # Fire-and-forget so VC issuance never blocks the registration reply.
@@ -245,6 +264,7 @@ defmodule Apm.AgentRegistry do
           [{^agent_id, agent}] -> agent
           [] -> %{}
         end
+
       maybe_issue_vc(agent_id, identity_map, metadata)
     end)
 
@@ -257,24 +277,27 @@ defmodule Apm.AgentRegistry do
         [{^agent_id, agent}] ->
           formation_id = Map.get(agent, :formation_id)
 
-          Apm.Tracing.with_agent_span(agent_id, formation_id, fn ->
-            now = DateTime.utc_now() |> DateTime.to_iso8601()
-            updated = %{agent | status: status, last_seen: now}
-            :ets.insert(@agents_table, {agent_id, updated})
+          Apm.Tracing.with_agent_span(
+            agent_id,
+            formation_id,
+            fn ->
+              now = DateTime.utc_now() |> DateTime.to_iso8601()
+              updated = %{agent | status: status, last_seen: now}
+              :ets.insert(@agents_table, {agent_id, updated})
 
-            # Emit AG-UI events for status transitions
-            if Process.whereis(Apm.EventStream) do
-              if status in ["completed", "finished"] do
-                run_id = Map.get(agent.metadata, "run_id", "run-#{agent_id}")
-                Apm.EventStream.emit_run_finished(agent_id, run_id)
+              # Emit AG-UI events for status transitions
+              if Process.whereis(Apm.EventStream) do
+                if status in ["completed", "finished"] do
+                  run_id = Map.get(agent.metadata, "run_id", "run-#{agent_id}")
+                  Apm.EventStream.emit_run_finished(agent_id, run_id)
+                end
               end
-            end
 
-            # Broadcast status change to LiveView clients
-            Phoenix.PubSub.broadcast(Apm.PubSub, "apm:agents", {:agent_updated, updated})
+              # Broadcast status change to LiveView clients
+              Phoenix.PubSub.broadcast(Apm.PubSub, "apm:agents", {:agent_updated, updated})
 
-            :ok
-          end, provider_name: "ccem")
+              :ok
+            end, provider_name: "ccem")
 
         [] ->
           {:error, :not_found}
@@ -377,8 +400,11 @@ defmodule Apm.AgentRegistry do
       [{^id, notif}] ->
         :ets.insert(@notifications_table, {id, %{notif | read: true}})
         Phoenix.PubSub.broadcast(Apm.PubSub, "apm:notifications", :notifications_read)
-      [] -> :ok
+
+      [] ->
+        :ok
     end
+
     {:reply, :ok, state}
   end
 
@@ -456,7 +482,9 @@ defmodule Apm.AgentRegistry do
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
     # Build canonical identity via AgentIdentity (OTel gen_ai.agent.* + CCEM extensions)
-    params_with_project = Map.put(metadata, :project_name, project_name || Map.get(metadata, :project_name))
+    params_with_project =
+      Map.put(metadata, :project_name, project_name || Map.get(metadata, :project_name))
+
     identity = Apm.AgentIdentity.build(agent_id, params_with_project)
     identity_map = Apm.AgentIdentity.to_map(identity)
 
@@ -527,6 +555,7 @@ defmodule Apm.AgentRegistry do
   end
 
   defp walk_hierarchy(%{parent_id: nil}, acc), do: Enum.reverse(acc)
+
   defp walk_hierarchy(%{parent_id: pid}, acc) do
     case get_agent(pid) do
       nil -> Enum.reverse(acc)
@@ -579,12 +608,14 @@ defmodule Apm.AgentRegistry do
 
   # Parse trace_id from a W3C traceparent string: "00-<trace_id>-<span_id>-<flags>"
   defp extract_trace_id_from_traceparent(nil), do: nil
+
   defp extract_trace_id_from_traceparent(tp) when is_binary(tp) do
     case String.split(tp, "-") do
       [_ver, trace_id | _rest] when byte_size(trace_id) == 32 -> trace_id
       _ -> nil
     end
   end
+
   defp extract_trace_id_from_traceparent(_), do: nil
 
   defp maybe_put(map, fields, string_key, atom_key) do
@@ -616,6 +647,7 @@ defmodule Apm.AgentRegistry do
         {k, v} -> {k, v}
       end)
   end
+
   defp atomize_metadata(other), do: other
 
   # Build refs map: merges explicit `refs` key with top-level shorthand fields.
@@ -626,19 +658,19 @@ defmodule Apm.AgentRegistry do
     raw
     |> atomize_safe()
     |> Map.merge(
-         %{
-           agent_id:     get_any(notification, [:agent_id, "agent_id"]),
-           formation_id: get_any(notification, [:formation_id, "formation_id"]),
-           session_id:   get_any(notification, [:session_id, "session_id"]),
-           project:      get_any(notification, [:project_name, "project_name", :project, "project"]),
-           wave:         get_any(notification, [:wave_number, "wave_number", :wave, "wave"]),
-           task_id:      get_any(notification, [:task_id, "task_id"]),
-           event_id:     get_any(notification, [:event_id, "event_id"]),
-           issue_id:     get_any(notification, [:issue_id, "issue_id"]),
-           checkpoint:   get_any(notification, [:checkpoint, "checkpoint"])
-         },
-         fn _k, existing, fallback -> existing || fallback end
-       )
+      %{
+        agent_id: get_any(notification, [:agent_id, "agent_id"]),
+        formation_id: get_any(notification, [:formation_id, "formation_id"]),
+        session_id: get_any(notification, [:session_id, "session_id"]),
+        project: get_any(notification, [:project_name, "project_name", :project, "project"]),
+        wave: get_any(notification, [:wave_number, "wave_number", :wave, "wave"]),
+        task_id: get_any(notification, [:task_id, "task_id"]),
+        event_id: get_any(notification, [:event_id, "event_id"]),
+        issue_id: get_any(notification, [:issue_id, "issue_id"]),
+        checkpoint: get_any(notification, [:checkpoint, "checkpoint"])
+      },
+      fn _k, existing, fallback -> existing || fallback end
+    )
     |> Map.reject(fn {_, v} -> is_nil(v) end)
   end
 
@@ -653,12 +685,13 @@ defmodule Apm.AgentRegistry do
   defp normalize_actions(actions) when is_list(actions) do
     Enum.map(actions, fn a ->
       %{
-        label:  Map.get(a, :label,  Map.get(a, "label",  "")),
-        href:   Map.get(a, :href,   Map.get(a, "href",   "#")),
+        label: Map.get(a, :label, Map.get(a, "label", "")),
+        href: Map.get(a, :href, Map.get(a, "href", "#")),
         method: Map.get(a, :method, Map.get(a, "method", "navigate"))
       }
     end)
   end
+
   defp normalize_actions(_), do: []
 
   # Build a JWT-encoded delegation chain for a new agent.
@@ -714,7 +747,9 @@ defmodule Apm.AgentRegistry do
         rescue
           _ -> {k, v}
         end
-      {k, v} -> {k, v}
+
+      {k, v} ->
+        {k, v}
     end)
   end
 
@@ -754,10 +789,8 @@ defmodule Apm.AgentRegistry do
           "invoked_by" => Map.get(metadata, :invoked_by, Map.get(metadata, "invoked_by")),
           "capabilities" =>
             Map.get(metadata, :capabilities, Map.get(metadata, "capabilities", [])),
-          "risk_level" =>
-            Map.get(metadata, :risk_level, Map.get(metadata, "risk_level", "low")),
-          "session_id" =>
-            Map.get(metadata, :session_id, Map.get(metadata, "session_id"))
+          "risk_level" => Map.get(metadata, :risk_level, Map.get(metadata, "risk_level", "low")),
+          "session_id" => Map.get(metadata, :session_id, Map.get(metadata, "session_id"))
         }
 
         jwt_vc =

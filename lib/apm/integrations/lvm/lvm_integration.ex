@@ -40,9 +40,17 @@ defmodule Apm.Integrations.Lvm.LvmIntegration do
   @impl true
   def list_endpoints do
     [
-      %{action: "get_model_limits", description: "Get model capability limits", params: %{model: "string"}},
+      %{
+        action: "get_model_limits",
+        description: "Get model capability limits",
+        params: %{model: "string"}
+      },
       %{action: "get_usage_status", description: "Get usage status for all models", params: %{}},
-      %{action: "record_capability", description: "Record dynamic model capability", params: %{model: "string", capabilities: "map"}}
+      %{
+        action: "record_capability",
+        description: "Record dynamic model capability",
+        params: %{model: "string", capabilities: "map"}
+      }
     ]
   end
 
@@ -64,11 +72,12 @@ defmodule Apm.Integrations.Lvm.LvmIntegration do
     summary = ClaudeUsageStore.get_summary()
     models = ClaudePlatformLvmPlugin.known_models()
 
-    {:ok, %{
-      summary: summary,
-      known_models: Map.keys(models),
-      model_count: map_size(models)
-    }}
+    {:ok,
+     %{
+       summary: summary,
+       known_models: Map.keys(models),
+       model_count: map_size(models)
+     }}
   end
 
   def handle_event("record_capability", %{"model" => model, "capabilities" => caps}, _opts)

@@ -24,7 +24,8 @@ defmodule Apm.Plugins.Formations.FormationsPlugin do
   @impl true
   @spec plugin_description() :: String.t()
   def plugin_description,
-    do: "Formation and UPM execution tracking — list, create, update formations and inspect agent membership"
+    do:
+      "Formation and UPM execution tracking — list, create, update formations and inspect agent membership"
 
   @impl true
   @spec plugin_version() :: String.t()
@@ -42,7 +43,12 @@ defmodule Apm.Plugins.Formations.FormationsPlugin do
 
   @impl true
   def default_config do
-    %{auto_refresh: true, refresh_interval_ms: 5_000, show_ghost_agents: false, graph_layout: "tree"}
+    %{
+      auto_refresh: true,
+      refresh_interval_ms: 5_000,
+      show_ghost_agents: false,
+      graph_layout: "tree"
+    }
   end
 
   @impl true
@@ -72,7 +78,11 @@ defmodule Apm.Plugins.Formations.FormationsPlugin do
       %{
         action: "update_formation",
         description: "Update attributes of an existing formation by ID",
-        params: %{id: "string (required)", status: "string (optional)", metadata: "map (optional)"}
+        params: %{
+          id: "string (required)",
+          status: "string (optional)",
+          metadata: "map (optional)"
+        }
       }
     ]
   end

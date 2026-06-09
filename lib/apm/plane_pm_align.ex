@@ -150,7 +150,9 @@ defmodule Apm.PlanePmAlign do
         }
       })
 
-      Logger.debug("PlanePmAlign: sync #{new_state.sync_count} complete — #{length(issues)} issues")
+      Logger.debug(
+        "PlanePmAlign: sync #{new_state.sync_count} complete — #{length(issues)} issues"
+      )
 
       new_state
     rescue

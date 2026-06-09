@@ -30,12 +30,13 @@ defmodule ApmWeb.V2.HookHealthController do
 
   @doc "Returns the current health snapshot from HookHealthMonitor."
   @spec health(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :health,
+  operation(:health,
     summary: "Health check",
     tags: ["Hooks"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def health(conn, _params) do
     result = HookHealthMonitor.current_health()
@@ -46,12 +47,13 @@ defmodule ApmWeb.V2.HookHealthController do
 
   @doc "Triggers an immediate async re-scan."
   @spec scan(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :scan,
+  operation(:scan,
     summary: "Scan",
     tags: ["Hooks"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def scan(conn, _params) do
     HookHealthMonitor.scan_now()
@@ -73,12 +75,13 @@ defmodule ApmWeb.V2.HookHealthController do
   - Project not found → 404
   """
   @spec clear(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :clear,
+  operation(:clear,
     summary: "Clear",
     tags: ["Hooks"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def clear(conn, %{"project" => project_name}) do
     # Trigger fresh scan and wait briefly

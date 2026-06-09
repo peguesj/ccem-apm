@@ -22,38 +22,31 @@ defmodule ApmWeb.V2.BuilderController do
 
   alias Apm.Plugins.Builder.BuilderEngine
 
-  operation :start_session,
-
+  operation(:start_session,
     summary: "Start session",
-
     tags: ["Builder"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def start_session(conn, _params) do
     case BuilderEngine.start_session() do
-      {:ok, id} -> json(conn |> put_status(:created), %{id: id})
-      {:error, reason} -> json(conn |> put_status(:internal_server_error), %{error: inspect(reason)})
+      {:ok, id} ->
+        json(conn |> put_status(:created), %{id: id})
+
+      {:error, reason} ->
+        json(conn |> put_status(:internal_server_error), %{error: inspect(reason)})
     end
   end
 
-  operation :get_session,
-
+  operation(:get_session,
     summary: "Get session",
-
     tags: ["Builder"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def get_session(conn, %{"id" => id}) do
     case BuilderEngine.get_session(id) do
@@ -62,18 +55,13 @@ defmodule ApmWeb.V2.BuilderController do
     end
   end
 
-  operation :update_session,
-
+  operation(:update_session,
     summary: "Update session",
-
     tags: ["Builder"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def update_session(conn, %{"id" => id} = params) do
     attrs = Map.drop(params, ["id"])
@@ -84,18 +72,13 @@ defmodule ApmWeb.V2.BuilderController do
     end
   end
 
-  operation :analyze_source,
-
+  operation(:analyze_source,
     summary: "Analyze source",
-
     tags: ["Builder"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def analyze_source(conn, %{"id" => id}) do
     case BuilderEngine.analyze_source(id) do
@@ -104,18 +87,13 @@ defmodule ApmWeb.V2.BuilderController do
     end
   end
 
-  operation :generate_preview,
-
+  operation(:generate_preview,
     summary: "Generate preview",
-
     tags: ["Builder"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def generate_preview(conn, %{"id" => id}) do
     case BuilderEngine.generate_preview(id) do
@@ -124,24 +102,24 @@ defmodule ApmWeb.V2.BuilderController do
     end
   end
 
-  operation :write_files,
-
+  operation(:write_files,
     summary: "Write files",
-
     tags: ["Builder"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def write_files(conn, %{"id" => id}) do
     case BuilderEngine.write_files(id) do
-      {:ok, paths} -> json(conn, %{status: "complete", paths: paths})
-      {:error, :not_found} -> json(conn |> put_status(:not_found), %{error: "session not found"})
-      {:error, reason} -> json(conn |> put_status(:internal_server_error), %{error: inspect(reason)})
+      {:ok, paths} ->
+        json(conn, %{status: "complete", paths: paths})
+
+      {:error, :not_found} ->
+        json(conn |> put_status(:not_found), %{error: "session not found"})
+
+      {:error, reason} ->
+        json(conn |> put_status(:internal_server_error), %{error: inspect(reason)})
     end
   end
 

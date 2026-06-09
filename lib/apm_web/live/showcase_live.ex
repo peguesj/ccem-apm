@@ -11,7 +11,6 @@ defmodule ApmWeb.ShowcaseLive do
 
   use ApmWeb, :live_view
 
-
   alias Apm.AgentRegistry
   alias Apm.AgUi.ActivityTracker
   alias Apm.ConfigLoader
@@ -63,7 +62,9 @@ defmodule ApmWeb.ShowcaseLive do
       |> assign(:tab_data, %{})
       |> assign(:tab_query, "")
 
-    {:ok, socket |> assign(:sidebar_collapsed, false)
+    {:ok,
+     socket
+     |> assign(:sidebar_collapsed, false)
      |> assign(:inspector_open, false)
      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -87,215 +88,241 @@ defmodule ApmWeb.ShowcaseLive do
         <.sidebar_nav current_path="/showcase" />
       </:sidebar>
       <:main>
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Showcase</h2>
-            <div class="badge badge-sm badge-ghost">{length(@features)} features</div>
-            <div class="badge badge-sm badge-accent gap-1">
-              <span class="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>
-              LIVE
-            </div>
-
-            <%!-- Project selector — only shows projects that have showcase data --%>
-            <div class="dropdown dropdown-bottom">
-              <div tabindex="0" role="button" class="btn btn-ghost btn-xs gap-1">
-                <.icon name="hero-presentation-chart-bar" class="size-3" />
-                {@active_project || "ccem"}
-                <.icon name="hero-chevron-down" class="size-3" />
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <%!-- Header --%>
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+              <h2 class="text-sm font-semibold text-base-content">Showcase</h2>
+              <div class="badge badge-sm badge-ghost">{length(@features)} features</div>
+              <div class="badge badge-sm badge-accent gap-1">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>
+                LIVE
               </div>
-              <ul tabindex="0" class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-52">
-                <li :if={length(@showcase_projects) == 0}>
-                  <span class="text-base-content/40 italic">No other showcases</span>
-                </li>
-                <li :for={project <- @showcase_projects}>
-                  <button
-                    phx-click="switch_project"
-                    phx-value-project={project["name"]}
-                    class={@active_project == project["name"] && "active"}
-                  >
-                    <.icon name="hero-presentation-chart-bar" class="size-3 opacity-60" />
-                    {project["name"]}
-                  </button>
-                </li>
-                <li :if={length(@all_projects) > length(@showcase_projects)} class="menu-title mt-1">
-                  <span class="text-[10px] text-base-content/30">
-                    {length(@all_projects) - length(@showcase_projects)} project(s) without showcase — run Migrate action
-                  </span>
-                </li>
-              </ul>
-            </div>
-          </div>
 
-          <div class="flex items-center gap-2 text-xs text-base-content/50">
-            <%!-- Engine / Standalone mode toggle (US-120) --%>
-            <div class="join">
-              <button
-                phx-click="switch_mode"
-                phx-value-mode="engine"
-                class={"join-item btn btn-xs #{if @showcase_mode == :engine, do: "btn-primary", else: "btn-ghost"}"}
-              >
-                <.icon name="hero-cpu-chip" class="size-3" />
-                Engine
-              </button>
-              <button
-                phx-click="switch_mode"
-                phx-value-mode="standalone"
-                class={"join-item btn btn-xs #{if @showcase_mode == :standalone, do: "btn-primary", else: "btn-ghost"}"}
-              >
-                <.icon name="hero-globe-alt" class="size-3" />
-                Standalone
-              </button>
-            </div>
-            <span class="font-mono">v{@version}</span>
-            <button
-              id="showcase-fullscreen-btn"
-              phx-click={JS.dispatch("showcase:fullscreen", to: "#showcase-container")}
-              class="btn btn-ghost btn-xs p-1"
-              title="Toggle fullscreen (Esc to exit)"
-            >
-              <span data-expand><.icon name="hero-arrows-pointing-out" class="size-4" /></span>
-              <span data-collapse style="display:none"><.icon name="hero-arrows-pointing-in" class="size-4" /></span>
-            </button>
-          </div>
-        </header>
-
-        <%!-- Queryable Tabs Bar (v2) — visible when project has tabs or diagrams --%>
-        <div :if={length(@tabs) > 0 or length(@diagrams) > 0} class="bg-base-200 border-b border-base-300 px-4 py-1 flex items-center gap-2 flex-shrink-0">
-          <%!-- Tab pills --%>
-          <button
-            :for={tab <- @tabs}
-            phx-click="switch_tab"
-            phx-value-tab={tab["id"]}
-            class={"btn btn-xs #{if @active_tab == tab["id"], do: "btn-primary", else: "btn-ghost"}"}
-          >
-            {tab["label"] || tab["id"]}
-          </button>
-
-          <%!-- Diagrams pill --%>
-          <button
-            :if={length(@diagrams) > 0}
-            phx-click="switch_tab"
-            phx-value-tab="__diagrams__"
-            class={"btn btn-xs #{if @active_tab == "__diagrams__", do: "btn-primary", else: "btn-ghost"} gap-1"}
-          >
-            <.icon name="hero-chart-bar-square" class="size-3" />
-            Diagrams
-            <span class="badge badge-xs">{length(@diagrams)}</span>
-          </button>
-
-          <%!-- Search (when a queryable tab is active) --%>
-          <form :if={@active_tab && @active_tab != "__diagrams__"} phx-change="search_tab" class="ml-auto">
-            <input
-              type="text"
-              name="query"
-              value={@tab_query}
-              placeholder="Search..."
-              phx-debounce="200"
-              class="input input-xs input-bordered w-48 bg-base-300"
-            />
-          </form>
-        </div>
-
-        <%!-- Tab Content Panel (v2) — shows when a tab is active instead of engine --%>
-        <div :if={@active_tab && @active_tab != "__diagrams__"} class="flex-1 overflow-auto p-4 bg-base-300">
-          <div class="max-w-5xl mx-auto">
-            <% content = case @tab_data do
-              {:ok, data} -> data
-              {:error, _} -> %{"error" => "Failed to load tab data"}
-              data when is_map(data) -> data
-              _ -> %{}
-            end %>
-            <pre class="bg-base-200 p-4 rounded text-xs overflow-auto max-h-96">{Jason.encode!(content, pretty: true)}</pre>
-          </div>
-        </div>
-
-        <%!-- Diagrams Panel (v2) — shows rendered diagrams --%>
-        <div :if={@active_tab == "__diagrams__"} class="flex-1 overflow-auto p-4 bg-base-300">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-6xl mx-auto">
-            <div :for={diagram <- @diagrams} class="card bg-base-200 shadow-sm">
-              <div class="card-body p-3">
-                <h3 class="card-title text-sm font-mono">{diagram["id"]}</h3>
-                <div class="badge badge-xs badge-ghost">{diagram["type"]}</div>
-                <div
-                  id={"diagram-#{diagram["id"]}"}
-                  phx-hook="MermaidHook"
-                  data-diagram-type={diagram["type"]}
-                  data-diagram-content={diagram["content"]}
-                  class="mt-2 overflow-auto bg-base-300 rounded p-2 min-h-[200px]"
+              <%!-- Project selector — only shows projects that have showcase data --%>
+              <div class="dropdown dropdown-bottom">
+                <div tabindex="0" role="button" class="btn btn-ghost btn-xs gap-1">
+                  <.icon name="hero-presentation-chart-bar" class="size-3" />
+                  {@active_project || "ccem"}
+                  <.icon name="hero-chevron-down" class="size-3" />
+                </div>
+                <ul
+                  tabindex="0"
+                  class="dropdown-content z-50 menu menu-xs p-1 bg-base-200 border border-base-300 rounded-box shadow-lg w-52"
                 >
-                  <div class="text-xs text-base-content/30 font-mono">rendering...</div>
+                  <li :if={length(@showcase_projects) == 0}>
+                    <span class="text-base-content/40 italic">No other showcases</span>
+                  </li>
+                  <li :for={project <- @showcase_projects}>
+                    <button
+                      phx-click="switch_project"
+                      phx-value-project={project["name"]}
+                      class={@active_project == project["name"] && "active"}
+                    >
+                      <.icon name="hero-presentation-chart-bar" class="size-3 opacity-60" />
+                      {project["name"]}
+                    </button>
+                  </li>
+                  <li :if={length(@all_projects) > length(@showcase_projects)} class="menu-title mt-1">
+                    <span class="text-[10px] text-base-content/30">
+                      {length(@all_projects) - length(@showcase_projects)} project(s) without showcase — run Migrate action
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 text-xs text-base-content/50">
+              <%!-- Engine / Standalone mode toggle (US-120) --%>
+              <div class="join">
+                <button
+                  phx-click="switch_mode"
+                  phx-value-mode="engine"
+                  class={"join-item btn btn-xs #{if @showcase_mode == :engine, do: "btn-primary", else: "btn-ghost"}"}
+                >
+                  <.icon name="hero-cpu-chip" class="size-3" /> Engine
+                </button>
+                <button
+                  phx-click="switch_mode"
+                  phx-value-mode="standalone"
+                  class={"join-item btn btn-xs #{if @showcase_mode == :standalone, do: "btn-primary", else: "btn-ghost"}"}
+                >
+                  <.icon name="hero-globe-alt" class="size-3" /> Standalone
+                </button>
+              </div>
+              <span class="font-mono">v{@version}</span>
+              <button
+                id="showcase-fullscreen-btn"
+                phx-click={JS.dispatch("showcase:fullscreen", to: "#showcase-container")}
+                class="btn btn-ghost btn-xs p-1"
+                title="Toggle fullscreen (Esc to exit)"
+              >
+                <span data-expand><.icon name="hero-arrows-pointing-out" class="size-4" /></span>
+                <span data-collapse style="display:none">
+                  <.icon name="hero-arrows-pointing-in" class="size-4" />
+                </span>
+              </button>
+            </div>
+          </header>
+
+          <%!-- Queryable Tabs Bar (v2) — visible when project has tabs or diagrams --%>
+          <div
+            :if={length(@tabs) > 0 or length(@diagrams) > 0}
+            class="bg-base-200 border-b border-base-300 px-4 py-1 flex items-center gap-2 flex-shrink-0"
+          >
+            <%!-- Tab pills --%>
+            <button
+              :for={tab <- @tabs}
+              phx-click="switch_tab"
+              phx-value-tab={tab["id"]}
+              class={"btn btn-xs #{if @active_tab == tab["id"], do: "btn-primary", else: "btn-ghost"}"}
+            >
+              {tab["label"] || tab["id"]}
+            </button>
+
+            <%!-- Diagrams pill --%>
+            <button
+              :if={length(@diagrams) > 0}
+              phx-click="switch_tab"
+              phx-value-tab="__diagrams__"
+              class={"btn btn-xs #{if @active_tab == "__diagrams__", do: "btn-primary", else: "btn-ghost"} gap-1"}
+            >
+              <.icon name="hero-chart-bar-square" class="size-3" /> Diagrams
+              <span class="badge badge-xs">{length(@diagrams)}</span>
+            </button>
+
+            <%!-- Search (when a queryable tab is active) --%>
+            <form
+              :if={@active_tab && @active_tab != "__diagrams__"}
+              phx-change="search_tab"
+              class="ml-auto"
+            >
+              <input
+                type="text"
+                name="query"
+                value={@tab_query}
+                placeholder="Search..."
+                phx-debounce="200"
+                class="input input-xs input-bordered w-48 bg-base-300"
+              />
+            </form>
+          </div>
+
+          <%!-- Tab Content Panel (v2) — shows when a tab is active instead of engine --%>
+          <div
+            :if={@active_tab && @active_tab != "__diagrams__"}
+            class="flex-1 overflow-auto p-4 bg-base-300"
+          >
+            <div class="max-w-5xl mx-auto">
+              <% content =
+                case @tab_data do
+                  {:ok, data} -> data
+                  {:error, _} -> %{"error" => "Failed to load tab data"}
+                  data when is_map(data) -> data
+                  _ -> %{}
+                end %>
+              <pre class="bg-base-200 p-4 rounded text-xs overflow-auto max-h-96">{Jason.encode!(content, pretty: true)}</pre>
+            </div>
+          </div>
+
+          <%!-- Diagrams Panel (v2) — shows rendered diagrams --%>
+          <div :if={@active_tab == "__diagrams__"} class="flex-1 overflow-auto p-4 bg-base-300">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-6xl mx-auto">
+              <div :for={diagram <- @diagrams} class="card bg-base-200 shadow-sm">
+                <div class="card-body p-3">
+                  <h3 class="card-title text-sm font-mono">{diagram["id"]}</h3>
+                  <div class="badge badge-xs badge-ghost">{diagram["type"]}</div>
+                  <div
+                    id={"diagram-#{diagram["id"]}"}
+                    phx-hook="MermaidHook"
+                    data-diagram-type={diagram["type"]}
+                    data-diagram-content={diagram["content"]}
+                    class="mt-2 overflow-auto bg-base-300 rounded p-2 min-h-[200px]"
+                  >
+                    <div class="text-xs text-base-content/30 font-mono">rendering...</div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <%!-- Standalone mode: iframe-based external showcases (US-120) --%>
-        <div :if={@showcase_mode == :standalone} class="flex-1 overflow-hidden bg-base-300">
-          <div :if={@standalone_url} class="h-full">
-            <iframe src={@standalone_url} class="w-full h-full border-0" title="Standalone Showcase" />
-          </div>
-          <div :if={is_nil(@standalone_url)} class="h-full flex flex-col items-center justify-center p-8">
-            <.icon name="hero-globe-alt" class="size-12 text-base-content/20 mb-4" />
-            <h3 class="text-lg font-semibold text-base-content/60 mb-2">Standalone Showcases</h3>
-            <p class="text-sm text-base-content/40 mb-6 text-center max-w-md">
-              Select a project with a standalone showcase server, or projects with
-              migrated static showcases in priv/static/showcase/projects/.
-            </p>
-            <div :if={@standalone_projects != []} class="grid grid-cols-2 gap-3 w-full max-w-lg">
-              <button
-                :for={sp <- @standalone_projects}
-                phx-click="open_standalone"
-                phx-value-project={sp.name}
-                class="card bg-base-200 hover:bg-base-100 transition-colors cursor-pointer"
-              >
-                <div class="card-body p-4">
-                  <h4 class="font-semibold text-sm">{sp.name}</h4>
-                  <p class="text-xs text-base-content/50">{sp.source}</p>
-                </div>
-              </button>
+          <%!-- Standalone mode: iframe-based external showcases (US-120) --%>
+          <div :if={@showcase_mode == :standalone} class="flex-1 overflow-hidden bg-base-300">
+            <div :if={@standalone_url} class="h-full">
+              <iframe
+                src={@standalone_url}
+                class="w-full h-full border-0"
+                title="Standalone Showcase"
+              />
             </div>
-            <div :if={@standalone_projects == []} class="text-sm text-base-content/30">
-              No standalone showcases found. Run <code>/showcase standalone start</code> to create one.
+            <div
+              :if={is_nil(@standalone_url)}
+              class="h-full flex flex-col items-center justify-center p-8"
+            >
+              <.icon name="hero-globe-alt" class="size-12 text-base-content/20 mb-4" />
+              <h3 class="text-lg font-semibold text-base-content/60 mb-2">Standalone Showcases</h3>
+              <p class="text-sm text-base-content/40 mb-6 text-center max-w-md">
+                Select a project with a standalone showcase server, or projects with
+                migrated static showcases in priv/static/showcase/projects/.
+              </p>
+              <div :if={@standalone_projects != []} class="grid grid-cols-2 gap-3 w-full max-w-lg">
+                <button
+                  :for={sp <- @standalone_projects}
+                  phx-click="open_standalone"
+                  phx-value-project={sp.name}
+                  class="card bg-base-200 hover:bg-base-100 transition-colors cursor-pointer"
+                >
+                  <div class="card-body p-4">
+                    <h4 class="font-semibold text-sm">{sp.name}</h4>
+                    <p class="text-xs text-base-content/50">{sp.source}</p>
+                  </div>
+                </button>
+              </div>
+              <div :if={@standalone_projects == []} class="text-sm text-base-content/30">
+                No standalone showcases found. Run <code>/showcase standalone start</code>
+                to create one.
+              </div>
+            </div>
+          </div>
+
+          <%!-- Showcase container — ShowcaseHook mounts here; engine targets inner phx-update=ignore div --%>
+          <div
+            :if={
+              @showcase_mode == :engine &&
+                (is_nil(@active_tab) ||
+                   (@active_tab != "__diagrams__" &&
+                      !Enum.any?(@tabs, fn t -> t["id"] == @active_tab end)))
+            }
+            id="showcase-container"
+            phx-hook="ShowcaseHook"
+            data-project={@active_project || "ccem"}
+            data-version={@version}
+            data-features={Jason.encode!(@features)}
+            data-narratives={Jason.encode!(@narratives)}
+            data-slides={Jason.encode!(@slides)}
+            data-design-system={Jason.encode!(@design_system)}
+            data-diagrams={Jason.encode!(strip_diagram_content(@diagrams))}
+            data-tabs={Jason.encode!(strip_tab_data(@tabs))}
+            data-static-path={static_showcase_path(@active_project)}
+            class="flex-1 overflow-hidden showcase-scope"
+          >
+            <%!-- phx-update=ignore prevents LiveView morphdom from patching engine-owned DOM --%>
+            <div id="showcase-engine-root" phx-update="ignore" class="h-full">
+              <div class="flex items-center justify-center h-full text-base-content/30 text-sm font-mono text-xs">
+                initializing showcase engine...
+              </div>
             </div>
           </div>
         </div>
-
-        <%!-- Showcase container — ShowcaseHook mounts here; engine targets inner phx-update=ignore div --%>
+        <.wizard page="showcase" />
+        <%!-- Showcase sync WebSocket bootstrap (v8.4.0) --%>
         <div
-          :if={@showcase_mode == :engine && (is_nil(@active_tab) || (@active_tab != "__diagrams__" && !Enum.any?(@tabs, fn t -> t["id"] == @active_tab end)))}
-          id="showcase-container"
-          phx-hook="ShowcaseHook"
+          id="showcase-sync"
+          phx-hook="ShowcaseSyncHook"
           data-project={@active_project || "ccem"}
-          data-version={@version}
-          data-features={Jason.encode!(@features)}
-          data-narratives={Jason.encode!(@narratives)}
-          data-slides={Jason.encode!(@slides)}
-          data-design-system={Jason.encode!(@design_system)}
-          data-diagrams={Jason.encode!(strip_diagram_content(@diagrams))}
-          data-tabs={Jason.encode!(strip_tab_data(@tabs))}
-          data-static-path={static_showcase_path(@active_project)}
-          class="flex-1 overflow-hidden showcase-scope"
+          class="hidden"
         >
-          <%!-- phx-update=ignore prevents LiveView morphdom from patching engine-owned DOM --%>
-          <div id="showcase-engine-root" phx-update="ignore" class="h-full">
-            <div class="flex items-center justify-center h-full text-base-content/30 text-sm font-mono text-xs">
-              initializing showcase engine...
-            </div>
-          </div>
         </div>
-      </div>
-    <.wizard page="showcase" />
-    <%!-- Showcase sync WebSocket bootstrap (v8.4.0) --%>
-    <div
-      id="showcase-sync"
-      phx-hook="ShowcaseSyncHook"
-      data-project={@active_project || "ccem"}
-      class="hidden"
-    ></div>
       </:main>
     </.page_layout>
     """
@@ -315,10 +342,11 @@ defmodule ApmWeb.ShowcaseLive do
   def handle_event("switch_tab", %{"tab" => tab_id}, socket) do
     tabs = socket.assigns.tabs
 
-    tab_data = case Enum.find(tabs, fn t -> t["id"] == tab_id end) do
-      %{"data" => data} -> data
-      _ -> %{}
-    end
+    tab_data =
+      case Enum.find(tabs, fn t -> t["id"] == tab_id end) do
+        %{"data" => data} -> data
+        _ -> %{}
+      end
 
     socket =
       socket
@@ -334,11 +362,12 @@ defmodule ApmWeb.ShowcaseLive do
     project = socket.assigns.active_project
     active_tab = socket.assigns.active_tab
 
-    filtered = if active_tab do
-      ShowcaseDataStore.get_tab_data(project, active_tab, %{"search" => query})
-    else
-      %{}
-    end
+    filtered =
+      if active_tab do
+        ShowcaseDataStore.get_tab_data(project, active_tab, %{"search" => query})
+      else
+        %{}
+      end
 
     socket =
       socket
@@ -384,7 +413,7 @@ defmodule ApmWeb.ShowcaseLive do
   def handle_info({:upm_event, _data}, socket), do: push_orch(socket)
 
   def handle_info({:activity_log_entry, entry}, socket) do
-    log = [entry | (socket.assigns[:activity_log] || [])] |> Enum.take(99)
+    log = [entry | socket.assigns[:activity_log] || []] |> Enum.take(99)
     activities = safe_list_activities()
 
     socket =
@@ -472,19 +501,21 @@ defmodule ApmWeb.ShowcaseLive do
     static_path = static_showcase_path(project)
 
     # Auto-select first tab if available
-    first_tab = case tabs do
-      [first | _] -> first["id"]
-      _ -> nil
-    end
-
-    first_tab_data = if first_tab do
-      case Enum.find(tabs, fn t -> t["id"] == first_tab end) do
-        %{"data" => data} -> data
-        _ -> %{}
+    first_tab =
+      case tabs do
+        [first | _] -> first["id"]
+        _ -> nil
       end
-    else
-      %{}
-    end
+
+    first_tab_data =
+      if first_tab do
+        case Enum.find(tabs, fn t -> t["id"] == first_tab end) do
+          %{"data" => data} -> data
+          _ -> %{}
+        end
+      else
+        %{}
+      end
 
     socket =
       socket
@@ -517,7 +548,6 @@ defmodule ApmWeb.ShowcaseLive do
 
     {:noreply, socket}
   end
-
 
   defp strip_diagram_content(diagrams) do
     Enum.map(diagrams, fn d -> Map.drop(d, ["content"]) end)
@@ -578,8 +608,7 @@ defmodule ApmWeb.ShowcaseLive do
   defp push_agents(socket) do
     agents = AgentRegistry.list_agents(socket.assigns.active_project)
 
-    {:noreply,
-     push_event(socket, "showcase:agents", %{agents: serialize_agents(agents)})}
+    {:noreply, push_event(socket, "showcase:agents", %{agents: serialize_agents(agents)})}
   end
 
   defp push_orch(socket) do
@@ -664,7 +693,13 @@ defmodule ApmWeb.ShowcaseLive do
 
     external =
       if File.dir?(showcase_dir) do
-        [%{name: "ccem-standalone", source: "local server (port 8080)", url: "http://localhost:8080"}]
+        [
+          %{
+            name: "ccem-standalone",
+            source: "local server (port 8080)",
+            url: "http://localhost:8080"
+          }
+        ]
       else
         []
       end

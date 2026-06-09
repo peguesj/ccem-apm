@@ -39,7 +39,11 @@ defmodule Apm.Integrations.ClaudeExpertise.ClaudeExpertiseIntegration do
     sources =
       Path.wildcard(Path.join(@expertise_path, "**/*.{md,json,yaml,yml}"))
       |> Enum.map(fn path ->
-        %{path: path, name: Path.basename(path), relative: Path.relative_to(path, @expertise_path)}
+        %{
+          path: path,
+          name: Path.basename(path),
+          relative: Path.relative_to(path, @expertise_path)
+        }
       end)
 
     {:ok, %{sources: sources, count: length(sources)}}

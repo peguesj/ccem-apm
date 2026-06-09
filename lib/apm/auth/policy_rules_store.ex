@@ -71,7 +71,8 @@ defmodule Apm.Auth.PolicyRulesStore do
         now = DateTime.utc_now()
 
         :ets.tab2list(@table)
-        |> Enum.reject(fn {_name, _action, _version, _created_by, _approved_by, expires_at, _inserted_at} ->
+        |> Enum.reject(fn {_name, _action, _version, _created_by, _approved_by, expires_at,
+                           _inserted_at} ->
           expired?(expires_at, now)
         end)
         |> Enum.map(fn {name, action, version, created_by, approved_by, expires_at, inserted_at} ->
@@ -266,7 +267,8 @@ defmodule Apm.Auth.PolicyRulesStore do
       _ ->
         # Collect all history entries whose key matches {tool_name, _version}
         :ets.match_object(@history_table, {{tool_name, :_}, :_, :_, :_, :_, :_})
-        |> Enum.map(fn {{_name, version}, action, created_by, approved_by, expires_at, inserted_at} ->
+        |> Enum.map(fn {{_name, version}, action, created_by, approved_by, expires_at,
+                        inserted_at} ->
           %{
             version: version,
             action: action,
@@ -306,9 +308,14 @@ defmodule Apm.Auth.PolicyRulesStore do
     :ets.insert(@table, {tool_name, action, version, created_by, approved_by, expires_at, now})
 
     # Append to history
-    :ets.insert(@history_table, {{tool_name, version}, action, created_by, approved_by, expires_at, now})
+    :ets.insert(
+      @history_table,
+      {{tool_name, version}, action, created_by, approved_by, expires_at, now}
+    )
 
-    Logger.info("[PolicyRulesStore] Rule set: #{tool_name} → #{action} (v#{version}, by: #{created_by})")
+    Logger.info(
+      "[PolicyRulesStore] Rule set: #{tool_name} → #{action} (v#{version}, by: #{created_by})"
+    )
 
     # KRI: policy_rule_changes (create or update)
     :telemetry.execute(
@@ -317,13 +324,18 @@ defmodule Apm.Auth.PolicyRulesStore do
       %{tool_name: tool_name, action: action, change_type: :upsert, version: version}
     )
 
-    Phoenix.PubSub.broadcast(Apm.PubSub, "agentlock:authorization", {:policy_rule_added, %{
-      tool_name: tool_name,
-      action: action,
-      version: version,
-      created_by: created_by,
-      inserted_at: DateTime.to_iso8601(now)
-    }})
+    Phoenix.PubSub.broadcast(
+      Apm.PubSub,
+      "agentlock:authorization",
+      {:policy_rule_added,
+       %{
+         tool_name: tool_name,
+         action: action,
+         version: version,
+         created_by: created_by,
+         inserted_at: DateTime.to_iso8601(now)
+       }}
+    )
 
     {:reply, :ok, state}
   end
@@ -350,9 +362,14 @@ defmodule Apm.Auth.PolicyRulesStore do
       %{tool_name: tool_name, action: :none, change_type: :delete}
     )
 
-    Phoenix.PubSub.broadcast(Apm.PubSub, "agentlock:authorization", {:policy_rule_removed, %{
-      tool_name: tool_name
-    }})
+    Phoenix.PubSub.broadcast(
+      Apm.PubSub,
+      "agentlock:authorization",
+      {:policy_rule_removed,
+       %{
+         tool_name: tool_name
+       }}
+    )
 
     {:reply, :ok, state}
   end

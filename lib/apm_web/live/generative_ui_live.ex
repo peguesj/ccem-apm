@@ -59,46 +59,48 @@ defmodule ApmWeb.GenerativeUILive do
         <.sidebar_nav current_path="/generative-ui" />
       </:sidebar>
       <:main>
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+              <h2 class="text-sm font-semibold text-base-content">Generative UI</h2>
+              <div class="badge badge-sm badge-primary">{length(@components)} components</div>
+            </div>
+          </header>
 
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">Generative UI</h2>
-            <div class="badge badge-sm badge-primary"><%= length(@components) %> components</div>
-          </div>
-        </header>
-
-        <div class="flex-1 overflow-y-auto p-6 space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <%= for comp <- filtered_components(@components, @agent_filter) do %>
-              <div class="card bg-base-200 shadow-xl">
-                <div class="card-body">
-                  <h3 class="card-title text-sm">
-                    <span class={type_badge(comp.type)}><%= comp.type %></span>
-                    <%= comp.title || comp.id %>
-                  </h3>
-                  <p class="text-xs opacity-60">Agent: <%= comp.agent_id %></p>
-                  <%= render_component(comp, assigns) %>
+          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <%= for comp <- filtered_components(@components, @agent_filter) do %>
+                <div class="card bg-base-200 shadow-xl">
+                  <div class="card-body">
+                    <h3 class="card-title text-sm">
+                      <span class={type_badge(comp.type)}>{comp.type}</span>
+                      {comp.title || comp.id}
+                    </h3>
+                    <p class="text-xs opacity-60">Agent: {comp.agent_id}</p>
+                    {render_component(comp, assigns)}
+                  </div>
                 </div>
-              </div>
-            <% end %>
-            <%= if Enum.empty?(@components) do %>
-              <div class="col-span-full text-center py-12 opacity-50">
-                <p>No components registered. Agents can register dynamic UI via POST /api/v2/generative-ui/components</p>
-              </div>
-            <% end %>
+              <% end %>
+              <%= if Enum.empty?(@components) do %>
+                <div class="col-span-full text-center py-12 opacity-50">
+                  <p>
+                    No components registered. Agents can register dynamic UI via POST /api/v2/generative-ui/components
+                  </p>
+                </div>
+              <% end %>
+            </div>
           </div>
         </div>
-      </div>
-    <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-genui" />
+        <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-genui" />
       </:main>
     </.page_layout>
     """
   end
 
   defp filtered_components(comps, nil), do: comps
+
   defp filtered_components(comps, agent_id) do
-    Enum.filter(comps, & &1.agent_id == agent_id)
+    Enum.filter(comps, &(&1.agent_id == agent_id))
   end
 
   defp type_badge("card"), do: "badge badge-primary badge-sm"
@@ -113,9 +115,9 @@ defmodule ApmWeb.GenerativeUILive do
 
     ~H"""
     <div class="stat">
-      <div class="stat-title"><%= @props["label"] || "Value" %></div>
-      <div class="stat-value"><%= @props["value"] || "-" %></div>
-      <div :if={@props["description"]} class="stat-desc"><%= @props["description"] %></div>
+      <div class="stat-title">{@props["label"] || "Value"}</div>
+      <div class="stat-value">{@props["value"] || "-"}</div>
+      <div :if={@props["description"]} class="stat-desc">{@props["description"]}</div>
     </div>
     """
   end
@@ -125,7 +127,7 @@ defmodule ApmWeb.GenerativeUILive do
 
     ~H"""
     <div class={"alert alert-#{@props["level"] || "info"}"}>
-      <span><%= @props["message"] || "" %></span>
+      <span>{@props["message"] || ""}</span>
     </div>
     """
   end
@@ -136,8 +138,8 @@ defmodule ApmWeb.GenerativeUILive do
     ~H"""
     <div>
       <div class="flex justify-between text-sm mb-1">
-        <span><%= @props["label"] || "Progress" %></span>
-        <span><%= @props["value"] || 0 %>%</span>
+        <span>{@props["label"] || "Progress"}</span>
+        <span>{@props["value"] || 0}%</span>
       </div>
       <progress class="progress progress-primary" value={@props["value"] || 0} max="100"></progress>
     </div>

@@ -80,7 +80,7 @@ defmodule ApmWeb.Live.WidgetContainerComponent do
           <%= if @is_pinned do %>
             <span class="badge badge-primary badge-xs gap-0.5" title="Scope source pinned">
               <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
               </svg>
               pinned
             </span>
@@ -98,14 +98,21 @@ defmodule ApmWeb.Live.WidgetContainerComponent do
               phx-value-widget_id={@widget.id}
               class={[
                 "btn btn-ghost btn-xs px-1.5 h-6 min-h-0",
-                if(@is_edit_open, do: "text-primary", else: "text-base-content/50 hover:text-base-content")
+                if(@is_edit_open,
+                  do: "text-primary",
+                  else: "text-base-content/50 hover:text-base-content"
+                )
               ]}
               aria-label={"Edit #{@widget.name} settings"}
               title="Edit widget settings"
             >
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
               </svg>
             </button>
           <% end %>
@@ -117,14 +124,30 @@ defmodule ApmWeb.Live.WidgetContainerComponent do
               phx-value-widget_id={@widget.id}
               class={[
                 "btn btn-ghost btn-xs px-1.5 h-6 min-h-0",
-                if(@is_pinned, do: "text-primary", else: "text-base-content/50 hover:text-base-content")
+                if(@is_pinned,
+                  do: "text-primary",
+                  else: "text-base-content/50 hover:text-base-content"
+                )
               ]}
               aria-label={if @is_pinned, do: "Unpin scope source", else: "Pin as scope source"}
-              title={if @is_pinned, do: "Unpin — restore global scope", else: "Pin to drive scope for all widgets"}
+              title={
+                if @is_pinned,
+                  do: "Unpin — restore global scope",
+                  else: "Pin to drive scope for all widgets"
+              }
             >
-              <svg class="w-3.5 h-3.5" fill={if(@is_pinned, do: "currentColor", else: "none")} viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+              <svg
+                class="w-3.5 h-3.5"
+                fill={if(@is_pinned, do: "currentColor", else: "none")}
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                />
               </svg>
             </button>
           <% end %>

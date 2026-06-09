@@ -75,12 +75,16 @@ defmodule ApmWeb.OpenDesignLive do
             </div>
             <div class="flex items-center gap-2 text-sm text-base-content/60">
               <%= if @daemon_state[:version] do %>
-                <span>v<%= @daemon_state[:version] %></span>
+                <span>v{@daemon_state[:version]}</span>
                 <span>·</span>
               <% end %>
-              <span>port <%= @daemon_state[:port] || @daemon_port %></span>
+              <span>port {@daemon_state[:port] || @daemon_port}</span>
               <span>·</span>
-              <a href="http://localhost:{@daemon_port}" target="_blank" class="link link-primary text-xs">
+              <a
+                href="http://localhost:{@daemon_port}"
+                target="_blank"
+                class="link link-primary text-xs"
+              >
                 open UI
               </a>
             </div>
@@ -102,7 +106,7 @@ defmodule ApmWeb.OpenDesignLive do
             >
               Skills
               <%= if length(@skills) > 0 do %>
-                <.badge tone="neutral" class="ml-1"><%= length(@skills) %></.badge>
+                <.badge tone="neutral" class="ml-1">{length(@skills)}</.badge>
               <% end %>
             </button>
             <button
@@ -112,7 +116,7 @@ defmodule ApmWeb.OpenDesignLive do
             >
               Projects
               <%= if length(@projects) > 0 do %>
-                <.badge tone="neutral" class="ml-1"><%= length(@projects) %></.badge>
+                <.badge tone="neutral" class="ml-1">{length(@projects)}</.badge>
               <% end %>
             </button>
           </div>
@@ -128,7 +132,7 @@ defmodule ApmWeb.OpenDesignLive do
               <%= if @error do %>
                 <div class="alert alert-error mb-4">
                   <.icon name="hero-exclamation-triangle" class="w-4 h-4" />
-                  <span><%= @error %></span>
+                  <span>{@error}</span>
                 </div>
               <% end %>
 
@@ -170,7 +174,7 @@ defmodule ApmWeb.OpenDesignLive do
         </h2>
         <div class="flex flex-wrap gap-2">
           <%= for agent <- @agents do %>
-            <.badge tone="accent"><%= agent_label(agent) %></.badge>
+            <.badge tone="accent">{agent_label(agent)}</.badge>
           <% end %>
         </div>
       </div>
@@ -179,7 +183,7 @@ defmodule ApmWeb.OpenDesignLive do
     <% end %>
 
     <div class="text-xs text-base-content/40 mt-6">
-      Last polled: <%= @daemon_state[:last_checked] || "—" %>
+      Last polled: {@daemon_state[:last_checked] || "—"}
     </div>
     """
   end
@@ -195,13 +199,13 @@ defmodule ApmWeb.OpenDesignLive do
           <div class="card-body">
             <div class="flex items-start justify-between">
               <div>
-                <span class="font-medium"><%= skill_name(skill) %></span>
+                <span class="font-medium">{skill_name(skill)}</span>
                 <%= if skill["description"] do %>
-                  <p class="text-sm text-base-content/60 mt-0.5"><%= skill["description"] %></p>
+                  <p class="text-sm text-base-content/60 mt-0.5">{skill["description"]}</p>
                 <% end %>
               </div>
               <%= if skill["version"] do %>
-                <.badge tone="neutral" class="shrink-0 ml-2">v<%= skill["version"] %></.badge>
+                <.badge tone="neutral" class="shrink-0 ml-2">v{skill["version"]}</.badge>
               <% end %>
             </div>
           </div>
@@ -217,15 +221,15 @@ defmodule ApmWeb.OpenDesignLive do
       <%= if length(@projects) > 0 do %>
         <div>
           <h2 class="text-sm font-medium text-base-content/70 mb-2 uppercase tracking-wide">
-            Projects (<%= length(@projects) %>)
+            Projects ({length(@projects)})
           </h2>
           <div class="space-y-2">
             <%= for project <- @projects do %>
               <div class="card card-compact bg-base-200">
                 <div class="card-body">
-                  <span class="font-medium"><%= project["name"] || project["id"] || "Unnamed" %></span>
+                  <span class="font-medium">{project["name"] || project["id"] || "Unnamed"}</span>
                   <%= if project["description"] do %>
-                    <p class="text-sm text-base-content/60"><%= project["description"] %></p>
+                    <p class="text-sm text-base-content/60">{project["description"]}</p>
                   <% end %>
                 </div>
               </div>
@@ -241,15 +245,15 @@ defmodule ApmWeb.OpenDesignLive do
       <%= if length(@design_systems) > 0 do %>
         <div>
           <h2 class="text-sm font-medium text-base-content/70 mb-2 uppercase tracking-wide">
-            Design Systems (<%= length(@design_systems) %>)
+            Design Systems ({length(@design_systems)})
           </h2>
           <div class="space-y-2">
             <%= for ds <- @design_systems do %>
               <div class="card card-compact bg-base-200">
                 <div class="card-body">
-                  <span class="font-medium"><%= ds["name"] || ds["id"] || "Unnamed" %></span>
+                  <span class="font-medium">{ds["name"] || ds["id"] || "Unnamed"}</span>
                   <%= if ds["description"] do %>
-                    <p class="text-sm text-base-content/60"><%= ds["description"] %></p>
+                    <p class="text-sm text-base-content/60">{ds["description"]}</p>
                   <% end %>
                 </div>
               </div>
@@ -304,7 +308,8 @@ defmodule ApmWeb.OpenDesignLive do
         {:error, reason} -> {[], "Could not load skills: #{inspect(reason)}"}
       end
 
-    {:noreply, socket |> assign(:skills, skills) |> assign(:error, error) |> assign(:loading, false)}
+    {:noreply,
+     socket |> assign(:skills, skills) |> assign(:error, error) |> assign(:loading, false)}
   end
 
   def handle_info(:fetch_projects, socket) do
@@ -334,13 +339,30 @@ defmodule ApmWeb.OpenDesignLive do
   defp safe_monitor_state do
     case Process.whereis(Apm.Plugins.OpenDesign.OpenDesignMonitor) do
       nil ->
-        %{reachable: false, agents: [], skill_count: 0, design_system_count: 0, project_count: 0, port: @daemon_port, last_checked: nil}
+        %{
+          reachable: false,
+          agents: [],
+          skill_count: 0,
+          design_system_count: 0,
+          project_count: 0,
+          port: @daemon_port,
+          last_checked: nil
+        }
 
       _pid ->
         Apm.Plugins.OpenDesign.OpenDesignMonitor.current_state()
     end
   rescue
-    _ -> %{reachable: false, agents: [], skill_count: 0, design_system_count: 0, project_count: 0, port: @daemon_port, last_checked: nil}
+    _ ->
+      %{
+        reachable: false,
+        agents: [],
+        skill_count: 0,
+        design_system_count: 0,
+        project_count: 0,
+        port: @daemon_port,
+        last_checked: nil
+      }
   end
 
   defp agent_label(agent) when is_map(agent), do: agent["name"] || agent["id"] || inspect(agent)

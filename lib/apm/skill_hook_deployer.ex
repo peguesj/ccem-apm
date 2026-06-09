@@ -28,7 +28,8 @@ defmodule Apm.SkillHookDeployer do
 
   Returns `{:ok, %{deployed: [...], skipped: []}}` or `{:error, reason}`.
   """
-  @spec deploy_hooks(String.t(), String.t(), :all | [String.t()]) :: {:ok, map()} | {:error, String.t()}
+  @spec deploy_hooks(String.t(), String.t(), :all | [String.t()]) ::
+          {:ok, map()} | {:error, String.t()}
   def deploy_hooks(project_root, skill, hooks \\ :all) do
     GenServer.call(__MODULE__, {:deploy, project_root, skill, hooks})
   end

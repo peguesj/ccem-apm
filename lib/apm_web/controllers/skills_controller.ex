@@ -17,15 +17,16 @@ defmodule ApmWeb.SkillsController do
   alias OpenApiSpex.Schema
   alias Apm.SkillsRegistryStore
 
-  operation :registry,
+  operation(:registry,
     summary: "List skill registry",
     description: "Returns all skills with health scores and aggregate counts.",
     tags: ["Skills"],
     responses: [
       ok: {"Skills registry", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :show,
+  operation(:show,
     summary: "Get skill by name",
     description: "Returns detail for a single skill by name.",
     tags: ["Skills"],
@@ -36,8 +37,9 @@ defmodule ApmWeb.SkillsController do
       ok: {"Skill detail", "application/json", Schemas.OkResponse},
       not_found: {"Not found", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :health,
+  operation(:health,
     summary: "Skill health score",
     description: "Returns a breakdown of the health score for a skill.",
     tags: ["Skills"],
@@ -48,33 +50,38 @@ defmodule ApmWeb.SkillsController do
       ok: {"Health breakdown", "application/json", Schemas.OkResponse},
       not_found: {"Not found", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :audit,
+  operation(:audit,
     summary: "Trigger skills audit",
     description: "Triggers a full rescan of all skills and broadcasts an audit event.",
     tags: ["Skills"],
     responses: [
       ok: {"Audit started", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :list_repositories,
+  operation(:list_repositories,
     summary: "List skill repositories",
     description: "Returns all registered remote skill repositories (mcpmarket/skillfish).",
     tags: ["Skills"],
     responses: [
       ok: {"Repository list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :add_repository,
+  operation(:add_repository,
     summary: "Add skill repository",
     description: "Registers a new remote skill repository.",
     tags: ["Skills"],
-    request_body: {"Repository payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Repository payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Repository added", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :remove_repository,
+  operation(:remove_repository,
     summary: "Remove skill repository",
     description: "Removes a registered remote skill repository by ID.",
     tags: ["Skills"],
@@ -84,8 +91,9 @@ defmodule ApmWeb.SkillsController do
     responses: [
       ok: {"Repository removed", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :sync_repository,
+  operation(:sync_repository,
     summary: "Sync skill repository",
     description: "Triggers a sync of a remote skill repository.",
     tags: ["Skills"],
@@ -95,25 +103,29 @@ defmodule ApmWeb.SkillsController do
     responses: [
       ok: {"Sync result", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :list_permissive,
+  operation(:list_permissive,
     summary: "List permissive skills",
     description: "Returns the permissive skill list (bypasses AgentLock for named skills).",
     tags: ["Skills"],
     responses: [
       ok: {"Permissive skill list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :add_permissive,
+  operation(:add_permissive,
     summary: "Add permissive skill",
     description: "Adds a skill to the permissive list.",
     tags: ["Skills"],
-    request_body: {"Skill name payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Skill name payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Skill added to permissive list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :remove_permissive,
+  operation(:remove_permissive,
     summary: "Remove permissive skill",
     description: "Removes a skill from the permissive list by name.",
     tags: ["Skills"],
@@ -123,6 +135,7 @@ defmodule ApmWeb.SkillsController do
     responses: [
       ok: {"Skill removed from permissive list", "application/json", Schemas.OkResponse}
     ]
+  )
 
   # Catch-all for any action not explicitly annotated above.
   def open_api_operation(_action), do: nil
@@ -191,9 +204,14 @@ defmodule ApmWeb.SkillsController do
   def audit(conn, _params) do
     SkillsRegistryStore.refresh_all()
 
-    Phoenix.PubSub.broadcast(@pubsub, @topic, {:skills_audit_started, %{
-      triggered_at: DateTime.utc_now() |> DateTime.to_iso8601()
-    }})
+    Phoenix.PubSub.broadcast(
+      @pubsub,
+      @topic,
+      {:skills_audit_started,
+       %{
+         triggered_at: DateTime.utc_now() |> DateTime.to_iso8601()
+       }}
+    )
 
     json(conn, %{status: "scanning"})
   end
@@ -215,7 +233,12 @@ defmodule ApmWeb.SkillsController do
   def remove_permissive(conn, %{"name" => name}) do
     case SkillsRegistryStore.remove_permissive(name) do
       :ok ->
-        Phoenix.PubSub.broadcast(@pubsub, @topic, {:permissive_updated, %{action: "remove", name: name}})
+        Phoenix.PubSub.broadcast(
+          @pubsub,
+          @topic,
+          {:permissive_updated, %{action: "remove", name: name}}
+        )
+
         json(conn, %{status: "removed", name: name})
 
       {:error, :not_found} ->
@@ -232,7 +255,13 @@ defmodule ApmWeb.SkillsController do
   @doc "POST /api/skills/repositories — body: {id?, name, url, type?}"
   def add_repository(conn, params) do
     {:ok, repo} = SkillsRegistryStore.add_repository(params)
-    Phoenix.PubSub.broadcast(@pubsub, @topic, {:repository_updated, %{action: "add", id: repo.id}})
+
+    Phoenix.PubSub.broadcast(
+      @pubsub,
+      @topic,
+      {:repository_updated, %{action: "add", id: repo.id}}
+    )
+
     json(conn, %{status: "added", repository: repo})
   end
 
@@ -240,7 +269,12 @@ defmodule ApmWeb.SkillsController do
   def remove_repository(conn, %{"id" => id}) do
     case SkillsRegistryStore.remove_repository(id) do
       :ok ->
-        Phoenix.PubSub.broadcast(@pubsub, @topic, {:repository_updated, %{action: "remove", id: id}})
+        Phoenix.PubSub.broadcast(
+          @pubsub,
+          @topic,
+          {:repository_updated, %{action: "remove", id: id}}
+        )
+
         json(conn, %{status: "removed", id: id})
 
       {:error, :not_found} ->
@@ -252,7 +286,12 @@ defmodule ApmWeb.SkillsController do
   def sync_repository(conn, %{"id" => id}) do
     case SkillsRegistryStore.sync_repository(id) do
       :ok ->
-        Phoenix.PubSub.broadcast(@pubsub, @topic, {:repository_updated, %{action: "sync", id: id}})
+        Phoenix.PubSub.broadcast(
+          @pubsub,
+          @topic,
+          {:repository_updated, %{action: "sync", id: id}}
+        )
+
         json(conn, %{status: "syncing", id: id})
 
       {:error, :not_found} ->

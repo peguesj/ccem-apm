@@ -43,8 +43,8 @@ defmodule ApmWeb.HarnessLive do
       |> assign(:notification_count, 0)
       |> assign(:skill_count, 0)
       |> assign(:sidebar_collapsed, false)
-     |> assign(:inspector_open, false)
-     |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()
+      |> assign(:inspector_open, false)
+      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()
 
     {:ok, socket}
   end
@@ -57,189 +57,196 @@ defmodule ApmWeb.HarnessLive do
     <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
       <:sidebar>
         <ApmWeb.Components.SidebarNav.sidebar_nav
-        current_path="/plugins/harness"
-        notification_count={@notification_count}
-        skill_count={@skill_count}
-        plugins={@plugins}
-        integrations={@integrations}
+          current_path="/plugins/harness"
+          notification_count={@notification_count}
+          skill_count={@skill_count}
+          plugins={@plugins}
+          integrations={@integrations}
         />
       </:sidebar>
       <:main>
-      <main class="flex-1 overflow-auto p-6">
-        <div class="max-w-7xl mx-auto">
-          <%!-- Header --%>
-          <div class="flex items-center justify-between mb-6">
-            <div>
-              <h1 class="text-2xl font-bold text-base-content">Claude Code Harness</h1>
-              <p class="text-sm text-base-content/60 mt-1">
-                Hook telemetry, session state, and plan tracking
-              </p>
-            </div>
-          </div>
-
-          <%!-- Tab bar --%>
-          <div class="tabs tabs-bordered mb-4">
-            <a
-              class={"tab #{if @active_tab == "health", do: "tab-active"}"}
-              phx-click="switch_tab"
-              phx-value-tab="health"
-            >
-              Health
-            </a>
-            <a
-              class={"tab #{if @active_tab == "hooks", do: "tab-active"}"}
-              phx-click="switch_tab"
-              phx-value-tab="hooks"
-            >
-              Hooks
-            </a>
-            <a
-              class={"tab #{if @active_tab == "session", do: "tab-active"}"}
-              phx-click="switch_tab"
-              phx-value-tab="session"
-            >
-              Session
-            </a>
-          </div>
-
-          <%!-- Health tab --%>
-          <div :if={@active_tab == "health"}>
-            <div :if={is_nil(@harness_state)} class="text-center py-12 text-base-content/40">
-              <p class="font-medium">No data</p>
-              <p class="text-sm mt-1">HarnessMonitor is not running</p>
+        <main class="flex-1 overflow-auto p-6">
+          <div class="max-w-7xl mx-auto">
+            <%!-- Header --%>
+            <div class="flex items-center justify-between mb-6">
+              <div>
+                <h1 class="text-2xl font-bold text-base-content">Claude Code Harness</h1>
+                <p class="text-sm text-base-content/60 mt-1">
+                  Hook telemetry, session state, and plan tracking
+                </p>
+              </div>
             </div>
 
-            <div :if={!is_nil(@harness_state)} class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <%!-- Status card --%>
-              <div class="card bg-base-200 shadow-sm">
-                <div class="card-body p-4">
-                  <h2 class="card-title text-sm font-semibold text-base-content/70">harness-mem</h2>
-                  <div class="flex items-center gap-2 mt-1">
-                    <span class={"badge #{harness_status_badge(@harness_state)}"}>
-                      {harness_status_label(@harness_state)}
+            <%!-- Tab bar --%>
+            <div class="tabs tabs-bordered mb-4">
+              <a
+                class={"tab #{if @active_tab == "health", do: "tab-active"}"}
+                phx-click="switch_tab"
+                phx-value-tab="health"
+              >
+                Health
+              </a>
+              <a
+                class={"tab #{if @active_tab == "hooks", do: "tab-active"}"}
+                phx-click="switch_tab"
+                phx-value-tab="hooks"
+              >
+                Hooks
+              </a>
+              <a
+                class={"tab #{if @active_tab == "session", do: "tab-active"}"}
+                phx-click="switch_tab"
+                phx-value-tab="session"
+              >
+                Session
+              </a>
+            </div>
+
+            <%!-- Health tab --%>
+            <div :if={@active_tab == "health"}>
+              <div :if={is_nil(@harness_state)} class="text-center py-12 text-base-content/40">
+                <p class="font-medium">No data</p>
+                <p class="text-sm mt-1">HarnessMonitor is not running</p>
+              </div>
+
+              <div :if={!is_nil(@harness_state)} class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <%!-- Status card --%>
+                <div class="card bg-base-200 shadow-sm">
+                  <div class="card-body p-4">
+                    <h2 class="card-title text-sm font-semibold text-base-content/70">harness-mem</h2>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class={"badge #{harness_status_badge(@harness_state)}"}>
+                        {harness_status_label(@harness_state)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- Git branch --%>
+                <div class="card bg-base-200 shadow-sm">
+                  <div class="card-body p-4">
+                    <h2 class="card-title text-sm font-semibold text-base-content/70">Git Branch</h2>
+                    <p class="text-sm font-mono text-base-content mt-1">
+                      {get_in(@harness_state, ["git_branch"]) || get_in(@harness_state, [:git_branch]) ||
+                        "—"}
+                    </p>
+                  </div>
+                </div>
+
+                <%!-- Plans count --%>
+                <div class="card bg-base-200 shadow-sm">
+                  <div class="card-body p-4">
+                    <h2 class="card-title text-sm font-semibold text-base-content/70">Plans</h2>
+                    <p class="text-2xl font-bold text-base-content mt-1">
+                      {get_in(@harness_state, ["plans_count"]) ||
+                        get_in(@harness_state, [:plans_count]) || 0}
+                    </p>
+                  </div>
+                </div>
+
+                <%!-- Worktree count --%>
+                <div class="card bg-base-200 shadow-sm">
+                  <div class="card-body p-4">
+                    <h2 class="card-title text-sm font-semibold text-base-content/70">Worktrees</h2>
+                    <p class="text-2xl font-bold text-base-content mt-1">
+                      {get_in(@harness_state, ["worktree_count"]) ||
+                        get_in(@harness_state, [:worktree_count]) || 0}
+                    </p>
+                  </div>
+                </div>
+
+                <%!-- Session state --%>
+                <div class="card bg-base-200 shadow-sm md:col-span-2">
+                  <div class="card-body p-4">
+                    <h2 class="card-title text-sm font-semibold text-base-content/70">
+                      Session State
+                    </h2>
+                    <span class={"badge badge-sm mt-1 #{session_state_badge(@harness_state)}"}>
+                      {get_in(@harness_state, ["session_state"]) ||
+                        get_in(@harness_state, [:session_state]) || "unknown"}
                     </span>
                   </div>
                 </div>
               </div>
+            </div>
 
-              <%!-- Git branch --%>
-              <div class="card bg-base-200 shadow-sm">
-                <div class="card-body p-4">
-                  <h2 class="card-title text-sm font-semibold text-base-content/70">Git Branch</h2>
-                  <p class="text-sm font-mono text-base-content mt-1">
-                    {get_in(@harness_state, ["git_branch"]) || get_in(@harness_state, [:git_branch]) || "—"}
-                  </p>
-                </div>
-              </div>
-
-              <%!-- Plans count --%>
-              <div class="card bg-base-200 shadow-sm">
-                <div class="card-body p-4">
-                  <h2 class="card-title text-sm font-semibold text-base-content/70">Plans</h2>
-                  <p class="text-2xl font-bold text-base-content mt-1">
-                    {get_in(@harness_state, ["plans_count"]) || get_in(@harness_state, [:plans_count]) || 0}
-                  </p>
-                </div>
-              </div>
-
-              <%!-- Worktree count --%>
-              <div class="card bg-base-200 shadow-sm">
-                <div class="card-body p-4">
-                  <h2 class="card-title text-sm font-semibold text-base-content/70">Worktrees</h2>
-                  <p class="text-2xl font-bold text-base-content mt-1">
-                    {get_in(@harness_state, ["worktree_count"]) || get_in(@harness_state, [:worktree_count]) || 0}
-                  </p>
-                </div>
-              </div>
-
-              <%!-- Session state --%>
-              <div class="card bg-base-200 shadow-sm md:col-span-2">
-                <div class="card-body p-4">
-                  <h2 class="card-title text-sm font-semibold text-base-content/70">Session State</h2>
-                  <span class={"badge badge-sm mt-1 #{session_state_badge(@harness_state)}"}>
-                    {get_in(@harness_state, ["session_state"]) || get_in(@harness_state, [:session_state]) || "unknown"}
+            <%!-- Hooks tab --%>
+            <div :if={@active_tab == "hooks"}>
+              <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                  <span class="text-sm text-base-content/60">
+                    Total:
+                    <span class="font-semibold text-base-content">{@hook_stats[:total] || 0}</span>
                   </span>
+                  <div class="flex gap-1 flex-wrap">
+                    <span
+                      :for={{event_name, count} <- @hook_stats[:by_event] || %{}}
+                      class="badge badge-sm badge-ghost font-mono"
+                    >
+                      {event_name}: {count}
+                    </span>
+                  </div>
+                </div>
+                <div class="flex gap-2">
+                  <button class="btn btn-sm btn-ghost" phx-click="refresh_hooks">
+                    Refresh
+                  </button>
+                  <button class="btn btn-sm btn-error btn-outline" phx-click="clear_hooks">
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div :if={@hook_events == []} class="text-center py-12 text-base-content/40">
+                <p class="font-medium">No hook events</p>
+                <p class="text-sm mt-1">Events will appear as Claude Code tools are invoked</p>
+              </div>
+
+              <div :if={@hook_events != []}>
+                <div class="overflow-x-auto">
+                  <table class="table table-sm w-full">
+                    <thead>
+                      <tr>
+                        <th class="text-xs text-base-content/50 uppercase">Event Type</th>
+                        <th class="text-xs text-base-content/50 uppercase">Tool / Name</th>
+                        <th class="text-xs text-base-content/50 uppercase">Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr :for={event <- @hook_events} class="hover">
+                        <td>
+                          <span class={"badge badge-sm #{hook_event_badge(event)}"}>
+                            {hook_event_type(event)}
+                          </span>
+                        </td>
+                        <td class="font-mono text-xs text-base-content truncate max-w-xs">
+                          {hook_event_name(event)}
+                        </td>
+                        <td class="text-xs text-base-content/50 font-mono">
+                          {hook_event_timestamp(event)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
-          </div>
 
-          <%!-- Hooks tab --%>
-          <div :if={@active_tab == "hooks"}>
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-3">
-                <span class="text-sm text-base-content/60">
-                  Total: <span class="font-semibold text-base-content">{@hook_stats[:total] || 0}</span>
-                </span>
-                <div class="flex gap-1 flex-wrap">
-                  <span
-                    :for={{event_name, count} <- (@hook_stats[:by_event] || %{})}
-                    class="badge badge-sm badge-ghost font-mono"
-                  >
-                    {event_name}: {count}
-                  </span>
-                </div>
+            <%!-- Session tab --%>
+            <div :if={@active_tab == "session"}>
+              <div :if={is_nil(@harness_state)} class="text-center py-12 text-base-content/40">
+                <p class="font-medium">No data</p>
+                <p class="text-sm mt-1">HarnessMonitor is not running</p>
               </div>
-              <div class="flex gap-2">
-                <button class="btn btn-sm btn-ghost" phx-click="refresh_hooks">
-                  Refresh
-                </button>
-                <button class="btn btn-sm btn-error btn-outline" phx-click="clear_hooks">
-                  Clear
-                </button>
-              </div>
-            </div>
 
-            <div :if={@hook_events == []} class="text-center py-12 text-base-content/40">
-              <p class="font-medium">No hook events</p>
-              <p class="text-sm mt-1">Events will appear as Claude Code tools are invoked</p>
-            </div>
-
-            <div :if={@hook_events != []}>
-              <div class="overflow-x-auto">
-                <table class="table table-sm w-full">
-                  <thead>
-                    <tr>
-                      <th class="text-xs text-base-content/50 uppercase">Event Type</th>
-                      <th class="text-xs text-base-content/50 uppercase">Tool / Name</th>
-                      <th class="text-xs text-base-content/50 uppercase">Timestamp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr :for={event <- @hook_events} class="hover">
-                      <td>
-                        <span class={"badge badge-sm #{hook_event_badge(event)}"}>
-                          {hook_event_type(event)}
-                        </span>
-                      </td>
-                      <td class="font-mono text-xs text-base-content truncate max-w-xs">
-                        {hook_event_name(event)}
-                      </td>
-                      <td class="text-xs text-base-content/50 font-mono">
-                        {hook_event_timestamp(event)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <%!-- Session tab --%>
-          <div :if={@active_tab == "session"}>
-            <div :if={is_nil(@harness_state)} class="text-center py-12 text-base-content/40">
-              <p class="font-medium">No data</p>
-              <p class="text-sm mt-1">HarnessMonitor is not running</p>
-            </div>
-
-            <div :if={!is_nil(@harness_state)}>
-              <pre class="text-xs font-mono bg-base-200 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap break-words max-h-screen-3/4 overflow-y-auto leading-relaxed">
+              <div :if={!is_nil(@harness_state)}>
+                <pre class="text-xs font-mono bg-base-200 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap break-words max-h-screen-3/4 overflow-y-auto leading-relaxed">
                 {Jason.encode!(@harness_state, pretty: true)}
               </pre>
+              </div>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
       </:main>
     </.page_layout>
     """

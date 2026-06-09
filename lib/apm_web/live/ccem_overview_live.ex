@@ -53,7 +53,9 @@ defmodule ApmWeb.CcemOverviewLive do
       |> assign(:wizard_page, "welcome")
       |> assign(:wizard_visible, false)
 
-    {:ok, socket |> assign(:sidebar_collapsed, false)
+    {:ok,
+     socket
+     |> assign(:sidebar_collapsed, false)
      |> assign(:inspector_open, false)
      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -66,141 +68,182 @@ defmodule ApmWeb.CcemOverviewLive do
         <.sidebar_nav current_path="/ccem" />
       </:sidebar>
       <:main>
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">CCEM Management</h2>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              phx-click="toggle_wizard"
-              class="btn btn-xs btn-ghost text-base-content/50 gap-1"
-              title="Getting Started"
-            >
-              <.icon name="hero-question-mark-circle" class="size-3.5" />
-              <span class="hidden sm:inline">Getting Started</span>
-            </button>
-          </div>
-        </header>
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+              <h2 class="text-sm font-semibold text-base-content">CCEM Management</h2>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                phx-click="toggle_wizard"
+                class="btn btn-xs btn-ghost text-base-content/50 gap-1"
+                title="Getting Started"
+              >
+                <.icon name="hero-question-mark-circle" class="size-3.5" />
+                <span class="hidden sm:inline">Getting Started</span>
+              </button>
+            </div>
+          </header>
 
-        <%!-- Nav tiles --%>
-        <div class="flex-1 overflow-y-auto p-6">
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="ccem-tiles">
-            <a id="ccem-tile-showcase" href="/showcase" class="bg-base-200 rounded-xl border border-base-300 p-4 hover:border-primary/40 transition-colors flex flex-col items-center gap-2 group">
-              <.icon name="hero-presentation-chart-bar" class="size-8 text-primary group-hover:scale-110 transition-transform" />
-              <span class="text-sm font-medium text-base-content">Showcase</span>
-            </a>
-            <a id="ccem-tile-ports" href="/ports" class="bg-base-200 rounded-xl border border-base-300 p-4 hover:border-primary/40 transition-colors flex flex-col items-center gap-2 group">
-              <.icon name="hero-signal" class="size-8 text-primary group-hover:scale-110 transition-transform" />
-              <span class="text-sm font-medium text-base-content">Ports</span>
-            </a>
-            <a id="ccem-tile-actions" href="/actions" class="bg-base-200 rounded-xl border border-base-300 p-4 hover:border-primary/40 transition-colors flex flex-col items-center gap-2 group">
-              <.icon name="hero-bolt" class="size-8 text-primary group-hover:scale-110 transition-transform" />
-              <span class="text-sm font-medium text-base-content">Actions</span>
-            </a>
-            <a id="ccem-tile-scanner" href="/scanner" class="bg-base-200 rounded-xl border border-base-300 p-4 hover:border-primary/40 transition-colors flex flex-col items-center gap-2 group">
-              <.icon name="hero-magnifying-glass" class="size-8 text-primary group-hover:scale-110 transition-transform" />
-              <span class="text-sm font-medium text-base-content">Scanner</span>
-            </a>
-          </div>
+          <%!-- Nav tiles --%>
+          <div class="flex-1 overflow-y-auto p-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="ccem-tiles">
+              <a
+                id="ccem-tile-showcase"
+                href="/showcase"
+                class="bg-base-200 rounded-xl border border-base-300 p-4 hover:border-primary/40 transition-colors flex flex-col items-center gap-2 group"
+              >
+                <.icon
+                  name="hero-presentation-chart-bar"
+                  class="size-8 text-primary group-hover:scale-110 transition-transform"
+                />
+                <span class="text-sm font-medium text-base-content">Showcase</span>
+              </a>
+              <a
+                id="ccem-tile-ports"
+                href="/ports"
+                class="bg-base-200 rounded-xl border border-base-300 p-4 hover:border-primary/40 transition-colors flex flex-col items-center gap-2 group"
+              >
+                <.icon
+                  name="hero-signal"
+                  class="size-8 text-primary group-hover:scale-110 transition-transform"
+                />
+                <span class="text-sm font-medium text-base-content">Ports</span>
+              </a>
+              <a
+                id="ccem-tile-actions"
+                href="/actions"
+                class="bg-base-200 rounded-xl border border-base-300 p-4 hover:border-primary/40 transition-colors flex flex-col items-center gap-2 group"
+              >
+                <.icon
+                  name="hero-bolt"
+                  class="size-8 text-primary group-hover:scale-110 transition-transform"
+                />
+                <span class="text-sm font-medium text-base-content">Actions</span>
+              </a>
+              <a
+                id="ccem-tile-scanner"
+                href="/scanner"
+                class="bg-base-200 rounded-xl border border-base-300 p-4 hover:border-primary/40 transition-colors flex flex-col items-center gap-2 group"
+              >
+                <.icon
+                  name="hero-magnifying-glass"
+                  class="size-8 text-primary group-hover:scale-110 transition-transform"
+                />
+                <span class="text-sm font-medium text-base-content">Scanner</span>
+              </a>
+            </div>
 
-          <%!-- Status strip --%>
-          <div class="mt-6 flex items-center gap-3 text-xs text-base-content/40">
-            <span>CCEM v{:apm |> Application.spec(:vsn) |> to_string()}</span>
-            <span>•</span>
-            <span>APM :3032</span>
-            <span>•</span>
-            <a href="/notifications" class="hover:text-primary transition-colors">Notifications</a>
-            <span>•</span>
-            <a href="/agents" class="hover:text-primary transition-colors">Agents</a>
+            <%!-- Status strip --%>
+            <div class="mt-6 flex items-center gap-3 text-xs text-base-content/40">
+              <span>CCEM v{:apm |> Application.spec(:vsn) |> to_string()}</span>
+              <span>•</span>
+              <span>APM :3032</span>
+              <span>•</span>
+              <a href="/notifications" class="hover:text-primary transition-colors">Notifications</a>
+              <span>•</span>
+              <a href="/agents" class="hover:text-primary transition-colors">Agents</a>
+            </div>
           </div>
         </div>
-      </div>
 
-    <%!-- Getting Started wizard --%>
-    <.wizard page={@wizard_page} dom_id={"ccem-wizard-overview-#{@wizard_page}"} />
+        <%!-- Getting Started wizard --%>
+        <.wizard page={@wizard_page} dom_id={"ccem-wizard-overview-#{@wizard_page}"} />
 
-    <%!-- AG-UI Callout Chat --%>
-    <div
-      id="ccem-assistant"
-      phx-hook="CcemAssistant"
-      class="fixed bottom-4 right-4 z-[900] flex flex-col items-end gap-2"
-    >
-      <%!-- Chat panel (shown when open) --%>
-      <div
-        :if={@chat_open}
-        class="w-80 bg-base-200 border border-base-300 rounded-xl shadow-2xl flex flex-col overflow-hidden"
-        style="height: 400px;"
-      >
-        <%!-- Panel header --%>
-        <div class="bg-base-300 px-3 py-2 flex items-center gap-2 border-b border-base-300">
-          <div class="size-2 rounded-full bg-success animate-pulse"></div>
-          <span class="text-xs font-semibold text-base-content flex-1">CCEM Assistant</span>
-          <span class="text-[10px] text-base-content/40 font-mono">AG-UI</span>
-          <button phx-click="chat:close" class="btn btn-xs btn-ghost btn-circle">
-            <.icon name="hero-x-mark" class="size-3" />
+        <%!-- AG-UI Callout Chat --%>
+        <div
+          id="ccem-assistant"
+          phx-hook="CcemAssistant"
+          class="fixed bottom-4 right-4 z-[900] flex flex-col items-end gap-2"
+        >
+          <%!-- Chat panel (shown when open) --%>
+          <div
+            :if={@chat_open}
+            class="w-80 bg-base-200 border border-base-300 rounded-xl shadow-2xl flex flex-col overflow-hidden"
+            style="height: 400px;"
+          >
+            <%!-- Panel header --%>
+            <div class="bg-base-300 px-3 py-2 flex items-center gap-2 border-b border-base-300">
+              <div class="size-2 rounded-full bg-success animate-pulse"></div>
+              <span class="text-xs font-semibold text-base-content flex-1">CCEM Assistant</span>
+              <span class="text-[10px] text-base-content/40 font-mono">AG-UI</span>
+              <button phx-click="chat:close" class="btn btn-xs btn-ghost btn-circle">
+                <.icon name="hero-x-mark" class="size-3" />
+              </button>
+            </div>
+
+            <%!-- Messages --%>
+            <div class="flex-1 overflow-y-auto p-2 space-y-2 min-h-0" id="ccem-chat-messages">
+              <div
+                :if={@chat_messages == []}
+                id="ccem-chat-empty"
+                class="text-center text-base-content/30 py-8 text-xs"
+              >
+                Ask me to update this page.<br />
+                <span class="text-base-content/20 text-[10px]">"make the showcase card blue"</span>
+              </div>
+              <div
+                :for={msg <- @chat_messages}
+                id={"ccem-msg-#{msg["id"]}"}
+                class={[
+                  "rounded-lg p-2 text-xs max-w-[95%]",
+                  if(msg["role"] == "user",
+                    do: "ml-auto bg-primary/20 text-primary-content",
+                    else: "bg-base-300"
+                  )
+                ]}
+              >
+                <div class="flex items-center gap-1 mb-0.5">
+                  <span class={[
+                    "badge badge-xs",
+                    if(msg["role"] == "user", do: "badge-primary", else: "badge-ghost")
+                  ]}>
+                    {msg["role"] || "assistant"}
+                  </span>
+                </div>
+                <div class="whitespace-pre-wrap break-words">{msg["content"]}</div>
+              </div>
+            </div>
+
+            <%!-- Input --%>
+            <form phx-submit="chat:send" class="p-2 border-t border-base-300">
+              <div class="flex gap-1">
+                <input
+                  type="text"
+                  name="content"
+                  value={@chat_input}
+                  placeholder="Update this page..."
+                  class="input input-xs input-bordered flex-1 bg-base-100"
+                  autocomplete="off"
+                  phx-change="chat:input"
+                  id="ccem-chat-input"
+                />
+                <button type="submit" class="btn btn-xs btn-primary">
+                  <.icon name="hero-paper-airplane" class="size-3" />
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <%!-- FAB toggle button --%>
+          <button
+            phx-click="chat:toggle"
+            class={[
+              "size-12 rounded-full shadow-lg flex items-center justify-center transition-all",
+              "hover:scale-110 active:scale-95",
+              if(@chat_open,
+                do: "bg-base-300 text-base-content border border-base-300",
+                else: "bg-gradient-to-br from-purple-500 to-indigo-600 text-white"
+              )
+            ]}
+            title="CCEM Assistant"
+          >
+            <.icon
+              name={if @chat_open, do: "hero-x-mark", else: "hero-chat-bubble-left-ellipsis"}
+              class="size-5"
+            />
           </button>
         </div>
-
-        <%!-- Messages --%>
-        <div class="flex-1 overflow-y-auto p-2 space-y-2 min-h-0" id="ccem-chat-messages">
-          <div :if={@chat_messages == []} id="ccem-chat-empty" class="text-center text-base-content/30 py-8 text-xs">
-            Ask me to update this page.<br />
-            <span class="text-base-content/20 text-[10px]">"make the showcase card blue"</span>
-          </div>
-          <div
-            :for={msg <- @chat_messages}
-            id={"ccem-msg-#{msg["id"]}"}
-            class={[
-              "rounded-lg p-2 text-xs max-w-[95%]",
-              if(msg["role"] == "user", do: "ml-auto bg-primary/20 text-primary-content", else: "bg-base-300")
-            ]}
-          >
-            <div class="flex items-center gap-1 mb-0.5">
-              <span class={["badge badge-xs", if(msg["role"] == "user", do: "badge-primary", else: "badge-ghost")]}>
-                {msg["role"] || "assistant"}
-              </span>
-            </div>
-            <div class="whitespace-pre-wrap break-words">{msg["content"]}</div>
-          </div>
-        </div>
-
-        <%!-- Input --%>
-        <form phx-submit="chat:send" class="p-2 border-t border-base-300">
-          <div class="flex gap-1">
-            <input
-              type="text"
-              name="content"
-              value={@chat_input}
-              placeholder="Update this page..."
-              class="input input-xs input-bordered flex-1 bg-base-100"
-              autocomplete="off"
-              phx-change="chat:input"
-              id="ccem-chat-input"
-            />
-            <button type="submit" class="btn btn-xs btn-primary">
-              <.icon name="hero-paper-airplane" class="size-3" />
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <%!-- FAB toggle button --%>
-      <button
-        phx-click="chat:toggle"
-        class={[
-          "size-12 rounded-full shadow-lg flex items-center justify-center transition-all",
-          "hover:scale-110 active:scale-95",
-          if(@chat_open,
-            do: "bg-base-300 text-base-content border border-base-300",
-            else: "bg-gradient-to-br from-purple-500 to-indigo-600 text-white"
-          )
-        ]}
-        title="CCEM Assistant"
-      >
-        <.icon name={if @chat_open, do: "hero-x-mark", else: "hero-chat-bubble-left-ellipsis"} class="size-5" />
-      </button>
-    </div>
       </:main>
     </.page_layout>
     """
@@ -239,7 +282,11 @@ defmodule ApmWeb.CcemOverviewLive do
     # Process command and build reply
     {reply, style_events} = process_ccem_command(content)
 
-    {:ok, _reply_msg} = ChatStore.send_message(@chat_scope, reply, %{"role" => "assistant", "source" => "ccem_assistant"})
+    {:ok, _reply_msg} =
+      ChatStore.send_message(@chat_scope, reply, %{
+        "role" => "assistant",
+        "source" => "ccem_assistant"
+      })
 
     messages = ChatStore.list_messages(@chat_scope, 50)
 
@@ -288,28 +335,60 @@ defmodule ApmWeb.CcemOverviewLive do
 
     cond do
       # Color updates: "make/change/set X [color/bg/border] [to/=] Y"
-      color_match = Regex.run(~r/(?:make|change|set|update)\s+(?:the\s+)?(\w+)\s+(?:card\s+)?(?:color|background|bg|border)\s+(?:to\s+)?(\S+)/i, lower) ->
+      color_match =
+          Regex.run(
+            ~r/(?:make|change|set|update)\s+(?:the\s+)?(\w+)\s+(?:card\s+)?(?:color|background|bg|border)\s+(?:to\s+)?(\S+)/i,
+            lower
+          ) ->
         [_, target, color] = color_match
         {selector, property} = resolve_color_target(target, lower)
         css_val = normalize_color(color)
-        events = [%{selector: selector, property: property, value: css_val, label: "#{target} #{property}"}]
+
+        events = [
+          %{
+            selector: selector,
+            property: property,
+            value: css_val,
+            label: "#{target} #{property}"
+          }
+        ]
+
         {"Updated #{target} #{property} to #{css_val}.", events}
 
       # Text size: "make/change X [text/font] [size/larger/smaller] [to/=] Y"
-      size_match = Regex.run(~r/(?:make|change|set|update)\s+(?:the\s+)?(\w+)\s+(?:card\s+)?(?:text|font)?\s*(?:size|larger|smaller)\s*(?:to\s+)?(\S+)?/i, lower) ->
+      size_match =
+          Regex.run(
+            ~r/(?:make|change|set|update)\s+(?:the\s+)?(\w+)\s+(?:card\s+)?(?:text|font)?\s*(?:size|larger|smaller)\s*(?:to\s+)?(\S+)?/i,
+            lower
+          ) ->
         [_, target | rest] = size_match
-        size = case rest do
-          [s] when s != "" -> s
-          _ -> if String.contains?(lower, "larger"), do: "larger", else: "smaller"
-        end
+
+        size =
+          case rest do
+            [s] when s != "" -> s
+            _ -> if String.contains?(lower, "larger"), do: "larger", else: "smaller"
+          end
+
         selector = resolve_tile_selector(target)
         css_val = normalize_size(size)
-        events = [%{selector: "#{selector} span", property: "font-size", value: css_val, label: "#{target} text size"}]
+
+        events = [
+          %{
+            selector: "#{selector} span",
+            property: "font-size",
+            value: css_val,
+            label: "#{target} text size"
+          }
+        ]
+
         {"Updated #{target} text size to #{css_val}.", events}
 
       # Reset: "reset [all]"
       String.contains?(lower, "reset") ->
-        events = [%{selector: "#ccem-tiles a", property: "reset", value: "all", label: "all tiles"}]
+        events = [
+          %{selector: "#ccem-tiles a", property: "reset", value: "all", label: "all tiles"}
+        ]
+
         {"Reset all tile styles.", events}
 
       # Help
@@ -326,21 +405,26 @@ defmodule ApmWeb.CcemOverviewLive do
 
         Targets: showcase, ports, actions, scanner, all
         """
+
         {String.trim(help), []}
 
       # Unknown
       true ->
-        {"I can help you update elements on this page. Try: \"make the showcase card blue\" or type \"help\" for examples.", []}
+        {"I can help you update elements on this page. Try: \"make the showcase card blue\" or type \"help\" for examples.",
+         []}
     end
   end
 
   defp resolve_color_target(target, content) do
     selector = resolve_tile_selector(target)
+
     cond do
       String.contains?(content, "background") || String.contains?(content, "bg") ->
         {selector, "background-color"}
+
       String.contains?(content, "border") ->
         {selector, "border-color"}
+
       true ->
         {selector, "color"}
     end

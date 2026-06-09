@@ -17,8 +17,11 @@ defmodule ApmWeb.BuilderController do
 
   def start_session(conn, _params) do
     case BuilderEngine.start_session() do
-      {:ok, id} -> json(conn |> put_status(:created), %{id: id})
-      {:error, reason} -> json(conn |> put_status(:internal_server_error), %{error: inspect(reason)})
+      {:ok, id} ->
+        json(conn |> put_status(:created), %{id: id})
+
+      {:error, reason} ->
+        json(conn |> put_status(:internal_server_error), %{error: inspect(reason)})
     end
   end
 
@@ -54,9 +57,14 @@ defmodule ApmWeb.BuilderController do
 
   def write_files(conn, %{"id" => id}) do
     case BuilderEngine.write_files(id) do
-      {:ok, paths} -> json(conn, %{status: "complete", paths: paths})
-      {:error, :not_found} -> json(conn |> put_status(:not_found), %{error: "session not found"})
-      {:error, reason} -> json(conn |> put_status(:internal_server_error), %{error: inspect(reason)})
+      {:ok, paths} ->
+        json(conn, %{status: "complete", paths: paths})
+
+      {:error, :not_found} ->
+        json(conn |> put_status(:not_found), %{error: "session not found"})
+
+      {:error, reason} ->
+        json(conn |> put_status(:internal_server_error), %{error: inspect(reason)})
     end
   end
 

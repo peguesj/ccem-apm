@@ -109,5 +109,4 @@ defmodule ApmWeb.Live.DashboardGridComponent do
     </div>
     """
   end
-
 end

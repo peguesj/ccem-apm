@@ -39,7 +39,10 @@ defmodule Apm.Plugins.Harness.HookTelemetryBuffer do
   end
 
   @doc "Return aggregate counts across all buffered events."
-  @spec stats() :: %{total: non_neg_integer(), by_event: %{optional(String.t()) => non_neg_integer()}}
+  @spec stats() :: %{
+          total: non_neg_integer(),
+          by_event: %{optional(String.t()) => non_neg_integer()}
+        }
   def stats do
     entries = :ets.tab2list(@table)
 

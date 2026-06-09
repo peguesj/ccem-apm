@@ -29,18 +29,13 @@ defmodule ApmWeb.V2.OrchestrationController do
 
   # ── GET /api/v2/orchestrations ───────────────────────────────────────────────
 
-  operation :index,
-
+  operation(:index,
     summary: "List",
-
     tags: ["Orchestration"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def index(conn, params) do
     runs =
@@ -59,18 +54,13 @@ defmodule ApmWeb.V2.OrchestrationController do
 
   # ── POST /api/v2/orchestrations ──────────────────────────────────────────────
 
-  operation :create,
-
+  operation(:create,
     summary: "Create",
-
     tags: ["Orchestration"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def create(conn, params) do
     atomized = atomize_type(params)
@@ -100,18 +90,13 @@ defmodule ApmWeb.V2.OrchestrationController do
 
   # ── GET /api/v2/orchestrations/history ───────────────────────────────────────
 
-  operation :history,
-
+  operation(:history,
     summary: "History",
-
     tags: ["Orchestration"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def history(conn, _params) do
     runs = OrchestrationRunStore.list()
@@ -120,18 +105,13 @@ defmodule ApmWeb.V2.OrchestrationController do
 
   # ── GET /api/v2/orchestrations/:id ───────────────────────────────────────────
 
-  operation :show,
-
+  operation(:show,
     summary: "Get one",
-
     tags: ["Orchestration"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def show(conn, %{"id" => id}) do
     case OrchestrationManager.get_run(id) do
@@ -142,18 +122,13 @@ defmodule ApmWeb.V2.OrchestrationController do
 
   # ── DELETE /api/v2/orchestrations/:id ────────────────────────────────────────
 
-  operation :delete,
-
+  operation(:delete,
     summary: "Delete",
-
     tags: ["Orchestration"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def delete(conn, %{"id" => id}) do
     case OrchestrationManager.cancel_run(id) do
@@ -164,18 +139,13 @@ defmodule ApmWeb.V2.OrchestrationController do
 
   # ── POST /api/v2/orchestrations/:id/steps/:step_id/advance ───────────────────
 
-  operation :advance_step,
-
+  operation(:advance_step,
     summary: "Advance step",
-
     tags: ["Orchestration"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def advance_step(conn, %{"id" => id, "step_id" => step_id}) do
     case OrchestrationManager.advance_step(id, step_id) do
@@ -192,12 +162,13 @@ defmodule ApmWeb.V2.OrchestrationController do
   Body (optional): `{"approver_id": "...", "reason": "..."}`
   Returns the updated run on success.
   """
-  operation :approve_step,
+  operation(:approve_step,
     summary: "Approve step",
     tags: ["Orchestration"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def approve_step(conn, %{"run_id" => run_id, "step_id" => step_id} = params) do
     approver_info = Map.take(params, ["approver_id", "reason"])
@@ -219,18 +190,13 @@ defmodule ApmWeb.V2.OrchestrationController do
 
   # ── POST /api/v2/orchestrations/:id/replay ───────────────────────────────────
 
-  operation :replay,
-
+  operation(:replay,
     summary: "Replay",
-
     tags: ["Orchestration"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def replay(conn, %{"id" => id}) do
     case OrchestrationRunStore.get(id) do

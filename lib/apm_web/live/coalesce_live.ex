@@ -35,9 +35,35 @@ defmodule ApmWeb.CoalesceLive do
 
     run_id = params["run"]
 
-    runs = try do CoalesceOrchestrator.list_runs() rescue _ -> [] catch :exit, _ -> [] end
-    active_run = if run_id, do: (try do CoalesceOrchestrator.get_run(run_id) rescue _ -> nil catch :exit, _ -> nil end), else: List.first(runs)
-    pending_gates = try do DecisionGateStore.list_pending() rescue _ -> [] catch :exit, _ -> [] end
+    runs =
+      try do
+        CoalesceOrchestrator.list_runs()
+      rescue
+        _ -> []
+      catch
+        :exit, _ -> []
+      end
+
+    active_run =
+      if run_id,
+        do:
+          (try do
+             CoalesceOrchestrator.get_run(run_id)
+           rescue
+             _ -> nil
+           catch
+             :exit, _ -> nil
+           end),
+        else: List.first(runs)
+
+    pending_gates =
+      try do
+        DecisionGateStore.list_pending()
+      rescue
+        _ -> []
+      catch
+        :exit, _ -> []
+      end
 
     {:ok,
      socket
@@ -57,10 +83,12 @@ defmodule ApmWeb.CoalesceLive do
   @impl true
   def handle_params(%{"run" => run_id}, _uri, socket) do
     run = CoalesceOrchestrator.get_run(run_id)
-    {:noreply, assign(socket,
-      active_run: run,
-      active_run_gates: _gates_for(run)
-    )}
+
+    {:noreply,
+     assign(socket,
+       active_run: run,
+       active_run_gates: _gates_for(run)
+     )}
   end
 
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
@@ -68,19 +96,22 @@ defmodule ApmWeb.CoalesceLive do
   @impl true
   def handle_event("select_run", %{"run_id" => run_id}, socket) do
     run = CoalesceOrchestrator.get_run(run_id)
-    {:noreply, assign(socket,
-      active_run: run,
-      active_run_gates: _gates_for(run),
-      selected_diff: nil,
-      selected_gate: nil
-    )}
+
+    {:noreply,
+     assign(socket,
+       active_run: run,
+       active_run_gates: _gates_for(run),
+       selected_diff: nil,
+       selected_gate: nil
+     )}
   end
 
   def handle_event("select_diff", %{"skill" => skill_name}, socket) do
-    diff = case socket.assigns.active_run do
-      nil -> nil
-      run -> Enum.find(run.diffs, & &1.skill_name == skill_name)
-    end
+    diff =
+      case socket.assigns.active_run do
+        nil -> nil
+        run -> Enum.find(run.diffs, &(&1.skill_name == skill_name))
+      end
 
     {:noreply, assign(socket, selected_diff: diff)}
   end
@@ -138,23 +169,26 @@ defmodule ApmWeb.CoalesceLive do
   def handle_event("cancel_run", %{"run_id" => run_id}, socket) do
     CoalesceOrchestrator.cancel_run(run_id)
 
-    {:noreply, assign(socket,
-      runs: CoalesceOrchestrator.list_runs(),
-      active_run: nil,
-      active_run_gates: [],
-      selected_diff: nil
-    ) |> put_flash(:info, "Run cancelled")}
+    {:noreply,
+     assign(socket,
+       runs: CoalesceOrchestrator.list_runs(),
+       active_run: nil,
+       active_run_gates: [],
+       selected_diff: nil
+     )
+     |> put_flash(:info, "Run cancelled")}
   end
 
   # ── PubSub Handlers ───────────────────────────────────────────────────────
 
   @impl true
   def handle_info({:coalesce_run_started, run}, socket) do
-    {:noreply, assign(socket,
-      runs: CoalesceOrchestrator.list_runs(),
-      active_run: run,
-      active_run_gates: []
-    )}
+    {:noreply,
+     assign(socket,
+       runs: CoalesceOrchestrator.list_runs(),
+       active_run: run,
+       active_run_gates: []
+     )}
   end
 
   def handle_info({event, _payload}, socket)
@@ -166,11 +200,12 @@ defmodule ApmWeb.CoalesceLive do
     gates = DecisionGateStore.list_for_run(run_id)
     pending = DecisionGateStore.list_pending()
 
-    socket = if socket.assigns.active_run && socket.assigns.active_run.run_id == run_id do
-      assign(socket, active_run_gates: gates)
-    else
-      socket
-    end
+    socket =
+      if socket.assigns.active_run && socket.assigns.active_run.run_id == run_id do
+        assign(socket, active_run_gates: gates)
+      else
+        socket
+      end
 
     {:noreply, assign(socket, pending_gates: pending)}
   end
@@ -181,12 +216,13 @@ defmodule ApmWeb.CoalesceLive do
     gates = DecisionGateStore.list_for_run(run_id)
     pending = DecisionGateStore.list_pending()
 
-    socket = if socket.assigns.active_run && socket.assigns.active_run.run_id == run_id do
-      run = CoalesceOrchestrator.get_run(run_id)
-      assign(socket, active_run: run, active_run_gates: gates)
-    else
-      socket
-    end
+    socket =
+      if socket.assigns.active_run && socket.assigns.active_run.run_id == run_id do
+        run = CoalesceOrchestrator.get_run(run_id)
+        assign(socket, active_run: run, active_run_gates: gates)
+      else
+        socket
+      end
 
     {:noreply, assign(socket, pending_gates: pending)}
   end
@@ -242,8 +278,8 @@ defmodule ApmWeb.CoalesceLive do
               <% end %>
             </div>
           </div>
-
-          <!-- Center: Active Run -->
+          
+    <!-- Center: Active Run -->
           <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
             <%= if @active_run do %>
               <!-- Run header -->
@@ -261,24 +297,37 @@ defmodule ApmWeb.CoalesceLive do
                   <div style="font-size: 12px; color: var(--ccem-fg-dim);">
                     Scope: <span style="color: var(--ccem-fg);">{@active_run.scope}</span>
                     &nbsp;·&nbsp;
-                    Formation: <span style="font-family: var(--ccem-font-mono); font-size: 11px; color: var(--ccem-accent);">{@active_run.formation_id}</span>
+                    Formation:
+                    <span style="font-family: var(--ccem-font-mono); font-size: 11px; color: var(--ccem-accent);">
+                      {@active_run.formation_id}
+                    </span>
                   </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
                   <%= if @active_run.status == :awaiting_gate do %>
-                    <.btn variant="primary" size="sm" phx-click="apply_run" phx-value-run_id={@active_run.run_id}>
+                    <.btn
+                      variant="primary"
+                      size="sm"
+                      phx-click="apply_run"
+                      phx-value-run_id={@active_run.run_id}
+                    >
                       Apply Diffs
                     </.btn>
                   <% end %>
                   <%= if @active_run.status in [:intelligence, :analysis, :generation, :validation, :awaiting_gate] do %>
-                    <.btn variant="ghost" size="sm" phx-click="cancel_run" phx-value-run_id={@active_run.run_id}>
+                    <.btn
+                      variant="ghost"
+                      size="sm"
+                      phx-click="cancel_run"
+                      phx-value-run_id={@active_run.run_id}
+                    >
                       Cancel
                     </.btn>
                   <% end %>
                 </div>
               </div>
-
-              <!-- Gate panel -->
+              
+    <!-- Gate panel -->
               <%= if length(@active_run_gates) > 0 do %>
                 <div style="padding: 14px 16px; border-bottom: 1px solid var(--ccem-line); background: var(--ccem-bg-0); flex-shrink: 0;">
                   <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim); margin-bottom: 10px;">
@@ -286,18 +335,36 @@ defmodule ApmWeb.CoalesceLive do
                   </div>
                   <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                     <%= for gate <- @active_run_gates do %>
-                      <div style={"display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--ccem-line);"}>
-                        <.badge tone={gate_tone(gate.status)} dot={gate.status == :pending}>{gate.gate_id}</.badge>
+                      <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--ccem-line);">
+                        <.badge tone={gate_tone(gate.status)} dot={gate.status == :pending}>
+                          {gate.gate_id}
+                        </.badge>
                         <span style="font-size: 11px; color: var(--ccem-fg-dim);">{gate.type}</span>
                         <%= if gate.status == :pending and gate.type == :human do %>
                           <div style="display: flex; gap: 4px; margin-left: 4px;">
-                            <.btn variant="primary" size="xs" phx-click="gate_approve" phx-value-composite_id={gate.composite_id}>
+                            <.btn
+                              variant="primary"
+                              size="xs"
+                              phx-click="gate_approve"
+                              phx-value-composite_id={gate.composite_id}
+                            >
                               Approve
                             </.btn>
-                            <.btn variant="destructive" size="xs" phx-click="gate_reject" phx-value-composite_id={gate.composite_id} phx-value-reason="rejected from dashboard">
+                            <.btn
+                              variant="destructive"
+                              size="xs"
+                              phx-click="gate_reject"
+                              phx-value-composite_id={gate.composite_id}
+                              phx-value-reason="rejected from dashboard"
+                            >
                               Reject
                             </.btn>
-                            <.btn variant="ghost" size="xs" phx-click="gate_defer" phx-value-composite_id={gate.composite_id}>
+                            <.btn
+                              variant="ghost"
+                              size="xs"
+                              phx-click="gate_defer"
+                              phx-value-composite_id={gate.composite_id}
+                            >
                               Defer
                             </.btn>
                           </div>
@@ -307,8 +374,8 @@ defmodule ApmWeb.CoalesceLive do
                   </div>
                 </div>
               <% end %>
-
-              <!-- Diffs list -->
+              
+    <!-- Diffs list -->
               <div style="flex: 1; overflow-y: auto; padding: 16px;">
                 <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim); margin-bottom: 12px;">
                   Proposed Skill Diffs ({length(@active_run.diffs)})
@@ -327,7 +394,9 @@ defmodule ApmWeb.CoalesceLive do
                       <.badge tone={impact_tone(diff.impact)}>{diff.impact}</.badge>
                     </:col>
                     <:col :let={diff} label="Skill">
-                      <span style="font-family: var(--ccem-font-mono); font-size: 12px;">{diff.skill_name}</span>
+                      <span style="font-family: var(--ccem-font-mono); font-size: 12px;">
+                        {diff.skill_name}
+                      </span>
                     </:col>
                     <:col :let={diff} label="Additions">
                       {length(diff.additions)}
@@ -343,19 +412,25 @@ defmodule ApmWeb.CoalesceLive do
                       </.badge>
                     </:col>
                     <:col :let={diff} label="">
-                      <.btn variant="ghost" size="xs" phx-click="select_diff" phx-value-skill={diff.skill_name}>
+                      <.btn
+                        variant="ghost"
+                        size="xs"
+                        phx-click="select_diff"
+                        phx-value-skill={diff.skill_name}
+                      >
                         View Diff
                       </.btn>
                     </:col>
                   </.data_table>
                 <% end %>
               </div>
-
             <% else %>
               <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
                 <div style="text-align: center; color: var(--ccem-fg-dim);">
                   <div style="font-size: 32px; margin-bottom: 16px;">⟐</div>
-                  <div style="font-size: 15px; font-weight: 500; color: var(--ccem-fg);">No active run</div>
+                  <div style="font-size: 15px; font-weight: 500; color: var(--ccem-fg);">
+                    No active run
+                  </div>
                   <div style="font-size: 12px; margin-top: 6px;">
                     Start one with <code style="color: var(--ccem-accent);">/coalesce</code>
                   </div>
@@ -379,7 +454,9 @@ defmodule ApmWeb.CoalesceLive do
                 <.card>
                   <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                     <.badge tone="success">{addition.type}</.badge>
-                    <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">{addition.section}</span>
+                    <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+                      {addition.section}
+                    </span>
                   </div>
                   <pre style="font-family: var(--ccem-font-mono); font-size: 11px; color: var(--ccem-fg-dim); white-space: pre-wrap; overflow-x: auto;">{addition.content}</pre>
                 </.card>

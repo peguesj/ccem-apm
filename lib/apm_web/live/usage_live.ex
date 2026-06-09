@@ -122,10 +122,14 @@ defmodule ApmWeb.UsageLive do
         <%!-- Page header --%>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Claude Usage</h1>
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+              Claude Usage
+            </h1>
             <.badge tone="neutral">{map_size(@usage_data)} projects</.badge>
           </div>
-          <span style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">Auto-refresh 10s</span>
+          <span style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
+            Auto-refresh 10s
+          </span>
         </div>
 
         <%!-- Section 1: Summary stat tiles --%>
@@ -158,7 +162,8 @@ defmodule ApmWeb.UsageLive do
                     style="width: 100%; height: 6px; accent-color: var(--ccem-info, #60a5fa);"
                     value={@summary.total_input_tokens}
                     max={max_tokens(@summary)}
-                  ></progress>
+                  >
+                  </progress>
                 </div>
                 <span style="width: 72px; text-align: right; font-family: monospace; color: var(--ccem-fg);">
                   {format_tokens(@summary.total_input_tokens)}
@@ -171,7 +176,8 @@ defmodule ApmWeb.UsageLive do
                     style="width: 100%; height: 6px; accent-color: var(--ccem-ok, #4ade80);"
                     value={@summary.total_output_tokens}
                     max={max_tokens(@summary)}
-                  ></progress>
+                  >
+                  </progress>
                 </div>
                 <span style="width: 72px; text-align: right; font-family: monospace; color: var(--ccem-fg);">
                   {format_tokens(@summary.total_output_tokens)}
@@ -184,7 +190,8 @@ defmodule ApmWeb.UsageLive do
                     style="width: 100%; height: 6px; accent-color: var(--ccem-warn, #fbbf24);"
                     value={@summary.total_cache_tokens}
                     max={max_tokens(@summary)}
-                  ></progress>
+                  >
+                  </progress>
                 </div>
                 <span style="width: 72px; text-align: right; font-family: monospace; color: var(--ccem-fg);">
                   {format_tokens(@summary.total_cache_tokens)}
@@ -199,7 +206,9 @@ defmodule ApmWeb.UsageLive do
         <%= cond do %>
           <% map_size(@summary.model_breakdown) == 0 -> %>
             <.card style="margin-bottom: 16px; padding: 32px; text-align: center;">
-              <p style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim); margin: 0 0 4px;">No usage recorded yet</p>
+              <p style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim); margin: 0 0 4px;">
+                No usage recorded yet
+              </p>
               <p style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim); margin: 0; opacity: 0.6;">
                 Claude tool invocations write usage events to <code>~/.claude/projects/*/</code>.
                 Use Claude Code with any model and reload this page.
@@ -219,7 +228,12 @@ defmodule ApmWeb.UsageLive do
               Model Breakdown
             </div>
             <.card padded={false} style="margin-bottom: 16px;">
-              <.data_table id="usage-model-table" rows={Enum.sort_by(nonzero_models, fn {_, s} -> Map.get(s, :input_tokens, 0) end, :desc)}>
+              <.data_table
+                id="usage-model-table"
+                rows={
+                  Enum.sort_by(nonzero_models, fn {_, s} -> Map.get(s, :input_tokens, 0) end, :desc)
+                }
+              >
                 <:col :let={{model, _stats}} label="Model">
                   <span style="font-family: monospace; font-size: var(--ccem-t-sm, 13px);">
                     {model}
@@ -275,19 +289,47 @@ defmodule ApmWeb.UsageLive do
                       style="background: none; border: none; cursor: pointer; padding: 0; color: var(--ccem-fg-dim); display: flex; align-items: center;"
                       phx-click="toggle_project_expand"
                       phx-value-project={project}
-                      title={if MapSet.member?(@expanded_projects, project), do: "Collapse token graph", else: "Expand token graph"}
+                      title={
+                        if MapSet.member?(@expanded_projects, project),
+                          do: "Collapse token graph",
+                          else: "Expand token graph"
+                      }
                     >
                       <%= if MapSet.member?(@expanded_projects, project) do %>
-                        <svg xmlns="http://www.w3.org/2000/svg" style="width: 12px; height: 12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          style="width: 12px; height: 12px;"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 9l-7 7-7-7"
+                          />
                         </svg>
                       <% else %>
-                        <svg xmlns="http://www.w3.org/2000/svg" style="width: 12px; height: 12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          style="width: 12px; height: 12px;"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M9 5l7 7-7 7"
+                          />
                         </svg>
                       <% end %>
                     </button>
-                    <span style="font-family: monospace; font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg);">{project}</span>
+                    <span style="font-family: monospace; font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg);">
+                      {project}
+                    </span>
                     <.badge tone={effort_tone(Map.get(proj_data, :effort_level, "low"))}>
                       {Map.get(proj_data, :effort_level, "low")}
                     </.badge>
@@ -302,7 +344,12 @@ defmodule ApmWeb.UsageLive do
                     <span style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
                       {Map.get(proj_data, :tool_calls, 0)} calls
                     </span>
-                    <.btn variant="ghost" size="xs" phx-click="reset_project" phx-value-project={project}>
+                    <.btn
+                      variant="ghost"
+                      size="xs"
+                      phx-click="reset_project"
+                      phx-value-project={project}
+                    >
                       Reset
                     </.btn>
                   </div>
@@ -319,39 +366,65 @@ defmodule ApmWeb.UsageLive do
                         <div
                           style={"width: #{breakdown.input_pct}%; background: var(--ccem-info, #60a5fa); opacity: 0.7; transition: width 0.3s;"}
                           title={"Input: #{format_tokens(breakdown.input)}"}
-                        ></div>
+                        >
+                        </div>
                       <% end %>
                       <%= if breakdown.output_pct > 0 do %>
                         <div
                           style={"width: #{breakdown.output_pct}%; background: var(--ccem-ok, #4ade80); opacity: 0.7; transition: width 0.3s;"}
                           title={"Output: #{format_tokens(breakdown.output)}"}
-                        ></div>
+                        >
+                        </div>
                       <% end %>
                       <%= if breakdown.cache_pct > 0 do %>
                         <div
                           style={"width: #{breakdown.cache_pct}%; background: var(--ccem-warn, #fbbf24); opacity: 0.7; transition: width 0.3s;"}
                           title={"Cache: #{format_tokens(breakdown.cache)}"}
-                        ></div>
+                        >
+                        </div>
                       <% end %>
                     </div>
                     <div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
                       <div style="display: flex; align-items: center; gap: 6px;">
-                        <div style="width: 10px; height: 10px; border-radius: 2px; background: var(--ccem-info, #60a5fa); opacity: 0.7; flex-shrink: 0;"></div>
-                        <span>Input <span style="font-family: monospace; color: var(--ccem-fg);">{format_tokens(breakdown.input)}</span> ({breakdown.input_pct}%)</span>
+                        <div style="width: 10px; height: 10px; border-radius: 2px; background: var(--ccem-info, #60a5fa); opacity: 0.7; flex-shrink: 0;">
+                        </div>
+                        <span>
+                          Input
+                          <span style="font-family: monospace; color: var(--ccem-fg);">
+                            {format_tokens(breakdown.input)}
+                          </span>
+                          ({breakdown.input_pct}%)
+                        </span>
                       </div>
                       <div style="display: flex; align-items: center; gap: 6px;">
-                        <div style="width: 10px; height: 10px; border-radius: 2px; background: var(--ccem-ok, #4ade80); opacity: 0.7; flex-shrink: 0;"></div>
-                        <span>Output <span style="font-family: monospace; color: var(--ccem-fg);">{format_tokens(breakdown.output)}</span> ({breakdown.output_pct}%)</span>
+                        <div style="width: 10px; height: 10px; border-radius: 2px; background: var(--ccem-ok, #4ade80); opacity: 0.7; flex-shrink: 0;">
+                        </div>
+                        <span>
+                          Output
+                          <span style="font-family: monospace; color: var(--ccem-fg);">
+                            {format_tokens(breakdown.output)}
+                          </span>
+                          ({breakdown.output_pct}%)
+                        </span>
                       </div>
                       <%= if breakdown.cache > 0 do %>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                          <div style="width: 10px; height: 10px; border-radius: 2px; background: var(--ccem-warn, #fbbf24); opacity: 0.7; flex-shrink: 0;"></div>
-                          <span>Cache <span style="font-family: monospace; color: var(--ccem-fg);">{format_tokens(breakdown.cache)}</span> ({breakdown.cache_pct}%)</span>
+                          <div style="width: 10px; height: 10px; border-radius: 2px; background: var(--ccem-warn, #fbbf24); opacity: 0.7; flex-shrink: 0;">
+                          </div>
+                          <span>
+                            Cache
+                            <span style="font-family: monospace; color: var(--ccem-fg);">
+                              {format_tokens(breakdown.cache)}
+                            </span>
+                            ({breakdown.cache_pct}%)
+                          </span>
                         </div>
                       <% end %>
                       <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
                         <span style="color: var(--ccem-fg-dim);">Total:</span>
-                        <span style="font-family: monospace; color: var(--ccem-fg);">{format_tokens(breakdown.total)}</span>
+                        <span style="font-family: monospace; color: var(--ccem-fg);">
+                          {format_tokens(breakdown.total)}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -360,7 +433,16 @@ defmodule ApmWeb.UsageLive do
                 <%!-- Per-project model breakdown (selected) --%>
                 <%= if @selected_project == project do %>
                   <div style="border-top: 1px solid var(--ccem-border, rgba(255,255,255,0.08));">
-                    <.data_table id={"usage-proj-#{project}-table"} rows={Enum.sort_by(Map.get(proj_data, :model_breakdown, %{}), fn {_, s} -> Map.get(s, :input_tokens, 0) end, :desc)}>
+                    <.data_table
+                      id={"usage-proj-#{project}-table"}
+                      rows={
+                        Enum.sort_by(
+                          Map.get(proj_data, :model_breakdown, %{}),
+                          fn {_, s} -> Map.get(s, :input_tokens, 0) end,
+                          :desc
+                        )
+                      }
+                    >
                       <:col :let={row} label="Model">
                         <span style="font-family: monospace; font-size: var(--ccem-t-sm, 13px);">
                           {elem(row, 0)}
@@ -403,11 +485,26 @@ defmodule ApmWeb.UsageLive do
         <%!-- Empty state --%>
         <%= if map_size(@usage_data) == 0 do %>
           <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; color: var(--ccem-fg-dim);">
-            <svg xmlns="http://www.w3.org/2000/svg" style="width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.3;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              style="width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.3;"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
             </svg>
-            <p style="font-size: var(--ccem-t-sm, 13px); margin: 0 0 4px;">No usage data recorded yet.</p>
-            <p style="font-size: var(--ccem-t-sm, 13px); margin: 0; opacity: 0.6;">The PostToolUse hook will populate this once active.</p>
+            <p style="font-size: var(--ccem-t-sm, 13px); margin: 0 0 4px;">
+              No usage data recorded yet.
+            </p>
+            <p style="font-size: var(--ccem-t-sm, 13px); margin: 0; opacity: 0.6;">
+              The PostToolUse hook will populate this once active.
+            </p>
           </div>
         <% end %>
       </:main>

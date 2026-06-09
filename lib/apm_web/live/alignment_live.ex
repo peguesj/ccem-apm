@@ -35,10 +35,13 @@ defmodule ApmWeb.AlignmentLive do
     case ActionEngine.run_action("agent_alignment_audit", "", %{}) do
       {:ok, run_id} ->
         Process.send_after(self(), {:poll_run, run_id}, 500)
-        {:noreply, socket |> assign(:running, true) |> assign(:run_id, run_id) |> assign(:error, nil)}
+
+        {:noreply,
+         socket |> assign(:running, true) |> assign(:run_id, run_id) |> assign(:error, nil)}
 
       {:error, reason} ->
-        {:noreply, socket |> assign(:error, "Failed to start: #{reason}") |> assign(:running, false)}
+        {:noreply,
+         socket |> assign(:error, "Failed to start: #{reason}") |> assign(:running, false)}
     end
   end
 
@@ -84,6 +87,7 @@ defmodule ApmWeb.AlignmentLive do
     skill_nodes =
       Enum.map(skills_with_agents, fn s ->
         name = s["name"] || s["skill"] || "unknown"
+
         status =
           cond do
             MapSet.member?(aligned_names, name) -> "aligned"
@@ -142,6 +146,7 @@ defmodule ApmWeb.AlignmentLive do
 
   defp overall_score_tone(report) do
     score = Map.get(report, "overall_score", 0)
+
     cond do
       score >= 80 -> "success"
       score >= 50 -> "warning"
@@ -165,6 +170,7 @@ defmodule ApmWeb.AlignmentLive do
   defp normalize_keys_for_template(map) when is_map(map) do
     Map.new(map, fn {k, v} -> {to_string(k), v} end)
   end
+
   defp normalize_keys_for_template(other), do: other
 
   @impl true
@@ -175,7 +181,6 @@ defmodule ApmWeb.AlignmentLive do
       <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
       <:main>
         <div style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
-
           <%!-- Top bar --%>
           <div style="padding: var(--ccem-space-3) var(--ccem-space-4); border-bottom: 1px solid var(--ccem-border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; background: var(--ccem-surface-1);">
             <div style="display: flex; align-items: center; gap: var(--ccem-space-3);">
@@ -185,7 +190,7 @@ defmodule ApmWeb.AlignmentLive do
               <.badge tone="neutral">referential integrity</.badge>
               <%= if @report do %>
                 <.badge tone={overall_score_tone(@report)}>
-                  Score: <%= Map.get(@report, "overall_score", 0) %>/100
+                  Score: {Map.get(@report, "overall_score", 0)}/100
                 </.badge>
               <% end %>
             </div>
@@ -199,14 +204,14 @@ defmodule ApmWeb.AlignmentLive do
                 name={if @running, do: "hero-arrow-path", else: "hero-play"}
                 class={["size-3", if(@running, do: "animate-spin", else: "")]}
               />
-              <%= if @running, do: "Running…", else: "Run Audit" %>
+              {if @running, do: "Running…", else: "Run Audit"}
             </.btn>
           </div>
 
           <%!-- Error banner --%>
           <%= if @error do %>
             <div style="margin: var(--ccem-space-4); padding: var(--ccem-space-3); background: color-mix(in srgb, var(--ccem-err) 10%, transparent); border: 1px solid color-mix(in srgb, var(--ccem-err) 30%, transparent); border-radius: var(--ccem-radius); font-size: var(--ccem-text-sm); color: var(--ccem-err);">
-              <%= @error %>
+              {@error}
             </div>
           <% end %>
 
@@ -215,38 +220,48 @@ defmodule ApmWeb.AlignmentLive do
             <% summary = Map.get(@report, "summary", %{}) %>
             <div style="display: flex; align-items: center; gap: var(--ccem-space-4); padding: var(--ccem-space-2) var(--ccem-space-4); border-bottom: 1px solid var(--ccem-border); flex-shrink: 0; background: var(--ccem-surface-2);">
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
-                <.badge tone="neutral" dot={true} square={true}> </.badge>
-                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Total:</span>
+                <.badge tone="neutral" dot={true} square={true}></.badge>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                  Total:
+                </span>
                 <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-fg-secondary);">
-                  <%= Map.get(summary, "total_skills", 0) %>
+                  {Map.get(summary, "total_skills", 0)}
                 </span>
               </div>
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
-                <.badge tone="success" dot={true} square={true}> </.badge>
-                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Aligned:</span>
+                <.badge tone="success" dot={true} square={true}></.badge>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                  Aligned:
+                </span>
                 <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-ok);">
-                  <%= Map.get(summary, "fully_aligned", 0) %>
+                  {Map.get(summary, "fully_aligned", 0)}
                 </span>
               </div>
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
-                <.badge tone="warning" dot={true} square={true}> </.badge>
-                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Partial:</span>
+                <.badge tone="warning" dot={true} square={true}></.badge>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                  Partial:
+                </span>
                 <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-warn);">
-                  <%= Map.get(summary, "partially_aligned", 0) %>
+                  {Map.get(summary, "partially_aligned", 0)}
                 </span>
               </div>
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
-                <.badge tone="error" dot={true} square={true}> </.badge>
-                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Missing:</span>
+                <.badge tone="error" dot={true} square={true}></.badge>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                  Missing:
+                </span>
                 <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-err);">
-                  <%= Map.get(summary, "missing_alignment", 0) %>
+                  {Map.get(summary, "missing_alignment", 0)}
                 </span>
               </div>
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2); margin-left: auto;">
                 <.icon name="hero-exclamation-triangle" class="w-4 h-4 text-warn" />
-                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Gaps:</span>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                  Gaps:
+                </span>
                 <span style="font-size: var(--ccem-text-xs); font-weight: 500; color: var(--ccem-warn);">
-                  <%= Map.get(summary, "gap_count", 0) %>
+                  {Map.get(summary, "gap_count", 0)}
                 </span>
               </div>
             </div>
@@ -254,7 +269,6 @@ defmodule ApmWeb.AlignmentLive do
 
           <%!-- Main panel: graph + gaps --%>
           <div style="display: flex; flex: 1; overflow: hidden;">
-
             <%!-- D3 graph panel --%>
             <div style="flex: 1; position: relative; overflow: hidden;">
               <div
@@ -265,7 +279,9 @@ defmodule ApmWeb.AlignmentLive do
                 <%= if !@report && !@running do %>
                   <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: var(--ccem-space-4); color: var(--ccem-fg-muted);">
                     <.icon name="hero-magnifying-glass-circle" class="w-16 h-16 opacity-40" />
-                    <p style="font-size: var(--ccem-text-sm);">Run the audit to visualize agent alignment</p>
+                    <p style="font-size: var(--ccem-text-sm);">
+                      Run the audit to visualize agent alignment
+                    </p>
                   </div>
                 <% end %>
                 <%= if @running do %>
@@ -281,9 +297,11 @@ defmodule ApmWeb.AlignmentLive do
             <%= if @report && length(Map.get(@report, "gaps", [])) > 0 do %>
               <div style="width: 24rem; border-left: 1px solid var(--ccem-border); display: flex; flex-direction: column; overflow: hidden;">
                 <div style="padding: var(--ccem-space-3) var(--ccem-space-4); border-bottom: 1px solid var(--ccem-border);">
-                  <h2 style="font-size: var(--ccem-text-sm); font-weight: 500; color: var(--ccem-fg-primary);">Alignment Gaps</h2>
+                  <h2 style="font-size: var(--ccem-text-sm); font-weight: 500; color: var(--ccem-fg-primary);">
+                    Alignment Gaps
+                  </h2>
                   <p style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); margin-top: 2px;">
-                    <%= length(Map.get(@report, "gaps", [])) %> issues requiring attention
+                    {length(Map.get(@report, "gaps", []))} issues requiring attention
                   </p>
                 </div>
                 <div style="flex: 1; overflow-y: auto; padding: var(--ccem-space-2) 0;">
@@ -291,19 +309,20 @@ defmodule ApmWeb.AlignmentLive do
                     <% gap = normalize_keys_for_template(gap) %>
                     <div style="padding: var(--ccem-space-3) var(--ccem-space-4); border-bottom: 1px solid color-mix(in srgb, var(--ccem-border) 60%, transparent);">
                       <div style="display: flex; align-items: flex-start; gap: var(--ccem-space-2);">
-                        <.badge tone={gap_dot_tone(gap["gap_type"])} dot={true} square={true}> </.badge>
+                        <.badge tone={gap_dot_tone(gap["gap_type"])} dot={true} square={true}>
+                        </.badge>
                         <div style="flex: 1; min-width: 0;">
                           <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
                             <span style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                              <%= gap["skill"] %>
+                              {gap["skill"]}
                             </span>
                             <span style="color: var(--ccem-fg-muted);">·</span>
                             <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                              <%= format_gap_type(gap["gap_type"]) %>
+                              {format_gap_type(gap["gap_type"])}
                             </span>
                           </div>
                           <p style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); margin-top: 4px; line-height: 1.5;">
-                            <%= gap["recommendation"] %>
+                            {gap["recommendation"]}
                           </p>
                         </div>
                       </div>
@@ -312,7 +331,6 @@ defmodule ApmWeb.AlignmentLive do
                 </div>
               </div>
             <% end %>
-
           </div>
         </div>
       </:main>

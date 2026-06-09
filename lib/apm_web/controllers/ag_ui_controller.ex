@@ -11,7 +11,7 @@ defmodule ApmWeb.AgUiController do
 
   alias Apm.EventStream
 
-  operation :events,
+  operation(:events,
     summary: "AG-UI SSE event stream",
     description: """
     Server-Sent Events endpoint streaming AG-UI protocol events.
@@ -23,11 +23,19 @@ defmodule ApmWeb.AgUiController do
     """,
     tags: ["AG-UI"],
     parameters: [
-      agent_id: [in: :query, type: :string, required: false, description: "Filter events by agent ID"]
+      agent_id: [
+        in: :query,
+        type: :string,
+        required: false,
+        description: "Filter events by agent ID"
+      ]
     ],
     responses: [
-      ok: {"AG-UI SSE stream (text/event-stream)", "text/event-stream", %OpenApiSpex.Schema{type: :string}}
+      ok:
+        {"AG-UI SSE stream (text/event-stream)", "text/event-stream",
+         %OpenApiSpex.Schema{type: :string}}
     ]
+  )
 
   # Catch-all for any action not explicitly annotated above.
   def open_api_operation(_action), do: nil

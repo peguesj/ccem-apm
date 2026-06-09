@@ -50,23 +50,44 @@ defmodule Apm.Plugins.RefactorMax.RefactorMaxPlugin do
   @impl Apm.Plugins.PluginBehaviour
   def list_endpoints do
     [
-      %{action: "scan_code_smells",       description: "Heuristic code-smell scan of a target path", params: %{target_path: "string (required)"}},
-      %{action: "generate_refactor_plan", description: "Produce a phased refactor plan from scan results", params: %{target_path: "string (required)", smells: "array (optional)"}},
-      %{action: "execute_refactor",       description: "Execute a generated refactor plan via FormationStore", params: %{plan: "map (required)"}},
-      %{action: "verify_refactor",        description: "Run mix compile + mix test; report results", params: %{target_path: "string (optional)"}},
-      %{action: "list_refactors",         description: "List recent refactor runs", params: %{}},
-      %{action: "get_refactor",           description: "Get a specific refactor run", params: %{id: "string (required)"}}
+      %{
+        action: "scan_code_smells",
+        description: "Heuristic code-smell scan of a target path",
+        params: %{target_path: "string (required)"}
+      },
+      %{
+        action: "generate_refactor_plan",
+        description: "Produce a phased refactor plan from scan results",
+        params: %{target_path: "string (required)", smells: "array (optional)"}
+      },
+      %{
+        action: "execute_refactor",
+        description: "Execute a generated refactor plan via FormationStore",
+        params: %{plan: "map (required)"}
+      },
+      %{
+        action: "verify_refactor",
+        description: "Run mix compile + mix test; report results",
+        params: %{target_path: "string (optional)"}
+      },
+      %{action: "list_refactors", description: "List recent refactor runs", params: %{}},
+      %{
+        action: "get_refactor",
+        description: "Get a specific refactor run",
+        params: %{id: "string (required)"}
+      }
     ]
   end
 
   @impl Apm.Plugins.PluginBehaviour
   def nav_items do
     base = "/plugins/refactor_max"
+
     [
-      {"Scan",    "#{base}/scan",    "hero-magnifying-glass"},
-      {"Plan",    "#{base}/plan",    "hero-clipboard-document-list"},
+      {"Scan", "#{base}/scan", "hero-magnifying-glass"},
+      {"Plan", "#{base}/plan", "hero-clipboard-document-list"},
       {"Execute", "#{base}/execute", "hero-play"},
-      {"Verify",  "#{base}/verify",  "hero-check-circle"}
+      {"Verify", "#{base}/verify", "hero-check-circle"}
     ]
   end
 
@@ -87,7 +108,9 @@ defmodule Apm.Plugins.RefactorMax.RefactorMaxPlugin do
   def handle_action("generate_refactor_plan", %{"target_path" => path} = params, _opts) do
     smells =
       case Map.get(params, "smells") do
-        list when is_list(list) -> list
+        list when is_list(list) ->
+          list
+
         _ ->
           case scan_smells(path) do
             {:ok, s} -> s
@@ -105,14 +128,20 @@ defmodule Apm.Plugins.RefactorMax.RefactorMaxPlugin do
   def handle_action("execute_refactor", %{"plan" => plan}, _opts) when is_map(plan) do
     formation_module = Apm.FormationStore
 
-    if Code.ensure_loaded?(formation_module) and function_exported?(formation_module, :deploy_formation, 1) do
+    if Code.ensure_loaded?(formation_module) and
+         function_exported?(formation_module, :deploy_formation, 1) do
       case apply(formation_module, :deploy_formation, [plan]) do
         {:ok, formation} -> {:ok, %{status: "deployed", formation: formation}}
         {:error, reason} -> {:error, reason}
         other -> {:ok, %{status: "dispatched", result: inspect(other)}}
       end
     else
-      {:ok, %{status: "stubbed", note: "FormationStore.deploy_formation/1 unavailable — plan accepted", plan: plan}}
+      {:ok,
+       %{
+         status: "stubbed",
+         note: "FormationStore.deploy_formation/1 unavailable — plan accepted",
+         plan: plan
+       }}
     end
   end
 
@@ -121,7 +150,10 @@ defmodule Apm.Plugins.RefactorMax.RefactorMaxPlugin do
 
   def handle_action("verify_refactor", params, _opts) do
     path = Map.get(params, "target_path", File.cwd!())
-    {compile_out, compile_exit} = System.cmd("mix", ["compile", "--warnings-as-errors"], cd: path, stderr_to_stdout: true)
+
+    {compile_out, compile_exit} =
+      System.cmd("mix", ["compile", "--warnings-as-errors"], cd: path, stderr_to_stdout: true)
+
     {test_out, test_exit} =
       if compile_exit == 0 do
         System.cmd("mix", ["test", "--max-failures", "5"], cd: path, stderr_to_stdout: true)
@@ -182,12 +214,15 @@ defmodule Apm.Plugins.RefactorMax.RefactorMaxPlugin do
 
         smells =
           if line_count > @long_module_threshold do
-            [%{
-               severity: :high,
-               kind: :long_module,
-               file: file,
-               detail: "Module has #{line_count} lines (> #{@long_module_threshold})"
-             } | smells]
+            [
+              %{
+                severity: :high,
+                kind: :long_module,
+                file: file,
+                detail: "Module has #{line_count} lines (> #{@long_module_threshold})"
+              }
+              | smells
+            ]
           else
             smells
           end
@@ -198,9 +233,29 @@ defmodule Apm.Plugins.RefactorMax.RefactorMaxPlugin do
           |> Enum.reduce(smells, fn {line, idx}, acc ->
             cond do
               String.match?(line, ~r/#\s*TODO\b/i) ->
-                [%{severity: :low, kind: :todo_comment, file: file, line: idx, detail: String.trim(line)} | acc]
+                [
+                  %{
+                    severity: :low,
+                    kind: :todo_comment,
+                    file: file,
+                    line: idx,
+                    detail: String.trim(line)
+                  }
+                  | acc
+                ]
+
               String.match?(line, ~r/#\s*FIXME\b/i) ->
-                [%{severity: :medium, kind: :fixme_comment, file: file, line: idx, detail: String.trim(line)} | acc]
+                [
+                  %{
+                    severity: :medium,
+                    kind: :fixme_comment,
+                    file: file,
+                    line: idx,
+                    detail: String.trim(line)
+                  }
+                  | acc
+                ]
+
               true ->
                 acc
             end

@@ -24,33 +24,42 @@ defmodule ApmWeb.V2.AgentControlController do
 
   @valid_actions ["connect", "disconnect", "restart", "stop", "pause", "resume"]
 
-  operation :control_agent,
+  operation(:control_agent,
     summary: "Control an agent",
-    description: "Sends a lifecycle control action to an individual agent (connect, disconnect, restart, stop, pause, resume).",
+    description:
+      "Sends a lifecycle control action to an individual agent (connect, disconnect, restart, stop, pause, resume).",
     tags: ["Agents"],
     parameters: [
       id: [in: :path, type: :string, required: true, description: "Agent ID"]
     ],
-    request_body: {"Control action", "application/json", Schemas.ControlAgentBody, required: true},
+    request_body:
+      {"Control action", "application/json", Schemas.ControlAgentBody, required: true},
     responses: [
       ok: {"Control result", "application/json", Schemas.ControlAgentResult},
       not_found: {"Agent not found", "application/json", Schemas.ErrorResponse},
       bad_request: {"Invalid action", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :list_messages,
+  operation(:list_messages,
     summary: "List agent messages",
     description: "Returns recent messages in the agent's chat channel.",
     tags: ["Agents"],
     parameters: [
       id: [in: :path, type: :string, required: true, description: "Agent ID"],
-      limit: [in: :query, type: :integer, required: false, description: "Max messages to return (default 50, max 500)"]
+      limit: [
+        in: :query,
+        type: :integer,
+        required: false,
+        description: "Max messages to return (default 50, max 500)"
+      ]
     ],
     responses: [
       ok: {"Message list", "application/json", Schemas.MessageList}
     ]
+  )
 
-  operation :send_message,
+  operation(:send_message,
     summary: "Send message to agent",
     description: "Posts a message to the agent's chat channel and broadcasts via PubSub.",
     tags: ["Agents"],
@@ -62,9 +71,11 @@ defmodule ApmWeb.V2.AgentControlController do
       created: {"Message created", "application/json", Schemas.ChatMessage},
       bad_request: {"Validation error", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
   @doc "POST /api/v2/agents/:id/control — control an individual agent"
-  def control_agent(conn, %{"id" => agent_id, "action" => action}) when action in @valid_actions do
+  def control_agent(conn, %{"id" => agent_id, "action" => action})
+      when action in @valid_actions do
     case Apm.AgentRegistry.get_agent(agent_id) do
       {:ok, agent} ->
         result = execute_control(agent_id, action, agent)
@@ -77,59 +88,89 @@ defmodule ApmWeb.V2.AgentControlController do
   end
 
   def control_agent(conn, %{"id" => _id, "action" => action}) do
-    conn |> put_status(:bad_request) |> json(%{error: "Invalid action: #{action}", valid: @valid_actions})
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "Invalid action: #{action}", valid: @valid_actions})
   end
 
   def control_agent(conn, %{"id" => _id}) do
-    conn |> put_status(:bad_request) |> json(%{error: "action is required", valid: @valid_actions})
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "action is required", valid: @valid_actions})
   end
 
   @doc "POST /api/v2/formations/:id/control — control a formation"
-  operation :control_formation,
+  operation(:control_formation,
     summary: "Control formation",
     tags: ["Agents"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
-  def control_formation(conn, %{"id" => formation_id, "action" => action}) when action in @valid_actions do
+  def control_formation(conn, %{"id" => formation_id, "action" => action})
+      when action in @valid_actions do
     agents = get_formation_agents(formation_id)
-    results = Enum.map(agents, fn agent ->
-      agent_id = agent[:id] || agent["id"]
-      result = execute_control(agent_id, action, agent)
-      %{agent_id: agent_id, result: result}
-    end)
+
+    results =
+      Enum.map(agents, fn agent ->
+        agent_id = agent[:id] || agent["id"]
+        result = execute_control(agent_id, action, agent)
+        %{agent_id: agent_id, result: result}
+      end)
 
     emit_control_event("formation", formation_id, action)
-    json(conn, %{ok: true, formation_id: formation_id, action: action, agents: results, count: length(results)})
+
+    json(conn, %{
+      ok: true,
+      formation_id: formation_id,
+      action: action,
+      agents: results,
+      count: length(results)
+    })
   end
 
   def control_formation(conn, %{"id" => _id}) do
-    conn |> put_status(:bad_request) |> json(%{error: "action is required", valid: @valid_actions})
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "action is required", valid: @valid_actions})
   end
 
   @doc "POST /api/v2/squadrons/:id/control — control a squadron"
-  operation :control_squadron,
+  operation(:control_squadron,
     summary: "Control squadron",
     tags: ["Agents"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
-  def control_squadron(conn, %{"id" => squadron_id, "action" => action}) when action in @valid_actions do
+  def control_squadron(conn, %{"id" => squadron_id, "action" => action})
+      when action in @valid_actions do
     agents = get_squadron_agents(squadron_id)
-    results = Enum.map(agents, fn agent ->
-      agent_id = agent[:id] || agent["id"]
-      result = execute_control(agent_id, action, agent)
-      %{agent_id: agent_id, result: result}
-    end)
+
+    results =
+      Enum.map(agents, fn agent ->
+        agent_id = agent[:id] || agent["id"]
+        result = execute_control(agent_id, action, agent)
+        %{agent_id: agent_id, result: result}
+      end)
 
     emit_control_event("squadron", squadron_id, action)
-    json(conn, %{ok: true, squadron_id: squadron_id, action: action, agents: results, count: length(results)})
+
+    json(conn, %{
+      ok: true,
+      squadron_id: squadron_id,
+      action: action,
+      agents: results,
+      count: length(results)
+    })
   end
 
   def control_squadron(conn, %{"id" => _id}) do
-    conn |> put_status(:bad_request) |> json(%{error: "action is required", valid: @valid_actions})
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "action is required", valid: @valid_actions})
   end
 
   @doc "GET /api/v2/agents/:id/messages — get messages for an agent"
@@ -158,14 +199,15 @@ defmodule ApmWeb.V2.AgentControlController do
   # --- Private ---
 
   defp execute_control(agent_id, action, _agent) do
-    new_status = case action do
-      "connect" -> "active"
-      "disconnect" -> "offline"
-      "restart" -> "active"
-      "stop" -> "offline"
-      "pause" -> "idle"
-      "resume" -> "active"
-    end
+    new_status =
+      case action do
+        "connect" -> "active"
+        "disconnect" -> "offline"
+        "restart" -> "active"
+        "stop" -> "offline"
+        "pause" -> "idle"
+        "resume" -> "active"
+      end
 
     # Update agent status in registry
     try do
@@ -176,14 +218,15 @@ defmodule ApmWeb.V2.AgentControlController do
 
     # Emit AG-UI event
     try do
-      event_type = case action do
-        "connect" -> "RUN_STARTED"
-        "disconnect" -> "RUN_FINISHED"
-        "restart" -> "RUN_STARTED"
-        "stop" -> "RUN_FINISHED"
-        "pause" -> "STEP_FINISHED"
-        "resume" -> "STEP_STARTED"
-      end
+      event_type =
+        case action do
+          "connect" -> "RUN_STARTED"
+          "disconnect" -> "RUN_FINISHED"
+          "restart" -> "RUN_STARTED"
+          "stop" -> "RUN_FINISHED"
+          "pause" -> "STEP_FINISHED"
+          "resume" -> "STEP_STARTED"
+        end
 
       Apm.EventStream.emit(event_type, %{
         agent_id: agent_id,
@@ -200,8 +243,12 @@ defmodule ApmWeb.V2.AgentControlController do
   defp emit_control_event(resource_type, resource_id, action) do
     Phoenix.PubSub.broadcast(@pubsub, "apm:control", {
       :control_event,
-      %{resource_type: resource_type, resource_id: resource_id, action: action,
-        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()}
+      %{
+        resource_type: resource_type,
+        resource_id: resource_id,
+        action: action,
+        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
     })
 
     # Also send notification

@@ -79,18 +79,23 @@ defmodule Apm.HealthCheckRunner do
       check_mix_lock(),
       check_settings_json()
     ]
+
     %{state | checks: checks, last_run: DateTime.utc_now()}
   end
 
   defp check_apm_server do
     port = Application.get_env(:apm, :port, 3032)
-    result = case :gen_tcp.connect(~c"localhost", port, [:binary, active: false], 1000) do
-      {:ok, sock} ->
-        :gen_tcp.close(sock)
-        {:ok, "Listening on port #{port}"}
-      {:error, reason} ->
-        {:error, "Port #{port} unreachable: #{inspect(reason)}"}
-    end
+
+    result =
+      case :gen_tcp.connect(~c"localhost", port, [:binary, active: false], 1000) do
+        {:ok, sock} ->
+          :gen_tcp.close(sock)
+          {:ok, "Listening on port #{port}"}
+
+        {:error, reason} ->
+          {:error, "Port #{port} unreachable: #{inspect(reason)}"}
+      end
+
     make_check("APM Server", "apm_server", result)
   end
 
@@ -98,10 +103,15 @@ defmodule Apm.HealthCheckRunner do
     case System.find_executable("claude") do
       nil ->
         case System.find_executable("claude-code") do
-          nil -> make_check("Claude CLI", "claude_cli", {:error, "claude binary not found in PATH"})
-          path -> make_check("Claude CLI", "claude_cli", {:ok, "Found at #{path}"})
+          nil ->
+            make_check("Claude CLI", "claude_cli", {:error, "claude binary not found in PATH"})
+
+          path ->
+            make_check("Claude CLI", "claude_cli", {:ok, "Found at #{path}"})
         end
-      path -> make_check("Claude CLI", "claude_cli", {:ok, "Found at #{path}"})
+
+      path ->
+        make_check("Claude CLI", "claude_cli", {:ok, "Found at #{path}"})
     end
   end
 
@@ -109,65 +119,91 @@ defmodule Apm.HealthCheckRunner do
     home = System.get_env("HOME", "/Users")
     dev_path = Path.join(home, "Developer")
 
-    result = case :os.type() do
-      {:unix, :darwin} ->
-        case System.cmd("df", ["-h", dev_path], stderr_to_stdout: true) do
-          {output, 0} ->
-            lines = String.split(output, "\n", trim: true)
-            case Enum.at(lines, 1) do
-              nil -> {:ok, "OK"}
-              line ->
-                parts = String.split(line)
-                avail = Enum.at(parts, 3, "?")
-                use_pct = Enum.at(parts, 4, "?")
-                {:ok, "#{avail} available (#{use_pct} used)"}
-            end
-          _ -> {:ok, "OK"}
-        end
-      _ -> {:ok, "OK (check not implemented on this OS)"}
-    end
+    result =
+      case :os.type() do
+        {:unix, :darwin} ->
+          case System.cmd("df", ["-h", dev_path], stderr_to_stdout: true) do
+            {output, 0} ->
+              lines = String.split(output, "\n", trim: true)
+
+              case Enum.at(lines, 1) do
+                nil ->
+                  {:ok, "OK"}
+
+                line ->
+                  parts = String.split(line)
+                  avail = Enum.at(parts, 3, "?")
+                  use_pct = Enum.at(parts, 4, "?")
+                  {:ok, "#{avail} available (#{use_pct} used)"}
+              end
+
+            _ ->
+              {:ok, "OK"}
+          end
+
+        _ ->
+          {:ok, "OK (check not implemented on this OS)"}
+      end
+
     make_check("Disk Space", "disk_space", result)
   end
 
   defp check_mix_lock do
     lock_path = Path.join(Application.app_dir(:apm, ".."), "mix.lock") |> Path.expand()
-    lock_path = if File.exists?(lock_path), do: lock_path, else: Path.join(File.cwd!(), "mix.lock")
-    result = case File.stat(lock_path) do
-      {:ok, stat} ->
-        size = stat.size
-        if size > 100, do: {:ok, "mix.lock present (#{size} bytes)"}, else: {:error, "mix.lock too small (#{size} bytes)"}
-      {:error, _} ->
-        {:error, "mix.lock not found at #{lock_path}"}
-    end
+
+    lock_path =
+      if File.exists?(lock_path), do: lock_path, else: Path.join(File.cwd!(), "mix.lock")
+
+    result =
+      case File.stat(lock_path) do
+        {:ok, stat} ->
+          size = stat.size
+
+          if size > 100,
+            do: {:ok, "mix.lock present (#{size} bytes)"},
+            else: {:error, "mix.lock too small (#{size} bytes)"}
+
+        {:error, _} ->
+          {:error, "mix.lock not found at #{lock_path}"}
+      end
+
     make_check("mix.lock", "mix_lock", result)
   end
 
   defp check_settings_json do
     settings_path = Path.expand("~/.claude/settings.json")
-    result = case File.read(settings_path) do
-      {:ok, content} ->
-        case Jason.decode(content) do
-          {:ok, _} -> {:ok, "Valid JSON (#{byte_size(content)} bytes)"}
-          {:error, _} -> {:error, "Invalid JSON in settings.json"}
-        end
-      {:error, :enoent} ->
-        {:error, "~/.claude/settings.json not found"}
-      {:error, reason} ->
-        {:error, "Cannot read settings.json: #{inspect(reason)}"}
-    end
+
+    result =
+      case File.read(settings_path) do
+        {:ok, content} ->
+          case Jason.decode(content) do
+            {:ok, _} -> {:ok, "Valid JSON (#{byte_size(content)} bytes)"}
+            {:error, _} -> {:error, "Invalid JSON in settings.json"}
+          end
+
+        {:error, :enoent} ->
+          {:error, "~/.claude/settings.json not found"}
+
+        {:error, reason} ->
+          {:error, "Cannot read settings.json: #{inspect(reason)}"}
+      end
+
     make_check("Claude Settings", "claude_settings", result)
   end
 
   defp make_check(name, key, {:ok, message}) do
     %{name: name, key: key, status: :ok, message: message, checked_at: DateTime.utc_now()}
   end
+
   defp make_check(name, key, {:error, message}) do
     %{name: name, key: key, status: :error, message: message, checked_at: DateTime.utc_now()}
   end
 
   defp compute_overall([]), do: :healthy
+
   defp compute_overall(checks) do
     error_count = Enum.count(checks, &(&1.status == :error))
+
     cond do
       error_count == 0 -> :healthy
       error_count < length(checks) -> :degraded

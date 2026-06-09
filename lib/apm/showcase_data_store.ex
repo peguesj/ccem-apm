@@ -66,7 +66,9 @@ defmodule Apm.ShowcaseDataStore do
     tabs = Map.get(data, "tabs", [])
 
     case Enum.find(tabs, fn t -> t["id"] == tab_id end) do
-      nil -> %{"error" => "tab_not_found", "tab_id" => tab_id}
+      nil ->
+        %{"error" => "tab_not_found", "tab_id" => tab_id}
+
       tab ->
         raw_data = tab["data"] || %{}
         filter_tab_data(raw_data, query)
@@ -353,9 +355,10 @@ defmodule Apm.ShowcaseDataStore do
     # Also check project-specific diagrams inside the data dir
     project_diagrams_dir = Path.join(path, "diagrams")
 
-    dirs = [diagrams_dir, project_diagrams_dir]
-    |> Enum.filter(&File.dir?/1)
-    |> Enum.uniq()
+    dirs =
+      [diagrams_dir, project_diagrams_dir]
+      |> Enum.filter(&File.dir?/1)
+      |> Enum.uniq()
 
     Enum.flat_map(dirs, fn dir ->
       case File.ls(dir) do
@@ -378,7 +381,8 @@ defmodule Apm.ShowcaseDataStore do
             }
           end)
 
-        {:error, _} -> []
+        {:error, _} ->
+          []
       end
     end)
   end
@@ -418,7 +422,11 @@ defmodule Apm.ShowcaseDataStore do
 
             %{
               "id" => basename,
-              "label" => basename |> String.replace("-", " ") |> String.replace("_", " ") |> capitalize_words(),
+              "label" =>
+                basename
+                |> String.replace("-", " ")
+                |> String.replace("_", " ")
+                |> capitalize_words(),
               "source" => filename,
               "type" => infer_tab_type(data),
               "queryable" => true,
@@ -426,7 +434,8 @@ defmodule Apm.ShowcaseDataStore do
             }
           end)
 
-        {:error, _} -> []
+        {:error, _} ->
+          []
       end
     end
   end
@@ -455,7 +464,7 @@ defmodule Apm.ShowcaseDataStore do
       data
       |> Enum.filter(fn {key, value} ->
         String.contains?(String.downcase(to_string(key)), search_lower) or
-        String.contains?(String.downcase(to_string(inspect(value))), search_lower)
+          String.contains?(String.downcase(to_string(inspect(value))), search_lower)
       end)
       |> Map.new()
     else

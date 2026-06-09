@@ -70,10 +70,17 @@ defmodule Apm.Tracing do
       opts
       |> Keyword.take([:agent_name, :agent_description, :agent_version])
       |> Enum.reduce(%{}, fn
-        {:agent_name, v}, acc when is_binary(v) -> Map.put(acc, :"gen_ai.agent.name", v)
-        {:agent_description, v}, acc when is_binary(v) -> Map.put(acc, :"gen_ai.agent.description", v)
-        {:agent_version, v}, acc when is_binary(v) -> Map.put(acc, :"gen_ai.agent.version", v)
-        _, acc -> acc
+        {:agent_name, v}, acc when is_binary(v) ->
+          Map.put(acc, :"gen_ai.agent.name", v)
+
+        {:agent_description, v}, acc when is_binary(v) ->
+          Map.put(acc, :"gen_ai.agent.description", v)
+
+        {:agent_version, v}, acc when is_binary(v) ->
+          Map.put(acc, :"gen_ai.agent.version", v)
+
+        _, acc ->
+          acc
       end)
 
     run_span("ccem.agent", Map.merge(base_attrs, optional_attrs), fun)

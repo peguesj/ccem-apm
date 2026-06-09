@@ -85,7 +85,7 @@ defmodule ApmWeb.ComposioLive do
                   )
                 ]}
               >
-                <%= label %>
+                {label}
               </button>
             <% end %>
           </div>
@@ -94,8 +94,7 @@ defmodule ApmWeb.ComposioLive do
           <div class="flex-1 overflow-auto px-6 py-4">
             <%= if @loading do %>
               <div class="flex items-center gap-2 text-sm text-base-content/60 py-8">
-                <span class="loading loading-spinner loading-sm"></span>
-                Loading Composio data…
+                <span class="loading loading-spinner loading-sm"></span> Loading Composio data…
               </div>
             <% else %>
               <%= case @active_tab do %>
@@ -122,13 +121,17 @@ defmodule ApmWeb.ComposioLive do
     ~H"""
     <div class="space-y-2">
       <%= if @toolkits == [] do %>
-        <p class="text-sm text-base-content/50 py-8 text-center">No toolkits cached yet. Analysis will populate this list.</p>
+        <p class="text-sm text-base-content/50 py-8 text-center">
+          No toolkits cached yet. Analysis will populate this list.
+        </p>
       <% else %>
         <div class="grid grid-cols-2 gap-3">
           <%= for tk <- @toolkits do %>
             <div class="border border-base-300 rounded-lg p-3">
-              <div class="font-medium text-sm"><%= tk[:name] || tk["name"] || "Toolkit" %></div>
-              <div class="text-xs text-base-content/60 mt-1"><%= tk[:description] || tk["description"] || "" %></div>
+              <div class="font-medium text-sm">{tk[:name] || tk["name"] || "Toolkit"}</div>
+              <div class="text-xs text-base-content/60 mt-1">
+                {tk[:description] || tk["description"] || ""}
+              </div>
             </div>
           <% end %>
         </div>
@@ -143,16 +146,24 @@ defmodule ApmWeb.ComposioLive do
     ~H"""
     <div class="space-y-2">
       <%= if @accounts == [] do %>
-        <p class="text-sm text-base-content/50 py-8 text-center">No connected accounts. Connect an account via the Composio API.</p>
+        <p class="text-sm text-base-content/50 py-8 text-center">
+          No connected accounts. Connect an account via the Composio API.
+        </p>
       <% else %>
         <%= for acct <- @accounts do %>
           <div class="flex items-center justify-between border border-base-300 rounded-lg p-3">
             <div>
-              <div class="text-sm font-medium"><%= acct[:name] || acct["name"] || "Account" %></div>
-              <div class="text-xs text-base-content/60"><%= acct[:app_name] || acct["appName"] || "" %></div>
+              <div class="text-sm font-medium">{acct[:name] || acct["name"] || "Account"}</div>
+              <div class="text-xs text-base-content/60">
+                {acct[:app_name] || acct["appName"] || ""}
+              </div>
             </div>
-            <.badge tone={if acct[:status] == "ACTIVE" or acct["status"] == "ACTIVE", do: "success", else: "neutral"}>
-              <%= acct[:status] || acct["status"] || "unknown" %>
+            <.badge tone={
+              if acct[:status] == "ACTIVE" or acct["status"] == "ACTIVE",
+                do: "success",
+                else: "neutral"
+            }>
+              {acct[:status] || acct["status"] || "unknown"}
             </.badge>
           </div>
         <% end %>
@@ -167,12 +178,14 @@ defmodule ApmWeb.ComposioLive do
     ~H"""
     <div class="space-y-2">
       <%= if @servers == [] do %>
-        <p class="text-sm text-base-content/50 py-8 text-center">No MCP servers registered. Register a server via the Composio API.</p>
+        <p class="text-sm text-base-content/50 py-8 text-center">
+          No MCP servers registered. Register a server via the Composio API.
+        </p>
       <% else %>
         <%= for srv <- @servers do %>
           <div class="border border-base-300 rounded-lg p-3 font-mono text-xs">
-            <div class="font-medium text-sm font-sans"><%= srv[:name] || srv["name"] || "Server" %></div>
-            <div class="text-base-content/60 mt-1 break-all"><%= srv[:url] || srv["url"] || "" %></div>
+            <div class="font-medium text-sm font-sans">{srv[:name] || srv["name"] || "Server"}</div>
+            <div class="text-base-content/60 mt-1 break-all">{srv[:url] || srv["url"] || ""}</div>
           </div>
         <% end %>
       <% end %>

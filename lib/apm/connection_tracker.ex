@@ -66,6 +66,7 @@ defmodule Apm.ConnectionTracker do
       last_heartbeat: System.monotonic_time(:millisecond),
       status: :active
     }
+
     :ets.insert(@table, {session_id, conn})
     broadcast({:connection_updated, conn})
     {:reply, :ok, state}
@@ -79,6 +80,7 @@ defmodule Apm.ConnectionTracker do
         :ets.insert(@table, {session_id, updated})
         broadcast({:connection_updated, updated})
         {:reply, :ok, state}
+
       [] ->
         {:reply, {:error, :not_found}, state}
     end
@@ -91,14 +93,18 @@ defmodule Apm.ConnectionTracker do
         updated = %{conn | status: :disconnected}
         :ets.insert(@table, {session_id, updated})
         broadcast({:connection_updated, updated})
-      [] -> :ok
+
+      [] ->
+        :ok
     end
+
     {:reply, :ok, state}
   end
 
   @impl true
   def handle_info(:tick, state) do
     now = System.monotonic_time(:millisecond)
+
     :ets.tab2list(@table)
     |> Enum.each(fn {id, conn} ->
       if conn.status == :active and now - conn.last_heartbeat > @stale_ms do
@@ -107,6 +113,7 @@ defmodule Apm.ConnectionTracker do
         broadcast({:connection_updated, updated})
       end
     end)
+
     schedule_tick()
     {:noreply, state}
   end

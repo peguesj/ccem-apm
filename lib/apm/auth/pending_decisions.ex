@@ -71,9 +71,12 @@ defmodule Apm.Auth.PendingDecisions do
   @spec list_pending() :: [map()]
   def list_pending do
     case :ets.info(@table) do
-      :undefined -> []
+      :undefined ->
+        []
+
       _ ->
         now = DateTime.utc_now()
+
         :ets.tab2list(@table)
         |> Enum.map(fn {_id, entry} -> entry end)
         |> Enum.filter(&(&1.status == :pending && DateTime.after?(&1.expires_at, now)))
@@ -85,7 +88,9 @@ defmodule Apm.Auth.PendingDecisions do
   @spec get(String.t()) :: map() | nil
   def get(request_id) do
     case :ets.info(@table) do
-      :undefined -> nil
+      :undefined ->
+        nil
+
       _ ->
         case :ets.lookup(@table, request_id) do
           [{^request_id, entry}] -> entry
@@ -153,7 +158,8 @@ defmodule Apm.Auth.PendingDecisions do
           }
 
         {:error, _} ->
-          {:unknown, "#{tool_name} operation", "Tool operation", "Review carefully before approving."}
+          {:unknown, "#{tool_name} operation", "Tool operation",
+           "Review carefully before approving."}
       end
 
     entry = %{
@@ -177,7 +183,12 @@ defmodule Apm.Auth.PendingDecisions do
     :ets.insert(@table, {request_id, entry})
 
     Phoenix.PubSub.broadcast(Apm.PubSub, "agentlock:pending", {:pending_decision_added, entry})
-    Phoenix.PubSub.broadcast(Apm.PubSub, "agentlock:authorization", {:pending_decision_added, entry})
+
+    Phoenix.PubSub.broadcast(
+      Apm.PubSub,
+      "agentlock:authorization",
+      {:pending_decision_added, entry}
+    )
 
     # Route through ApprovalQueue for debounced batch notifications (US-323)
     # Falls back to direct notification if ApprovalQueue isn't running
@@ -197,44 +208,96 @@ defmodule Apm.Auth.PendingDecisions do
       [{^request_id, entry}] ->
         case decision do
           :approve ->
-            case TokenStore.generate(entry.agent_id, entry.session_id, entry.tool_name, entry.params) do
+            case TokenStore.generate(
+                   entry.agent_id,
+                   entry.session_id,
+                   entry.tool_name,
+                   entry.params
+                 ) do
               {:ok, token_id} ->
-                updated = Map.merge(entry, %{
-                  status: :approved,
-                  decision: :approve,
-                  decided_at: DateTime.utc_now(),
-                  token_id: token_id
-                })
+                updated =
+                  Map.merge(entry, %{
+                    status: :approved,
+                    decision: :approve,
+                    decided_at: DateTime.utc_now(),
+                    token_id: token_id
+                  })
+
                 :ets.insert(@table, {request_id, updated})
-                Phoenix.PubSub.broadcast(Apm.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
-                Phoenix.PubSub.broadcast(Apm.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
+
+                Phoenix.PubSub.broadcast(
+                  Apm.PubSub,
+                  "agentlock:pending",
+                  {:pending_decision_resolved, updated}
+                )
+
+                Phoenix.PubSub.broadcast(
+                  Apm.PubSub,
+                  "agentlock:authorization",
+                  {:pending_decision_resolved, updated}
+                )
+
                 log_to_audit(updated)
-                Logger.info("[PendingDecisions] Approved + token issued: #{request_id} → #{token_id}")
+
+                Logger.info(
+                  "[PendingDecisions] Approved + token issued: #{request_id} → #{token_id}"
+                )
+
                 {:reply, {:ok, token_id}, state}
 
               _err ->
-                updated = Map.merge(entry, %{
-                  status: :approved,
-                  decision: :approve,
-                  decided_at: DateTime.utc_now()
-                })
+                updated =
+                  Map.merge(entry, %{
+                    status: :approved,
+                    decision: :approve,
+                    decided_at: DateTime.utc_now()
+                  })
+
                 :ets.insert(@table, {request_id, updated})
-                Phoenix.PubSub.broadcast(Apm.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
-                Phoenix.PubSub.broadcast(Apm.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
+
+                Phoenix.PubSub.broadcast(
+                  Apm.PubSub,
+                  "agentlock:pending",
+                  {:pending_decision_resolved, updated}
+                )
+
+                Phoenix.PubSub.broadcast(
+                  Apm.PubSub,
+                  "agentlock:authorization",
+                  {:pending_decision_resolved, updated}
+                )
+
                 log_to_audit(updated)
-                Logger.warning("[PendingDecisions] Approved but token generation failed: #{request_id}")
+
+                Logger.warning(
+                  "[PendingDecisions] Approved but token generation failed: #{request_id}"
+                )
+
                 {:reply, :ok, state}
             end
 
           :deny ->
-            updated = Map.merge(entry, %{
-              status: :denied,
-              decision: :deny,
-              decided_at: DateTime.utc_now()
-            })
+            updated =
+              Map.merge(entry, %{
+                status: :denied,
+                decision: :deny,
+                decided_at: DateTime.utc_now()
+              })
+
             :ets.insert(@table, {request_id, updated})
-            Phoenix.PubSub.broadcast(Apm.PubSub, "agentlock:pending", {:pending_decision_resolved, updated})
-            Phoenix.PubSub.broadcast(Apm.PubSub, "agentlock:authorization", {:pending_decision_resolved, updated})
+
+            Phoenix.PubSub.broadcast(
+              Apm.PubSub,
+              "agentlock:pending",
+              {:pending_decision_resolved, updated}
+            )
+
+            Phoenix.PubSub.broadcast(
+              Apm.PubSub,
+              "agentlock:authorization",
+              {:pending_decision_resolved, updated}
+            )
+
             log_to_audit(updated)
             Logger.info("[PendingDecisions] Denied: #{request_id}")
             {:reply, :ok, state}
@@ -291,14 +354,30 @@ defmodule Apm.Auth.PendingDecisions do
     # Keep all useful context for the reviewer — truncate large values
     params
     |> Map.take([
-      "command", "tool_name", "file_path", "pattern", "description",
-      "content", "old_string", "new_string", "query", "url",
-      "prompt", "skill", "subagent_type", "glob", "path",
-      "timeout", "dangerouslyDisableSandbox"
+      "command",
+      "tool_name",
+      "file_path",
+      "pattern",
+      "description",
+      "content",
+      "old_string",
+      "new_string",
+      "query",
+      "url",
+      "prompt",
+      "skill",
+      "subagent_type",
+      "glob",
+      "path",
+      "timeout",
+      "dangerouslyDisableSandbox"
     ])
-    |> Enum.map(fn {k, v} when is_binary(v) and byte_size(v) > 500 ->
-      {k, String.slice(v, 0, 500) <> "..."}
-      {k, v} -> {k, v}
+    |> Enum.map(fn
+      {k, v} when is_binary(v) and byte_size(v) > 500 ->
+        {k, String.slice(v, 0, 500) <> "..."}
+
+      {k, v} ->
+        {k, v}
     end)
     |> Enum.into(%{})
   end
@@ -317,17 +396,17 @@ defmodule Apm.Auth.PendingDecisions do
         %{}
       end
 
-    agent_name    = agent_info[:agent_name] || agent_info[:name] || entry.agent_id
-    agent_def     = agent_info[:agent_definition] || agent_info[:role] || ""
-    formation_id  = agent_info[:formation_id]
-    squadron      = agent_info[:squadron]
-    swarm         = agent_info[:swarm]
-    role          = agent_info[:role] || agent_info[:formation_role]
-    story_id      = agent_info[:story_id]
-    wave          = agent_info[:wave] || agent_info[:wave_number]
-    work_item     = agent_info[:work_item_title]
-    parent_id     = agent_info[:parent_id]
-    invoked_by    = agent_info[:invoked_by] || agent_info[:parent_skill]
+    agent_name = agent_info[:agent_name] || agent_info[:name] || entry.agent_id
+    agent_def = agent_info[:agent_definition] || agent_info[:role] || ""
+    formation_id = agent_info[:formation_id]
+    squadron = agent_info[:squadron]
+    swarm = agent_info[:swarm]
+    role = agent_info[:role] || agent_info[:formation_role]
+    story_id = agent_info[:story_id]
+    wave = agent_info[:wave] || agent_info[:wave_number]
+    work_item = agent_info[:work_item_title]
+    parent_id = agent_info[:parent_id]
+    invoked_by = agent_info[:invoked_by] || agent_info[:parent_skill]
 
     ttl_remaining = max(0, DateTime.diff(entry.expires_at, DateTime.utc_now(), :second))
 
@@ -336,9 +415,16 @@ defmodule Apm.Auth.PendingDecisions do
       [
         if(agent_def != "", do: agent_def, else: nil),
         if(invoked_by, do: "Called by: #{invoked_by}", else: nil),
-        if(formation_id, do: "Formation: #{formation_id}#{if squadron, do: " / #{squadron}", else: ""}#{if swarm, do: " / #{swarm}", else: ""}", else: nil),
+        if(formation_id,
+          do:
+            "Formation: #{formation_id}#{if squadron, do: " / #{squadron}", else: ""}#{if swarm, do: " / #{swarm}", else: ""}",
+          else: nil
+        ),
         if(role, do: "Role: #{role}", else: nil),
-        if(story_id, do: "Story: #{story_id}#{if work_item, do: " — #{work_item}", else: ""}", else: nil),
+        if(story_id,
+          do: "Story: #{story_id}#{if work_item, do: " — #{work_item}", else: ""}",
+          else: nil
+        ),
         if(wave, do: "Wave: #{wave}", else: nil),
         if(parent_id && parent_id != entry.agent_id, do: "Parent: #{parent_id}", else: nil)
       ]
@@ -347,7 +433,9 @@ defmodule Apm.Auth.PendingDecisions do
     # Summarize tool params for display
     params_summary =
       case entry.params do
-        p when map_size(p) == 0 -> nil
+        p when map_size(p) == 0 ->
+          nil
+
         p ->
           p
           |> Enum.map(fn {k, v} -> "#{k}: #{String.slice(to_string(v), 0, 60)}" end)
@@ -367,55 +455,56 @@ defmodule Apm.Auth.PendingDecisions do
 
     message_parts =
       ["#{action_badge} · #{entry.risk_level} risk · #{ttl_remaining}s remaining"] ++
-      [entry.action_detail] ++
-      [entry.risk_rationale] ++
-      context_lines ++
-      if(params_summary, do: ["Params: #{params_summary}"], else: [])
+        [entry.action_detail] ++
+        [entry.risk_rationale] ++
+        context_lines ++
+        if(params_summary, do: ["Params: #{params_summary}"], else: [])
 
-    payload = Jason.encode!(%{
-      type: "warning",
-      title: title,
-      message: Enum.join(message_parts, "\n"),
-      category: "agentlock",
-      actions: [
-        %{
-          label: "Approve",
-          href: "http://localhost:3032/api/v2/auth/decide",
-          method: "post",
-          body: %{request_id: entry.request_id, decision: "approve"}
-        },
-        %{
-          label: "Deny",
-          href: "http://localhost:3032/api/v2/auth/decide",
-          method: "post",
-          body: %{request_id: entry.request_id, decision: "deny"}
+    payload =
+      Jason.encode!(%{
+        type: "warning",
+        title: title,
+        message: Enum.join(message_parts, "\n"),
+        category: "agentlock",
+        actions: [
+          %{
+            label: "Approve",
+            href: "http://localhost:3032/api/v2/auth/decide",
+            method: "post",
+            body: %{request_id: entry.request_id, decision: "approve"}
+          },
+          %{
+            label: "Deny",
+            href: "http://localhost:3032/api/v2/auth/decide",
+            method: "post",
+            body: %{request_id: entry.request_id, decision: "deny"}
+          }
+        ],
+        metadata: %{
+          request_id: entry.request_id,
+          agent_id: entry.agent_id,
+          agent_name: agent_name,
+          agent_definition: agent_def,
+          tool_name: entry.tool_name,
+          risk_level: entry.risk_level,
+          action_type: entry.action_type,
+          action_detail: entry.action_detail,
+          risk_rationale: entry.risk_rationale,
+          approval_reasoning: entry.approval_reasoning,
+          ttl_seconds: ttl_remaining,
+          expires_at: DateTime.to_iso8601(entry.expires_at),
+          formation_id: formation_id,
+          squadron: squadron,
+          swarm: swarm,
+          role: role,
+          story_id: story_id,
+          wave: wave,
+          work_item_title: work_item,
+          parent_id: parent_id,
+          invoked_by: invoked_by,
+          params_summary: params_summary
         }
-      ],
-      metadata: %{
-        request_id:   entry.request_id,
-        agent_id:     entry.agent_id,
-        agent_name:   agent_name,
-        agent_definition: agent_def,
-        tool_name:    entry.tool_name,
-        risk_level:   entry.risk_level,
-        action_type:  entry.action_type,
-        action_detail: entry.action_detail,
-        risk_rationale: entry.risk_rationale,
-        approval_reasoning: entry.approval_reasoning,
-        ttl_seconds:  ttl_remaining,
-        expires_at:   DateTime.to_iso8601(entry.expires_at),
-        formation_id: formation_id,
-        squadron:     squadron,
-        swarm:        swarm,
-        role:         role,
-        story_id:     story_id,
-        wave:         wave,
-        work_item_title: work_item,
-        parent_id:    parent_id,
-        invoked_by:   invoked_by,
-        params_summary: params_summary
-      }
-    })
+      })
 
     :httpc.request(
       :post,
@@ -424,7 +513,9 @@ defmodule Apm.Auth.PendingDecisions do
       []
     )
     |> case do
-      {:ok, _} -> :ok
+      {:ok, _} ->
+        :ok
+
       {:error, reason} ->
         Logger.warning("[PendingDecisions] Notify failed: #{inspect(reason)}")
     end

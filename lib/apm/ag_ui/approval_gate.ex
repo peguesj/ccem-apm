@@ -51,14 +51,14 @@ defmodule Apm.AgUi.ApprovalGate do
   @spec list_pending() :: [map()]
   def list_pending do
     all_gates()
-    |> Enum.filter(& &1.status == :pending)
+    |> Enum.filter(&(&1.status == :pending))
   end
 
   @doc "Returns gates for a specific agent."
   @spec list_by_agent(String.t()) :: [map()]
   def list_by_agent(agent_id) do
     all_gates()
-    |> Enum.filter(& &1.agent_id == agent_id)
+    |> Enum.filter(&(&1.agent_id == agent_id))
   end
 
   @doc "Returns all gates."
@@ -127,10 +127,11 @@ defmodule Apm.AgUi.ApprovalGate do
   def handle_call({:approve, gate_id, approver_info}, _from, state) do
     case :ets.lookup(@table, gate_id) do
       [{^gate_id, %{status: :pending} = gate}] ->
-        updated = %{gate |
-          status: :approved,
-          resolved_at: DateTime.utc_now() |> DateTime.to_iso8601(),
-          approver: approver_info
+        updated = %{
+          gate
+          | status: :approved,
+            resolved_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+            approver: approver_info
         }
 
         :ets.insert(@table, {gate_id, updated})
@@ -154,10 +155,11 @@ defmodule Apm.AgUi.ApprovalGate do
   def handle_call({:reject, gate_id, reason}, _from, state) do
     case :ets.lookup(@table, gate_id) do
       [{^gate_id, %{status: :pending} = gate}] ->
-        updated = %{gate |
-          status: :rejected,
-          resolved_at: DateTime.utc_now() |> DateTime.to_iso8601(),
-          reject_reason: reason
+        updated = %{
+          gate
+          | status: :rejected,
+            resolved_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+            reject_reason: reason
         }
 
         :ets.insert(@table, {gate_id, updated})
@@ -183,13 +185,18 @@ defmodule Apm.AgUi.ApprovalGate do
     now = DateTime.utc_now()
 
     all_gates()
-    |> Enum.filter(& &1.status == :pending)
+    |> Enum.filter(&(&1.status == :pending))
     |> Enum.each(fn gate ->
       requested_at = DateTime.from_iso8601(gate.requested_at) |> elem(1)
       age_ms = DateTime.diff(now, requested_at, :millisecond)
 
       if age_ms > gate.timeout_ms do
-        expired = %{gate | status: :expired, resolved_at: DateTime.utc_now() |> DateTime.to_iso8601()}
+        expired = %{
+          gate
+          | status: :expired,
+            resolved_at: DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+
         :ets.insert(@table, {gate.gate_id, expired})
 
         EventBus.publish("CUSTOM", %{

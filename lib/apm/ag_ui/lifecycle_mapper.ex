@@ -69,14 +69,18 @@ defmodule Apm.AgUi.LifecycleMapper do
     thread_id = payload["formation_id"] || "thread-#{project}"
 
     # Track run start time
-    :ets.insert(@run_tracker, {agent_id, %{
-      run_id: run_id,
-      started_at: now,
-      steps_completed: 0,
-      tool_calls_made: 0,
-      errors_encountered: 0,
-      total_tokens: 0
-    }})
+    :ets.insert(
+      @run_tracker,
+      {agent_id,
+       %{
+         run_id: run_id,
+         started_at: now,
+         steps_completed: 0,
+         tool_calls_made: 0,
+         errors_encountered: 0,
+         total_tokens: 0
+       }}
+    )
 
     metadata = %{
       project: project,
@@ -226,7 +230,8 @@ defmodule Apm.AgUi.LifecycleMapper do
           data: %{
             agent_id: agent_id,
             run_id: run_id,
-            message_id: payload["message_id"] || "msg-#{agent_id}-#{System.unique_integer([:positive])}",
+            message_id:
+              payload["message_id"] || "msg-#{agent_id}-#{System.unique_integer([:positive])}",
             content: payload["content"] || ""
           }
         }
@@ -237,7 +242,8 @@ defmodule Apm.AgUi.LifecycleMapper do
           data: %{
             agent_id: agent_id,
             run_id: run_id,
-            message_id: payload["message_id"] || "msg-#{agent_id}-#{System.unique_integer([:positive])}"
+            message_id:
+              payload["message_id"] || "msg-#{agent_id}-#{System.unique_integer([:positive])}"
           }
         }
 
@@ -278,8 +284,10 @@ defmodule Apm.AgUi.LifecycleMapper do
 
   defp extract_token_usage(payload) do
     %{
-      input_tokens: payload["input_tokens"] || get_in_nested(payload, ["metadata", "input_tokens"]),
-      output_tokens: payload["output_tokens"] || get_in_nested(payload, ["metadata", "output_tokens"]),
+      input_tokens:
+        payload["input_tokens"] || get_in_nested(payload, ["metadata", "input_tokens"]),
+      output_tokens:
+        payload["output_tokens"] || get_in_nested(payload, ["metadata", "output_tokens"]),
       cache_read: payload["cache_read"] || get_in_nested(payload, ["metadata", "cache_read"]),
       cache_write: payload["cache_write"] || get_in_nested(payload, ["metadata", "cache_write"])
     }
@@ -325,7 +333,8 @@ defmodule Apm.AgUi.LifecycleMapper do
         {tracker.run_id, duration_ms, summary}
 
       [] ->
-        {"run-unknown", 0, %{steps_completed: 0, tool_calls_made: 0, errors_encountered: 0, total_tokens: 0}}
+        {"run-unknown", 0,
+         %{steps_completed: 0, tool_calls_made: 0, errors_encountered: 0, total_tokens: 0}}
     end
   end
 
@@ -341,10 +350,15 @@ defmodule Apm.AgUi.LifecycleMapper do
       [{^agent_id, tracker}] ->
         tokens = (token_meta[:input_tokens] || 0) + (token_meta[:output_tokens] || 0)
 
-        :ets.insert(@run_tracker, {agent_id, %{tracker |
-          steps_completed: tracker.steps_completed + 1,
-          total_tokens: tracker.total_tokens + tokens
-        }})
+        :ets.insert(
+          @run_tracker,
+          {agent_id,
+           %{
+             tracker
+             | steps_completed: tracker.steps_completed + 1,
+               total_tokens: tracker.total_tokens + tokens
+           }}
+        )
 
       [] ->
         :ok
@@ -354,9 +368,10 @@ defmodule Apm.AgUi.LifecycleMapper do
   defp update_run_errors(agent_id) do
     case :ets.lookup(@run_tracker, agent_id) do
       [{^agent_id, tracker}] ->
-        :ets.insert(@run_tracker, {agent_id, %{tracker |
-          errors_encountered: tracker.errors_encountered + 1
-        }})
+        :ets.insert(
+          @run_tracker,
+          {agent_id, %{tracker | errors_encountered: tracker.errors_encountered + 1}}
+        )
 
       [] ->
         :ok

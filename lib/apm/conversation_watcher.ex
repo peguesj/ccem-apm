@@ -55,7 +55,7 @@ defmodule Apm.ConversationWatcher do
 
   @impl true
   def handle_call(:get_active_count, _from, state) do
-    count = Enum.count(state.conversations, &(&1.active))
+    count = Enum.count(state.conversations, & &1.active)
     {:reply, count, state}
   end
 
@@ -66,9 +66,15 @@ defmodule Apm.ConversationWatcher do
     # Broadcast if active count changed
     old_active = Enum.count(state.conversations, & &1.active)
     new_active = Enum.count(new_state.conversations, & &1.active)
+
     if old_active != new_active do
-      Phoenix.PubSub.broadcast(Apm.PubSub, @pubsub_topic, {:conversations_updated, new_state.conversations})
+      Phoenix.PubSub.broadcast(
+        Apm.PubSub,
+        @pubsub_topic,
+        {:conversations_updated, new_state.conversations}
+      )
     end
+
     {:noreply, new_state}
   end
 
@@ -114,7 +120,10 @@ defmodule Apm.ConversationWatcher do
     case File.stat(path) do
       {:ok, %{size: size, mtime: mtime}} when size > 0 ->
         naive_mtime = NaiveDateTime.from_erl!(mtime)
-        diff_minutes = NaiveDateTime.diff(NaiveDateTime.utc_now(), naive_mtime, :second) |> div(60)
+
+        diff_minutes =
+          NaiveDateTime.diff(NaiveDateTime.utc_now(), naive_mtime, :second) |> div(60)
+
         active = diff_minutes < @active_threshold_minutes
 
         session_id = Path.rootname(filename)

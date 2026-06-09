@@ -38,14 +38,14 @@ defmodule ApmWeb.Components.Templates.SplitView do
         class="apm-split-view__master apm-scroll"
         style={"width:#{@master_width}px;flex-shrink:0"}
       >
-        <%= render_slot(@master) %>
+        {render_slot(@master)}
       </div>
       <div class="apm-split-view__detail">
         <%= if @selected_id do %>
-          <%= render_slot(@detail) %>
+          {render_slot(@detail)}
         <% else %>
           <%= if @empty_detail != [] do %>
-            <%= render_slot(@empty_detail) %>
+            {render_slot(@empty_detail)}
           <% else %>
             <div class="apm-split-view__empty-detail">
               <ApmWeb.Components.Feedback.EmptyState.empty_state

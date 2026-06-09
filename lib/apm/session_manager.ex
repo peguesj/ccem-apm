@@ -260,7 +260,10 @@ defmodule Apm.SessionManager do
 
   # Returns CoWork team and task context from ~/.claude/teams/ and ~/.claude/tasks/.
   # Completely fail-safe — returns empty defaults on any error.
-  @spec cowork_context() :: %{teams: [map()], tasks: %{total: non_neg_integer(), active: non_neg_integer()}}
+  @spec cowork_context() :: %{
+          teams: [map()],
+          tasks: %{total: non_neg_integer(), active: non_neg_integer()}
+        }
   defp cowork_context do
     teams_dir = Path.expand("~/.claude/teams")
     tasks_dir = Path.expand("~/.claude/tasks")
@@ -319,7 +322,10 @@ defmodule Apm.SessionManager do
               end)
 
             total = length(all_tasks)
-            active = Enum.count(all_tasks, fn t -> Map.get(t, "status", "active") != "completed" end)
+
+            active =
+              Enum.count(all_tasks, fn t -> Map.get(t, "status", "active") != "completed" end)
+
             %{total: total, active: active}
 
           _ ->

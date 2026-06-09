@@ -81,9 +81,11 @@ defmodule Apm.UPM.ProjectRegistry do
   def init(_opts) do
     :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
     state = load_persisted_state()
+
     Enum.each(state, fn record ->
       :ets.insert(@table, {record.id, record})
     end)
+
     Logger.info("[UPM.ProjectRegistry] Initialized with #{length(state)} projects")
     {:ok, %{count: length(state)}}
   end
@@ -226,8 +228,11 @@ defmodule Apm.UPM.ProjectRegistry do
       |> Enum.map(fn {_id, record} -> record_to_map(record) end)
 
     case Jason.encode(records, pretty: true) do
-      {:ok, json} -> File.write!(path, json)
-      {:error, reason} -> Logger.error("[UPM.ProjectRegistry] Failed to persist: #{inspect(reason)}")
+      {:ok, json} ->
+        File.write!(path, json)
+
+      {:error, reason} ->
+        Logger.error("[UPM.ProjectRegistry] Failed to persist: #{inspect(reason)}")
     end
   end
 
@@ -287,11 +292,13 @@ defmodule Apm.UPM.ProjectRegistry do
   defp list_of_strings(_), do: []
 
   defp parse_dt(nil), do: nil
+
   defp parse_dt(str) when is_binary(str) do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> dt
       _ -> nil
     end
   end
+
   defp parse_dt(_), do: nil
 end

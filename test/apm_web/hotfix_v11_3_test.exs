@@ -49,6 +49,7 @@ defmodule ApmWeb.HotfixV113Test do
   describe "US-514 / CP-334 — fleet table empty fix" do
     test "agent_fleet survives an agent map missing :tier / :status / :name" do
       partial_agent = %{id: "spec-test-partial", agent_id: "spec-test-partial"}
+
       full_agent = %{
         id: "spec-test-full",
         agent_id: "spec-test-full",
@@ -86,7 +87,9 @@ defmodule ApmWeb.HotfixV113Test do
 
       css =
         cond do
-          File.exists?(path) -> File.read!(path)
+          File.exists?(path) ->
+            File.read!(path)
+
           true ->
             Path.join([File.cwd!(), "assets", "css", "apm_tokens_aliases.css"])
             |> File.read!()

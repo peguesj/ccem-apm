@@ -30,7 +30,13 @@ defmodule ApmWeb.Components.Core.Logo do
       style={"width:#{@size}px;height:#{@size}px;border-radius:#{round(@size * 0.24)}px;position:relative;overflow:hidden;flex-shrink:0"}
       {@rest}
     >
-      <svg width={@size} height={@size} viewBox="0 0 40 40" style="position:absolute;inset:0" aria-label="APM">
+      <svg
+        width={@size}
+        height={@size}
+        viewBox="0 0 40 40"
+        style="position:absolute;inset:0"
+        aria-label="APM"
+      >
         <circle cx="20" cy="20" r="4.5" fill="var(--apm-accent)" />
         <path
           d="M 20 8 A 12 12 0 0 1 32 20"

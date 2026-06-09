@@ -57,7 +57,10 @@ defmodule Apm.Plugins.OpenDesign.OpenDesignMonitor do
     initial = build_state(port)
     send(self(), :poll)
 
-    Logger.info("[OpenDesignMonitor] Started, polling localhost:#{port} every #{@poll_interval_ms}ms")
+    Logger.info(
+      "[OpenDesignMonitor] Started, polling localhost:#{port} every #{@poll_interval_ms}ms"
+    )
+
     {:ok, %{daemon: initial, port: port}}
   end
 
@@ -75,7 +78,11 @@ defmodule Apm.Plugins.OpenDesign.OpenDesignMonitor do
     new_daemon = build_state(port)
 
     if new_daemon != prev do
-      Phoenix.PubSub.broadcast(Apm.PubSub, @pubsub_topic, {:open_design_state_updated, new_daemon})
+      Phoenix.PubSub.broadcast(
+        Apm.PubSub,
+        @pubsub_topic,
+        {:open_design_state_updated, new_daemon}
+      )
     end
 
     {:noreply, %{state | daemon: new_daemon}}
@@ -128,7 +135,7 @@ defmodule Apm.Plugins.OpenDesign.OpenDesignMonitor do
     end
   end
 
-  @spec fetch_list((() -> {:ok, list()} | {:error, term()})) :: list()
+  @spec fetch_list((-> {:ok, list()} | {:error, term()})) :: list()
   defp fetch_list(fun) do
     case fun.() do
       {:ok, list} when is_list(list) -> list

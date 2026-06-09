@@ -30,12 +30,14 @@ defmodule ApmWeb.Components.SidebarNavTest do
       # The regression was Tailwind classes silently dropped; w-52 became 0.
       # Defense: an inline style asserting a width >= 192px.
       html = render_component(&SidebarNav.sidebar_nav/1, @assigns)
+
       assert html =~ ~r/style="[^"]*width:\s*(19[2-9]|2[0-9]{2})px/,
              "sidebar must carry an inline width fallback (>=192px) so the broken Tailwind scanner can't collapse it"
     end
 
     test "carries an inline background so the sidebar is visually distinct" do
       html = render_component(&SidebarNav.sidebar_nav/1, @assigns)
+
       assert html =~ ~r/style="[^"]*background:\s*var\(--apm-surface/,
              "sidebar must carry an inline background fallback"
     end
@@ -48,6 +50,7 @@ defmodule ApmWeb.Components.SidebarNavTest do
 
     test "renders all six section headers" do
       html = render_component(&SidebarNav.sidebar_nav/1, @assigns)
+
       for label <- ["Observe", "Govern", "Measure", "Intelligence", "Extend", "AI Platform"] do
         assert html =~ label, "section header '#{label}' missing"
       end

@@ -21,12 +21,13 @@ defmodule ApmWeb.V2.SkillDriftController do
 
   @doc "GET /api/v2/skill-drift/scan"
   @spec scan(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :scan,
+  operation(:scan,
     summary: "Scan",
     tags: ["Skills"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def scan(conn, params) do
     case SkillDriftPlugin.handle_action("skill_drift_scan", params, []) do
@@ -42,12 +43,13 @@ defmodule ApmWeb.V2.SkillDriftController do
 
   @doc "GET /api/v2/skill-drift/report"
   @spec report(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :report,
+  operation(:report,
     summary: "Report",
     tags: ["Skills"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def report(conn, params) do
     case SkillDriftPlugin.handle_action("skill_drift_report", params, []) do
@@ -63,12 +65,13 @@ defmodule ApmWeb.V2.SkillDriftController do
 
   @doc "POST /api/v2/skill-drift/fix"
   @spec fix(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :fix,
+  operation(:fix,
     summary: "Fix",
     tags: ["Skills"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def fix(conn, params) do
     case SkillDriftPlugin.handle_action("skill_drift_fix", params, []) do

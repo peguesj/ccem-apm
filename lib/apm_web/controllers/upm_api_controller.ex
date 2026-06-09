@@ -16,60 +16,81 @@ defmodule ApmWeb.UpmApiController do
   alias OpenApiSpex.Schema
   alias Apm.UpmStore
 
-  operation :upm_register,
+  operation(:upm_register,
     summary: "Register UPM session",
     description: "Registers a new UPM execution session and broadcasts via PubSub.",
     tags: ["UPM"],
-    request_body: {"UPM session payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"UPM session payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       created: {"Session registered", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :upm_agent,
+  operation(:upm_agent,
     summary: "Register UPM agent",
     description: "Registers an agent with work-item binding in a UPM session.",
     tags: ["UPM"],
-    request_body: {"UPM agent payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"UPM agent payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Agent registered", "application/json", Schemas.OkResponse},
       not_found: {"UPM session not found", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :upm_event,
+  operation(:upm_event,
     summary: "Record UPM event",
     description: "Reports a UPM lifecycle event for an agent in a session.",
     tags: ["UPM"],
-    request_body: {"UPM event payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"UPM event payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Event recorded", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :upm_status,
+  operation(:upm_status,
     summary: "Get UPM status",
     description: "Returns the current UPM execution state from UpmStore.",
     tags: ["UPM"],
     responses: [
       ok: {"UPM status", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :from_design_handoff,
+  operation(:from_design_handoff,
     summary: "Create UPM session from design handoff",
-    description: "Creates a UPM session by parsing a design handoff README for implementation order.",
+    description:
+      "Creates a UPM session by parsing a design handoff README for implementation order.",
     tags: ["UPM"],
-    request_body: {"Design handoff payload", "application/json", %Schema{
-      type: :object,
-      properties: %{
-        readme_content: %Schema{type: :string, description: "Raw README.md string from design handoff package"},
-        project: %Schema{type: :string, description: "Project name"},
-        prd_branch: %Schema{type: :string, description: "Feature branch (e.g. ralph/design-system-v2)"},
-        plane_project_id: %Schema{type: :string, nullable: true, description: "Plane project UUID"}
-      },
-      required: ["readme_content", "project", "prd_branch"]
-    }, required: true},
+    request_body:
+      {"Design handoff payload", "application/json",
+       %Schema{
+         type: :object,
+         properties: %{
+           readme_content: %Schema{
+             type: :string,
+             description: "Raw README.md string from design handoff package"
+           },
+           project: %Schema{type: :string, description: "Project name"},
+           prd_branch: %Schema{
+             type: :string,
+             description: "Feature branch (e.g. ralph/design-system-v2)"
+           },
+           plane_project_id: %Schema{
+             type: :string,
+             nullable: true,
+             description: "Plane project UUID"
+           }
+         },
+         required: ["readme_content", "project", "prd_branch"]
+       }, required: true},
     responses: [
       created: {"Session created", "application/json", Schemas.OkResponse},
       unprocessable_entity: {"Validation error", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
   # Catch-all for any action not explicitly annotated above.
   def open_api_operation(_action), do: nil
@@ -82,11 +103,16 @@ defmodule ApmWeb.UpmApiController do
   def upm_register(conn, params) do
     {:ok, session_id} = UpmStore.register_session(params)
 
-    Phoenix.PubSub.broadcast(@pubsub, @topic, {:upm_session_registered, %{
-      session_id: session_id,
-      project: params["project"],
-      formation_id: params["formation_id"]
-    }})
+    Phoenix.PubSub.broadcast(
+      @pubsub,
+      @topic,
+      {:upm_session_registered,
+       %{
+         session_id: session_id,
+         project: params["project"],
+         formation_id: params["formation_id"]
+       }}
+    )
 
     conn
     |> put_status(201)
@@ -98,11 +124,16 @@ defmodule ApmWeb.UpmApiController do
   def upm_agent(conn, params) do
     case UpmStore.register_agent(params) do
       :ok ->
-        Phoenix.PubSub.broadcast(@pubsub, @topic, {:upm_agent_registered, %{
-          agent_id: params["agent_id"],
-          upm_session_id: params["upm_session_id"],
-          work_item_id: params["work_item_id"]
-        }})
+        Phoenix.PubSub.broadcast(
+          @pubsub,
+          @topic,
+          {:upm_agent_registered,
+           %{
+             agent_id: params["agent_id"],
+             upm_session_id: params["upm_session_id"],
+             work_item_id: params["work_item_id"]
+           }}
+        )
 
         json(conn, %{ok: true})
 
@@ -118,11 +149,16 @@ defmodule ApmWeb.UpmApiController do
   def upm_event(conn, params) do
     :ok = UpmStore.record_event(params)
 
-    Phoenix.PubSub.broadcast(@pubsub, @topic, {:upm_event_recorded, %{
-      event_type: params["event_type"],
-      upm_session_id: params["upm_session_id"],
-      agent_id: params["agent_id"]
-    }})
+    Phoenix.PubSub.broadcast(
+      @pubsub,
+      @topic,
+      {:upm_event_recorded,
+       %{
+         event_type: params["event_type"],
+         upm_session_id: params["upm_session_id"],
+         agent_id: params["agent_id"]
+       }}
+    )
 
     json(conn, %{ok: true})
   end
@@ -151,11 +187,16 @@ defmodule ApmWeb.UpmApiController do
   def from_design_handoff(conn, params) do
     case UpmStore.create_session_from_design_handoff(params) do
       {:ok, session_id} ->
-        Phoenix.PubSub.broadcast(@pubsub, @topic, {:upm_session_registered, %{
-          session_id: session_id,
-          input_type: "design_handoff",
-          project: params["project"]
-        }})
+        Phoenix.PubSub.broadcast(
+          @pubsub,
+          @topic,
+          {:upm_session_registered,
+           %{
+             session_id: session_id,
+             input_type: "design_handoff",
+             project: params["project"]
+           }}
+        )
 
         conn
         |> put_status(201)

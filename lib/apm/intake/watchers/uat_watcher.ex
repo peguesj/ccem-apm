@@ -23,7 +23,11 @@ defmodule Apm.Intake.Watchers.UatWatcher do
   @impl true
   def handle(%{event_type: "context_fetch"} = event, _config) do
     payload = event.payload
-    Logger.info("[UatWatcher] Context fetch: #{payload["total"]} total, #{payload["unsynced"]} unsynced, #{payload["critical_open"]} critical open")
+
+    Logger.info(
+      "[UatWatcher] Context fetch: #{payload["total"]} total, #{payload["unsynced"]} unsynced, #{payload["critical_open"]} critical open"
+    )
+
     {:ok, %{processed: :context_fetch, stats: payload}}
   end
 

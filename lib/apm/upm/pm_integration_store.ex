@@ -86,9 +86,11 @@ defmodule Apm.UPM.PMIntegrationStore do
   def init(_opts) do
     :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
     state = load_persisted_state()
+
     Enum.each(state, fn record ->
       :ets.insert(@table, {record.id, record})
     end)
+
     Logger.info("[UPM.PMIntegrationStore] Initialized with #{length(state)} integrations")
     {:ok, %{count: length(state)}}
   end
@@ -200,6 +202,7 @@ defmodule Apm.UPM.PMIntegrationStore do
   end
 
   defp parse_platform(p) when p in @platforms, do: p
+
   defp parse_platform(p) when is_binary(p) do
     case p do
       "plane" -> :plane
@@ -210,6 +213,7 @@ defmodule Apm.UPM.PMIntegrationStore do
       _ -> nil
     end
   end
+
   defp parse_platform(_), do: nil
 
   defp adapter_for(:plane), do: Apm.UPM.Adapters.PlaneAdapter
@@ -229,6 +233,7 @@ defmodule Apm.UPM.PMIntegrationStore do
           {:ok, record} ->
             last_sync = parse_dt(map[:last_sync_at])
             [%{record | last_sync_at: last_sync}]
+
           _ ->
             []
         end
@@ -247,8 +252,11 @@ defmodule Apm.UPM.PMIntegrationStore do
       |> Enum.map(fn {_id, record} -> record_to_map(record) end)
 
     case Jason.encode(records, pretty: true) do
-      {:ok, json} -> File.write!(path, json)
-      {:error, reason} -> Logger.error("[UPM.PMIntegrationStore] Persist failed: #{inspect(reason)}")
+      {:ok, json} ->
+        File.write!(path, json)
+
+      {:error, reason} ->
+        Logger.error("[UPM.PMIntegrationStore] Persist failed: #{inspect(reason)}")
     end
   end
 
@@ -265,7 +273,10 @@ defmodule Apm.UPM.PMIntegrationStore do
   defp generate_id(attrs) do
     project_id = get_attr(attrs, :project_id) || get_attr(attrs, "project_id") || ""
     platform = get_attr(attrs, :platform) || get_attr(attrs, "platform") || ""
-    :crypto.hash(:sha256, "#{project_id}:#{platform}") |> Base.encode16(case: :lower) |> binary_part(0, 16)
+
+    :crypto.hash(:sha256, "#{project_id}:#{platform}")
+    |> Base.encode16(case: :lower)
+    |> binary_part(0, 16)
   end
 
   defp get_attr(map, key) do
@@ -287,11 +298,13 @@ defmodule Apm.UPM.PMIntegrationStore do
   end
 
   defp parse_dt(nil), do: nil
+
   defp parse_dt(str) when is_binary(str) do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> dt
       _ -> nil
     end
   end
+
   defp parse_dt(_), do: nil
 end

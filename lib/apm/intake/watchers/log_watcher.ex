@@ -24,6 +24,7 @@ defmodule Apm.Intake.Watchers.LogWatcher do
       environment: event.environment,
       severity: event.severity
     )
+
     {:ok, %{logged: true}}
   end
 end

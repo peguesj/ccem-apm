@@ -69,7 +69,10 @@ defmodule Apm.Tunnel.Client do
         {:noreply, %{state | conn: conn, stream_ref: stream_ref}}
 
       {:error, reason} ->
-        Logger.warning("[Tunnel.Client] Connection failed: #{inspect(reason)} — retry in #{@reconnect_ms}ms")
+        Logger.warning(
+          "[Tunnel.Client] Connection failed: #{inspect(reason)} — retry in #{@reconnect_ms}ms"
+        )
+
         Process.send_after(self(), {:connect, url}, @reconnect_ms)
         {:noreply, %{state | conn: nil, stream_ref: nil, connected: false}}
     end
@@ -127,7 +130,10 @@ defmodule Apm.Tunnel.Client do
     {:noreply, state}
   end
 
-  def handle_info(:refresh_project_manifest, %{connected: true, conn: conn, stream_ref: sr} = state)
+  def handle_info(
+        :refresh_project_manifest,
+        %{connected: true, conn: conn, stream_ref: sr} = state
+      )
       when conn != nil do
     Task.start(fn -> send_project_manifest(conn, sr) end)
     Process.send_after(self(), :refresh_project_manifest, 60_000)
@@ -150,8 +156,7 @@ defmodule Apm.Tunnel.Client do
     Task.start(fn ->
       :httpc.request(
         :post,
-        {~c"http://localhost:3032/api/notify",
-         [{~c"content-type", ~c"application/json"}],
+        {~c"http://localhost:3032/api/notify", [{~c"content-type", ~c"application/json"}],
          ~c"application/json",
          Jason.encode!(%{
            title: "Tunnel Active",
@@ -213,10 +218,12 @@ defmodule Apm.Tunnel.Client do
 
     full_path = if query in [nil, ""], do: path, else: "#{path}?#{query}"
     url = String.to_charlist("http://localhost:#{port}#{full_path}")
-    httpc_headers = Enum.map(headers, fn
-      [k, v] -> {String.to_charlist(to_string(k)), String.to_charlist(to_string(v))}
-      {k, v} -> {String.to_charlist(to_string(k)), String.to_charlist(to_string(v))}
-    end)
+
+    httpc_headers =
+      Enum.map(headers, fn
+        [k, v] -> {String.to_charlist(to_string(k)), String.to_charlist(to_string(v))}
+        {k, v} -> {String.to_charlist(to_string(k)), String.to_charlist(to_string(v))}
+      end)
 
     result =
       case method do
@@ -228,8 +235,13 @@ defmodule Apm.Tunnel.Client do
 
         m when m in [:post, :put, :patch] ->
           ct = find_content_type(headers)
-          :httpc.request(m, {url, httpc_headers, String.to_charlist(ct), body},
-            [{:timeout, @http_timeout_ms}], [])
+
+          :httpc.request(
+            m,
+            {url, httpc_headers, String.to_charlist(ct), body},
+            [{:timeout, @http_timeout_ms}],
+            []
+          )
 
         _ ->
           {:error, :unsupported_method}
@@ -247,6 +259,7 @@ defmodule Apm.Tunnel.Client do
 
         {:error, reason} ->
           Logger.warning("[Tunnel.Client] Proxy error for #{request_id}: #{inspect(reason)}")
+
           %{
             "request_id" => request_id,
             "status" => 502,
@@ -268,13 +281,21 @@ defmodule Apm.Tunnel.Client do
     transport = if uri.scheme in ["wss", "https"], do: :tls, else: :tcp
     # Phoenix WebSocket transport is at <socket_path>/websocket
     base_path = uri.path || "/ws"
-    ws_path = if String.ends_with?(base_path, "/websocket"), do: base_path, else: base_path <> "/websocket"
+
+    ws_path =
+      if String.ends_with?(base_path, "/websocket"),
+        do: base_path,
+        else: base_path <> "/websocket"
+
     path = String.to_charlist(ws_path <> "?vsn=2.0.0")
 
     tls_opts =
       if transport == :tls do
-        [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()},
-         {:server_name_indication, host}]
+        [
+          {:verify, :verify_peer},
+          {:cacerts, :public_key.cacerts_get()},
+          {:server_name_indication, host}
+        ]
       else
         []
       end
@@ -311,9 +332,11 @@ defmodule Apm.Tunnel.Client do
         :exit, _ -> :ok
       end
     end
+
     if state.relay_url do
       Process.send_after(self(), {:connect, state.relay_url}, @reconnect_ms)
     end
+
     {:noreply, %{state | conn: nil, stream_ref: nil, connected: false}}
   end
 
@@ -388,6 +411,7 @@ defmodule Apm.Tunnel.Client do
             ports
             |> Enum.flat_map(fn {port_str, info} ->
               project = Map.get(info, "project")
+
               with true <- is_binary(project) and project != "",
                    {port_int, ""} <- Integer.parse(port_str) do
                 [{project, port_int}]
@@ -400,10 +424,12 @@ defmodule Apm.Tunnel.Client do
             |> Map.new()
             |> Map.put("apm", 3032)
 
-          _ -> fallback_port_manifest()
+          _ ->
+            fallback_port_manifest()
         end
 
-      _ -> fallback_port_manifest()
+      _ ->
+        fallback_port_manifest()
     end
   end
 

@@ -28,12 +28,13 @@ defmodule ApmWeb.V2.IntegrationController do
   @topic "apm:integrations"
 
   @doc "GET /api/v2/integrations — list all registered integrations"
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["Integrations"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, _params) do
     integrations = IntegrationRegistry.list_integrations()
@@ -45,12 +46,13 @@ defmodule ApmWeb.V2.IntegrationController do
   end
 
   @doc "GET /api/v2/integrations/:name — get a single integration by name"
-  operation :show,
+  operation(:show,
     summary: "Get one",
     tags: ["Integrations"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def show(conn, %{"name" => name}) do
     case IntegrationRegistry.get_integration(name) do
@@ -65,12 +67,13 @@ defmodule ApmWeb.V2.IntegrationController do
   end
 
   @doc "POST /api/v2/integrations/:name/action — invoke an integration event/action"
-  operation :invoke_action,
+  operation(:invoke_action,
     summary: "Invoke action",
     tags: ["Integrations"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def invoke_action(conn, %{"name" => name} = params) do
     event_type = params["action"] || params["event_type"] || ""
@@ -83,11 +86,16 @@ defmodule ApmWeb.V2.IntegrationController do
     else
       case IntegrationRegistry.call_integration_event(name, event_type, payload) do
         {:ok, result} ->
-          Phoenix.PubSub.broadcast(@pubsub, @topic, {:integration_action_invoked, %{
-            integration: name,
-            event: event_type,
-            result: result
-          }})
+          Phoenix.PubSub.broadcast(
+            @pubsub,
+            @topic,
+            {:integration_action_invoked,
+             %{
+               integration: name,
+               event: event_type,
+               result: result
+             }}
+          )
 
           json(conn, %{data: result, integration: name, event: event_type})
 
@@ -115,12 +123,13 @@ defmodule ApmWeb.V2.IntegrationController do
   end
 
   @doc "GET /api/v2/integrations/:name/status — get live connectivity status for an integration"
-  operation :status,
+  operation(:status,
     summary: "Status",
     tags: ["Integrations"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def status(conn, %{"name" => name}) do
     case :ets.lookup(:integration_registry, name) do
@@ -149,31 +158,38 @@ defmodule ApmWeb.V2.IntegrationController do
   end
 
   @doc "POST /api/v2/integrations/reload — re-register all default integrations"
-  operation :reload,
+  operation(:reload,
     summary: "Reload",
     tags: ["Integrations"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def reload(conn, _params) do
     results = IntegrationRegistry.reload_defaults() |> Enum.map(&inspect/1)
     integrations = IntegrationRegistry.list_integrations()
 
-    Phoenix.PubSub.broadcast(@pubsub, @topic, {:integrations_reloaded, %{
-      count: length(integrations)
-    }})
+    Phoenix.PubSub.broadcast(
+      @pubsub,
+      @topic,
+      {:integrations_reloaded,
+       %{
+         count: length(integrations)
+       }}
+    )
 
     json(conn, %{reloaded: results, integrations: integrations, count: length(integrations)})
   end
 
   @doc "GET /api/v2/integrations/:name/config — get resolved config"
-  operation :get_config,
+  operation(:get_config,
     summary: "Get config",
     tags: ["Integrations"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def get_config(conn, %{"name" => name}) do
     case IntegrationRegistry.get_integration(name) do
@@ -188,12 +204,13 @@ defmodule ApmWeb.V2.IntegrationController do
   end
 
   @doc "PATCH /api/v2/integrations/:name/config — update integration config"
-  operation :update_config,
+  operation(:update_config,
     summary: "Update config",
     tags: ["Integrations"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def update_config(conn, %{"name" => name} = params) do
     config = Map.get(params, "config", %{})
@@ -207,7 +224,11 @@ defmodule ApmWeb.V2.IntegrationController do
           {:error, reasons} ->
             conn
             |> put_status(:unprocessable_entity)
-            |> json(%{error: "Validation failed", reasons: format_errors(reasons), integration: name})
+            |> json(%{
+              error: "Validation failed",
+              reasons: format_errors(reasons),
+              integration: name
+            })
         end
 
       {:error, :not_found} ->
@@ -216,12 +237,13 @@ defmodule ApmWeb.V2.IntegrationController do
   end
 
   @doc "DELETE /api/v2/integrations/:name/config — reset integration config to defaults"
-  operation :reset_config,
+  operation(:reset_config,
     summary: "Reset config",
     tags: ["Integrations"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def reset_config(conn, %{"name" => name}) do
     case IntegrationRegistry.get_integration(name) do

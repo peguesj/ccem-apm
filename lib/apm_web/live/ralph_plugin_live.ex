@@ -35,7 +35,9 @@ defmodule ApmWeb.RalphPluginLive do
       |> load_prd_data()
       |> load_history_tasks()
 
-    {:ok, socket |> assign(:sidebar_collapsed, false)
+    {:ok,
+     socket
+     |> assign(:sidebar_collapsed, false)
      |> assign(:inspector_open, false)
      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -76,225 +78,264 @@ defmodule ApmWeb.RalphPluginLive do
         <.sidebar_nav current_path={@current_path} skill_count={@active_skill_count} />
       </:sidebar>
       <:main>
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-primary/10">
-              <.icon name="hero-document-text" class="size-4 text-primary" />
-            </span>
-            <h2 class="text-sm font-semibold text-base-content">Ralph Plugin</h2>
-            <div class="badge badge-sm badge-ghost">v1.0.0</div>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              :if={@active_tab == "prd"}
-              class="btn btn-ghost btn-xs"
-              phx-click="reload_prd"
-            >
-              Reload
-            </button>
-          </div>
-        </header>
-
-        <%!-- Tab bar --%>
-        <div class="bg-base-200 border-b border-base-300 px-4 flex gap-1 flex-shrink-0">
-          <.tab_btn tab="prd" active_tab={@active_tab} label="PRD" />
-          <.tab_btn tab="formation" active_tab={@active_tab} label="Formation" />
-          <.tab_btn tab="history" active_tab={@active_tab} label="History" />
-        </div>
-
-        <%!-- Content --%>
-        <div class="flex-1 overflow-y-auto p-6">
-          <%!-- PRD Tab --%>
-          <div :if={@active_tab == "prd"}>
-            <div :if={@prd_error} class="alert alert-warning mb-4">
-              <.icon name="hero-exclamation-triangle" class="size-4" />
-              <span>No prd.json found — checked: {@prd_paths_checked}</span>
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <%!-- Header --%>
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-primary/10">
+                <.icon name="hero-document-text" class="size-4 text-primary" />
+              </span>
+              <h2 class="text-sm font-semibold text-base-content">Ralph Plugin</h2>
+              <div class="badge badge-sm badge-ghost">v1.0.0</div>
             </div>
+            <div class="flex items-center gap-2">
+              <button
+                :if={@active_tab == "prd"}
+                class="btn btn-ghost btn-xs"
+                phx-click="reload_prd"
+              >
+                Reload
+              </button>
+            </div>
+          </header>
 
-            <div :if={not @prd_error}>
-              <div class="mb-4 flex items-center gap-3">
-                <div class="text-sm text-base-content/60">
-                  <span class="font-medium text-base-content">{@prd_data.project}</span>
-                  <span :if={@prd_data.branch != ""} class="ml-2 badge badge-sm badge-ghost font-mono">
-                    {@prd_data.branch}
-                  </span>
-                </div>
-                <div class="ml-auto flex gap-2">
-                  <div class="badge badge-success badge-sm">{@prd_data.passed} passed</div>
-                  <div class="badge badge-ghost badge-sm">{@prd_data.total} total</div>
-                </div>
+          <%!-- Tab bar --%>
+          <div class="bg-base-200 border-b border-base-300 px-4 flex gap-1 flex-shrink-0">
+            <.tab_btn tab="prd" active_tab={@active_tab} label="PRD" />
+            <.tab_btn tab="formation" active_tab={@active_tab} label="Formation" />
+            <.tab_btn tab="history" active_tab={@active_tab} label="History" />
+          </div>
+
+          <%!-- Content --%>
+          <div class="flex-1 overflow-y-auto p-6">
+            <%!-- PRD Tab --%>
+            <div :if={@active_tab == "prd"}>
+              <div :if={@prd_error} class="alert alert-warning mb-4">
+                <.icon name="hero-exclamation-triangle" class="size-4" />
+                <span>No prd.json found — checked: {@prd_paths_checked}</span>
               </div>
 
-              <div :if={@prd_data.description != ""} class="text-xs text-base-content/50 mb-4">
-                {@prd_data.description}
-              </div>
-
-              <%!-- Progress bar --%>
-              <div :if={@prd_data.total > 0} class="mb-6">
-                <div class="flex justify-between text-xs text-base-content/50 mb-1">
-                  <span>Progress</span>
-                  <span>{progress_pct(@prd_data)}%</span>
-                </div>
-                <div class="w-full bg-base-300 rounded-full h-2">
-                  <div
-                    class="bg-success h-2 rounded-full transition-all"
-                    style={"width: #{progress_pct(@prd_data)}%"}
-                  />
-                </div>
-              </div>
-
-              <%!-- Story list --%>
-              <div class="space-y-2">
-                <div
-                  :for={story <- @prd_data.stories}
-                  class="bg-base-200 rounded-lg p-3 flex items-start gap-3"
-                >
-                  <div class="flex-shrink-0 mt-0.5">
-                    <span :if={story["passes"] == true} class="inline-block w-4 h-4 rounded-full bg-success/20 flex items-center justify-center">
-                      <.icon name="hero-check" class="size-3 text-success" />
-                    </span>
-                    <span :if={story["passes"] != true} class="inline-block w-4 h-4 rounded-full bg-error/20 flex items-center justify-center">
-                      <.icon name="hero-x-mark" class="size-3 text-error" />
+              <div :if={not @prd_error}>
+                <div class="mb-4 flex items-center gap-3">
+                  <div class="text-sm text-base-content/60">
+                    <span class="font-medium text-base-content">{@prd_data.project}</span>
+                    <span
+                      :if={@prd_data.branch != ""}
+                      class="ml-2 badge badge-sm badge-ghost font-mono"
+                    >
+                      {@prd_data.branch}
                     </span>
                   </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <span class="text-xs font-mono text-base-content/40">
-                        {story["id"] || "—"}
-                      </span>
-                      <span class="text-sm font-medium text-base-content truncate">
-                        {story["title"] || "(untitled)"}
-                      </span>
+                  <div class="ml-auto flex gap-2">
+                    <div class="badge badge-success badge-sm">{@prd_data.passed} passed</div>
+                    <div class="badge badge-ghost badge-sm">{@prd_data.total} total</div>
+                  </div>
+                </div>
+
+                <div :if={@prd_data.description != ""} class="text-xs text-base-content/50 mb-4">
+                  {@prd_data.description}
+                </div>
+
+                <%!-- Progress bar --%>
+                <div :if={@prd_data.total > 0} class="mb-6">
+                  <div class="flex justify-between text-xs text-base-content/50 mb-1">
+                    <span>Progress</span>
+                    <span>{progress_pct(@prd_data)}%</span>
+                  </div>
+                  <div class="w-full bg-base-300 rounded-full h-2">
+                    <div
+                      class="bg-success h-2 rounded-full transition-all"
+                      style={"width: #{progress_pct(@prd_data)}%"}
+                    />
+                  </div>
+                </div>
+
+                <%!-- Story list --%>
+                <div class="space-y-2">
+                  <div
+                    :for={story <- @prd_data.stories}
+                    class="bg-base-200 rounded-lg p-3 flex items-start gap-3"
+                  >
+                    <div class="flex-shrink-0 mt-0.5">
                       <span
                         :if={story["passes"] == true}
-                        class="badge badge-success badge-xs ml-auto"
+                        class="inline-block w-4 h-4 rounded-full bg-success/20 flex items-center justify-center"
                       >
-                        passed
+                        <.icon name="hero-check" class="size-3 text-success" />
                       </span>
                       <span
                         :if={story["passes"] != true}
-                        class="badge badge-error badge-xs ml-auto"
+                        class="inline-block w-4 h-4 rounded-full bg-error/20 flex items-center justify-center"
                       >
-                        pending
+                        <.icon name="hero-x-mark" class="size-3 text-error" />
                       </span>
                     </div>
-                    <div :if={story["description"]} class="text-xs text-base-content/50 mt-0.5 line-clamp-2">
-                      {story["description"]}
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs font-mono text-base-content/40">
+                          {story["id"] || "—"}
+                        </span>
+                        <span class="text-sm font-medium text-base-content truncate">
+                          {story["title"] || "(untitled)"}
+                        </span>
+                        <span
+                          :if={story["passes"] == true}
+                          class="badge badge-success badge-xs ml-auto"
+                        >
+                          passed
+                        </span>
+                        <span
+                          :if={story["passes"] != true}
+                          class="badge badge-error badge-xs ml-auto"
+                        >
+                          pending
+                        </span>
+                      </div>
+                      <div
+                        :if={story["description"]}
+                        class="text-xs text-base-content/50 mt-0.5 line-clamp-2"
+                      >
+                        {story["description"]}
+                      </div>
                     </div>
                   </div>
+
+                  <div
+                    :if={@prd_data.stories == []}
+                    class="text-center text-base-content/30 py-12 text-sm"
+                  >
+                    No user stories found in prd.json
+                  </div>
                 </div>
 
-                <div :if={@prd_data.stories == []} class="text-center text-base-content/30 py-12 text-sm">
-                  No user stories found in prd.json
+                <div class="mt-4 text-xs text-base-content/30">
+                  Source: {@prd_source_path}
                 </div>
               </div>
+            </div>
 
-              <div class="mt-4 text-xs text-base-content/30">
-                Source: {@prd_source_path}
+            <%!-- Formation Tab --%>
+            <div :if={@active_tab == "formation"}>
+              <div class="mb-4 text-sm text-base-content/60">
+                View active formations associated with Ralph loops.
               </div>
-            </div>
-          </div>
-
-          <%!-- Formation Tab --%>
-          <div :if={@active_tab == "formation"}>
-            <div class="mb-4 text-sm text-base-content/60">
-              View active formations associated with Ralph loops.
-            </div>
-            <div class="space-y-3">
-              <a
-                href="/formation"
-                class="flex items-center gap-3 bg-base-200 rounded-lg p-4 hover:bg-base-300 transition-colors group"
-              >
-                <.icon name="hero-rectangle-group" class="size-5 text-primary" />
-                <div class="flex-1">
-                  <div class="text-sm font-medium group-hover:text-primary transition-colors">All Formations</div>
-                  <div class="text-xs text-base-content/50">View all active and completed formations</div>
-                </div>
-                <.icon name="hero-arrow-right" class="size-4 text-base-content/30 group-hover:text-primary transition-colors" />
-              </a>
-              <a
-                href="/formation?filter=ralph"
-                class="flex items-center gap-3 bg-base-200 rounded-lg p-4 hover:bg-base-300 transition-colors group"
-              >
-                <.icon name="hero-document-text" class="size-5 text-secondary" />
-                <div class="flex-1">
-                  <div class="text-sm font-medium group-hover:text-secondary transition-colors">Ralph Formations</div>
-                  <div class="text-xs text-base-content/50">Filter formations with "ralph" in their ID or task subject</div>
-                </div>
-                <.icon name="hero-arrow-right" class="size-4 text-base-content/30 group-hover:text-secondary transition-colors" />
-              </a>
-              <a
-                href="/ralph"
-                class="flex items-center gap-3 bg-base-200 rounded-lg p-4 hover:bg-base-300 transition-colors group"
-              >
-                <.icon name="hero-share" class="size-5 text-accent" />
-                <div class="flex-1">
-                  <div class="text-sm font-medium group-hover:text-accent transition-colors">Ralph Flowchart</div>
-                  <div class="text-xs text-base-content/50">View the D3.js Ralph methodology flowchart</div>
-                </div>
-                <.icon name="hero-arrow-right" class="size-4 text-base-content/30 group-hover:text-accent transition-colors" />
-              </a>
-            </div>
-          </div>
-
-          <%!-- History Tab --%>
-          <div :if={@active_tab == "history"}>
-            <div class="mb-4 text-sm text-base-content/60">
-              Recent background tasks related to Ralph loops.
-            </div>
-
-            <div :if={@history_tasks == []} class="text-center text-base-content/30 py-12 text-sm">
-              No ralph-related background tasks found.
-            </div>
-
-            <div class="space-y-2">
-              <div
-                :for={task <- @history_tasks}
-                class="bg-base-200 rounded-lg p-3 flex items-start gap-3"
-              >
-                <div class="flex-shrink-0 mt-0.5">
-                  <span class={[
-                    "badge badge-xs",
-                    task_status_class(task[:status] || task["status"])
-                  ]}>
-                    {task[:status] || task["status"] || "unknown"}
-                  </span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-sm font-medium text-base-content truncate">
-                    {task[:agent_name] || task["agent_name"] || task[:name] || task["name"] || "ralph task"}
-                  </div>
-                  <div class="text-xs text-base-content/50 mt-0.5">
-                    {task[:project] || task["project"] || ""}
-                    <span :if={task[:runtime_ms] || task["runtime_ms"]} class="ml-2">
-                      {format_runtime(task[:runtime_ms] || task["runtime_ms"])}
-                    </span>
-                  </div>
-                  <div :if={task[:agent_definition] || task["agent_definition"]} class="text-xs text-base-content/30 mt-0.5 line-clamp-1 font-mono">
-                    {task[:agent_definition] || task["agent_definition"]}
-                  </div>
-                </div>
+              <div class="space-y-3">
                 <a
-                  href="/tasks"
-                  class="btn btn-ghost btn-xs flex-shrink-0"
-                  title="View in Tasks"
+                  href="/formation"
+                  class="flex items-center gap-3 bg-base-200 rounded-lg p-4 hover:bg-base-300 transition-colors group"
                 >
-                  <.icon name="hero-arrow-top-right-on-square" class="size-3" />
+                  <.icon name="hero-rectangle-group" class="size-5 text-primary" />
+                  <div class="flex-1">
+                    <div class="text-sm font-medium group-hover:text-primary transition-colors">
+                      All Formations
+                    </div>
+                    <div class="text-xs text-base-content/50">
+                      View all active and completed formations
+                    </div>
+                  </div>
+                  <.icon
+                    name="hero-arrow-right"
+                    class="size-4 text-base-content/30 group-hover:text-primary transition-colors"
+                  />
+                </a>
+                <a
+                  href="/formation?filter=ralph"
+                  class="flex items-center gap-3 bg-base-200 rounded-lg p-4 hover:bg-base-300 transition-colors group"
+                >
+                  <.icon name="hero-document-text" class="size-5 text-secondary" />
+                  <div class="flex-1">
+                    <div class="text-sm font-medium group-hover:text-secondary transition-colors">
+                      Ralph Formations
+                    </div>
+                    <div class="text-xs text-base-content/50">
+                      Filter formations with "ralph" in their ID or task subject
+                    </div>
+                  </div>
+                  <.icon
+                    name="hero-arrow-right"
+                    class="size-4 text-base-content/30 group-hover:text-secondary transition-colors"
+                  />
+                </a>
+                <a
+                  href="/ralph"
+                  class="flex items-center gap-3 bg-base-200 rounded-lg p-4 hover:bg-base-300 transition-colors group"
+                >
+                  <.icon name="hero-share" class="size-5 text-accent" />
+                  <div class="flex-1">
+                    <div class="text-sm font-medium group-hover:text-accent transition-colors">
+                      Ralph Flowchart
+                    </div>
+                    <div class="text-xs text-base-content/50">
+                      View the D3.js Ralph methodology flowchart
+                    </div>
+                  </div>
+                  <.icon
+                    name="hero-arrow-right"
+                    class="size-4 text-base-content/30 group-hover:text-accent transition-colors"
+                  />
                 </a>
               </div>
             </div>
 
-            <div class="mt-4">
-              <a href="/tasks" class="btn btn-ghost btn-sm w-full">
-                View All Background Tasks
-              </a>
+            <%!-- History Tab --%>
+            <div :if={@active_tab == "history"}>
+              <div class="mb-4 text-sm text-base-content/60">
+                Recent background tasks related to Ralph loops.
+              </div>
+
+              <div :if={@history_tasks == []} class="text-center text-base-content/30 py-12 text-sm">
+                No ralph-related background tasks found.
+              </div>
+
+              <div class="space-y-2">
+                <div
+                  :for={task <- @history_tasks}
+                  class="bg-base-200 rounded-lg p-3 flex items-start gap-3"
+                >
+                  <div class="flex-shrink-0 mt-0.5">
+                    <span class={[
+                      "badge badge-xs",
+                      task_status_class(task[:status] || task["status"])
+                    ]}>
+                      {task[:status] || task["status"] || "unknown"}
+                    </span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium text-base-content truncate">
+                      {task[:agent_name] || task["agent_name"] || task[:name] || task["name"] ||
+                        "ralph task"}
+                    </div>
+                    <div class="text-xs text-base-content/50 mt-0.5">
+                      {task[:project] || task["project"] || ""}
+                      <span :if={task[:runtime_ms] || task["runtime_ms"]} class="ml-2">
+                        {format_runtime(task[:runtime_ms] || task["runtime_ms"])}
+                      </span>
+                    </div>
+                    <div
+                      :if={task[:agent_definition] || task["agent_definition"]}
+                      class="text-xs text-base-content/30 mt-0.5 line-clamp-1 font-mono"
+                    >
+                      {task[:agent_definition] || task["agent_definition"]}
+                    </div>
+                  </div>
+                  <a
+                    href="/tasks"
+                    class="btn btn-ghost btn-xs flex-shrink-0"
+                    title="View in Tasks"
+                  >
+                    <.icon name="hero-arrow-top-right-on-square" class="size-3" />
+                  </a>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <a href="/tasks" class="btn btn-ghost btn-sm w-full">
+                  View All Background Tasks
+                </a>
+              </div>
             </div>
           </div>
         </div>
-      </div>
       </:main>
     </.page_layout>
     """
@@ -337,6 +378,7 @@ defmodule ApmWeb.RalphPluginLive do
 
       :error ->
         config_path = config_prd_path()
+
         {final_error, final_data, final_path} =
           if config_path do
             case Ralph.load(config_path) do
@@ -376,9 +418,12 @@ defmodule ApmWeb.RalphPluginLive do
       try do
         BackgroundTasksStore.list_tasks(%{})
         |> Enum.filter(&ralph_task?/1)
-        |> Enum.sort_by(fn t ->
-          t[:started_at] || t["started_at"] || ""
-        end, :desc)
+        |> Enum.sort_by(
+          fn t ->
+            t[:started_at] || t["started_at"] || ""
+          end,
+          :desc
+        )
         |> Enum.take(20)
       rescue
         _ -> []
@@ -392,10 +437,14 @@ defmodule ApmWeb.RalphPluginLive do
   @spec ralph_task?(map()) :: boolean()
   defp ralph_task?(task) do
     fields = [
-      task[:agent_name], task["agent_name"],
-      task[:agent_definition], task["agent_definition"],
-      task[:name], task["name"],
-      task[:project], task["project"]
+      task[:agent_name],
+      task["agent_name"],
+      task[:agent_definition],
+      task["agent_definition"],
+      task[:name],
+      task["name"],
+      task[:project],
+      task["project"]
     ]
 
     Enum.any?(fields, fn v ->

@@ -204,7 +204,9 @@ defmodule Apm.Plugins.PluginConfigStore do
   defp try_module_validation(:plugin, name, config) do
     case Apm.Plugins.PluginRegistry.get_plugin_with_module(name) do
       {:ok, {mod, _meta}} ->
-        if function_exported?(mod, :validate_config, 1), do: mod.validate_config(config), else: :no_validator
+        if function_exported?(mod, :validate_config, 1),
+          do: mod.validate_config(config),
+          else: :no_validator
 
       _ ->
         :no_validator
@@ -214,7 +216,9 @@ defmodule Apm.Plugins.PluginConfigStore do
   defp try_module_validation(:integration, name, config) do
     case lookup_integration_module(name) do
       {:ok, mod} ->
-        if function_exported?(mod, :validate_config, 1), do: mod.validate_config(config), else: :no_validator
+        if function_exported?(mod, :validate_config, 1),
+          do: mod.validate_config(config),
+          else: :no_validator
 
       _ ->
         :no_validator
@@ -237,6 +241,7 @@ defmodule Apm.Plugins.PluginConfigStore do
           [{String.to_atom(key_str), "unknown config key"} | acc]
         else
           type_hint = Map.get(schema, key) || Map.get(schema, String.to_atom(key_str))
+
           case validate_value(value, type_hint) do
             :ok -> acc
             {:error, msg} -> [{String.to_atom(key_str), msg} | acc]

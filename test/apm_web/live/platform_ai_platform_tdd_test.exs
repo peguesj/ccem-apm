@@ -218,34 +218,34 @@ defmodule ApmWeb.PlatformAiPlatformTddTest do
 
     test "all Extend LiveViews are loaded" do
       for mod <- [
-        ApmWeb.PluginDashboardLive,
-        ApmWeb.AgUiLive,
-        ApmWeb.NotificationLive,
-        ApmWeb.ComposioLive,
-        ApmWeb.ShowcaseLive,
-        ApmWeb.DocsLive
-      ] do
+            ApmWeb.PluginDashboardLive,
+            ApmWeb.AgUiLive,
+            ApmWeb.NotificationLive,
+            ApmWeb.ComposioLive,
+            ApmWeb.ShowcaseLive,
+            ApmWeb.DocsLive
+          ] do
         assert Code.ensure_loaded?(mod), "Expected #{mod} to be loaded"
       end
     end
 
     test "all Platform LiveViews are loaded" do
       for mod <- [
-        ApmWeb.ArchitectureLive,
-        ApmWeb.DrtwLive,
-        ApmWeb.UatLive
-      ] do
+            ApmWeb.ArchitectureLive,
+            ApmWeb.DrtwLive,
+            ApmWeb.UatLive
+          ] do
         assert Code.ensure_loaded?(mod), "Expected #{mod} to be loaded"
       end
     end
 
     test "all AI Platform LiveViews are loaded" do
       for mod <- [
-        ApmWeb.LvmStatusLive,
-        ApmWeb.ClaudeCodeDiscoveryLive,
-        ApmWeb.RalphPluginLive,
-        ApmWeb.AgUiPluginLive
-      ] do
+            ApmWeb.LvmStatusLive,
+            ApmWeb.ClaudeCodeDiscoveryLive,
+            ApmWeb.RalphPluginLive,
+            ApmWeb.AgUiPluginLive
+          ] do
         assert Code.ensure_loaded?(mod), "Expected #{mod} to be loaded"
       end
     end

@@ -35,8 +35,23 @@ defmodule ApmWeb.OrchestrationLive do
       Phoenix.PubSub.subscribe(Apm.PubSub, @pubsub_topic)
     end
 
-    runs = try do OrchestrationManager.list_runs() rescue _ -> [] catch :exit, _ -> [] end
-    workflows = try do WorkflowRegistry.list_workflows() rescue _ -> [] catch :exit, _ -> [] end
+    runs =
+      try do
+        OrchestrationManager.list_runs()
+      rescue
+        _ -> []
+      catch
+        :exit, _ -> []
+      end
+
+    workflows =
+      try do
+        WorkflowRegistry.list_workflows()
+      rescue
+        _ -> []
+      catch
+        :exit, _ -> []
+      end
 
     {:ok,
      assign(socket,
@@ -115,14 +130,13 @@ defmodule ApmWeb.OrchestrationLive do
       <:topbar><.top_bar project_name="CCEM APM" /></:topbar>
       <:main>
         <div style="padding: var(--ccem-space-6); display: flex; flex-direction: column; gap: var(--ccem-space-4);">
-
           <%!-- Page header --%>
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; align-items: center; gap: var(--ccem-space-3);">
               <h1 style="font-size: var(--ccem-text-lg); font-weight: 600; color: var(--ccem-fg-primary);">
                 Orchestration
               </h1>
-              <.badge tone="neutral"><%= length(@runs) %> runs</.badge>
+              <.badge tone="neutral">{length(@runs)} runs</.badge>
             </div>
             <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
               <.ds_input
@@ -185,27 +199,27 @@ defmodule ApmWeb.OrchestrationLive do
             <.data_table id="orchestration-runs" rows={@runs}>
               <:col :let={run} label="ID">
                 <span style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
-                  <%= String.slice(run.id, 0, 12) %>…
+                  {String.slice(run.id, 0, 12)}…
                 </span>
               </:col>
               <:col :let={run} label="Type">
                 <.badge tone={Map.get(@type_badge_tones, run.orchestration_type, "neutral")}>
-                  <%= run.orchestration_type %>
+                  {run.orchestration_type}
                 </.badge>
               </:col>
               <:col :let={run} label="Status">
                 <.badge tone={run_status_tone(run.status)}>
-                  <%= run.status %>
+                  {run.status}
                 </.badge>
               </:col>
               <:col :let={run} label="Steps">
                 <span style="font-size: var(--ccem-text-sm); color: var(--ccem-fg-secondary);">
-                  <%= length(run.steps) %>
+                  {length(run.steps)}
                 </span>
               </:col>
               <:col :let={run} label="Started">
                 <span style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
-                  <%= Calendar.strftime(run.started_at, "%H:%M:%S") %>
+                  {Calendar.strftime(run.started_at, "%H:%M:%S")}
                 </span>
               </:col>
               <:col :let={run} label="">
@@ -215,7 +229,6 @@ defmodule ApmWeb.OrchestrationLive do
               </:col>
             </.data_table>
           </.card>
-
         </div>
       </:main>
       <:inspector>
@@ -232,24 +245,30 @@ defmodule ApmWeb.OrchestrationLive do
 
             <div style="display: flex; flex-direction: column; gap: var(--ccem-space-2);">
               <div style="font-family: var(--ccem-font-mono); font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted); word-break: break-all;">
-                <%= @selected_run.id %>
+                {@selected_run.id}
               </div>
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
-                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Type:</span>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                  Type:
+                </span>
                 <.badge tone={Map.get(@type_badge_tones, @selected_run.orchestration_type, "neutral")}>
-                  <%= @selected_run.orchestration_type %>
+                  {@selected_run.orchestration_type}
                 </.badge>
               </div>
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
-                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Status:</span>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                  Status:
+                </span>
                 <.badge tone={run_status_tone(@selected_run.status)}>
-                  <%= @selected_run.status %>
+                  {@selected_run.status}
                 </.badge>
               </div>
               <div style="display: flex; align-items: center; gap: var(--ccem-space-2);">
-                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">Steps:</span>
+                <span style="font-size: var(--ccem-text-xs); color: var(--ccem-fg-muted);">
+                  Steps:
+                </span>
                 <span style="font-size: var(--ccem-text-sm); color: var(--ccem-fg-secondary);">
-                  <%= length(@selected_run.steps) %>
+                  {length(@selected_run.steps)}
                 </span>
               </div>
             </div>

@@ -22,7 +22,8 @@ defmodule Apm.Orchestration.OrchestrationManager do
 
   alias Apm.Orchestration.OrchestrationRunStore
 
-  @type orchestration_type :: :pipeline | :workflow | :maintenance | :sync | :formation | :autonomous
+  @type orchestration_type ::
+          :pipeline | :workflow | :maintenance | :sync | :formation | :autonomous
 
   @type step :: %{
           required(:id) => String.t(),
@@ -251,11 +252,14 @@ defmodule Apm.Orchestration.OrchestrationManager do
             updated =
               run
               |> Map.put(:current_step, next_step_id)
-              |> Map.put(:metadata, Map.put(run.metadata, :last_approval, %{
+              |> Map.put(
+                :metadata,
+                Map.put(run.metadata, :last_approval, %{
                   step_id: step_id,
                   approver_info: approver_info,
                   approved_at: DateTime.utc_now()
-                }))
+                })
+              )
 
             :ets.insert(@table, {run_id, updated})
             OrchestrationRunStore.put(updated)
@@ -284,12 +288,15 @@ defmodule Apm.Orchestration.OrchestrationManager do
         active_step = run.current_step
 
         if is_nil(active_step) or active_step == step_id do
-          Logger.warning(
-            "[OrchestrationManager] Step timeout: run=#{run_id} step=#{step_id}"
-          )
+          Logger.warning("[OrchestrationManager] Step timeout: run=#{run_id} step=#{step_id}")
 
-          updated = %{run | status: :failed, completed_at: DateTime.utc_now(),
-                      metadata: Map.put(run.metadata, :failure_reason, {:timeout, step_id})}
+          updated = %{
+            run
+            | status: :failed,
+              completed_at: DateTime.utc_now(),
+              metadata: Map.put(run.metadata, :failure_reason, {:timeout, step_id})
+          }
+
           :ets.insert(@table, {run_id, updated})
           OrchestrationRunStore.put(updated)
           broadcast_run_event(:run_failed, updated)

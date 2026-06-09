@@ -14,15 +14,59 @@ defmodule ApmWeb.V2.OpenDesignController do
     ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
   ]
 
-  operation :health, summary: "Open Design health", tags: ["Open Design"], responses: @ok_response
-  operation :agents, summary: "Open Design agents", tags: ["Open Design"], responses: @ok_response
-  operation :skills, summary: "Open Design skills", tags: ["Open Design"], responses: @ok_response
-  operation :skill_detail, summary: "Open Design skill detail", tags: ["Open Design"], responses: @ok_response
-  operation :design_systems, summary: "Open Design design systems", tags: ["Open Design"], responses: @ok_response
-  operation :design_system_detail, summary: "Open Design design system detail", tags: ["Open Design"], responses: @ok_response
-  operation :projects, summary: "Open Design projects", tags: ["Open Design"], responses: @ok_response
-  operation :project_detail, summary: "Open Design project detail", tags: ["Open Design"], responses: @ok_response
-  operation :templates, summary: "Open Design templates", tags: ["Open Design"], responses: @ok_response
+  operation(:health,
+    summary: "Open Design health",
+    tags: ["Open Design"],
+    responses: @ok_response
+  )
+
+  operation(:agents,
+    summary: "Open Design agents",
+    tags: ["Open Design"],
+    responses: @ok_response
+  )
+
+  operation(:skills,
+    summary: "Open Design skills",
+    tags: ["Open Design"],
+    responses: @ok_response
+  )
+
+  operation(:skill_detail,
+    summary: "Open Design skill detail",
+    tags: ["Open Design"],
+    responses: @ok_response
+  )
+
+  operation(:design_systems,
+    summary: "Open Design design systems",
+    tags: ["Open Design"],
+    responses: @ok_response
+  )
+
+  operation(:design_system_detail,
+    summary: "Open Design design system detail",
+    tags: ["Open Design"],
+    responses: @ok_response
+  )
+
+  operation(:projects,
+    summary: "Open Design projects",
+    tags: ["Open Design"],
+    responses: @ok_response
+  )
+
+  operation(:project_detail,
+    summary: "Open Design project detail",
+    tags: ["Open Design"],
+    responses: @ok_response
+  )
+
+  operation(:templates,
+    summary: "Open Design templates",
+    tags: ["Open Design"],
+    responses: @ok_response
+  )
 
   defdelegate health(conn, params), to: ApmWeb.OpenDesignController
   defdelegate agents(conn, params), to: ApmWeb.OpenDesignController

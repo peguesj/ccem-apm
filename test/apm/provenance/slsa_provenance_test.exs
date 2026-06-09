@@ -128,10 +128,12 @@ defmodule Apm.Provenance.SLSAProvenanceTest do
       # signature. Verification MUST fail because PAE will differ.
       decoded = Base.decode64!(envelope["payload"])
       stmt = Jason.decode!(decoded)
+
       tampered_stmt =
         update_in(stmt, ["subject", Access.at(0), "digest", "sha256"], fn _ ->
           String.duplicate("b", 64)
         end)
+
       tampered_payload = Base.encode64(Jason.encode!(tampered_stmt))
       tampered_envelope = %{envelope | "payload" => tampered_payload}
 

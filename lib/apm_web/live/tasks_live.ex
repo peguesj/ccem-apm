@@ -8,7 +8,6 @@ defmodule ApmWeb.TasksLive do
 
   use ApmWeb, :live_view
 
-
   alias Apm.BackgroundTasksStore
 
   @refresh_interval 5_000
@@ -51,12 +50,22 @@ defmodule ApmWeb.TasksLive do
   end
 
   def handle_event("stop_task", %{"id" => id}, socket) do
-    try do BackgroundTasksStore.stop_task(id) catch :exit, _ -> :ok end
+    try do
+      BackgroundTasksStore.stop_task(id)
+    catch
+      :exit, _ -> :ok
+    end
+
     {:noreply, load_tasks(socket)}
   end
 
   def handle_event("delete_task", %{"id" => id}, socket) do
-    try do BackgroundTasksStore.delete_task(id) catch :exit, _ -> :ok end
+    try do
+      BackgroundTasksStore.delete_task(id)
+    catch
+      :exit, _ -> :ok
+    end
+
     {:noreply, load_tasks(socket)}
   end
 
@@ -72,6 +81,7 @@ defmodule ApmWeb.TasksLive do
     filter = socket.assigns[:filter] || "all"
 
     filter_map = if filter == "all", do: %{}, else: %{status: filter}
+
     tasks =
       try do
         BackgroundTasksStore.list_tasks(filter_map)
@@ -86,15 +96,19 @@ defmodule ApmWeb.TasksLive do
 
   defp selected_task(assigns) do
     case assigns[:selected_task_id] do
-      nil -> nil
+      nil ->
+        nil
+
       id ->
         try do
           case BackgroundTasksStore.get_task(id) do
             {:ok, task} -> task
             _ -> nil
           end
-        rescue _ -> nil
-        catch :exit, _ -> nil
+        rescue
+          _ -> nil
+        catch
+          :exit, _ -> nil
         end
     end
   end
@@ -112,6 +126,7 @@ defmodule ApmWeb.TasksLive do
     s = rem(seconds, 60)
     "#{m}m #{s}s"
   end
+
   defp format_runtime(seconds) when is_integer(seconds), do: "#{seconds}s"
   defp format_runtime(_), do: "-"
 
@@ -129,10 +144,16 @@ defmodule ApmWeb.TasksLive do
         <%!-- Page header --%>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Background Tasks</h1>
-            <.badge tone="neutral"><%= to_string(length(@tasks)) %> tasks</.badge>
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+              Background Tasks
+            </h1>
+            <.badge tone="neutral">{to_string(length(@tasks))} tasks</.badge>
           </div>
-          <.segmented_control options={["all", "running", "completed", "failed", "stopped"]} active={@filter} on_change="filter" />
+          <.segmented_control
+            options={["all", "running", "completed", "failed", "stopped"]}
+            active={@filter}
+            on_change="filter"
+          />
         </div>
 
         <%!-- Stat tiles --%>
@@ -154,17 +175,51 @@ defmodule ApmWeb.TasksLive do
         <%!-- Tasks table --%>
         <.card padded={false}>
           <.data_table id="tasks-table" rows={@tasks}>
-            <:col :let={row} label="Name"><%= row[:name] %></:col>
-            <:col :let={row} label="Definition"><span style="font-family: monospace; font-size: 11px; color: var(--ccem-fg-muted);"><%= row[:definition] %></span></:col>
-            <:col :let={row} label="Status"><.badge tone={status_tone(row[:status])}><%= row[:status] %></.badge></:col>
-            <:col :let={row} label="Runtime"><span style="color: var(--ccem-fg-muted);"><%= format_runtime(row[:runtime_seconds]) %></span></:col>
-            <:col :let={row} label="Project"><span style="color: var(--ccem-fg-muted);"><%= row[:project] %></span></:col>
-            <:col :let={row} label="Invoked By"><span style="font-size: 11px; color: var(--ccem-fg-muted);"><%= row[:invoking_process] %></span></:col>
+            <:col :let={row} label="Name">{row[:name]}</:col>
+            <:col :let={row} label="Definition">
+              <span style="font-family: monospace; font-size: 11px; color: var(--ccem-fg-muted);">
+                {row[:definition]}
+              </span>
+            </:col>
+            <:col :let={row} label="Status">
+              <.badge tone={status_tone(row[:status])}>{row[:status]}</.badge>
+            </:col>
+            <:col :let={row} label="Runtime">
+              <span style="color: var(--ccem-fg-muted);">
+                {format_runtime(row[:runtime_seconds])}
+              </span>
+            </:col>
+            <:col :let={row} label="Project">
+              <span style="color: var(--ccem-fg-muted);">{row[:project]}</span>
+            </:col>
+            <:col :let={row} label="Invoked By">
+              <span style="font-size: 11px; color: var(--ccem-fg-muted);">
+                {row[:invoking_process]}
+              </span>
+            </:col>
             <:col :let={row} label="Actions">
               <div style="display: flex; gap: 6px;">
-                <.btn variant="ghost" size="xs" phx-click="view_logs" phx-value-id={row[:id]}>Logs</.btn>
-                <.btn :if={row[:status] == "running"} variant="destructive" size="xs" phx-click="stop_task" phx-value-id={row[:id]}>Stop</.btn>
-                <.btn :if={row[:status] in ["completed", "failed", "stopped"]} variant="ghost" size="xs" phx-click="delete_task" phx-value-id={row[:id]}>Delete</.btn>
+                <.btn variant="ghost" size="xs" phx-click="view_logs" phx-value-id={row[:id]}>
+                  Logs
+                </.btn>
+                <.btn
+                  :if={row[:status] == "running"}
+                  variant="destructive"
+                  size="xs"
+                  phx-click="stop_task"
+                  phx-value-id={row[:id]}
+                >
+                  Stop
+                </.btn>
+                <.btn
+                  :if={row[:status] in ["completed", "failed", "stopped"]}
+                  variant="ghost"
+                  size="xs"
+                  phx-click="delete_task"
+                  phx-value-id={row[:id]}
+                >
+                  Delete
+                </.btn>
               </div>
             </:col>
           </.data_table>
@@ -173,15 +228,26 @@ defmodule ApmWeb.TasksLive do
     </.page_layout>
 
     <%!-- Logs Modal --%>
-    <div :if={@selected_task} style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50;" phx-click="close_logs">
-      <div style="background: var(--ccem-surface-1); border: 1px solid var(--ccem-border); border-radius: 12px; width: 75%; max-height: 75vh; display: flex; flex-direction: column;" phx-click-stop>
+    <div
+      :if={@selected_task}
+      style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50;"
+      phx-click="close_logs"
+    >
+      <div
+        style="background: var(--ccem-surface-1); border: 1px solid var(--ccem-border); border-radius: 12px; width: 75%; max-height: 75vh; display: flex; flex-direction: column;"
+        phx-click-stop
+      >
         <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--ccem-border);">
-          <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);"><%= @selected_task.name %> — Logs</span>
+          <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+            {@selected_task.name} — Logs
+          </span>
           <.btn variant="ghost" size="xs" phx-click="close_logs">Close</.btn>
         </div>
         <div style="padding: 16px; overflow: auto; font-family: monospace; font-size: 11px; color: var(--ccem-ok, #22c55e); background: var(--ccem-surface-2); max-height: 384px;">
-          <div :if={@selected_task.logs == []} style="color: var(--ccem-fg-muted);">No log entries</div>
-          <div :for={line <- @selected_task.logs}><%= line %></div>
+          <div :if={@selected_task.logs == []} style="color: var(--ccem-fg-muted);">
+            No log entries
+          </div>
+          <div :for={line <- @selected_task.logs}>{line}</div>
         </div>
       </div>
     </div>

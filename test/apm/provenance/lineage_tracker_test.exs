@@ -40,9 +40,10 @@ defmodule Apm.Provenance.LineageTrackerTest do
       LineageTracker.record_tool_end("inv-001", "agent-alpha", output_hash)
 
       entries = LineageTracker.list_outputs()
+
       assert Enum.any?(entries, fn e ->
-        (Map.get(e, :invocation_id) || Map.get(e, "invocation_id")) == "inv-001"
-      end)
+               (Map.get(e, :invocation_id) || Map.get(e, "invocation_id")) == "inv-001"
+             end)
     end
   end
 
@@ -71,14 +72,17 @@ defmodule Apm.Provenance.LineageTrackerTest do
     end
 
     test "does NOT create edge when input_hash is unknown" do
-      unknown_hash = :crypto.hash(:sha256, "something never produced") |> Base.encode16(case: :lower)
+      unknown_hash =
+        :crypto.hash(:sha256, "something never produced") |> Base.encode16(case: :lower)
+
       LineageTracker.record_tool_start("inv-999", "agent-gamma", unknown_hash)
 
       edges = LineageTracker.list_edges()
       # No new edges should have been created for inv-999
-      matching = Enum.filter(edges, fn e ->
-        (Map.get(e, :to_invocation_id) || Map.get(e, "to_invocation_id")) == "inv-999"
-      end)
+      matching =
+        Enum.filter(edges, fn e ->
+          (Map.get(e, :to_invocation_id) || Map.get(e, "to_invocation_id")) == "inv-999"
+        end)
 
       assert matching == []
     end
@@ -100,10 +104,11 @@ defmodule Apm.Provenance.LineageTrackerTest do
       edges = Map.get(dag, :edges, Map.get(dag, "edges", []))
       assert length(edges) >= 1
 
-      edge = Enum.find(edges, fn e ->
-        from = Map.get(e, :from_invocation_id) || Map.get(e, "from_invocation_id")
-        from == "pipe-inv-001"
-      end)
+      edge =
+        Enum.find(edges, fn e ->
+          from = Map.get(e, :from_invocation_id) || Map.get(e, "from_invocation_id")
+          from == "pipe-inv-001"
+        end)
 
       assert edge != nil
     end

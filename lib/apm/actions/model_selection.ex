@@ -8,22 +8,41 @@ defmodule Apm.Actions.ModelSelection do
   }
 
   @skill_complexity %{
-    "orchestrator" => 95, "coalesce" => 90, "formation" => 85, "refactor-max" => 85,
-    "ralph" => 80, "double-verify" => 80, "upm" => 75, "ship" => 70,
-    "fix" => 60, "tests" => 55, "build" => 50,
-    "grep" => 20, "glob" => 15, "read" => 10
+    "orchestrator" => 95,
+    "coalesce" => 90,
+    "formation" => 85,
+    "refactor-max" => 85,
+    "ralph" => 80,
+    "double-verify" => 80,
+    "upm" => 75,
+    "ship" => 70,
+    "fix" => 60,
+    "tests" => 55,
+    "build" => 50,
+    "grep" => 20,
+    "glob" => 15,
+    "read" => 10
   }
 
   @skill_deps %{
-    "orchestrator" => ["formation", "ralph"], "coalesce" => ["ralph"],
-    "formation" => ["upm"], "ralph" => ["fix", "build", "tests"],
-    "upm" => ["ship"], "ship" => ["build", "tests"],
-    "fix" => ["read", "grep"], "tests" => ["read"], "build" => ["read"]
+    "orchestrator" => ["formation", "ralph"],
+    "coalesce" => ["ralph"],
+    "formation" => ["upm"],
+    "ralph" => ["fix", "build", "tests"],
+    "upm" => ["ship"],
+    "ship" => ["build", "tests"],
+    "fix" => ["read", "grep"],
+    "tests" => ["read"],
+    "build" => ["read"]
   }
 
   @role_complexity %{
-    "orchestrator" => 95, "squadron_lead" => 80, "swarm_agent" => 65,
-    "cluster_agent" => 55, "individual" => 40, "persistent_service" => 50
+    "orchestrator" => 95,
+    "squadron_lead" => 80,
+    "swarm_agent" => 65,
+    "cluster_agent" => 55,
+    "individual" => 40,
+    "persistent_service" => 50
   }
 
   @default 50
@@ -32,14 +51,18 @@ defmodule Apm.Actions.ModelSelection do
   def recommend(skill) do
     c = complexity_score(skill)
     {tier, m} = select(c)
-    {:ok, %{skill: skill, complexity: c, model_id: m.id, model_tier: tier, cost_per_1k: m.cost_per_1k}}
+
+    {:ok,
+     %{skill: skill, complexity: c, model_id: m.id, model_tier: tier, cost_per_1k: m.cost_per_1k}}
   end
 
   @spec recommend_for_formation(String.t()) :: {:ok, map()}
   def recommend_for_formation(role) do
     c = Map.get(@role_complexity, role, @default)
     {tier, m} = select(c)
-    {:ok, %{role: role, complexity: c, model_id: m.id, model_tier: tier, cost_per_1k: m.cost_per_1k}}
+
+    {:ok,
+     %{role: role, complexity: c, model_id: m.id, model_tier: tier, cost_per_1k: m.cost_per_1k}}
   end
 
   @spec list_models() :: map()
@@ -53,8 +76,19 @@ defmodule Apm.Actions.ModelSelection do
 
   @spec cost_optimize(String.t(), non_neg_integer()) :: {:ok, map()}
   def cost_optimize(skill, min_cap) do
-    {tier, m} = @models |> Enum.sort_by(fn {_, m} -> m.cost_per_1k end) |> Enum.find(fn {_, m} -> m.capability >= min_cap end) || {"opus", @models["opus"]}
-    {:ok, %{skill: skill, min_capability: min_cap, model_id: m.id, model_tier: tier, cost_per_1k: m.cost_per_1k}}
+    {tier, m} =
+      @models
+      |> Enum.sort_by(fn {_, m} -> m.cost_per_1k end)
+      |> Enum.find(fn {_, m} -> m.capability >= min_cap end) || {"opus", @models["opus"]}
+
+    {:ok,
+     %{
+       skill: skill,
+       min_capability: min_cap,
+       model_id: m.id,
+       model_tier: tier,
+       cost_per_1k: m.cost_per_1k
+     }}
   end
 
   defp select(c) when c >= 90, do: {"opus", @models["opus"]}
@@ -62,8 +96,10 @@ defmodule Apm.Actions.ModelSelection do
   defp select(_), do: {"haiku", @models["haiku"]}
 
   defp do_chain([], _v, acc), do: acc
+
   defp do_chain([h | t], v, acc) do
-    if MapSet.member?(v, h), do: do_chain(t, v, acc),
-    else: do_chain(t ++ Map.get(@skill_deps, h, []), MapSet.put(v, h), [h | acc])
+    if MapSet.member?(v, h),
+      do: do_chain(t, v, acc),
+      else: do_chain(t ++ Map.get(@skill_deps, h, []), MapSet.put(v, h), [h | acc])
   end
 end

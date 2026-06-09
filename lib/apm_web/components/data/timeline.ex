@@ -41,22 +41,28 @@ defmodule ApmWeb.Components.Data.Timeline do
     <div id={@id} class="apm-timeline" {@rest}>
       <%= cond do %>
         <% @lanes == [] && @events == [] -> %>
-          <%= render_slot(@empty) %>
+          {render_slot(@empty)}
         <% true -> %>
           <div class="apm-timeline__lanes">
             <%= for lane <- @lanes do %>
               <div class="apm-timeline__lane" data-lane-id={lane.id}>
                 <div class="apm-timeline__lane-label">{lane.label}</div>
-                <div class="apm-timeline__lane-track" style={"border-left:2px solid #{lane[:color] || "var(--apm-border-default)"}"}>
+                <div
+                  class="apm-timeline__lane-track"
+                  style={"border-left:2px solid #{lane[:color] || "var(--apm-border-default)"}"}
+                >
                   <%= for event <- Enum.filter(@events, &(&1.lane_id == lane.id)) do %>
-                    <%
-                      left_pct = min(100, max(0, (event.start_ms - @start_ms) / @window_ms * 100))
-                      width_pct = if event[:end_ms],
+                    <% left_pct = min(100, max(0, (event.start_ms - @start_ms) / @window_ms * 100))
+
+                    width_pct =
+                      if event[:end_ms],
                         do: min(100 - left_pct, (event.end_ms - event.start_ms) / @window_ms * 100),
-                        else: 1.0
-                    %>
+                        else: 1.0 %>
                     <div
-                      class={["apm-timeline__event", event[:tone] && "apm-timeline__event--#{event.tone}"]}
+                      class={[
+                        "apm-timeline__event",
+                        event[:tone] && "apm-timeline__event--#{event.tone}"
+                      ]}
                       style={"left:#{left_pct}%;width:max(4px,#{width_pct}%)"}
                       title={event.label}
                       data-event-id={event.id}

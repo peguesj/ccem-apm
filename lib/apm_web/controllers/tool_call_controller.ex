@@ -32,48 +32,52 @@ defmodule ApmWeb.V2.ToolCallController do
   # -- REST Endpoints (US-012) ------------------------------------------------
 
   @doc "GET /api/v2/tool-calls - List active tool calls."
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["Tool Calls"],
     responses: [
       ok: {"Active tool calls", "application/json", Schemas.ToolCallSummary}
     ]
+  )
 
   def index(conn, _params) do
     json(conn, %{tool_calls: ToolCallTracker.list_active()})
   end
 
   @doc "GET /api/v2/tool-calls/stats - Aggregate tool call statistics."
-  operation :stats,
+  operation(:stats,
     summary: "Statistics",
     tags: ["Tool Calls"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def stats(conn, _params) do
     json(conn, ToolCallTracker.stats())
   end
 
   @doc "GET /api/v2/tool-calls/agent/:agent_id - Tool call history for an agent."
-  operation :by_agent,
+  operation(:by_agent,
     summary: "By agent",
     tags: ["Tool Calls"],
     responses: [
       ok: {"Tool calls by agent", "application/json", Schemas.ToolCallSummary}
     ]
+  )
 
   def by_agent(conn, %{"agent_id" => agent_id}) do
     json(conn, %{tool_calls: ToolCallTracker.list_by_agent(agent_id)})
   end
 
   @doc "GET /api/v2/tool-calls/:id - Specific tool call by ID."
-  operation :show,
+  operation(:show,
     summary: "Get one",
     tags: ["Tool Calls"],
     responses: [
       ok: {"Single tool call", "application/json", Schemas.ToolCallSummary}
     ]
+  )
 
   def show(conn, %{"id" => id}) do
     case ToolCallTracker.get(id) do
@@ -88,12 +92,13 @@ defmodule ApmWeb.V2.ToolCallController do
   # -- SSE Streaming (US-013) -------------------------------------------------
 
   @doc "GET /api/v2/tool-calls/stream - SSE endpoint for real-time tool call events."
-  operation :stream,
+  operation(:stream,
     summary: "Stream",
     tags: ["Tool Calls"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def stream(conn, params) do
     agent_filter = params["agent_id"]

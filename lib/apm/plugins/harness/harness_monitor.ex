@@ -112,7 +112,8 @@ defmodule Apm.Plugins.Harness.HarnessMonitor do
 
   @spec compute_state(map()) :: %{harness_mem: map(), plans: map(), git: map()}
   defp compute_state(session_json) do
-    harness_mem_raw = Map.get(session_json, "harness_mem") || Map.get(session_json, "harnessMem") || %{}
+    harness_mem_raw =
+      Map.get(session_json, "harness_mem") || Map.get(session_json, "harnessMem") || %{}
 
     healthy = Map.get(harness_mem_raw, "healthy") != false
     last_error = Map.get(harness_mem_raw, "last_error") || Map.get(harness_mem_raw, "lastError")

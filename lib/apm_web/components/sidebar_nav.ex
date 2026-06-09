@@ -32,7 +32,11 @@ defmodule ApmWeb.Components.SidebarNav do
 
   def sidebar_nav(assigns) do
     plugins = if assigns[:plugins] in [nil, []], do: safe_list_plugins(), else: assigns[:plugins]
-    integrations = if assigns[:integrations] in [nil, []], do: safe_list_integrations(), else: assigns[:integrations]
+
+    integrations =
+      if assigns[:integrations] in [nil, []],
+        do: safe_list_integrations(),
+        else: assigns[:integrations]
 
     assigns =
       assigns
@@ -44,23 +48,25 @@ defmodule ApmWeb.Components.SidebarNav do
     <aside
       id="apm-sidebar"
       class="w-52 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0 h-screen sticky top-0 overflow-hidden"
-      style={[
-        # Defense-in-depth (formation-934): inline styles so the sidebar
-        # renders chrome even if the Tailwind utility layer is missing or
-        # the @source scanner regresses (root cause was @source pointing at
-        # the renamed lib/apm_v5_web → lib/apm_web).
-        # Width matches the outer page_layout sidebar zone (220px default,
-        # 48px collapsed) — use 100% so the inner aside fills the slot.
-        "width:208px;",
-        "min-width:192px;",
-        "background:var(--apm-surface-raised);",
-        "border-right:1px solid var(--apm-border-subtle);",
-        "display:flex;",
-        "flex-direction:column;",
-        "height:100vh;",
-        "overflow:hidden;",
-        "flex-shrink:0;"
-      ]}
+      style={
+        [
+          # Defense-in-depth (formation-934): inline styles so the sidebar
+          # renders chrome even if the Tailwind utility layer is missing or
+          # the @source scanner regresses (root cause was @source pointing at
+          # the renamed lib/apm_v5_web → lib/apm_web).
+          # Width matches the outer page_layout sidebar zone (220px default,
+          # 48px collapsed) — use 100% so the inner aside fills the slot.
+          "width:208px;",
+          "min-width:192px;",
+          "background:var(--apm-surface-raised);",
+          "border-right:1px solid var(--apm-border-subtle);",
+          "display:flex;",
+          "flex-direction:column;",
+          "height:100vh;",
+          "overflow:hidden;",
+          "flex-shrink:0;"
+        ]
+      }
     >
       <%!-- CP-337 (US-517): restore sidebar identity. The "doubled wordmark" defect
            was the top-bar project switcher chip echoing "CCEM APM" — NOT the sidebar
@@ -84,7 +90,9 @@ defmodule ApmWeb.Components.SidebarNav do
           </button>
         </div>
         <div class="mt-1">
-          <span class="text-[10px] text-base-content/40 sidebar-label sidebar-version font-mono">v{@version}</span>
+          <span class="text-[10px] text-base-content/40 sidebar-label sidebar-version font-mono">
+            v{@version}
+          </span>
         </div>
       </div>
 
@@ -112,15 +120,40 @@ defmodule ApmWeb.Components.SidebarNav do
   defp observe_nav(assigns) do
     ~H"""
     <.section_header label="Observe" />
-    <.nav_item icon="hero-squares-2x2"          label="Dashboard"     href="/"             current_path={@current_path} />
-    <.nav_item icon="hero-user-group"           label="Fleet"         href="/fleet"        current_path={@current_path} />
-    <.nav_item icon="hero-computer-desktop"     label="Sessions"      href="/sessions"     current_path={@current_path} />
-    <.nav_item icon="hero-chat-bubble-left-right" label="Conversations" href="/conversations" current_path={@current_path} />
-    <.nav_item icon="hero-rectangle-group"      label="Formations"    href="/formation"    current_path={@current_path} />
-    <.nav_item icon="hero-clock"                label="Timeline"      href="/timeline"     current_path={@current_path} />
-    <.nav_item icon="hero-wrench-screwdriver"   label="Tool Calls"    href="/tool-calls"   current_path={@current_path} />
-    <.nav_item icon="hero-arrows-right-left"    label="A2A"           href="/a2a"          current_path={@current_path} />
-    <.nav_item icon="hero-circle-stack"         label="Architecture"  href="/architecture" current_path={@current_path} />
+    <.nav_item icon="hero-squares-2x2" label="Dashboard" href="/" current_path={@current_path} />
+    <.nav_item icon="hero-user-group" label="Fleet" href="/fleet" current_path={@current_path} />
+    <.nav_item
+      icon="hero-computer-desktop"
+      label="Sessions"
+      href="/sessions"
+      current_path={@current_path}
+    />
+    <.nav_item
+      icon="hero-chat-bubble-left-right"
+      label="Conversations"
+      href="/conversations"
+      current_path={@current_path}
+    />
+    <.nav_item
+      icon="hero-rectangle-group"
+      label="Formations"
+      href="/formation"
+      current_path={@current_path}
+    />
+    <.nav_item icon="hero-clock" label="Timeline" href="/timeline" current_path={@current_path} />
+    <.nav_item
+      icon="hero-wrench-screwdriver"
+      label="Tool Calls"
+      href="/tool-calls"
+      current_path={@current_path}
+    />
+    <.nav_item icon="hero-arrows-right-left" label="A2A" href="/a2a" current_path={@current_path} />
+    <.nav_item
+      icon="hero-circle-stack"
+      label="Architecture"
+      href="/architecture"
+      current_path={@current_path}
+    />
     """
   end
 
@@ -130,12 +163,27 @@ defmodule ApmWeb.Components.SidebarNav do
   defp govern_nav(assigns) do
     ~H"""
     <.section_header label="Govern" />
-    <.nav_item icon="hero-globe-alt"                label="Governance"    href="/governance"        current_path={@current_path} />
-    <.nav_item icon="hero-shield-check"             label="Authorization" href="/authorization"     current_path={@current_path} />
-    <.nav_item icon="hero-map"                      label="Routing"       href="/routing"           current_path={@current_path} />
-    <.nav_item icon="hero-clipboard-document-check" label="Approvals"     href="/approvals-history" current_path={@current_path} />
-    <.nav_item icon="hero-funnel"                   label="Coalesce"      href="/coalesce"          current_path={@current_path} />
-    <.nav_item icon="hero-calendar-days"            label="UPM"           href="/upm/module"        current_path={@current_path} />
+    <.nav_item
+      icon="hero-globe-alt"
+      label="Governance"
+      href="/governance"
+      current_path={@current_path}
+    />
+    <.nav_item
+      icon="hero-shield-check"
+      label="Authorization"
+      href="/authorization"
+      current_path={@current_path}
+    />
+    <.nav_item icon="hero-map" label="Routing" href="/routing" current_path={@current_path} />
+    <.nav_item
+      icon="hero-clipboard-document-check"
+      label="Approvals"
+      href="/approvals-history"
+      current_path={@current_path}
+    />
+    <.nav_item icon="hero-funnel" label="Coalesce" href="/coalesce" current_path={@current_path} />
+    <.nav_item icon="hero-calendar-days" label="UPM" href="/upm/module" current_path={@current_path} />
     """
   end
 
@@ -145,15 +193,20 @@ defmodule ApmWeb.Components.SidebarNav do
   defp measure_nav(assigns) do
     ~H"""
     <.section_header label="Measure" />
-    <.nav_item icon="hero-chart-bar"         label="Analytics" href="/analytics" current_path={@current_path} />
-    <.nav_item icon="hero-cpu-chip"          label="Usage"     href="/usage"     current_path={@current_path} />
-    <.nav_item icon="hero-heart"             label="Health"    href="/health"    current_path={@current_path} />
-    <.nav_item icon="hero-signal"            label="Ports"     href="/ports"     current_path={@current_path} />
-    <.nav_item icon="hero-queue-list"        label="Tasks"     href="/tasks"     current_path={@current_path} />
-    <.nav_item icon="hero-bolt"              label="Actions"   href="/actions"   current_path={@current_path} />
-    <.nav_item icon="hero-magnifying-glass"  label="Scanner"   href="/scanner"   current_path={@current_path} />
-    <.nav_item icon="hero-beaker"            label="UAT"       href="/uat"       current_path={@current_path} />
-    <.nav_item icon="hero-no-symbol"         label="DRTW"      href="/drtw"      current_path={@current_path} />
+    <.nav_item icon="hero-chart-bar" label="Analytics" href="/analytics" current_path={@current_path} />
+    <.nav_item icon="hero-cpu-chip" label="Usage" href="/usage" current_path={@current_path} />
+    <.nav_item icon="hero-heart" label="Health" href="/health" current_path={@current_path} />
+    <.nav_item icon="hero-signal" label="Ports" href="/ports" current_path={@current_path} />
+    <.nav_item icon="hero-queue-list" label="Tasks" href="/tasks" current_path={@current_path} />
+    <.nav_item icon="hero-bolt" label="Actions" href="/actions" current_path={@current_path} />
+    <.nav_item
+      icon="hero-magnifying-glass"
+      label="Scanner"
+      href="/scanner"
+      current_path={@current_path}
+    />
+    <.nav_item icon="hero-beaker" label="UAT" href="/uat" current_path={@current_path} />
+    <.nav_item icon="hero-no-symbol" label="DRTW" href="/drtw" current_path={@current_path} />
     """
   end
 
@@ -164,14 +217,40 @@ defmodule ApmWeb.Components.SidebarNav do
   defp intelligence_nav(assigns) do
     ~H"""
     <.section_header label="Intelligence" />
-    <.nav_item icon="hero-sparkles"                 label="Skills"       href="/skills"        current_path={@current_path} badge={@skill_count} />
-    <.nav_item icon="hero-arrows-pointing-out"      label="Skill Drift"  href="/skill-drift"   current_path={@current_path} />
-    <.nav_item icon="hero-book-open"                label="Library"      href="/library"       current_path={@current_path} />
-    <.nav_item icon="hero-light-bulb"               label="Memory"       href="/memory"        current_path={@current_path} />
-    <.nav_item icon="hero-arrow-path-rounded-square" label="Orchestration" href="/orchestration" current_path={@current_path} />
-    <.nav_item icon="hero-inbox"                    label="Intake"       href="/intake"        current_path={@current_path} />
-    <.nav_item icon="hero-adjustments-horizontal"   label="Alignment"    href="/alignment"     current_path={@current_path} />
-    <.nav_item icon="hero-document-check"           label="Provenance"   href="/intelligence/provenance" current_path={@current_path} />
+    <.nav_item
+      icon="hero-sparkles"
+      label="Skills"
+      href="/skills"
+      current_path={@current_path}
+      badge={@skill_count}
+    />
+    <.nav_item
+      icon="hero-arrows-pointing-out"
+      label="Skill Drift"
+      href="/skill-drift"
+      current_path={@current_path}
+    />
+    <.nav_item icon="hero-book-open" label="Library" href="/library" current_path={@current_path} />
+    <.nav_item icon="hero-light-bulb" label="Memory" href="/memory" current_path={@current_path} />
+    <.nav_item
+      icon="hero-arrow-path-rounded-square"
+      label="Orchestration"
+      href="/orchestration"
+      current_path={@current_path}
+    />
+    <.nav_item icon="hero-inbox" label="Intake" href="/intake" current_path={@current_path} />
+    <.nav_item
+      icon="hero-adjustments-horizontal"
+      label="Alignment"
+      href="/alignment"
+      current_path={@current_path}
+    />
+    <.nav_item
+      icon="hero-document-check"
+      label="Provenance"
+      href="/intelligence/provenance"
+      current_path={@current_path}
+    />
     """
   end
 
@@ -240,8 +319,8 @@ defmodule ApmWeb.Components.SidebarNav do
       id="nav-integrations-children"
       class={["pl-3 border-l border-base-300 ml-5 space-y-0.5", !@integrations_expanded && "hidden"]}
     >
-      <.nav_sub_item icon="hero-cpu-chip"    label="AG-UI"  href="/ag-ui"  current_path={@current_path} />
-      <.nav_sub_item icon="hero-arrow-path"  label="Ralph"  href="/ralph"  current_path={@current_path} />
+      <.nav_sub_item icon="hero-cpu-chip" label="AG-UI" href="/ag-ui" current_path={@current_path} />
+      <.nav_sub_item icon="hero-arrow-path" label="Ralph" href="/ralph" current_path={@current_path} />
       <.nav_sub_item
         :for={integ <- filtered_integrations(@integrations)}
         icon="hero-circle-stack"
@@ -251,9 +330,20 @@ defmodule ApmWeb.Components.SidebarNav do
       />
     </div>
 
-    <.nav_item icon="hero-bell"              label="Notifications" href="/notifications" current_path={@current_path} badge={@notification_count} />
-    <.nav_item icon="hero-presentation-chart-bar" label="Showcase" href="/showcase"     current_path={@current_path} />
-    <.nav_item icon="hero-document-text"     label="Docs"          href="/docs"          current_path={@current_path} />
+    <.nav_item
+      icon="hero-bell"
+      label="Notifications"
+      href="/notifications"
+      current_path={@current_path}
+      badge={@notification_count}
+    />
+    <.nav_item
+      icon="hero-presentation-chart-bar"
+      label="Showcase"
+      href="/showcase"
+      current_path={@current_path}
+    />
+    <.nav_item icon="hero-document-text" label="Docs" href="/docs" current_path={@current_path} />
     """
   end
 
@@ -263,10 +353,20 @@ defmodule ApmWeb.Components.SidebarNav do
   defp ai_platform_nav(assigns) do
     ~H"""
     <.section_header label="AI Platform" />
-    <.nav_item icon="hero-globe-alt"    label="All Projects"  href="/apm-all"       current_path={@current_path} />
-    <.nav_item icon="hero-cpu-chip"     label="AG-UI"         href="/ag-ui"         current_path={@current_path} />
-    <.nav_item icon="hero-arrow-path"   label="Ralph"         href="/ralph"         current_path={@current_path} />
-    <.nav_item icon="hero-paint-brush"  label="Generative UI" href="/generative-ui" current_path={@current_path} />
+    <.nav_item
+      icon="hero-globe-alt"
+      label="All Projects"
+      href="/apm-all"
+      current_path={@current_path}
+    />
+    <.nav_item icon="hero-cpu-chip" label="AG-UI" href="/ag-ui" current_path={@current_path} />
+    <.nav_item icon="hero-arrow-path" label="Ralph" href="/ralph" current_path={@current_path} />
+    <.nav_item
+      icon="hero-paint-brush"
+      label="Generative UI"
+      href="/generative-ui"
+      current_path={@current_path}
+    />
     """
   end
 
@@ -276,7 +376,9 @@ defmodule ApmWeb.Components.SidebarNav do
   defp section_header(assigns) do
     ~H"""
     <div class="px-2 pt-3 pb-1 sidebar-label">
-      <span class="text-[10px] font-semibold uppercase tracking-widest text-base-content/30">{@label}</span>
+      <span class="text-[10px] font-semibold uppercase tracking-widest text-base-content/30">
+        {@label}
+      </span>
     </div>
     """
   end
@@ -306,8 +408,12 @@ defmodule ApmWeb.Components.SidebarNav do
     >
       <.icon name={@icon} class="size-4 flex-shrink-0" />
       <span class="sidebar-label">{@label}</span>
-      <span :if={@badge > 0} class="badge badge-xs badge-primary ml-auto sidebar-badge">{@badge}</span>
-      <span :if={@badge_label} class="badge badge-xs badge-accent ml-auto sidebar-badge">{@badge_label}</span>
+      <span :if={@badge > 0} class="badge badge-xs badge-primary ml-auto sidebar-badge">
+        {@badge}
+      </span>
+      <span :if={@badge_label} class="badge badge-xs badge-accent ml-auto sidebar-badge">
+        {@badge_label}
+      </span>
     </.link>
     """
   end
@@ -340,7 +446,9 @@ defmodule ApmWeb.Components.SidebarNav do
       >
         <.icon name={@icon} class="size-4 flex-shrink-0" />
         <span class="sidebar-label">{@label}</span>
-        <span :if={@badge > 0} class="badge badge-xs badge-primary ml-auto sidebar-badge">{@badge}</span>
+        <span :if={@badge > 0} class="badge badge-xs badge-primary ml-auto sidebar-badge">
+          {@badge}
+        </span>
       </.link>
       <button
         type="button"
@@ -384,7 +492,9 @@ defmodule ApmWeb.Components.SidebarNav do
     >
       <.icon name={@icon} class="size-3 flex-shrink-0" />
       <span class="sidebar-label truncate">{@label}</span>
-      <span :if={@badge_label} class="badge badge-xs badge-accent ml-auto sidebar-badge">{@badge_label}</span>
+      <span :if={@badge_label} class="badge badge-xs badge-accent ml-auto sidebar-badge">
+        {@badge_label}
+      </span>
     </.link>
     """
   end

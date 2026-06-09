@@ -55,8 +55,8 @@ defmodule Apm.Identity.AgentRoleIndex do
 
   # RFC 4122 DNS namespace bytes — used as CCEM namespace for UUID v5
   # "6ba7b814-9dad-11d1-80b4-00c04fd430c8"
-  @namespace_bytes <<0x6B, 0xA7, 0xB8, 0x14, 0x9D, 0xAD, 0x11, 0xD1, 0x80, 0xB4, 0x00, 0xC0,
-                     0x4F, 0xD4, 0x30, 0xC8>>
+  @namespace_bytes <<0x6B, 0xA7, 0xB8, 0x14, 0x9D, 0xAD, 0x11, 0xD1, 0x80, 0xB4, 0x00, 0xC0, 0x4F,
+                     0xD4, 0x30, 0xC8>>
 
   # Regex to strip 8-digit (YYYYMMDD) and 6-digit (HHMMSS) timestamp-like
   # numeric segments that appear between hyphens in formation IDs.
@@ -182,9 +182,9 @@ defmodule Apm.Identity.AgentRoleIndex do
       sha_bytes
 
     # Set UUID version to 5 (0101xxxx in byte 6)
-    b6_v5 = b6 &&& 0x0F ||| 0x50
+    b6_v5 = (b6 &&& 0x0F) ||| 0x50
     # Set UUID variant to 10xxxxxx in byte 8
-    b8_variant = b8 &&& 0x3F ||| 0x80
+    b8_variant = (b8 &&& 0x3F) ||| 0x80
 
     format_uuid(b0, b1, b2, b3, b4, b5, b6_v5, b7, b8_variant, b9, b10, b11, b12, b13, b14, b15)
   end
@@ -208,7 +208,9 @@ defmodule Apm.Identity.AgentRoleIndex do
           byte()
         ) :: String.t()
   defp format_uuid(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15) do
-    hex = fn b -> b |> Integer.to_string(16) |> String.pad_leading(2, "0") |> String.downcase() end
+    hex = fn b ->
+      b |> Integer.to_string(16) |> String.pad_leading(2, "0") |> String.downcase()
+    end
 
     "#{hex.(b0)}#{hex.(b1)}#{hex.(b2)}#{hex.(b3)}" <>
       "-#{hex.(b4)}#{hex.(b5)}" <>

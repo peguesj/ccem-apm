@@ -64,19 +64,29 @@ defmodule ApmWeb.ArchitectureLive do
   @impl true
   def handle_info(:refresh, socket) do
     Process.send_after(self(), :refresh, @refresh_ms)
-    {_archs, _active, tree, graph_config} = load_architecture_data(socket.assigns.active_architecture)
+
+    {_archs, _active, tree, graph_config} =
+      load_architecture_data(socket.assigns.active_architecture)
+
     {genservers, ets_tables, pubsub_topics} = load_system_data()
 
     socket =
       socket
-      |> assign(tree: tree, graph_config: graph_config, genservers: genservers, ets_tables: ets_tables, pubsub_topics: pubsub_topics)
+      |> assign(
+        tree: tree,
+        graph_config: graph_config,
+        genservers: genservers,
+        ets_tables: ets_tables,
+        pubsub_topics: pubsub_topics
+      )
       |> maybe_push_graph(tree, graph_config)
 
     {:noreply, socket}
   end
 
   def handle_info({:tree_built, _name, _tree}, socket) do
-    {_archs, _active, tree, graph_config} = load_architecture_data(socket.assigns.active_architecture)
+    {_archs, _active, tree, graph_config} =
+      load_architecture_data(socket.assigns.active_architecture)
 
     {:noreply,
      socket
@@ -85,7 +95,8 @@ defmodule ApmWeb.ArchitectureLive do
   end
 
   def handle_info({:agent_registered, _}, socket) do
-    {_archs, _active, tree, graph_config} = load_architecture_data(socket.assigns.active_architecture)
+    {_archs, _active, tree, graph_config} =
+      load_architecture_data(socket.assigns.active_architecture)
 
     {:noreply,
      socket
@@ -135,7 +146,11 @@ defmodule ApmWeb.ArchitectureLive do
 
   @impl true
   def render(assigns) do
-    assigns = assign(assigns, graph_nodes: build_graph_nodes(assigns.tree), graph_edges: build_graph_edges(assigns.tree))
+    assigns =
+      assign(assigns,
+        graph_nodes: build_graph_nodes(assigns.tree),
+        graph_edges: build_graph_edges(assigns.tree)
+      )
 
     ~H"""
     <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
@@ -179,7 +194,9 @@ defmodule ApmWeb.ArchitectureLive do
         <%!-- Architecture selector --%>
         <%= if length(@architectures) > 1 do %>
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
-            <span style="font-size: 11px; color: var(--ccem-fg-dim); font-weight: 500;">Architecture:</span>
+            <span style="font-size: 11px; color: var(--ccem-fg-dim); font-weight: 500;">
+              Architecture:
+            </span>
             <%= for arch <- @architectures do %>
               <button
                 phx-click="switch_architecture"
@@ -241,7 +258,9 @@ defmodule ApmWeb.ArchitectureLive do
         <% else %>
           <%!-- List view: recursive tree --%>
           <.card style="margin-bottom: 16px;">
-            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">Supervision Tree</span>
+            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+              Supervision Tree
+            </span>
             <%= if @tree do %>
               <div style="margin-top: 12px;">
                 <.tree_node_view node={@tree} depth={0} />
@@ -323,7 +342,9 @@ defmodule ApmWeb.ArchitectureLive do
         <%!-- PubSub topics --%>
         <.card padded={false}>
           <div style="padding: 12px 16px 8px; border-bottom: 1px solid var(--ccem-line);">
-            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">PubSub Topics</span>
+            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+              PubSub Topics
+            </span>
           </div>
           <.data_table id="pubsub-table" rows={@pubsub_topics}>
             <:col :let={topic} label="Topic">
@@ -368,7 +389,11 @@ defmodule ApmWeb.ArchitectureLive do
                 <.inspector_kv label="ETS Tables" value={to_string(length(@ets_tables))} mono />
                 <.inspector_kv label="PubSub Topics" value={to_string(length(@pubsub_topics))} mono />
                 <%= if @tree do %>
-                  <.inspector_kv label="Agent Count" value={to_string(@tree["agent_count"] || 0)} mono />
+                  <.inspector_kv
+                    label="Agent Count"
+                    value={to_string(@tree["agent_count"] || 0)}
+                    mono
+                  />
                 <% end %>
               </div>
             </div>
@@ -453,7 +478,8 @@ defmodule ApmWeb.ArchitectureLive do
       end
 
     active_arch =
-      preferred_arch || (List.first(architectures) && List.first(architectures).name) || "diligent"
+      preferred_arch || (List.first(architectures) && List.first(architectures).name) ||
+        "diligent"
 
     agents =
       try do
@@ -495,7 +521,9 @@ defmodule ApmWeb.ArchitectureLive do
               [{:dictionary, dict}] -> Keyword.get(dict, :"$initial_call") != nil
               _ -> false
             end
-          _ -> false
+
+          _ ->
+            false
         end
       end)
       |> Enum.map(fn name ->

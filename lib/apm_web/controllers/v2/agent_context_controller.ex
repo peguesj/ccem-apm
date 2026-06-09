@@ -21,12 +21,13 @@ defmodule ApmWeb.V2.AgentContextController do
   alias ApmWeb.Schemas
 
   @doc "Returns all agent contexts."
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["Agent Context"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, _params) do
     contexts = AgentContextStore.list_contexts()
@@ -34,12 +35,13 @@ defmodule ApmWeb.V2.AgentContextController do
   end
 
   @doc "Returns context for a specific agent."
-  operation :show,
+  operation(:show,
     summary: "Get one",
     tags: ["Agent Context"],
     responses: [
       ok: {"OK", "application/json", Schemas.AgentContext}
     ]
+  )
 
   def show(conn, %{"id" => agent_id}) do
     context = AgentContextStore.get_context(agent_id)
@@ -54,12 +56,13 @@ defmodule ApmWeb.V2.AgentContextController do
   end
 
   @doc "Returns recent AG-UI events for a specific agent."
-  operation :events,
+  operation(:events,
     summary: "Events",
     tags: ["Agent Context"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def events(conn, %{"id" => agent_id} = params) do
     limit = Map.get(params, "limit", "10") |> String.to_integer() |> min(50)

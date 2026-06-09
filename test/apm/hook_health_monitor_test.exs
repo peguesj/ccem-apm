@@ -115,7 +115,10 @@ defmodule Apm.HookHealthMonitorTest do
       health = HookHealthMonitor.current_health()
 
       healthy_proj = Enum.find(health.projects, &(&1.project == "proj_healthy"))
-      assert healthy_proj != nil, "proj_healthy not found; projects=#{inspect(Enum.map(health.projects, & &1.project))}"
+
+      assert healthy_proj != nil,
+             "proj_healthy not found; projects=#{inspect(Enum.map(health.projects, & &1.project))}"
+
       assert healthy_proj.status == :healthy
       assert healthy_proj.issues == []
     end

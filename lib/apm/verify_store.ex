@@ -56,6 +56,7 @@ defmodule Apm.VerifyStore do
   @impl true
   def handle_call({:create, project_root, app_url, stories}, _from, state) do
     id = Apm.Correlation.generate()
+
     session = %{
       id: id,
       project_root: project_root,
@@ -67,6 +68,7 @@ defmodule Apm.VerifyStore do
       started_at: DateTime.utc_now(),
       completed_at: nil
     }
+
     :ets.insert(@table, {id, session})
     Phoenix.PubSub.broadcast(Apm.PubSub, "apm:verify", {:verify_created, session})
     {:reply, {:ok, session}, state}
@@ -79,6 +81,7 @@ defmodule Apm.VerifyStore do
         :ets.insert(@table, {id, updated})
         Phoenix.PubSub.broadcast(Apm.PubSub, "apm:verify", {:verify_updated, updated})
         {:reply, {:ok, updated}, state}
+
       [] ->
         {:reply, {:error, :not_found}, state}
     end

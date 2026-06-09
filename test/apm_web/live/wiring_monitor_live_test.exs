@@ -99,21 +99,21 @@ defmodule ApmWeb.WiringMonitorLiveTest do
                "severity must be :success/:warning/:error, got: #{inspect(f.severity)}"
 
         assert is_binary(f.subject), "subject must be a string"
-        assert is_binary(f.detail),  "detail must be a string"
+        assert is_binary(f.detail), "detail must be a string"
       end
     end
 
     test "summary/1 returns correct count map" do
       findings = [
-        Finding.new(:W1, :error,   "route", "bad"),
+        Finding.new(:W1, :error, "route", "bad"),
         Finding.new(:W1, :success, "route", "ok"),
-        Finding.new(:W3, :warning, "hook",  "dead code"),
-        Finding.new(:W3, :warning, "hook",  "dead code 2")
+        Finding.new(:W3, :warning, "hook", "dead code"),
+        Finding.new(:W3, :warning, "hook", "dead code 2")
       ]
 
       summary = WiringMonitor.summary(findings)
 
-      assert summary.error   == 1
+      assert summary.error == 1
       assert summary.warning == 2
       assert summary.success == 1
     end
@@ -128,7 +128,7 @@ defmodule ApmWeb.WiringMonitorLiveTest do
       # Simulate a route pointing to a non-existent module by calling the
       # check logic directly with a synthetic route
       route = %{path: "/fake", plug: DoesNotExist.Module, plug_opts: :index}
-      mod   = route.plug
+      mod = route.plug
 
       # Verify the module doesn't exist
       refute Code.ensure_loaded?(mod)
@@ -158,6 +158,7 @@ defmodule ApmWeb.WiringMonitorLiveTest do
 
       # The router has a route for WiringMonitorLive — W1 should pass
       findings = WiringMonitor.check_route_resolution()
+
       wiring_findings =
         Enum.filter(findings, fn f ->
           String.contains?(f.subject, "/health/wiring")
@@ -186,7 +187,7 @@ defmodule ApmWeb.WiringMonitorLiveTest do
     end
 
     test "flags a hook used in template but not in app.js Hooks" do
-      emitted    = MapSet.new(["RealHook", "GhostHook"])
+      emitted = MapSet.new(["RealHook", "GhostHook"])
       registered = MapSet.new(["RealHook"])
 
       unregistered = MapSet.difference(emitted, registered)
@@ -196,7 +197,7 @@ defmodule ApmWeb.WiringMonitorLiveTest do
     end
 
     test "flags a hook in app.js but not used in any template as warning-eligible" do
-      emitted    = MapSet.new(["UsedHook"])
+      emitted = MapSet.new(["UsedHook"])
       registered = MapSet.new(["UsedHook", "DeadHook"])
 
       dead = MapSet.difference(registered, emitted)
@@ -257,7 +258,7 @@ defmodule ApmWeb.WiringMonitorLiveTest do
     test "tone/1 maps severity to string tone" do
       assert Finding.tone(Finding.new(:W1, :success, "", "")) == "success"
       assert Finding.tone(Finding.new(:W1, :warning, "", "")) == "warning"
-      assert Finding.tone(Finding.new(:W1, :error,   "", "")) == "error"
+      assert Finding.tone(Finding.new(:W1, :error, "", "")) == "error"
     end
   end
 end

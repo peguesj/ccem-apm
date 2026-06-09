@@ -22,18 +22,13 @@ defmodule ApmWeb.V2.GenerativeUIController do
 
   alias Apm.AgUi.GenerativeUI.Registry
 
-  operation :index,
-
+  operation(:index,
     summary: "List",
-
     tags: ["Generative UI"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def index(conn, params) do
     components =
@@ -45,18 +40,13 @@ defmodule ApmWeb.V2.GenerativeUIController do
     json(conn, %{components: components})
   end
 
-  operation :show,
-
+  operation(:show,
     summary: "Get one",
-
     tags: ["Generative UI"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def show(conn, %{"id" => id}) do
     case Registry.get(id) do
@@ -65,18 +55,13 @@ defmodule ApmWeb.V2.GenerativeUIController do
     end
   end
 
-  operation :create,
-
+  operation(:create,
     summary: "Create",
-
     tags: ["Generative UI"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def create(conn, params) do
     agent_id = params["agent_id"] || "system"
@@ -90,18 +75,13 @@ defmodule ApmWeb.V2.GenerativeUIController do
     end
   end
 
-  operation :update,
-
+  operation(:update,
     summary: "Update",
-
     tags: ["Generative UI"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def update(conn, %{"id" => id} = params) do
     case Registry.update_component(id, Map.delete(params, "id")) do
@@ -110,18 +90,13 @@ defmodule ApmWeb.V2.GenerativeUIController do
     end
   end
 
-  operation :delete,
-
+  operation(:delete,
     summary: "Delete",
-
     tags: ["Generative UI"],
-
     responses: [
-
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
-
     ]
-
+  )
 
   def delete(conn, %{"id" => id}) do
     Registry.remove_component(id)

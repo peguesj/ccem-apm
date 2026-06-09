@@ -47,7 +47,12 @@ defmodule Apm.Plugins.Alerting.AlertingPlugin do
 
   @impl true
   def default_config do
-    %{enabled: true, cooldown_ms: 5_000, max_notifications_per_minute: 30, default_channel: "system"}
+    %{
+      enabled: true,
+      cooldown_ms: 5_000,
+      max_notifications_per_minute: 30,
+      default_channel: "system"
+    }
   end
 
   @impl true

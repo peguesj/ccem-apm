@@ -27,12 +27,13 @@ defmodule ApmWeb.V2.ArtifactVersionController do
 
   @doc "GET /api/v2/a2a/artifacts/:key/version"
   @spec get_version(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :get_version,
+  operation(:get_version,
     summary: "Get version",
     tags: ["A2A Artifacts"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def get_version(conn, %{"key" => key}) do
     version = ArtifactVersionStore.get_version(key)
@@ -41,12 +42,13 @@ defmodule ApmWeb.V2.ArtifactVersionController do
 
   @doc "POST /api/v2/a2a/artifacts/:key/cas"
   @spec cas(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :cas,
+  operation(:cas,
     summary: "Cas",
     tags: ["A2A Artifacts"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def cas(conn, %{"key" => key} = params) do
     expected = Map.get(params, "expected", 0)

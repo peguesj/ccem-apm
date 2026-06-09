@@ -25,7 +25,7 @@ defmodule Apm.ExportManager do
 
     data =
       %{
-        manifest: build_manifest(sections),
+        manifest: build_manifest(sections)
       }
       |> maybe_put_section(:agents, sections, fn -> export_agents(agent_ids) end)
       |> maybe_put_section(:sessions, sections, fn -> export_sessions() end)
@@ -291,6 +291,7 @@ defmodule Apm.ExportManager do
     Map.new(map, fn
       {k, v} when is_binary(k) ->
         {String.to_existing_atom(k), v}
+
       {k, v} ->
         {k, v}
     end)

@@ -124,7 +124,9 @@ defmodule ApmWeb.Components.Templates.PageShell do
               <div class="apm-sidebar__app-name">APM</div>
               <div class="apm-sidebar__app-version apm-mono">AGENT J · v11</div>
             </div>
-            <ApmWeb.Components.Core.Badge.badge tone="success" dot pulse>LIVE</ApmWeb.Components.Core.Badge.badge>
+            <ApmWeb.Components.Core.Badge.badge tone="success" dot pulse>
+              LIVE
+            </ApmWeb.Components.Core.Badge.badge>
           <% end %>
         </div>
 
@@ -151,9 +153,7 @@ defmodule ApmWeb.Components.Templates.PageShell do
                     >
                       <span class="apm-sidebar__item-label">{item.label}</span>
                       <%= if item[:badge] do %>
-                        <ApmWeb.Components.Core.Badge.badge
-                          tone={item[:badge_tone] || "neutral"}
-                        >
+                        <ApmWeb.Components.Core.Badge.badge tone={item[:badge_tone] || "neutral"}>
                           {item.badge}
                         </ApmWeb.Components.Core.Badge.badge>
                       <% end %>
@@ -187,17 +187,66 @@ defmodule ApmWeb.Components.Templates.PageShell do
             phx-click={@on_toggle_sidebar}
             aria-label="Toggle sidebar"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+            >
+              <rect x="4" y="4" width="7" height="7" rx="1" /><rect
+                x="13"
+                y="4"
+                width="7"
+                height="7"
+                rx="1"
+              /><rect x="4" y="13" width="7" height="7" rx="1" /><rect
+                x="13"
+                y="13"
+                width="7"
+                height="7"
+                rx="1"
+              />
+            </svg>
           </button>
 
-          <button class="apm-topbar__project-switcher apm-focusable" type="button" phx-click={@on_project}>
+          <button
+            class="apm-topbar__project-switcher apm-focusable"
+            type="button"
+            phx-click={@on_project}
+          >
             <ApmWeb.Components.Core.Dot.dot decoration="iris" size={7} />
             <span class="apm-topbar__project-name">{@project}</span>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="transform:rotate(90deg)"><path d="m9 6 6 6-6 6"/></svg>
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              style="transform:rotate(90deg)"
+            >
+              <path d="m9 6 6 6-6 6" />
+            </svg>
           </button>
 
-          <button class="apm-topbar__cmd-k apm-focusable" type="button" phx-click={@on_cmd_k} aria-label="Open command palette">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <button
+            class="apm-topbar__cmd-k apm-focusable"
+            type="button"
+            phx-click={@on_cmd_k}
+            aria-label="Open command palette"
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+            >
+              <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+            </svg>
             <span class="apm-topbar__cmd-k-placeholder">Search or ask anything…</span>
             <ApmWeb.Components.Core.Kbd.kbd>⌘K</ApmWeb.Components.Core.Kbd.kbd>
           </button>
@@ -209,7 +258,16 @@ defmodule ApmWeb.Components.Templates.PageShell do
               phx-click={@on_bell}
               aria-label={"#{@pending} pending notifications"}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21a2 2 0 0 0 4 0"/></svg>
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+              >
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21a2 2 0 0 0 4 0" />
+              </svg>
               <%= if @pending > 0 do %>
                 <span class="apm-topbar__bell-badge apm-mono">{@pending}</span>
               <% end %>
@@ -217,15 +275,19 @@ defmodule ApmWeb.Components.Templates.PageShell do
             <div class="apm-topbar__presence" aria-hidden="true">
               <%!-- Presence avatars: 3 initials in overlapping circles --%>
               <div class="apm-topbar__avatar apm-mono" style="background:var(--apm-accent)">JP</div>
-              <div class="apm-topbar__avatar apm-mono" style="background:var(--apm-status-info)">A3</div>
-              <div class="apm-topbar__avatar apm-mono" style="background:var(--apm-decoration-iris)">S</div>
+              <div class="apm-topbar__avatar apm-mono" style="background:var(--apm-status-info)">
+                A3
+              </div>
+              <div class="apm-topbar__avatar apm-mono" style="background:var(--apm-decoration-iris)">
+                S
+              </div>
             </div>
           </div>
         </div>
 
         <%!-- Content area --%>
         <main class="apm-page-shell__content">
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         </main>
       </div>
     </div>

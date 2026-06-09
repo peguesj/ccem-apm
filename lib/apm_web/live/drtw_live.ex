@@ -104,13 +104,17 @@ defmodule ApmWeb.DrtwLive do
           </div>
           <.data_table :if={@results != []} id="drtw-results-table" rows={@results}>
             <:col :let={row} label="Name">
-              <span style="font-size: 13px; font-weight: 500; color: var(--ccem-fg);">{row[:name]}</span>
+              <span style="font-size: 13px; font-weight: 500; color: var(--ccem-fg);">
+                {row[:name]}
+              </span>
             </:col>
             <:col :let={row} label="Type">
               <.badge tone={result_type_tone(row[:type])}>{row[:type]}</.badge>
             </:col>
             <:col :let={row} label="Source">
-              <span style="font-size: 12px; font-family: monospace; color: var(--ccem-fg-muted);">{row[:source]}</span>
+              <span style="font-size: 12px; font-family: monospace; color: var(--ccem-fg-muted);">
+                {row[:source]}
+              </span>
             </:col>
             <:col :let={row} label="Description">
               <span style="font-size: 12px; color: var(--ccem-fg-muted);">{row[:description]}</span>
@@ -128,7 +132,9 @@ defmodule ApmWeb.DrtwLive do
           <div :if={@selected}>
             <div style="margin-bottom: 16px;">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <span style="font-size: 14px; font-weight: 600; color: var(--ccem-fg);">{@selected[:name]}</span>
+                <span style="font-size: 14px; font-weight: 600; color: var(--ccem-fg);">
+                  {@selected[:name]}
+                </span>
                 <.badge tone={result_type_tone(@selected[:type])}>{@selected[:type]}</.badge>
               </div>
               <p style="font-size: 12px; color: var(--ccem-fg-muted); margin: 0 0 12px 0;">
@@ -139,7 +145,9 @@ defmodule ApmWeb.DrtwLive do
               <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
                 <div style="display: flex; justify-content: space-between;">
                   <span style="color: var(--ccem-fg-muted);">Source</span>
-                  <span style="color: var(--ccem-fg); font-family: monospace;">{@selected[:source]}</span>
+                  <span style="color: var(--ccem-fg); font-family: monospace;">
+                    {@selected[:source]}
+                  </span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                   <span style="color: var(--ccem-fg-muted);">Type</span>
@@ -172,11 +180,31 @@ defmodule ApmWeb.DrtwLive do
   # -- Private Helpers --------------------------------------------------------
 
   defp find_solutions(""), do: []
-  defp find_solutions(_q), do: [
-    %{id: "1", name: "NimbleOptions", type: "package", source: "hex.pm", description: "Declarative option validation"},
-    %{id: "2", name: "Jason", type: "package", source: "hex.pm", description: "JSON encoding/decoding"},
-    %{id: "3", name: "Finch", type: "package", source: "hex.pm", description: "HTTP client built on NimblePool"}
-  ]
+
+  defp find_solutions(_q),
+    do: [
+      %{
+        id: "1",
+        name: "NimbleOptions",
+        type: "package",
+        source: "hex.pm",
+        description: "Declarative option validation"
+      },
+      %{
+        id: "2",
+        name: "Jason",
+        type: "package",
+        source: "hex.pm",
+        description: "JSON encoding/decoding"
+      },
+      %{
+        id: "3",
+        name: "Finch",
+        type: "package",
+        source: "hex.pm",
+        description: "HTTP client built on NimblePool"
+      }
+    ]
 
   defp find_by_id(results, id), do: Enum.find(results, &(&1.id == id))
 

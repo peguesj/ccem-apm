@@ -44,18 +44,20 @@ defmodule ApmWeb.V2.AuthController do
   # Authorization
   # ---------------------------------------------------------------------------
 
-  operation :authorize,
+  operation(:authorize,
     summary: "Authorize a tool invocation",
     description: """
     Main AgentLock authorization gate. Evaluates the tool call against policy rules,
     session trust level, and risk thresholds. Returns allow/deny/ask decision.
     """,
     tags: ["AgentLock Authorization"],
-    request_body: {"Authorization request", "application/json", Schemas.AuthorizeRequest, required: true},
+    request_body:
+      {"Authorization request", "application/json", Schemas.AuthorizeRequest, required: true},
     responses: [
       ok: {"Authorization decision", "application/json", Schemas.AuthDecision},
       unprocessable_entity: {"Validation error", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
   @doc "POST /api/v2/auth/authorize — Main authorization gate"
   def authorize(conn, params) do
@@ -67,12 +69,24 @@ defmodule ApmWeb.V2.AuthController do
 
     case AuthorizationGate.authorize(agent_id, session_id, tool_name, role, tool_params) do
       {:ok, token_id} ->
-        json(conn, %{ok: true, allowed: true, decision: "allow", auth_token: token_id, token_id: token_id})
+        json(conn, %{
+          ok: true,
+          allowed: true,
+          decision: "allow",
+          auth_token: token_id,
+          token_id: token_id
+        })
 
       {:error, :approval_required, detail} ->
         conn
         |> put_status(200)
-        |> json(%{ok: true, allowed: false, decision: "ask", reason: :approval_required, detail: detail})
+        |> json(%{
+          ok: true,
+          allowed: false,
+          decision: "ask",
+          reason: :approval_required,
+          detail: detail
+        })
 
       {:error, reason, detail} ->
         conn
@@ -82,12 +96,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/execute — Record execution with token"
-  operation :execute,
+  operation(:execute,
     summary: "Execute",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def execute(conn, params) do
     token_id = Map.get(params, "token_id", "")
@@ -99,12 +114,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/summary — Authorization summary stats"
-  operation :summary,
+  operation(:summary,
     summary: "Summary",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def summary(conn, _params) do
     summary = AuthorizationGate.summary()
@@ -129,12 +145,13 @@ defmodule ApmWeb.V2.AuthController do
   Returns:
     {ok: true, token: "delegation.v1.<base64url>", expires_at, allowed_tools, max_risk_ceiling}
   """
-  operation :delegation_issue,
+  operation(:delegation_issue,
     summary: "Issue delegation token",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def delegation_issue(conn, params) do
     with {:ok, child_id} <- fetch_required(params, "child_agent_id"),
@@ -179,12 +196,13 @@ defmodule ApmWeb.V2.AuthController do
 
   Returns: {ok: true, valid: bool, claims, reason}
   """
-  operation :delegation_verify,
+  operation(:delegation_verify,
     summary: "Verify delegation token",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def delegation_verify(conn, params) do
     case Map.get(params, "token") do
@@ -290,12 +308,13 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "GET /api/v2/auth/tools — List registered tools"
-  operation :list_tools,
+  operation(:list_tools,
     summary: "List tools",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"Registered tools", "application/json", Schemas.AuthTool}
     ]
+  )
 
   def list_tools(conn, _params) do
     tools =
@@ -306,12 +325,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/tools — Register a tool"
-  operation :register_tool,
+  operation(:register_tool,
     summary: "Register tool",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def register_tool(conn, params) do
     tool_name = Map.get(params, "name", "")
@@ -332,12 +352,13 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/auth/sessions — Create session"
-  operation :create_session,
+  operation(:create_session,
     summary: "Create session",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def create_session(conn, params) do
     user_id = Map.get(params, "user_id", "unknown")
@@ -356,12 +377,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/sessions — List active sessions"
-  operation :list_sessions,
+  operation(:list_sessions,
     summary: "List sessions",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"Active auth sessions", "application/json", Schemas.AuthSession}
     ]
+  )
 
   def list_sessions(conn, _params) do
     sessions =
@@ -372,12 +394,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/sessions/:id — Get session"
-  operation :get_session,
+  operation(:get_session,
     summary: "Get session",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"Single auth session", "application/json", Schemas.AuthSession}
     ]
+  )
 
   def get_session(conn, %{"id" => session_id}) do
     case SessionStore.get(session_id) do
@@ -390,12 +413,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "DELETE /api/v2/auth/sessions/:id — Destroy session"
-  operation :destroy_session,
+  operation(:destroy_session,
     summary: "Destroy session",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def destroy_session(conn, %{"id" => session_id}) do
     SessionStore.destroy(session_id)
@@ -407,12 +431,13 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "GET /api/v2/auth/tokens/:id — Get token"
-  operation :get_token,
+  operation(:get_token,
     summary: "Get token",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def get_token(conn, %{"id" => token_id}) do
     case TokenStore.get(token_id) do
@@ -435,16 +460,19 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/tokens/:id/revoke — Revoke token"
-  operation :revoke_token,
+  operation(:revoke_token,
     summary: "Revoke token",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def revoke_token(conn, %{"id" => token_id}) do
     case TokenStore.revoke(token_id) do
-      :ok -> json(conn, %{ok: true, revoked: token_id})
+      :ok ->
+        json(conn, %{ok: true, revoked: token_id})
+
       {:error, :not_found} ->
         conn |> put_status(404) |> json(%{ok: false, error: "Token not found"})
     end
@@ -455,12 +483,13 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/auth/context/write — Record context write"
-  operation :record_context,
+  operation(:record_context,
     summary: "Record context",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def record_context(conn, params) do
     session_id = Map.get(params, "session_id", "default")
@@ -478,12 +507,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/context/trust — Get trust ceiling"
-  operation :get_trust,
+  operation(:get_trust,
     summary: "Get trust",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def get_trust(conn, params) do
     session_id = Map.get(params, "session_id", "default")
@@ -498,12 +528,13 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/auth/memory/authorize-write — Authorize memory write"
-  operation :authorize_memory_write,
+  operation(:authorize_memory_write,
     summary: "Authorize memory write",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def authorize_memory_write(conn, params) do
     session_id = Map.get(params, "session_id", "default")
@@ -521,12 +552,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/memory/authorize-read — Authorize memory read"
-  operation :authorize_memory_read,
+  operation(:authorize_memory_read,
     summary: "Authorize memory read",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def authorize_memory_read(conn, params) do
     session_id = Map.get(params, "session_id", "default")
@@ -546,12 +578,13 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "GET /api/v2/auth/rate-limits — Current rate limit state"
-  operation :rate_limits,
+  operation(:rate_limits,
     summary: "Rate limits",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def rate_limits(conn, _params) do
     stats = RateLimiter.stats()
@@ -622,12 +655,13 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/auth/redact — Redact sensitive data from text"
-  operation :redact,
+  operation(:redact,
     summary: "Redact",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def redact(conn, params) do
     text = Map.get(params, "text", "")
@@ -661,12 +695,13 @@ defmodule ApmWeb.V2.AuthController do
         meta: %{next_cursor: integer | nil, has_more: boolean, count: integer}
       }
   """
-  operation :audit_log,
+  operation(:audit_log,
     summary: "Audit log",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def audit_log(conn, params) do
     limit = params |> Map.get("limit", "50") |> parse_integer(50) |> min(500)
@@ -719,26 +754,30 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "GET /api/v2/auth/pending — List pending escalation requests"
-  operation :list_pending,
+  operation(:list_pending,
     summary: "List pending",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"Pending decisions", "application/json", Schemas.PendingDecision}
     ]
+  )
 
   def list_pending(conn, _params) do
-    pending = PendingDecisions.list_pending()
-    |> Enum.map(&pending_to_json/1)
+    pending =
+      PendingDecisions.list_pending()
+      |> Enum.map(&pending_to_json/1)
+
     json(conn, %{ok: true, pending: pending, count: length(pending)})
   end
 
   @doc "GET /api/v2/auth/pending/:id — Get/poll a single pending decision"
-  operation :get_pending,
+  operation(:get_pending,
     summary: "Get pending",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"Pending decision", "application/json", Schemas.PendingDecision}
     ]
+  )
 
   def get_pending(conn, %{"id" => request_id} = params) do
     wait_ms = params |> Map.get("wait", "0") |> to_integer() |> Kernel.*(1000) |> min(45_000)
@@ -774,12 +813,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/decide — Browser-clickable approve/deny via ?request_id=&decision=approve|deny; redirects to /authorization"
-  operation :decide_get,
+  operation(:decide_get,
     summary: "Decide get",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def decide_get(conn, params) do
     request_id = Map.get(params, "request_id", "")
@@ -794,7 +834,9 @@ defmodule ApmWeb.V2.AuthController do
 
     result =
       cond do
-        is_nil(decision) or request_id == "" -> :bad_params
+        is_nil(decision) or request_id == "" ->
+          :bad_params
+
         true ->
           case PendingDecisions.decide(request_id, decision) do
             {:ok, _} -> {:ok, raw_decision}
@@ -815,12 +857,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/decide — Approve or deny a pending escalation"
-  operation :decide,
+  operation(:decide,
     summary: "Decide",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def decide(conn, params) do
     request_id = Map.get(params, "request_id", "")
@@ -853,13 +896,14 @@ defmodule ApmWeb.V2.AuthController do
   # Policy Rules
   # ---------------------------------------------------------------------------
 
-  operation :list_policy_rules,
+  operation(:list_policy_rules,
     summary: "List policy rules",
     description: "Returns all permanent allow/deny/escalate policy rules for tool authorization.",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"Policy rule list", "application/json", Schemas.PolicyRuleList}
     ]
+  )
 
   @doc "GET /api/v2/auth/policy/rules — List permanent allow/deny rules"
   def list_policy_rules(conn, _params) do
@@ -868,12 +912,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/policy/rules — Add permanent allow/deny rule"
-  operation :add_policy_rule,
+  operation(:add_policy_rule,
     summary: "Add policy rule",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def add_policy_rule(conn, params) do
     tool_name = Map.get(params, "tool_name", "")
@@ -891,7 +936,9 @@ defmodule ApmWeb.V2.AuthController do
 
     expires_at =
       case Map.get(params, "expires_at") do
-        nil -> nil
+        nil ->
+          nil
+
         v ->
           case DateTime.from_iso8601(v) do
             {:ok, dt, _} -> dt
@@ -904,13 +951,17 @@ defmodule ApmWeb.V2.AuthController do
         conn |> put_status(400) |> json(%{ok: false, error: "tool_name required"})
 
       is_nil(action) ->
-        conn |> put_status(400) |> json(%{ok: false, error: "action must be 'always_allow' or 'always_deny'"})
+        conn
+        |> put_status(400)
+        |> json(%{ok: false, error: "action must be 'always_allow' or 'always_deny'"})
 
       true ->
         rule_opts =
           [created_by: created_by]
           |> Keyword.put(:approved_by, approved_by)
-          |> then(fn opts -> if expires_at, do: Keyword.put(opts, :expires_at, expires_at), else: opts end)
+          |> then(fn opts ->
+            if expires_at, do: Keyword.put(opts, :expires_at, expires_at), else: opts
+          end)
 
         PolicyRulesStore.add_rule(tool_name, action, rule_opts)
         json(conn, %{ok: true, tool_name: tool_name, action: raw_action})
@@ -918,12 +969,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "DELETE /api/v2/auth/policy/rules/:tool_name — Remove a permanent rule"
-  operation :remove_policy_rule,
+  operation(:remove_policy_rule,
     summary: "Remove policy rule",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def remove_policy_rule(conn, %{"tool_name" => tool_name}) do
     PolicyRulesStore.remove_rule(tool_name)
@@ -942,6 +994,7 @@ defmodule ApmWeb.V2.AuthController do
       nil ->
         # Aggregate history across all tools
         rules = PolicyRulesStore.list_rules()
+
         all_history =
           rules
           |> Enum.flat_map(fn %{tool_name: name} ->
@@ -988,12 +1041,13 @@ defmodule ApmWeb.V2.AuthController do
   - `limit` — integer (default 200)
   - `stats` — if "true", return outcome stats summary only
   """
-  operation :list_policy_decisions,
+  operation(:list_policy_decisions,
     summary: "List policy decisions",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def list_policy_decisions(conn, params) do
     if Map.get(params, "stats") == "true" do
@@ -1002,7 +1056,13 @@ defmodule ApmWeb.V2.AuthController do
     else
       filter = build_decision_filter(params)
       decisions = PolicyDecisionStore.query(filter) |> Enum.map(&decision_to_json/1)
-      json(conn, %{ok: true, decisions: decisions, count: length(decisions), total: PolicyDecisionStore.count()})
+
+      json(conn, %{
+        ok: true,
+        decisions: decisions,
+        count: length(decisions),
+        total: PolicyDecisionStore.count()
+      })
     end
   end
 
@@ -1035,24 +1095,32 @@ defmodule ApmWeb.V2.AuthController do
 
     filter =
       case Map.get(params, "since") do
-        nil -> filter
-        v -> case DateTime.from_iso8601(v) do
-          {:ok, dt, _} -> Map.put(filter, :since, dt)
-          _ -> filter
-        end
+        nil ->
+          filter
+
+        v ->
+          case DateTime.from_iso8601(v) do
+            {:ok, dt, _} -> Map.put(filter, :since, dt)
+            _ -> filter
+          end
       end
 
     filter =
       case Map.get(params, "until") do
-        nil -> filter
-        v -> case DateTime.from_iso8601(v) do
-          {:ok, dt, _} -> Map.put(filter, :until, dt)
-          _ -> filter
-        end
+        nil ->
+          filter
+
+        v ->
+          case DateTime.from_iso8601(v) do
+            {:ok, dt, _} -> Map.put(filter, :until, dt)
+            _ -> filter
+          end
       end
 
     case Map.get(params, "limit") do
-      nil -> filter
+      nil ->
+        filter
+
       v ->
         case Integer.parse(v) do
           {n, _} when n > 0 -> Map.put(filter, :limit, n)
@@ -1089,12 +1157,13 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/auth/session/start — Register agent session (apm-auth skill compat)"
-  operation :session_start,
+  operation(:session_start,
     summary: "Session start",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def session_start(conn, params) do
     user_id = Map.get(params, "agent_id", Map.get(params, "user_id", "unknown"))
@@ -1111,12 +1180,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/session/heartbeat — Keepalive for agent session"
-  operation :session_heartbeat,
+  operation(:session_heartbeat,
     summary: "Session heartbeat",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def session_heartbeat(conn, params) do
     session_id = Map.get(params, "session_id", "")
@@ -1132,12 +1202,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/session/end — Terminate agent session"
-  operation :session_end,
+  operation(:session_end,
     summary: "Session end",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def session_end(conn, params) do
     session_id = Map.get(params, "session_id", "")
@@ -1146,12 +1217,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/token/redeem — Redeem auth token for execution permit"
-  operation :redeem_token,
+  operation(:redeem_token,
     summary: "Redeem token",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def redeem_token(conn, params) do
     token_id = Map.get(params, "auth_token", Map.get(params, "token_id", ""))
@@ -1161,9 +1233,19 @@ defmodule ApmWeb.V2.AuthController do
 
     if token_id == "" and scope != "" do
       # Mint a new scoped token (used by /specialize --authorize=once|time=N)
-      {:ok, new_token_id} = TokenStore.generate("scope-agent", "scope-session", scope, %{ttl_ms: ttl_ms, single_use: single_use})
+      {:ok, new_token_id} =
+        TokenStore.generate("scope-agent", "scope-session", scope, %{
+          ttl_ms: ttl_ms,
+          single_use: single_use
+        })
 
-      json(conn, %{ok: true, auth_token: new_token_id, token_id: new_token_id, ttl_ms: ttl_ms, scope: scope})
+      json(conn, %{
+        ok: true,
+        auth_token: new_token_id,
+        token_id: new_token_id,
+        ttl_ms: ttl_ms,
+        scope: scope
+      })
     else
       case TokenStore.get(token_id) do
         nil ->
@@ -1182,12 +1264,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "GET /api/v2/auth/policies — List active policy rules (apm-auth skill compat)"
-  operation :list_policies,
+  operation(:list_policies,
     summary: "List policies",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def list_policies(conn, _params) do
     rules = PolicyRulesStore.list_rules()
@@ -1195,12 +1278,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/policies — Create or update a policy rule"
-  operation :create_policy,
+  operation(:create_policy,
     summary: "Create policy",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def create_policy(conn, params) do
     tool_name = Map.get(params, "tool", Map.get(params, "tool_name", ""))
@@ -1208,12 +1292,13 @@ defmodule ApmWeb.V2.AuthController do
     default_action = Map.get(params, "default", Map.get(params, "action", "allow"))
     name = Map.get(params, "name", "")
 
-    effective_tool = cond do
-      tool_name != "" -> tool_name
-      String.starts_with?(scope, "formation:") -> "*"
-      name != "" -> "*"
-      true -> ""
-    end
+    effective_tool =
+      cond do
+        tool_name != "" -> tool_name
+        String.starts_with?(scope, "formation:") -> "*"
+        name != "" -> "*"
+        true -> ""
+      end
 
     action =
       case default_action do
@@ -1230,17 +1315,25 @@ defmodule ApmWeb.V2.AuthController do
 
       true ->
         PolicyRulesStore.add_rule(effective_tool, action)
-        json(conn, %{ok: true, tool_name: effective_tool, action: default_action, scope: scope, name: name})
+
+        json(conn, %{
+          ok: true,
+          tool_name: effective_tool,
+          action: default_action,
+          scope: scope,
+          name: name
+        })
     end
   end
 
   @doc "GET /api/v2/auth/approvals/pending — List pending human-approval decisions"
-  operation :list_approvals_pending,
+  operation(:list_approvals_pending,
     summary: "List approvals pending",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def list_approvals_pending(conn, _params) do
     pending = PendingDecisions.list_pending() |> Enum.map(&pending_to_json/1)
@@ -1248,12 +1341,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/approvals/:id/decide — Approve or deny a pending decision"
-  operation :decide_approval,
+  operation(:decide_approval,
     summary: "Decide approval",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def decide_approval(conn, %{"id" => request_id} = params) do
     raw_decision = Map.get(params, "decision", "")
@@ -1269,21 +1363,31 @@ defmodule ApmWeb.V2.AuthController do
 
     cond do
       is_nil(decision) ->
-        conn |> put_status(400) |> json(%{ok: false, error: "decision must be 'allow'/'approve' or 'deny'"})
+        conn
+        |> put_status(400)
+        |> json(%{ok: false, error: "decision must be 'allow'/'approve' or 'deny'"})
 
       true ->
         result = PendingDecisions.decide(request_id, decision)
 
         if sticky and decision == :approve do
           case PendingDecisions.get(request_id) do
-            %{tool_name: tool} when is_binary(tool) -> PolicyRulesStore.add_rule(tool, :always_allow)
-            _ -> :ok
+            %{tool_name: tool} when is_binary(tool) ->
+              PolicyRulesStore.add_rule(tool, :always_allow)
+
+            _ ->
+              :ok
           end
         end
 
         case result do
           {:ok, token_id} ->
-            json(conn, %{ok: true, decided: request_id, decision: raw_decision, token_id: token_id})
+            json(conn, %{
+              ok: true,
+              decided: request_id,
+              decision: raw_decision,
+              token_id: token_id
+            })
 
           :ok ->
             json(conn, %{ok: true, decided: request_id, decision: raw_decision})
@@ -1299,12 +1403,13 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/notifications/test — Inject a test audit entry for CCEMHelper notification testing"
-  operation :test_notification,
+  operation(:test_notification,
     summary: "Test notification",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def test_notification(conn, params) do
     tool_name = Map.get(params, "tool_name", "Bash")
@@ -1336,11 +1441,16 @@ defmodule ApmWeb.V2.AuthController do
     })
 
     # Broadcast on agentlock channel so any LiveView subscribers see it immediately
-    Phoenix.PubSub.broadcast(Apm.PubSub, "agentlock:authorization", {:test_notification, %{
-      tool_name: tool_name,
-      risk_level: risk_level,
-      request_id: request_id
-    }})
+    Phoenix.PubSub.broadcast(
+      Apm.PubSub,
+      "agentlock:authorization",
+      {:test_notification,
+       %{
+         tool_name: tool_name,
+         risk_level: risk_level,
+         request_id: request_id
+       }}
+    )
 
     json(conn, %{ok: true, request_id: request_id, message: "Test notification injected"})
   end
@@ -1350,12 +1460,13 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "POST /api/v2/approvals/log — Record an authorization decision"
-  operation :log_approval,
+  operation(:log_approval,
     summary: "Log approval",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def log_approval(conn, params) do
     entry = %{
@@ -1373,12 +1484,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "GET /api/v2/approvals/history — List approval audit log with optional filters"
-  operation :list_approval_history,
+  operation(:list_approval_history,
     summary: "List approval history",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"Approval audit entries", "application/json", Schemas.ApprovalAuditEntry}
     ]
+  )
 
   def list_approval_history(conn, params) do
     opts =
@@ -1400,12 +1512,14 @@ defmodule ApmWeb.V2.AuthController do
   defp parse_decision(_), do: nil
 
   defp parse_limit(nil), do: nil
+
   defp parse_limit(val) when is_binary(val) do
     case Integer.parse(val) do
       {n, _} -> n
       :error -> nil
     end
   end
+
   defp parse_limit(val) when is_integer(val), do: val
   defp parse_limit(_), do: nil
 
@@ -1514,8 +1628,12 @@ defmodule ApmWeb.V2.AuthController do
 
     stable_id =
       cond do
-        is_integer(raw_id) -> "audit-#{raw_id}"
-        is_binary(raw_id) -> raw_id
+        is_integer(raw_id) ->
+          "audit-#{raw_id}"
+
+        is_binary(raw_id) ->
+          raw_id
+
         true ->
           tool = Map.get(entry, :event_type, "unknown")
           ts = Map.get(entry, :timestamp, "0")
@@ -1538,12 +1656,13 @@ defmodule ApmWeb.V2.AuthController do
   # ---------------------------------------------------------------------------
 
   @doc "GET /api/v2/auth/api-keys — List all API keys (masked)"
-  operation :list_api_keys,
+  operation(:list_api_keys,
     summary: "List api keys",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def list_api_keys(conn, _params) do
     keys = Apm.ApiKeyStore.list_keys()
@@ -1551,12 +1670,13 @@ defmodule ApmWeb.V2.AuthController do
   end
 
   @doc "POST /api/v2/auth/api-keys — Generate a new API key"
-  operation :create_api_key,
+  operation(:create_api_key,
     summary: "Create api key",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def create_api_key(conn, params) do
     label = Map.get(params, "label", "unnamed")
@@ -1565,17 +1685,23 @@ defmodule ApmWeb.V2.AuthController do
       {:ok, key} ->
         conn
         |> put_status(201)
-        |> json(%{ok: true, key: key, label: label, message: "Store this key securely — it will not be shown again"})
+        |> json(%{
+          ok: true,
+          key: key,
+          label: label,
+          message: "Store this key securely — it will not be shown again"
+        })
     end
   end
 
   @doc "DELETE /api/v2/auth/api-keys/:id — Revoke an API key"
-  operation :revoke_api_key,
+  operation(:revoke_api_key,
     summary: "Revoke api key",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def revoke_api_key(conn, %{"id" => key}) do
     :ok = Apm.ApiKeyStore.revoke_key(key)
@@ -1595,12 +1721,13 @@ defmodule ApmWeb.V2.AuthController do
   - `scope` — `"session"` (default) or `"formation"`
   - `limit` — max results (default 10, max 100)
   """
-  operation :list_risk_scores,
+  operation(:list_risk_scores,
     summary: "List risk scores",
     tags: ["AgentLock Authorization"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def list_risk_scores(conn, params) do
     scope = Map.get(params, "scope", "session")

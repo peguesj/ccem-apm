@@ -33,7 +33,8 @@ defmodule Apm.Plugins.OpenDesign.OpenDesignPlugin do
 
   @impl true
   def plugin_description,
-    do: "open-design daemon integration — skill catalog, design systems, agents, projects, artifact templates"
+    do:
+      "open-design daemon integration — skill catalog, design systems, agents, projects, artifact templates"
 
   @impl true
   def plugin_version, do: @plugin_version
@@ -73,7 +74,8 @@ defmodule Apm.Plugins.OpenDesign.OpenDesignPlugin do
       },
       %{
         action: "agents",
-        description: "Detected agent CLIs on the local machine (Claude Code, Codex, Cursor, etc.)",
+        description:
+          "Detected agent CLIs on the local machine (Claude Code, Codex, Cursor, etc.)",
         params: %{}
       },
       %{
@@ -263,7 +265,13 @@ defmodule Apm.Plugins.OpenDesign.OpenDesignPlugin do
   defp safe_monitor_state do
     case Process.whereis(OpenDesignMonitor) do
       nil ->
-        %{reachable: false, error: "OpenDesignMonitor not started", skill_count: 0, design_system_count: 0, project_count: 0}
+        %{
+          reachable: false,
+          error: "OpenDesignMonitor not started",
+          skill_count: 0,
+          design_system_count: 0,
+          project_count: 0
+        }
 
       _pid ->
         OpenDesignMonitor.current_state()

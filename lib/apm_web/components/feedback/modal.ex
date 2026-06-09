@@ -79,15 +79,24 @@ defmodule ApmWeb.Components.Feedback.Modal do
             aria-label="Close"
             phx-click={@on_close}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 6 12 12M18 6 6 18"/></svg>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
           </button>
         </div>
         <div class="apm-modal__body">
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         </div>
         <%= if @footer != [] do %>
           <div class="apm-modal__footer">
-            <%= render_slot(@footer) %>
+            {render_slot(@footer)}
           </div>
         <% end %>
       </div>

@@ -115,7 +115,8 @@ defmodule Apm.Auth.OidcVerifier do
   end
 
   @impl true
-  def handle_call({:verify, _jwt, _provider}, _from, %{providers: p} = state) when map_size(p) == 0 do
+  def handle_call({:verify, _jwt, _provider}, _from, %{providers: p} = state)
+      when map_size(p) == 0 do
     {:reply, {:error, :no_oidc_providers_configured}, state}
   end
 

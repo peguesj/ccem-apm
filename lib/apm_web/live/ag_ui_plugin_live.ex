@@ -41,7 +41,9 @@ defmodule ApmWeb.AgUiPluginLive do
       |> load_agents()
       |> load_config()
 
-    {:ok, socket |> assign(:sidebar_collapsed, false)
+    {:ok,
+     socket
+     |> assign(:sidebar_collapsed, false)
      |> assign(:inspector_open, false)
      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -113,197 +115,240 @@ defmodule ApmWeb.AgUiPluginLive do
         <.sidebar_nav current_path={@current_path} skill_count={@active_skill_count} />
       </:sidebar>
       <:main>
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-secondary/10">
-              <.icon name="hero-bolt" class="size-4 text-secondary" />
-            </span>
-            <h2 class="text-sm font-semibold text-base-content">AG-UI Plugin</h2>
-            <div class="badge badge-sm badge-ghost">{length(@events)} events</div>
-            <div :if={@config.event_bus_alive} class="badge badge-sm badge-success badge-outline">EventBus live</div>
-            <div :if={not @config.event_bus_alive} class="badge badge-sm badge-error badge-outline">EventBus down</div>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              :if={@active_tab == "events"}
-              class={["btn btn-xs", @paused && "btn-warning" || "btn-ghost"]}
-              phx-click="toggle_pause"
-            >
-              <.icon name={if @paused, do: "hero-play", else: "hero-pause"} class="size-3" />
-              {if @paused, do: "Resume", else: "Pause"}
-            </button>
-            <button
-              :if={@active_tab == "events"}
-              class="btn btn-ghost btn-xs"
-              phx-click="clear_events"
-            >
-              <.icon name="hero-trash" class="size-3" /> Clear
-            </button>
-            <button class="btn btn-ghost btn-xs" phx-click="refresh">
-              <.icon name="hero-arrow-path" class="size-3" /> Refresh
-            </button>
-          </div>
-        </header>
-
-        <%!-- Tab bar --%>
-        <div class="bg-base-200 border-b border-base-300 px-4 flex gap-1 flex-shrink-0">
-          <.tab_btn tab="events" active_tab={@active_tab} label="Events" />
-          <.tab_btn tab="agents" active_tab={@active_tab} label="Agents" />
-          <.tab_btn tab="config" active_tab={@active_tab} label="Config" />
-        </div>
-
-        <%!-- Content --%>
-        <div class="flex-1 overflow-y-auto p-6">
-
-          <%!-- Events Tab --%>
-          <div :if={@active_tab == "events"}>
-            <div :if={@events == []} class="text-center text-base-content/30 py-16 text-sm">
-              No AG-UI events yet. Events appear when agents emit via POST /api/v2/ag-ui/emit
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <%!-- Header --%>
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-secondary/10">
+                <.icon name="hero-bolt" class="size-4 text-secondary" />
+              </span>
+              <h2 class="text-sm font-semibold text-base-content">AG-UI Plugin</h2>
+              <div class="badge badge-sm badge-ghost">{length(@events)} events</div>
+              <div :if={@config.event_bus_alive} class="badge badge-sm badge-success badge-outline">
+                EventBus live
+              </div>
+              <div :if={not @config.event_bus_alive} class="badge badge-sm badge-error badge-outline">
+                EventBus down
+              </div>
             </div>
-
-            <div class="space-y-1 font-mono text-xs" id="ag-ui-plugin-event-feed">
-              <div
-                :for={event <- @events}
-                class="flex items-start gap-2 p-2 rounded bg-base-200 hover:bg-base-200/80"
+            <div class="flex items-center gap-2">
+              <button
+                :if={@active_tab == "events"}
+                class={["btn btn-xs", (@paused && "btn-warning") || "btn-ghost"]}
+                phx-click="toggle_pause"
               >
-                <span class={["badge badge-xs flex-shrink-0 mt-0.5", event_badge_class(event_type(event))]}>
-                  {event_type(event)}
-                </span>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
-                    <span :if={event_agent_id(event)} class="text-primary/70 truncate max-w-[12rem]">
-                      {event_agent_id(event)}
-                    </span>
-                    <span class="text-base-content/30 flex-shrink-0">{format_ts(event_ts(event))}</span>
-                  </div>
-                  <div class="text-base-content/60 truncate mt-0.5">
-                    {summarize_event(event)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <%!-- Agents Tab --%>
-          <div :if={@active_tab == "agents"}>
-            <div :if={@agents == []} class="text-center text-base-content/30 py-16 text-sm">
-              No AG-UI agent context tracked yet.
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              <div
-                :for={{agent_id, ctx} <- @agents}
-                class="bg-base-200 rounded-lg p-4 flex flex-col gap-2"
+                <.icon name={if @paused, do: "hero-play", else: "hero-pause"} class="size-3" />
+                {if @paused, do: "Resume", else: "Pause"}
+              </button>
+              <button
+                :if={@active_tab == "events"}
+                class="btn btn-ghost btn-xs"
+                phx-click="clear_events"
               >
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-mono text-xs text-base-content/70 truncate flex-1">{agent_id}</span>
-                  <span :if={ctx.current_event_type} class={["badge badge-xs flex-shrink-0", event_badge_class(ctx.current_event_type)]}>
-                    {ctx.current_event_type}
-                  </span>
-                </div>
-
-                <div class="text-sm text-base-content font-medium">
-                  {Map.get(ctx, :activity_label, "Idle")}
-                </div>
-
-                <div :if={ctx.current_tool} class="text-xs text-base-content/50 font-mono">
-                  tool: {ctx.current_tool}
-                </div>
-
-                <div :if={ctx.recent_events != []} class="flex flex-wrap gap-1 mt-1">
-                  <span
-                    :for={ev <- Enum.take(ctx.recent_events || [], 5)}
-                    class={["badge badge-xs", event_badge_class(ev_type(ev))]}
-                  >
-                    {ev_type(ev)}
-                  </span>
-                </div>
-
-                <div class="text-[10px] text-base-content/30 mt-1">
-                  <span :if={ctx.updated_at}>Updated: {format_ts(ctx.updated_at)}</span>
-                  <span :if={ctx.started_at} class="ml-2">Started: {format_ts(ctx.started_at)}</span>
-                </div>
-              </div>
+                <.icon name="hero-trash" class="size-3" /> Clear
+              </button>
+              <button class="btn btn-ghost btn-xs" phx-click="refresh">
+                <.icon name="hero-arrow-path" class="size-3" /> Refresh
+              </button>
             </div>
+          </header>
+
+          <%!-- Tab bar --%>
+          <div class="bg-base-200 border-b border-base-300 px-4 flex gap-1 flex-shrink-0">
+            <.tab_btn tab="events" active_tab={@active_tab} label="Events" />
+            <.tab_btn tab="agents" active_tab={@active_tab} label="Agents" />
+            <.tab_btn tab="config" active_tab={@active_tab} label="Config" />
           </div>
 
-          <%!-- Config Tab --%>
-          <div :if={@active_tab == "config"}>
-            <%!-- Integration Status --%>
-            <div class="mb-6">
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">Integration Status</h3>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="bg-base-200 rounded-lg p-4">
-                  <div class="text-xs text-base-content/50 mb-1">ag_ui_ex package</div>
-                  <div class={["badge badge-sm", @config.ag_ui_available && "badge-success" || "badge-error"]}>
-                    {if @config.ag_ui_available, do: "loaded", else: "unavailable"}
-                  </div>
-                </div>
-                <div class="bg-base-200 rounded-lg p-4">
-                  <div class="text-xs text-base-content/50 mb-1">EventBus</div>
-                  <div class={["badge badge-sm", @config.event_bus_alive && "badge-success" || "badge-error"]}>
-                    {if @config.event_bus_alive, do: "running", else: "down"}
-                  </div>
-                  <div :if={@config.event_bus_stats} class="text-[10px] text-base-content/40 mt-1">
-                    {Map.get(@config.event_bus_stats, :published_count, 0)} published ·
-                    {Map.get(@config.event_bus_stats, :subscribers_count, 0)} subscribers
-                  </div>
-                </div>
-                <div class="bg-base-200 rounded-lg p-4">
-                  <div class="text-xs text-base-content/50 mb-1">AgentContextStore</div>
-                  <div class={["badge badge-sm", @config.context_store_alive && "badge-success" || "badge-error"]}>
-                    {if @config.context_store_alive, do: "running", else: "down"}
-                  </div>
-                  <div class="text-[10px] text-base-content/40 mt-1">
-                    {map_size(@agents)} agents tracked
-                  </div>
-                </div>
+          <%!-- Content --%>
+          <div class="flex-1 overflow-y-auto p-6">
+            <%!-- Events Tab --%>
+            <div :if={@active_tab == "events"}>
+              <div :if={@events == []} class="text-center text-base-content/30 py-16 text-sm">
+                No AG-UI events yet. Events appear when agents emit via POST /api/v2/ag-ui/emit
               </div>
-            </div>
 
-            <%!-- EventBus Topic Stats --%>
-            <div :if={@config.event_bus_stats} class="mb-6">
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">EventBus Topic Stats</h3>
-              <div class="bg-base-200 rounded-lg p-4">
-                <div :if={map_size(Map.get(@config.event_bus_stats, :by_topic, %{})) == 0} class="text-sm text-base-content/30">
-                  No topic activity yet.
-                </div>
-                <div class="space-y-1">
-                  <div
-                    :for={{topic, count} <- Enum.sort_by(Map.get(@config.event_bus_stats, :by_topic, %{}), fn {_, c} -> c end, :desc) |> Enum.take(15)}
-                    class="flex justify-between text-xs"
-                  >
-                    <span class="text-base-content/60 font-mono">{topic}</span>
-                    <span class="font-mono text-base-content/40">{count}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <%!-- Event Types --%>
-            <div>
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">
-                Event Types ({length(@config.event_types)})
-              </h3>
-              <div class="flex flex-wrap gap-1">
-                <span
-                  :for={type <- @config.event_types}
-                  class={["badge badge-sm", event_badge_class(type)]}
+              <div class="space-y-1 font-mono text-xs" id="ag-ui-plugin-event-feed">
+                <div
+                  :for={event <- @events}
+                  class="flex items-start gap-2 p-2 rounded bg-base-200 hover:bg-base-200/80"
                 >
-                  {type}
-                </span>
-                <div :if={@config.event_types == []} class="text-sm text-base-content/30">
-                  ag_ui_ex not available — event types unavailable
+                  <span class={[
+                    "badge badge-xs flex-shrink-0 mt-0.5",
+                    event_badge_class(event_type(event))
+                  ]}>
+                    {event_type(event)}
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span :if={event_agent_id(event)} class="text-primary/70 truncate max-w-[12rem]">
+                        {event_agent_id(event)}
+                      </span>
+                      <span class="text-base-content/30 flex-shrink-0">
+                        {format_ts(event_ts(event))}
+                      </span>
+                    </div>
+                    <div class="text-base-content/60 truncate mt-0.5">
+                      {summarize_event(event)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Agents Tab --%>
+            <div :if={@active_tab == "agents"}>
+              <div :if={@agents == []} class="text-center text-base-content/30 py-16 text-sm">
+                No AG-UI agent context tracked yet.
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div
+                  :for={{agent_id, ctx} <- @agents}
+                  class="bg-base-200 rounded-lg p-4 flex flex-col gap-2"
+                >
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-mono text-xs text-base-content/70 truncate flex-1">
+                      {agent_id}
+                    </span>
+                    <span
+                      :if={ctx.current_event_type}
+                      class={[
+                        "badge badge-xs flex-shrink-0",
+                        event_badge_class(ctx.current_event_type)
+                      ]}
+                    >
+                      {ctx.current_event_type}
+                    </span>
+                  </div>
+
+                  <div class="text-sm text-base-content font-medium">
+                    {Map.get(ctx, :activity_label, "Idle")}
+                  </div>
+
+                  <div :if={ctx.current_tool} class="text-xs text-base-content/50 font-mono">
+                    tool: {ctx.current_tool}
+                  </div>
+
+                  <div :if={ctx.recent_events != []} class="flex flex-wrap gap-1 mt-1">
+                    <span
+                      :for={ev <- Enum.take(ctx.recent_events || [], 5)}
+                      class={["badge badge-xs", event_badge_class(ev_type(ev))]}
+                    >
+                      {ev_type(ev)}
+                    </span>
+                  </div>
+
+                  <div class="text-[10px] text-base-content/30 mt-1">
+                    <span :if={ctx.updated_at}>Updated: {format_ts(ctx.updated_at)}</span>
+                    <span :if={ctx.started_at} class="ml-2">
+                      Started: {format_ts(ctx.started_at)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Config Tab --%>
+            <div :if={@active_tab == "config"}>
+              <%!-- Integration Status --%>
+              <div class="mb-6">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">
+                  Integration Status
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div class="bg-base-200 rounded-lg p-4">
+                    <div class="text-xs text-base-content/50 mb-1">ag_ui_ex package</div>
+                    <div class={[
+                      "badge badge-sm",
+                      (@config.ag_ui_available && "badge-success") || "badge-error"
+                    ]}>
+                      {if @config.ag_ui_available, do: "loaded", else: "unavailable"}
+                    </div>
+                  </div>
+                  <div class="bg-base-200 rounded-lg p-4">
+                    <div class="text-xs text-base-content/50 mb-1">EventBus</div>
+                    <div class={[
+                      "badge badge-sm",
+                      (@config.event_bus_alive && "badge-success") || "badge-error"
+                    ]}>
+                      {if @config.event_bus_alive, do: "running", else: "down"}
+                    </div>
+                    <div :if={@config.event_bus_stats} class="text-[10px] text-base-content/40 mt-1">
+                      {Map.get(@config.event_bus_stats, :published_count, 0)} published · {Map.get(
+                        @config.event_bus_stats,
+                        :subscribers_count,
+                        0
+                      )} subscribers
+                    </div>
+                  </div>
+                  <div class="bg-base-200 rounded-lg p-4">
+                    <div class="text-xs text-base-content/50 mb-1">AgentContextStore</div>
+                    <div class={[
+                      "badge badge-sm",
+                      (@config.context_store_alive && "badge-success") || "badge-error"
+                    ]}>
+                      {if @config.context_store_alive, do: "running", else: "down"}
+                    </div>
+                    <div class="text-[10px] text-base-content/40 mt-1">
+                      {map_size(@agents)} agents tracked
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- EventBus Topic Stats --%>
+              <div :if={@config.event_bus_stats} class="mb-6">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">
+                  EventBus Topic Stats
+                </h3>
+                <div class="bg-base-200 rounded-lg p-4">
+                  <div
+                    :if={map_size(Map.get(@config.event_bus_stats, :by_topic, %{})) == 0}
+                    class="text-sm text-base-content/30"
+                  >
+                    No topic activity yet.
+                  </div>
+                  <div class="space-y-1">
+                    <div
+                      :for={
+                        {topic, count} <-
+                          Enum.sort_by(
+                            Map.get(@config.event_bus_stats, :by_topic, %{}),
+                            fn {_, c} -> c end,
+                            :desc
+                          )
+                          |> Enum.take(15)
+                      }
+                      class="flex justify-between text-xs"
+                    >
+                      <span class="text-base-content/60 font-mono">{topic}</span>
+                      <span class="font-mono text-base-content/40">{count}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Event Types --%>
+              <div>
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">
+                  Event Types ({length(@config.event_types)})
+                </h3>
+                <div class="flex flex-wrap gap-1">
+                  <span
+                    :for={type <- @config.event_types}
+                    class={["badge badge-sm", event_badge_class(type)]}
+                  >
+                    {type}
+                  </span>
+                  <div :if={@config.event_types == []} class="text-sm text-base-content/30">
+                    ag_ui_ex not available — event types unavailable
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-
         </div>
-      </div>
       </:main>
     </.page_layout>
     """
@@ -439,11 +484,17 @@ defmodule ApmWeb.AgUiPluginLive do
 
       type in ["STEP_STARTED", "STEP_FINISHED"] ->
         step = data[:step_name] || data["step_name"] || ""
-        wave = if data[:wave] || data["wave"], do: " wave=#{data[:wave] || data["wave"]}", else: ""
+
+        wave =
+          if data[:wave] || data["wave"], do: " wave=#{data[:wave] || data["wave"]}", else: ""
+
         "#{step}#{wave}"
 
       type == "TOOL_CALL_START" ->
-        tool = data[:tool_call_name] || data["tool_call_name"] || data[:tool_name] || data["tool_name"] || "unknown"
+        tool =
+          data[:tool_call_name] || data["tool_call_name"] || data[:tool_name] || data["tool_name"] ||
+            "unknown"
+
         agent = data[:agent_id] || data["agent_id"] || ""
         "[#{agent}] #{tool}"
 
@@ -476,7 +527,12 @@ defmodule ApmWeb.AgUiPluginLive do
       type == "CUSTOM" ->
         name = data[:name] || data["name"] || "custom"
         val = data[:value] || data["value"]
-        msg = if is_map(val), do: val[:message] || val["message"] || val[:title] || val["title"] || "", else: inspect(val, limit: 40)
+
+        msg =
+          if is_map(val),
+            do: val[:message] || val["message"] || val[:title] || val["title"] || "",
+            else: inspect(val, limit: 40)
+
         "#{name}: #{msg}" |> String.trim_trailing(": ")
 
       true ->
@@ -488,12 +544,14 @@ defmodule ApmWeb.AgUiPluginLive do
   @spec format_ts(term()) :: String.t()
   defp format_ts(nil), do: ""
   defp format_ts(%DateTime{} = dt), do: Calendar.strftime(dt, "%H:%M:%S")
+
   defp format_ts(ts) when is_binary(ts) do
     case DateTime.from_iso8601(ts) do
       {:ok, dt, _} -> Calendar.strftime(dt, "%H:%M:%S")
       _ -> ts
     end
   end
+
   defp format_ts(_), do: ""
 
   # Badge classes — covers all 33 EventType values
@@ -513,7 +571,10 @@ defmodule ApmWeb.AgUiPluginLive do
   defp event_badge_class("TEXT_MESSAGE_CHUNK"), do: "badge-primary opacity-70"
   defp event_badge_class("THINKING_TEXT_MESSAGE_START"), do: "badge-secondary badge-outline"
   defp event_badge_class("THINKING_TEXT_MESSAGE_CONTENT"), do: "badge-secondary"
-  defp event_badge_class("THINKING_TEXT_MESSAGE_END"), do: "badge-secondary badge-outline opacity-70"
+
+  defp event_badge_class("THINKING_TEXT_MESSAGE_END"),
+    do: "badge-secondary badge-outline opacity-70"
+
   defp event_badge_class("THINKING_START"), do: "badge-secondary badge-outline"
   defp event_badge_class("THINKING_END"), do: "badge-secondary opacity-70"
   defp event_badge_class("STATE_SNAPSHOT"), do: "badge-accent badge-outline"

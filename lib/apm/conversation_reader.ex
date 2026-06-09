@@ -287,6 +287,7 @@ defmodule Apm.ConversationReader do
             end)
             |> Enum.flat_map(fn d ->
               obs_dir = Path.join(parent_dir, d)
+
               find_jsonl_files(obs_dir)
               |> Enum.map(fn f ->
                 meta = extract_file_meta(f)
@@ -504,6 +505,7 @@ defmodule Apm.ConversationReader do
   defp preview_input(_), do: "..."
 
   defp preview_content(content) when is_binary(content), do: String.slice(content, 0, 200)
+
   defp preview_content(content) when is_list(content) do
     content
     |> Enum.map(fn
@@ -513,6 +515,7 @@ defmodule Apm.ConversationReader do
     |> Enum.join(" ")
     |> String.slice(0, 200)
   end
+
   defp preview_content(_), do: "..."
 
   defp normalize_usage(nil), do: nil

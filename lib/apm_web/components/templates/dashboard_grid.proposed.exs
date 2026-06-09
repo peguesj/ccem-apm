@@ -50,7 +50,7 @@ defmodule ApmWeb.Components.Templates.DashboardGrid do
       data-reorder-event={@on_layout_reorder}
       {@rest}
     >
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end

@@ -91,7 +91,8 @@ defmodule Apm.Plugins.Skills.SkillsPlugin do
   end
 
   def handle_action("audit", _params, _opts) do
-    {:ok, %{status: "audit_queued", message: "Skills audit queued — results available via list_skills"}}
+    {:ok,
+     %{status: "audit_queued", message: "Skills audit queued — results available via list_skills"}}
   end
 
   def handle_action("refresh", _params, _opts) do

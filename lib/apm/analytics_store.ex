@@ -39,6 +39,7 @@ defmodule Apm.AnalyticsStore do
       sessions: [],
       last_refreshed: nil
     }
+
     schedule_refresh()
     {:ok, state, {:continue, :initial_load}}
   end
@@ -112,10 +113,12 @@ defmodule Apm.AnalyticsStore do
         |> Enum.map(fn {:ok, entry} -> entry end)
 
       token_entries = Enum.filter(entries, &Map.has_key?(&1, "usage"))
-      total_tokens = Enum.reduce(token_entries, 0, fn e, acc ->
-        usage = Map.get(e, "usage", %{})
-        acc + Map.get(usage, "input_tokens", 0) + Map.get(usage, "output_tokens", 0)
-      end)
+
+      total_tokens =
+        Enum.reduce(token_entries, 0, fn e, acc ->
+          usage = Map.get(e, "usage", %{})
+          acc + Map.get(usage, "input_tokens", 0) + Map.get(usage, "output_tokens", 0)
+        end)
 
       models =
         entries
@@ -160,7 +163,9 @@ defmodule Apm.AnalyticsStore do
     model_dist =
       sessions
       |> Enum.flat_map(fn s -> Map.to_list(s.models) end)
-      |> Enum.reduce(%{}, fn {model, count}, acc -> Map.update(acc, model, count, &(&1 + count)) end)
+      |> Enum.reduce(%{}, fn {model, count}, acc ->
+        Map.update(acc, model, count, &(&1 + count))
+      end)
 
     tool_freq =
       sessions
@@ -189,7 +194,9 @@ defmodule Apm.AnalyticsStore do
           naive = NaiveDateTime.from_erl!({date, time})
           diff = NaiveDateTime.diff(NaiveDateTime.utc_now(), naive, :minute)
           diff < 5
-        _ -> false
+
+        _ ->
+          false
       end
     end)
   end

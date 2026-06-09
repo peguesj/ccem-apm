@@ -31,12 +31,14 @@ defmodule ApmWeb.Components.TopBarTest do
 
     test "header carries an inline height of 48px" do
       html = render_component(&TopBar.top_bar/1, @assigns)
+
       assert html =~ ~r/style="[^"]*height:\s*48px/,
              "top_bar must carry inline height:48px chrome"
     end
 
     test "header carries inline horizontal padding (chrome breathing room)" do
       html = render_component(&TopBar.top_bar/1, @assigns)
+
       assert html =~ ~r/style="[^"]*padding:\s*0\s+16px/,
              "top_bar must carry inline padding so chrome remains even without Tailwind"
     end
