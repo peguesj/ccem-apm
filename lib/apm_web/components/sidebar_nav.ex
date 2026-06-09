@@ -45,10 +45,18 @@ defmodule ApmWeb.Components.SidebarNav do
       id="apm-sidebar"
       class="w-52 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0 h-screen sticky top-0 overflow-hidden"
     >
-      <%!-- Brand header REMOVED CP-331 (US-511): wordmark canonical in top_bar.ex; sidebar retains collapse control + version --%>
-      <div class="p-2 border-b border-base-300 flex-shrink-0">
+      <%!-- CP-337 (US-517): restore sidebar identity. The "doubled wordmark" defect
+           was the top-bar project switcher chip echoing "CCEM APM" — NOT the sidebar
+           wordmark. Sidebar brand is canonical product identity; top bar shows page
+           context. Both can coexist. --%>
+      <div class="p-3 border-b border-base-300 flex-shrink-0">
         <div class="flex items-center justify-between gap-2">
-          <span class="text-xs text-base-content/40 sidebar-label sidebar-version font-mono">v{@version}</span>
+          <span
+            class="sidebar-label font-mono font-bold tracking-wide text-sm whitespace-nowrap"
+            style="letter-spacing: 0.04em;"
+          >
+            <span style="color: var(--ccem-accent, #00d4ff);">CCEM</span><span style="color: var(--ccem-fg, #e5e7eb);"> APM</span>
+          </span>
           <button
             onclick="window.apmSidebar.toggle()"
             class="btn btn-ghost btn-xs p-0.5 flex-shrink-0 text-base-content/40 hover:text-base-content"
@@ -57,6 +65,9 @@ defmodule ApmWeb.Components.SidebarNav do
             <.icon name="hero-chevron-left" class="size-3 sidebar-arrow-collapse" />
             <.icon name="hero-chevron-right" class="size-3 sidebar-arrow-expand" />
           </button>
+        </div>
+        <div class="mt-1">
+          <span class="text-[10px] text-base-content/40 sidebar-label sidebar-version font-mono">v{@version}</span>
         </div>
       </div>
 

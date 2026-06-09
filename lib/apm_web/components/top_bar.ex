@@ -111,8 +111,13 @@ defmodule ApmWeb.Components.TopBar do
           <span style="color: var(--ccem-fg);"> APM</span>
         </span>
 
-        <!-- Project switcher (details/summary — zero JS) -->
-        <details style="position: relative;">
+        <!-- Project switcher (details/summary — zero JS)
+             CP-337 (US-517): hide chip entirely when project name duplicates the
+             brand wordmark; show clean chip otherwise. -->
+        <details
+          :if={String.trim(to_string(@project_name || "")) not in ["CCEM APM", "CCEM_APM", "ccem-apm", "ccem", ""]}
+          style="position: relative;"
+        >
           <summary
             style={[
               "display: flex;",
@@ -131,14 +136,8 @@ defmodule ApmWeb.Components.TopBar do
               "user-select: none;"
             ]}
           >
-            <%!-- CP-331 (US-511): suppress project name when it matches the brand wordmark to avoid
-                 the appearance of duplicated "CCEM APM" text in the top bar. ── --%>
             <span style="max-width: 160px; overflow: hidden; text-overflow: ellipsis;">
-              <%= if String.trim(to_string(@project_name || "")) in ["CCEM APM", "CCEM_APM", "ccem-apm", "ccem"] do %>
-                <span style="color: var(--ccem-fg-dim); font-size: 11px;">Project</span>
-              <% else %>
-                {@project_name}
-              <% end %>
+              {@project_name}
             </span>
             <span style="color: var(--ccem-fg-dim); font-size: 10px;">&#9660;</span>
           </summary>
