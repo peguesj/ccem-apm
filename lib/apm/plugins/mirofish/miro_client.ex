@@ -145,7 +145,13 @@ defmodule Apm.Plugins.Mirofish.MiroClient do
     end
   end
 
-  defp handle_response({:ok, {{_, status, _}, _headers, resp_body}}, _method, _path, _body, _attempt)
+  defp handle_response(
+         {:ok, {{_, status, _}, _headers, resp_body}},
+         _method,
+         _path,
+         _body,
+         _attempt
+       )
        when status in 200..299 do
     parse_response_body(resp_body)
   end
@@ -162,7 +168,13 @@ defmodule Apm.Plugins.Mirofish.MiroClient do
     request(method, path, body, attempt + 1)
   end
 
-  defp handle_response({:ok, {{_, status, _}, _headers, resp_body}}, _method, _path, _body, _attempt) do
+  defp handle_response(
+         {:ok, {{_, status, _}, _headers, resp_body}},
+         _method,
+         _path,
+         _body,
+         _attempt
+       ) do
     {:error, %{status: status, body: to_string(resp_body)}}
   end
 
@@ -211,7 +223,12 @@ defmodule Apm.Plugins.Mirofish.MiroClient do
 
     case File.read(path) do
       {:ok, content} ->
-        token = content |> String.split("\n", trim: true) |> List.first() |> to_string() |> String.trim()
+        token =
+          content
+          |> String.split("\n", trim: true)
+          |> List.first()
+          |> to_string()
+          |> String.trim()
 
         if token == "" do
           {:error, :no_token}

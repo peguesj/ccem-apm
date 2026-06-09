@@ -50,13 +50,43 @@ defmodule ApmWeb.Components.Feedback.CommandBar do
         phx-target={@myself}
       >
         <div class="apm-command-bar__search-row">
-          <span class={["apm-command-bar__search-icon", @ai_question && "apm-command-bar__search-icon--ai"]} aria-hidden="true">
+          <span
+            class={[
+              "apm-command-bar__search-icon",
+              @ai_question && "apm-command-bar__search-icon--ai"
+            ]}
+            aria-hidden="true"
+          >
             <%= if @ai_question do %>
               <%!-- spark icon --%>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2" /><circle
+                  cx="12"
+                  cy="12"
+                  r="2.5"
+                  fill="currentColor"
+                  stroke="none"
+                />
+              </svg>
             <% else %>
               <%!-- search icon --%>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+              >
+                <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+              </svg>
             <% end %>
           </span>
           <input
@@ -78,7 +108,22 @@ defmodule ApmWeb.Components.Feedback.CommandBar do
             <div class="apm-command-bar__ai-answer">
               <div class="apm-command-bar__ai-header">
                 <span class="apm-command-bar__ai-icon" aria-hidden="true">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <path d="M12 3v3M12 18v3M3 12h3M18 12h3" /><circle
+                      cx="12"
+                      cy="12"
+                      r="2.5"
+                      fill="currentColor"
+                      stroke="none"
+                    />
+                  </svg>
                 </span>
                 <span class="apm-mono apm-upper apm-command-bar__ai-label">AI · answering</span>
               </div>
@@ -109,7 +154,9 @@ defmodule ApmWeb.Components.Feedback.CommandBar do
                       </span>
                       <span class="apm-command-bar__row-label">{item.label}</span>
                       <%= if item[:badge] do %>
-                        <ApmWeb.Components.Core.Badge.badge tone="warning">{item.badge}</ApmWeb.Components.Core.Badge.badge>
+                        <ApmWeb.Components.Core.Badge.badge tone="warning">
+                          {item.badge}
+                        </ApmWeb.Components.Core.Badge.badge>
                       <% end %>
                       <span class="apm-command-bar__row-hint apm-mono">{item[:hint]}</span>
                     </button>
@@ -125,7 +172,22 @@ defmodule ApmWeb.Components.Feedback.CommandBar do
                 phx-target={@myself}
               >
                 <span aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <path d="M12 3v3M12 18v3M3 12h3M18 12h3" /><circle
+                      cx="12"
+                      cy="12"
+                      r="2.5"
+                      fill="currentColor"
+                      stroke="none"
+                    />
+                  </svg>
                 </span>
                 <span>Ask AI · "{@query}"</span>
                 <span class="apm-kbd apm-mono">↵</span>

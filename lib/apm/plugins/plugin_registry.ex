@@ -66,16 +66,22 @@ defmodule Apm.Plugins.PluginRegistry do
   def find_plugin_by_slug(slug) do
     # Try exact match first
     case get_plugin_with_module(slug) do
-      {:ok, _} = hit -> hit
+      {:ok, _} = hit ->
+        hit
+
       _ ->
         # Try underscore variant (sidebar generates dashes from underscores)
         underscore_name = String.replace(slug, "-", "_")
+
         case get_plugin_with_module(underscore_name) do
-          {:ok, _} = hit -> hit
+          {:ok, _} = hit ->
+            hit
+
           _ ->
             # Fuzzy: find plugin whose name matches slug when both are normalized
             normalized = String.downcase(String.replace(slug, "-", "_"))
             all = :ets.tab2list(@table)
+
             case Enum.find(all, fn {name, _} -> String.downcase(name) == normalized end) do
               {_name, {mod, meta}} -> {:ok, {mod, meta}}
               nil -> {:error, :not_found}
@@ -90,7 +96,9 @@ defmodule Apm.Plugins.PluginRegistry do
     case :ets.lookup(@table, plugin_name) do
       [{^plugin_name, {mod, _meta}}] ->
         Code.ensure_loaded(mod)
-        function_exported?(mod, :orchestration_topology, 0) and mod.orchestration_topology() != nil
+
+        function_exported?(mod, :orchestration_topology, 0) and
+          mod.orchestration_topology() != nil
 
       _ ->
         false

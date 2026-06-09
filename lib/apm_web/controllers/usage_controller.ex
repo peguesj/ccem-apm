@@ -19,23 +19,25 @@ defmodule ApmWeb.UsageController do
   alias OpenApiSpex.Schema
   alias Apm.ClaudeUsageStore
 
-  operation :index,
+  operation(:index,
     summary: "Get all usage data",
     description: "Returns all Claude model/token usage data keyed by project then model.",
     tags: ["Usage"],
     responses: [
       ok: {"Usage data", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :summary,
+  operation(:summary,
     summary: "Usage summary",
     description: "Returns aggregated totals, model breakdown, and per-project effort levels.",
     tags: ["Usage"],
     responses: [
       ok: {"Usage summary", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :project,
+  operation(:project,
     summary: "Per-project usage",
     description: "Returns usage data and effort level for a single project.",
     tags: ["Usage"],
@@ -45,38 +47,49 @@ defmodule ApmWeb.UsageController do
     responses: [
       ok: {"Project usage", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :record,
+  operation(:record,
     summary: "Record usage event",
     description: "Records a Claude model usage event (tokens, tool_calls) for a project.",
     tags: ["Usage"],
-    request_body: {"Usage event payload", "application/json", %Schema{
-      type: :object,
-      properties: %{
-        project: %Schema{type: :string, description: "Project name", default: "unknown"},
-        model: %Schema{type: :string, description: "Model ID", example: "claude-sonnet-4-6"},
-        input_tokens: %Schema{type: :integer, description: "Input token count"},
-        output_tokens: %Schema{type: :integer, description: "Output token count"},
-        cache_tokens: %Schema{type: :integer, description: "Cache token count"},
-        tool_calls: %Schema{type: :integer, description: "Number of tool calls"}
-      }
-    }, required: true},
+    request_body:
+      {"Usage event payload", "application/json",
+       %Schema{
+         type: :object,
+         properties: %{
+           project: %Schema{type: :string, description: "Project name", default: "unknown"},
+           model: %Schema{type: :string, description: "Model ID", example: "claude-sonnet-4-6"},
+           input_tokens: %Schema{type: :integer, description: "Input token count"},
+           output_tokens: %Schema{type: :integer, description: "Output token count"},
+           cache_tokens: %Schema{type: :integer, description: "Cache token count"},
+           tool_calls: %Schema{type: :integer, description: "Number of tool calls"}
+         }
+       }, required: true},
     responses: [
       created: {"Usage recorded", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :limits,
+  operation(:limits,
     summary: "Model capability limits",
-    description: "Returns model capability limits with optional utilization data if `project` is specified.",
+    description:
+      "Returns model capability limits with optional utilization data if `project` is specified.",
     tags: ["Usage"],
     parameters: [
-      project: [in: :query, type: :string, required: false, description: "Project name for utilization data"]
+      project: [
+        in: :query,
+        type: :string,
+        required: false,
+        description: "Project name for utilization data"
+      ]
     ],
     responses: [
       ok: {"Model limits", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :reset,
+  operation(:reset,
     summary: "Reset project usage",
     description: "Resets all usage counters for a project.",
     tags: ["Usage"],
@@ -86,6 +99,7 @@ defmodule ApmWeb.UsageController do
     responses: [
       ok: {"Usage reset", "application/json", Schemas.OkResponse}
     ]
+  )
 
   # Catch-all for any action not explicitly annotated above.
   def open_api_operation(_action), do: nil
@@ -149,13 +163,18 @@ defmodule ApmWeb.UsageController do
     updated = ClaudeUsageStore.get_usage(project)
     effort = ClaudeUsageStore.get_effort_level(project)
 
-    Phoenix.PubSub.broadcast(@pubsub, @topic, {:usage_recorded, %{
-      project: project,
-      model: model,
-      effort_level: effort,
-      input_tokens: usage.input,
-      output_tokens: usage.output
-    }})
+    Phoenix.PubSub.broadcast(
+      @pubsub,
+      @topic,
+      {:usage_recorded,
+       %{
+         project: project,
+         model: model,
+         effort_level: effort,
+         input_tokens: usage.input,
+         output_tokens: usage.output
+       }}
+    )
 
     conn
     |> put_status(201)
@@ -226,6 +245,7 @@ defmodule ApmWeb.UsageController do
 
   defp parse_int(nil), do: 0
   defp parse_int(v) when is_integer(v), do: v
+
   defp parse_int(v) when is_binary(v) do
     case Integer.parse(v) do
       {n, _} -> n

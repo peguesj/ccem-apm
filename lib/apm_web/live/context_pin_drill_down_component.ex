@@ -65,7 +65,10 @@ defmodule ApmWeb.Live.ContextPinDrillDownComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id="context-pin-drill-down" class={if @scope_type == :global || is_nil(@pinned_widget_id), do: "hidden", else: ""}>
+    <div
+      id="context-pin-drill-down"
+      class={if @scope_type == :global || is_nil(@pinned_widget_id), do: "hidden", else: ""}
+    >
       <%!-- Scope badge header --%>
       <div class="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg mb-2">
         <span class="badge badge-primary badge-sm">{scope_label(@scope_type)}</span>
@@ -97,7 +100,9 @@ defmodule ApmWeb.Live.ContextPinDrillDownComponent do
                   <div class="text-[10px] text-base-content/60">Sessions</div>
                 </div>
                 <div class="text-center">
-                  <div class={["text-lg font-bold", status_color(@project_data.status)]}>{@project_data.status}</div>
+                  <div class={["text-lg font-bold", status_color(@project_data.status)]}>
+                    {@project_data.status}
+                  </div>
                   <div class="text-[10px] text-base-content/60">Status</div>
                 </div>
               </div>
@@ -116,10 +121,20 @@ defmodule ApmWeb.Live.ContextPinDrillDownComponent do
           >
             <span class="text-xs font-semibold text-base-content/70">User / Global View</span>
             <svg
-              class={["w-3.5 h-3.5 text-base-content/40 transition-transform", if(@user_section_expanded, do: "rotate-180", else: "")]}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              class={[
+                "w-3.5 h-3.5 text-base-content/40 transition-transform",
+                if(@user_section_expanded, do: "rotate-180", else: "")
+              ]}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </button>
 
@@ -145,7 +160,9 @@ defmodule ApmWeb.Live.ContextPinDrillDownComponent do
       <%= if @scope_type == :formation do %>
         <div class="bg-base-200 border border-base-300 rounded-lg mb-1 px-3 py-2">
           <p class="text-xs font-semibold text-base-content mb-1">Formation Scope</p>
-          <p class="text-xs text-base-content/70">Formation: <span class="font-mono text-primary">{@scope_value}</span></p>
+          <p class="text-xs text-base-content/70">
+            Formation: <span class="font-mono text-primary">{@scope_value}</span>
+          </p>
         </div>
       <% end %>
 
@@ -153,7 +170,9 @@ defmodule ApmWeb.Live.ContextPinDrillDownComponent do
       <%= if @scope_type == :agent do %>
         <div class="bg-base-200 border border-base-300 rounded-lg mb-1 px-3 py-2">
           <p class="text-xs font-semibold text-base-content mb-1">Agent Scope</p>
-          <p class="text-xs text-base-content/70">Agent: <span class="font-mono text-success">{@scope_value}</span></p>
+          <p class="text-xs text-base-content/70">
+            Agent: <span class="font-mono text-success">{@scope_value}</span>
+          </p>
         </div>
       <% end %>
     </div>
@@ -177,11 +196,19 @@ defmodule ApmWeb.Live.ContextPinDrillDownComponent do
 
       agents = AgentRegistry.list_agents(project_name)
       agent_count = length(agents)
-      session_count = agents |> Enum.map(& &1[:session_id]) |> Enum.reject(&is_nil/1) |> Enum.uniq() |> length()
+
+      session_count =
+        agents |> Enum.map(& &1[:session_id]) |> Enum.reject(&is_nil/1) |> Enum.uniq() |> length()
+
       status = if Enum.any?(agents, &(&1.status == "active")), do: "active", else: "idle"
 
       if project do
-        %{name: project_name, agent_count: agent_count, session_count: session_count, status: status}
+        %{
+          name: project_name,
+          agent_count: agent_count,
+          session_count: session_count,
+          status: status
+        }
       else
         %{name: project_name, agent_count: 0, session_count: 0, status: "unknown"}
       end

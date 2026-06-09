@@ -13,7 +13,12 @@ defmodule Apm.BackfillRunner do
   @spec run_primary() :: map()
   def run_primary do
     started_at = DateTime.utc_now()
-    Apm.BackfillStore.add_run(%{status: :running, started_at: started_at, message: "Starting backfill..."})
+
+    Apm.BackfillStore.add_run(%{
+      status: :running,
+      started_at: started_at,
+      message: "Starting backfill..."
+    })
 
     result = do_backfill()
 
@@ -36,10 +41,21 @@ defmodule Apm.BackfillRunner do
          {:ok, stories} <- read_stories(prd.path),
          {:ok, issues} <- Apm.PlaneClient.list_issues(@ccem_project_id) do
       synced = sync_stories(stories, issues)
-      %{status: :ok, prd_path: prd.path, stories_total: length(stories), synced: synced, errors: []}
+
+      %{
+        status: :ok,
+        prd_path: prd.path,
+        stories_total: length(stories),
+        synced: synced,
+        errors: []
+      }
     else
       {:error, :not_found} ->
-        %{status: :error, message: "Primary prd.json not found at ~/.claude/skills/ralph/prd.json"}
+        %{
+          status: :error,
+          message: "Primary prd.json not found at ~/.claude/skills/ralph/prd.json"
+        }
+
       {:error, reason} ->
         %{status: :error, message: "Backfill failed: #{inspect(reason)}"}
     end
@@ -53,10 +69,11 @@ defmodule Apm.BackfillRunner do
   end
 
   defp sync_stories(stories, issues) do
-    issue_map = Map.new(issues["results"] || issues || [], fn issue ->
-      title = Map.get(issue, "name", "")
-      {title, issue}
-    end)
+    issue_map =
+      Map.new(issues["results"] || issues || [], fn issue ->
+        title = Map.get(issue, "name", "")
+        {title, issue}
+      end)
 
     Enum.map(stories, fn story ->
       story_title = "[#{Map.get(story, "id", "?")}] #{Map.get(story, "title", "")}"
@@ -68,17 +85,31 @@ defmodule Apm.BackfillRunner do
 
       case matching_issue do
         nil ->
-          %{story_id: Map.get(story, "id"), status: :not_found, message: "No Plane issue found for: #{story_title}"}
+          %{
+            story_id: Map.get(story, "id"),
+            status: :not_found,
+            message: "No Plane issue found for: #{story_title}"
+          }
 
         issue ->
           issue_id = Map.get(issue, "id")
           current_state = Map.get(issue, "state", "")
+
           if current_state == state_id do
-            %{story_id: Map.get(story, "id"), status: :skipped, message: "Already in correct state"}
+            %{
+              story_id: Map.get(story, "id"),
+              status: :skipped,
+              message: "Already in correct state"
+            }
           else
             case Apm.PlaneClient.update_issue(@ccem_project_id, issue_id, %{"state" => state_id}) do
               {:ok, _} ->
-                %{story_id: Map.get(story, "id"), status: :synced, message: "Updated to #{if passes, do: "Done", else: "In Progress"}"}
+                %{
+                  story_id: Map.get(story, "id"),
+                  status: :synced,
+                  message: "Updated to #{if passes, do: "Done", else: "In Progress"}"
+                }
+
               {:error, reason} ->
                 %{story_id: Map.get(story, "id"), status: :error, message: inspect(reason)}
             end
@@ -94,6 +125,7 @@ defmodule Apm.BackfillRunner do
     cond do
       plane_issue_id ->
         Enum.find(Map.values(issue_map), fn i -> Map.get(i, "id") == plane_issue_id end)
+
       true ->
         Enum.find(Map.values(issue_map), fn i ->
           name = Map.get(i, "name", "")

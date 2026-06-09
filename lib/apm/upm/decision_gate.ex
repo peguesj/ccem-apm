@@ -37,7 +37,8 @@ defmodule Apm.Upm.DecisionGate do
   Returns {:approved, method} or {:rejected, reason} or {:timeout, gate_id}.
   This is a synchronous call — the caller blocks until resolution.
   """
-  @spec request(String.t(), map()) :: {:approved, String.t()} | {:rejected, String.t()} | {:timeout, String.t()}
+  @spec request(String.t(), map()) ::
+          {:approved, String.t()} | {:rejected, String.t()} | {:timeout, String.t()}
   def request(question, opts \\ %{}) do
     GenServer.call(__MODULE__, {:request, question, opts}, :infinity)
   end
@@ -123,17 +124,26 @@ defmodule Apm.Upm.DecisionGate do
     case :ets.lookup(@table, gate_id) do
       [{^gate_id, %{status: :pending} = gate}] ->
         now = DateTime.utc_now() |> DateTime.to_iso8601()
-        updated = %{gate | status: decision, decision: decision, method: method_or_reason, resolved_at: now}
+
+        updated = %{
+          gate
+          | status: decision,
+            decision: decision,
+            method: method_or_reason,
+            resolved_at: now
+        }
+
         :ets.insert(@table, {gate_id, updated})
 
         Phoenix.PubSub.broadcast(Apm.PubSub, "upm:decisions", {:gate_resolved, updated})
 
         # Unblock the waiting caller
         if waiter = Map.get(state.waiters, gate_id) do
-          result = case decision do
-            :approved -> {:approved, method_or_reason}
-            :rejected -> {:rejected, method_or_reason}
-          end
+          result =
+            case decision do
+              :approved -> {:approved, method_or_reason}
+              :rejected -> {:rejected, method_or_reason}
+            end
 
           GenServer.reply(waiter, result)
         end
@@ -214,8 +224,16 @@ defmodule Apm.Upm.DecisionGate do
         type: "warning",
         category: "upm_decision",
         actions: [
-          %{label: "Deploy", href: "http://localhost:3032/api/v2/upm/gate/#{gate.gate_id}/approve", method: "post"},
-          %{label: "Cancel", href: "http://localhost:3032/api/v2/upm/gate/#{gate.gate_id}/reject", method: "post"}
+          %{
+            label: "Deploy",
+            href: "http://localhost:3032/api/v2/upm/gate/#{gate.gate_id}/approve",
+            method: "post"
+          },
+          %{
+            label: "Cancel",
+            href: "http://localhost:3032/api/v2/upm/gate/#{gate.gate_id}/reject",
+            method: "post"
+          }
         ],
         metadata: %{gate_id: gate.gate_id, context: gate.context}
       })
@@ -227,20 +245,25 @@ defmodule Apm.Upm.DecisionGate do
       []
     )
     |> case do
-      {:ok, _} -> :ok
+      {:ok, _} ->
+        :ok
+
       {:error, reason} ->
         Logger.warning("DecisionGate: notify failed: #{inspect(reason)}")
     end
   end
 
   defp fire_osascript(gate) do
-    context_snippet = if gate.context != "", do: "\n\n#{String.slice(gate.context, 0, 200)}", else: ""
+    context_snippet =
+      if gate.context != "", do: "\n\n#{String.slice(gate.context, 0, 200)}", else: ""
+
     message = "#{gate.question}#{context_snippet}"
 
     buttons = gate.options |> Enum.take(3) |> Enum.map(&inspect/1) |> Enum.join(", ")
     default_btn = gate.options |> List.first() |> inspect()
 
-    script = ~s(display dialog "#{escape_applescript(message)}" buttons {#{buttons}} default button #{default_btn} with title "UPM Decision Required" with icon caution giving up after #{div(gate.timeout_ms, 1_000)})
+    script =
+      ~s(display dialog "#{escape_applescript(message)}" buttons {#{buttons}} default button #{default_btn} with title "UPM Decision Required" with icon caution giving up after #{div(gate.timeout_ms, 1_000)})
 
     case System.cmd("osascript", ["-e", script], stderr_to_stdout: true) do
       {output, 0} ->

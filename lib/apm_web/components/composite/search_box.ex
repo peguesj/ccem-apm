@@ -30,8 +30,15 @@ defmodule ApmWeb.Components.Composite.SearchBox do
     <div class={["apm-search-box", @disabled && "apm-search-box--disabled", "apm-focusable"]}>
       <span class="apm-search-box__icon" aria-hidden="true">
         <%!-- I.search SVG: circle cx=11 cy=11 r=7, path "m20 20-3.5-3.5" --%>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+        >
+          <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
         </svg>
       </span>
       <input

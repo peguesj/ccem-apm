@@ -159,8 +159,8 @@ defmodule Apm.AgUi.ToolCallTracker do
   @spec stats() :: map()
   def stats do
     all = :ets.tab2list(@table) |> Enum.map(fn {_id, e} -> e end)
-    active = Enum.count(all, & &1.status == :in_progress)
-    completed = Enum.count(all, & &1.status == :completed)
+    active = Enum.count(all, &(&1.status == :in_progress))
+    completed = Enum.count(all, &(&1.status == :completed))
 
     durations =
       all

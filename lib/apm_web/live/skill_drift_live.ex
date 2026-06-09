@@ -53,11 +53,13 @@ defmodule ApmWeb.SkillDriftLive do
       <:main>
         <%!-- Page header --%>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-          <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Skill Drift Detector</h1>
+          <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+            Skill Drift Detector
+          </h1>
           <div style="display: flex; gap: 8px;">
             <.btn variant="secondary" size="sm" phx-click="rescan">Rescan</.btn>
             <.btn variant="primary" size="sm" phx-click="fix_all" disabled={@fixing}>
-              <%= if @fixing, do: "Fixing...", else: "Fix All" %>
+              {if @fixing, do: "Fixing...", else: "Fix All"}
             </.btn>
           </div>
         </div>
@@ -81,36 +83,44 @@ defmodule ApmWeb.SkillDriftLive do
         <%!-- Fix result banner --%>
         <%= if @fix_result do %>
           <div style="margin-bottom: 16px; padding: 10px 14px; border-radius: 6px; background: color-mix(in srgb, var(--ccem-ok) 12%, transparent); border: 1px solid color-mix(in srgb, var(--ccem-ok) 30%, transparent); color: var(--ccem-ok); font-size: 13px;">
-            Applied <%= @fix_result.fixes_applied %> of <%= @fix_result.fixes_available %> available fixes.
+            Applied {@fix_result.fixes_applied} of {@fix_result.fixes_available} available fixes.
           </div>
         <% end %>
 
         <%!-- Findings table --%>
         <.card padded={false}>
-          <.data_table id="drift-findings-table" rows={
-            for {severity, findings} <- [
-              {:critical, Map.get(@report.findings_by_severity, :critical, [])},
-              {:warning, Map.get(@report.findings_by_severity, :warning, [])},
-              {:info, Map.get(@report.findings_by_severity, :info, [])}
-            ], finding <- findings do
-              Map.put(finding, :severity, severity)
-            end
-          }>
+          <.data_table
+            id="drift-findings-table"
+            rows={
+              for {severity, findings} <- [
+                    {:critical, Map.get(@report.findings_by_severity, :critical, [])},
+                    {:warning, Map.get(@report.findings_by_severity, :warning, [])},
+                    {:info, Map.get(@report.findings_by_severity, :info, [])}
+                  ],
+                  finding <- findings do
+                Map.put(finding, :severity, severity)
+              end
+            }
+          >
             <:col :let={row} label="Severity">
               <.badge tone={severity_tone(row.severity)}>
-                <%= row.severity %>
+                {row.severity}
               </.badge>
             </:col>
             <:col :let={row} label="Skill">
-              <span style="font-family: monospace; font-size: 12px;"><%= row.skill_name %></span>
+              <span style="font-family: monospace; font-size: 12px;">{row.skill_name}</span>
             </:col>
-            <:col :let={row} label="Type"><%= row.drift_type %></:col>
-            <:col :let={row} label="Line"><%= row.line %></:col>
+            <:col :let={row} label="Type">{row.drift_type}</:col>
+            <:col :let={row} label="Line">{row.line}</:col>
             <:col :let={row} label="Found">
-              <span style="font-family: monospace; font-size: 12px; color: var(--ccem-err);"><%= row.found %></span>
+              <span style="font-family: monospace; font-size: 12px; color: var(--ccem-err);">
+                {row.found}
+              </span>
             </:col>
             <:col :let={row} label="Expected">
-              <span style="font-family: monospace; font-size: 12px; color: var(--ccem-ok);"><%= row.expected %></span>
+              <span style="font-family: monospace; font-size: 12px; color: var(--ccem-ok);">
+                {row.expected}
+              </span>
             </:col>
             <:col :let={row} label="Fixable">
               <%= if row.fixable do %>

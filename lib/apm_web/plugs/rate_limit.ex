@@ -30,26 +30,29 @@ defmodule ApmWeb.Plugs.RateLimit do
 
   @doc false
   rule "api:register", conn do
-    throttle conn.remote_ip,
+    throttle(conn.remote_ip,
       period: 10_000,
       limit: 200,
       storage: {PlugAttack.Storage.Ets, @table}
+    )
   end
 
   @doc false
   rule "api:heartbeat", conn do
-    throttle conn.remote_ip,
+    throttle(conn.remote_ip,
       period: 5_000,
       limit: 500,
       storage: {PlugAttack.Storage.Ets, @table}
+    )
   end
 
   @doc false
   rule "api:global", conn do
-    throttle conn.remote_ip,
+    throttle(conn.remote_ip,
       period: 60_000,
       limit: 2_000,
       storage: {PlugAttack.Storage.Ets, @table}
+    )
   end
 
   @doc false

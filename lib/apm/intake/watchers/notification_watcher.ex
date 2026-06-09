@@ -43,8 +43,10 @@ defmodule Apm.Intake.Watchers.NotificationWatcher do
 
   defp build_title(%{source: "uat", event_type: "context_fetch"} = event),
     do: "UAT Context Fetched — #{event.project}"
+
   defp build_title(%{source: "uat", event_type: "submission"} = event),
     do: "New UAT Submission — #{event.payload["severity"] || "unknown"} severity"
+
   defp build_title(event),
     do: "Intake: #{event.source}/#{event.event_type} — #{event.project}"
 

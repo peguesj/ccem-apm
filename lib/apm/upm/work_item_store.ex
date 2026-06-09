@@ -107,9 +107,11 @@ defmodule Apm.UPM.WorkItemStore do
   def init(_opts) do
     :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
     state = load_persisted_state()
+
     Enum.each(state, fn record ->
       :ets.insert(@table, {record.id, record})
     end)
+
     Logger.info("[UPM.WorkItemStore] Initialized with #{length(state)} work items")
     {:ok, %{count: length(state)}}
   end
@@ -240,7 +242,8 @@ defmodule Apm.UPM.WorkItemStore do
         {:ok, {:drift, %{type: :platform_ahead, local_passes: false, platform_status: :done}}}
 
       true ->
-        {:ok, {:drift, %{type: :conflict, local_passes: record.passes, platform_status: record.status}}}
+        {:ok,
+         {:drift, %{type: :conflict, local_passes: record.passes, platform_status: record.status}}}
     end
   end
 
@@ -250,12 +253,15 @@ defmodule Apm.UPM.WorkItemStore do
     title = get_attr(attrs, :title) || get_attr(attrs, "title") || "Untitled"
     status = parse_status(get_attr(attrs, :status) || get_attr(attrs, "status"))
     priority = parse_priority(get_attr(attrs, :priority) || get_attr(attrs, "priority"))
-    sync_status = parse_sync_status(get_attr(attrs, :sync_status) || get_attr(attrs, "sync_status"))
+
+    sync_status =
+      parse_sync_status(get_attr(attrs, :sync_status) || get_attr(attrs, "sync_status"))
 
     record = %WorkItem{
       id: id,
       project_id: project_id,
-      pm_integration_id: get_attr(attrs, :pm_integration_id) || get_attr(attrs, "pm_integration_id"),
+      pm_integration_id:
+        get_attr(attrs, :pm_integration_id) || get_attr(attrs, "pm_integration_id"),
       title: title,
       status: status,
       priority: priority,
@@ -334,7 +340,10 @@ defmodule Apm.UPM.WorkItemStore do
   defp generate_id(attrs) do
     project_id = get_attr(attrs, :project_id) || get_attr(attrs, "project_id") || ""
     title = get_attr(attrs, :title) || get_attr(attrs, "title") || ""
-    :crypto.hash(:sha256, "#{project_id}:#{title}") |> Base.encode16(case: :lower) |> binary_part(0, 16)
+
+    :crypto.hash(:sha256, "#{project_id}:#{title}")
+    |> Base.encode16(case: :lower)
+    |> binary_part(0, 16)
   end
 
   defp get_attr(map, key) do

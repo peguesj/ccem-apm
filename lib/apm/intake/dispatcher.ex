@@ -17,12 +17,18 @@ defmodule Apm.Intake.Dispatcher do
             {watcher.name(), {:error, e}}
         catch
           :exit, reason ->
-            Logger.warning("[Intake.Dispatcher] Watcher #{watcher.name()} exited: #{inspect(reason)}")
+            Logger.warning(
+              "[Intake.Dispatcher] Watcher #{watcher.name()} exited: #{inspect(reason)}"
+            )
+
             {watcher.name(), {:error, {:exit, reason}}}
         end
       end)
 
-    Logger.debug("[Intake.Dispatcher] Event #{event.id} dispatched to #{length(results)} watchers")
+    Logger.debug(
+      "[Intake.Dispatcher] Event #{event.id} dispatched to #{length(results)} watchers"
+    )
+
     results
   end
 end

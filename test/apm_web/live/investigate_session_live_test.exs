@@ -57,7 +57,10 @@ defmodule ApmWeb.InvestigateSessionLiveTest do
       inv_route =
         Enum.find(routes, fn route ->
           route.path == "/investigate/sessions/:id" and
-            match?({InvestigateSessionLive, _, _, _}, get_in(route, [:metadata, :phoenix_live_view]))
+            match?(
+              {InvestigateSessionLive, _, _, _},
+              get_in(route, [:metadata, :phoenix_live_view])
+            )
         end)
 
       assert inv_route != nil,
@@ -126,7 +129,8 @@ defmodule ApmWeb.InvestigateSessionLiveTest do
         result = ToolCalls.audit_for("some-tool-call")
         assert is_list(result)
       catch
-        :exit, _ -> :ok  # acceptable when ApprovalAuditLog GenServer not started in test env
+        # acceptable when ApprovalAuditLog GenServer not started in test env
+        :exit, _ -> :ok
       end
     end
 
@@ -233,7 +237,8 @@ defmodule ApmWeb.InvestigateSessionLiveTest do
         result = ToolCalls.audit_for("any-id-#{System.unique_integer()}")
         assert is_list(result)
       catch
-        :exit, _ -> :ok  # GenServer not started in test env
+        # GenServer not started in test env
+        :exit, _ -> :ok
       end
     end
   end

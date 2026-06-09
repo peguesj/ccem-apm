@@ -17,7 +17,9 @@ defmodule Apm.Auth.FormationRateLimiterTest do
   # ---------------------------------------------------------------------------
 
   defp unique_formation, do: "frl-test-#{System.unique_integer([:positive, :monotonic])}"
-  defp unique_agent(prefix \\ "agent"), do: "#{prefix}-#{System.unique_integer([:positive, :monotonic])}"
+
+  defp unique_agent(prefix \\ "agent"),
+    do: "#{prefix}-#{System.unique_integer([:positive, :monotonic])}"
 
   # Pump `n` hits for `agent_id:tool_name` directly via Hammer so we control
   # exact bucket usage without triggering formation-level checks.
@@ -65,7 +67,8 @@ defmodule Apm.Auth.FormationRateLimiterTest do
       # Provide the formation_id → agents mapping via the module boundary.
       # We exercise top_n_agents with an explicit agent list to avoid coupling
       # to AgentRegistry in unit tests.
-      result = FormationRateLimiter.top_n_agents(formation_id, 10, [{a1, tool}, {a2, tool}, {a3, tool}])
+      result =
+        FormationRateLimiter.top_n_agents(formation_id, 10, [{a1, tool}, {a2, tool}, {a3, tool}])
 
       assert length(result) == 3
       [first, second, third] = result

@@ -10,11 +10,14 @@ defmodule ApmWeb.Components.AgUi.TimelineItem do
 
   def timeline_item(assigns) do
     assigns = assign(assigns, :time, fmt(assigns.timestamp))
+
     ~H"""
     <div class="flex gap-3 pb-4">
       <div class={"w-2 h-2 rounded-full mt-2 flex-shrink-0 #{dot(@status)}"} />
       <div class="flex-1 min-w-0">
-        <div class="flex justify-between"><span class="text-sm text-white">{@title}</span><span class="text-xs text-gray-500">{@time}</span></div>
+        <div class="flex justify-between">
+          <span class="text-sm text-white">{@title}</span><span class="text-xs text-gray-500">{@time}</span>
+        </div>
         <p class="text-xs text-gray-400 truncate">{@description}</p>
       </div>
     </div>
@@ -27,6 +30,7 @@ defmodule ApmWeb.Components.AgUi.TimelineItem do
       _ -> ts
     end
   end
+
   defp fmt(_), do: "--:--"
 
   defp dot("active"), do: "bg-green-400"

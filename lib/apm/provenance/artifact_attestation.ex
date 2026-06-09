@@ -157,7 +157,11 @@ defmodule Apm.Provenance.ArtifactAttestation do
     result =
       :ets.foldl(
         fn {_k, %__MODULE__{} = a}, acc ->
-          id = :crypto.hash(:sha256, a.signature) |> Base.encode16(case: :lower) |> binary_part(0, 32)
+          id =
+            :crypto.hash(:sha256, a.signature)
+            |> Base.encode16(case: :lower)
+            |> binary_part(0, 32)
+
           if id == attestation_id, do: a, else: acc
         end,
         nil,

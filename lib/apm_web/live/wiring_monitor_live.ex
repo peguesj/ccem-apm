@@ -45,10 +45,10 @@ defmodule ApmWeb.WiringMonitorLive do
     {:ok,
      socket
      |> assign(
-       page_title:   "Wiring Monitor",
+       page_title: "Wiring Monitor",
        sidebar_collapsed: false,
-       inspector_open:    false,
-       active_check:      nil
+       inspector_open: false,
+       active_check: nil
      )
      |> assign_checks()
      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()}
@@ -71,7 +71,7 @@ defmodule ApmWeb.WiringMonitorLive do
   @impl true
   def handle_event("toggle_check", %{"check" => check}, socket) do
     check_atom = String.to_existing_atom(check)
-    current    = socket.assigns.active_check
+    current = socket.assigns.active_check
 
     active =
       if current == check_atom do
@@ -105,12 +105,12 @@ defmodule ApmWeb.WiringMonitorLive do
               Wiring Monitor
             </h1>
             <.badge tone={overall_tone(@summary)}>
-              <%= overall_label(@summary) %>
+              {overall_label(@summary)}
             </.badge>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="font-size: var(--ccem-t-xs, 11px); color: var(--ccem-fg-dim);">
-              Last scanned: <%= format_time(@scanned_at) %>
+              Last scanned: {format_time(@scanned_at)}
             </span>
             <.btn variant="ghost" size="xs" phx-click="refresh">Refresh</.btn>
           </div>
@@ -129,7 +129,7 @@ defmodule ApmWeb.WiringMonitorLive do
             color: var(--ccem-error, #ef4444);
           "
         >
-          <%= @summary.error %> wiring <%= pluralize("error", "errors", @summary.error) %> detected.
+          {@summary.error} wiring {pluralize("error", "errors", @summary.error)} detected.
           Broken wires will prevent correct real-time behaviour under live sessions.
         </div>
 
@@ -137,30 +137,32 @@ defmodule ApmWeb.WiringMonitorLive do
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
           <%= for {check_id, label, desc} <- check_meta() do %>
             <% check_findings = findings_for(@findings, check_id) %>
-            <% errors   = Enum.count(check_findings, &(&1.severity == :error)) %>
+            <% errors = Enum.count(check_findings, &(&1.severity == :error)) %>
             <% warnings = Enum.count(check_findings, &(&1.severity == :warning)) %>
-            <% tone     = check_tone(errors, warnings) %>
-            <.card padded={true}
+            <% tone = check_tone(errors, warnings) %>
+            <.card
+              padded={true}
               style={"cursor: pointer; border-left: 3px solid var(--ccem-#{tone_border_var(tone)}); #{if @active_check == check_id, do: "box-shadow: 0 0 0 2px var(--ccem-primary, #6366f1);", else: ""}"}
               phx-click="toggle_check"
-              phx-value-check={to_string(check_id)}>
+              phx-value-check={to_string(check_id)}
+            >
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
                 <span style="font-size: var(--ccem-t-xs, 11px); font-weight: 600; color: var(--ccem-fg-dim); text-transform: uppercase; letter-spacing: 0.05em;">
-                  <%= to_string(check_id) %>
+                  {to_string(check_id)}
                 </span>
                 <.badge tone={tone}>
-                  <%= cond do
-                    errors > 0   -> "#{errors} err"
+                  {cond do
+                    errors > 0 -> "#{errors} err"
                     warnings > 0 -> "#{warnings} warn"
-                    true         -> "ok"
-                  end %>
+                    true -> "ok"
+                  end}
                 </.badge>
               </div>
               <div style="font-size: var(--ccem-t-sm, 13px); font-weight: 600; color: var(--ccem-fg); margin-bottom: 2px;">
-                <%= label %>
+                {label}
               </div>
               <div style="font-size: var(--ccem-t-xs, 11px); color: var(--ccem-fg-dim);">
-                <%= desc %>
+                {desc}
               </div>
             </.card>
           <% end %>
@@ -171,11 +173,13 @@ defmodule ApmWeb.WiringMonitorLive do
           <% check_findings = findings_for(@findings, check_id) %>
           <div :if={@active_check == check_id} style="margin-bottom: 20px;">
             <h2 style="font-size: 14px; font-weight: 600; color: var(--ccem-fg); margin: 0 0 10px;">
-              <%= to_string(check_id) %> — <%= label %>
+              {to_string(check_id)} — {label}
             </h2>
 
-            <div :if={check_findings == []}
-                 style="text-align: center; padding: 24px; color: var(--ccem-fg-dim); font-size: var(--ccem-t-sm, 13px); border: 1px dashed var(--ccem-border, #333); border-radius: 6px;">
+            <div
+              :if={check_findings == []}
+              style="text-align: center; padding: 24px; color: var(--ccem-fg-dim); font-size: var(--ccem-t-sm, 13px); border: 1px dashed var(--ccem-border, #333); border-radius: 6px;"
+            >
               All wiring connections healthy
             </div>
 
@@ -183,17 +187,17 @@ defmodule ApmWeb.WiringMonitorLive do
               <.data_table id={"wiring-#{to_string(check_id)}-table"} rows={check_findings}>
                 <:col :let={row} label="Severity">
                   <.badge tone={Finding.tone(row)}>
-                    <%= to_string(row.severity) %>
+                    {to_string(row.severity)}
                   </.badge>
                 </:col>
                 <:col :let={row} label="Subject">
                   <span style="font-family: monospace; font-size: var(--ccem-t-xs, 11px); color: var(--ccem-fg);">
-                    <%= row.subject %>
+                    {row.subject}
                   </span>
                 </:col>
                 <:col :let={row} label="Detail">
                   <span style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
-                    <%= row.detail %>
+                    {row.detail}
                   </span>
                 </:col>
               </.data_table>
@@ -204,33 +208,35 @@ defmodule ApmWeb.WiringMonitorLive do
         <%!-- Show all findings table (non-success) when no specific check selected --%>
         <div :if={is_nil(@active_check)}>
           <% problem_findings = Enum.reject(@findings, &(&1.severity == :success)) %>
-          <div :if={problem_findings == []}
-               style="text-align: center; padding: 32px; color: var(--ccem-fg-dim); font-size: var(--ccem-t-sm, 13px); border: 1px dashed var(--ccem-border, #333); border-radius: 6px;">
+          <div
+            :if={problem_findings == []}
+            style="text-align: center; padding: 32px; color: var(--ccem-fg-dim); font-size: var(--ccem-t-sm, 13px); border: 1px dashed var(--ccem-border, #333); border-radius: 6px;"
+          >
             All wires connected — no issues found
           </div>
           <.card :if={problem_findings != []} padded={false}>
             <div style="padding: 10px 14px; border-bottom: 1px solid var(--ccem-border, #333); font-size: var(--ccem-t-xs, 11px); font-weight: 600; color: var(--ccem-fg-dim);">
-              ISSUES (<%= length(problem_findings) %>) — click a check card above to see full results
+              ISSUES ({length(problem_findings)}) — click a check card above to see full results
             </div>
             <.data_table id="wiring-issues-table" rows={problem_findings}>
               <:col :let={row} label="Check">
                 <span style="font-family: monospace; font-size: var(--ccem-t-xs, 11px); font-weight: 600; color: var(--ccem-fg);">
-                  <%= to_string(row.check) %>
+                  {to_string(row.check)}
                 </span>
               </:col>
               <:col :let={row} label="Severity">
                 <.badge tone={Finding.tone(row)}>
-                  <%= to_string(row.severity) %>
+                  {to_string(row.severity)}
                 </.badge>
               </:col>
               <:col :let={row} label="Subject">
                 <span style="font-family: monospace; font-size: var(--ccem-t-xs, 11px); color: var(--ccem-fg);">
-                  <%= row.subject %>
+                  {row.subject}
                 </span>
               </:col>
               <:col :let={row} label="Detail">
                 <span style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
-                  <%= row.detail %>
+                  {row.detail}
                 </span>
               </:col>
             </.data_table>
@@ -246,8 +252,8 @@ defmodule ApmWeb.WiringMonitorLive do
   # ---------------------------------------------------------------------------
 
   defp assign_checks(socket) do
-    findings   = WiringMonitor.run_all()
-    summary    = WiringMonitor.summary(findings)
+    findings = WiringMonitor.run_all()
+    summary = WiringMonitor.summary(findings)
     scanned_at = DateTime.utc_now()
 
     assign(socket, findings: findings, summary: summary, scanned_at: scanned_at)
@@ -263,10 +269,10 @@ defmodule ApmWeb.WiringMonitorLive do
 
   defp check_meta do
     [
-      {:W1, "Route Resolution",   "every route → module exists & exports action"},
-      {:W2, "LiveView Coverage",  "every *Live module referenced by ≥1 route"},
-      {:W3, "Hook Registration",  "every phx-hook registered in app.js Hooks"},
-      {:W4, "PubSub Coverage",    "every subscribed topic has a publisher"}
+      {:W1, "Route Resolution", "every route → module exists & exports action"},
+      {:W2, "LiveView Coverage", "every *Live module referenced by ≥1 route"},
+      {:W3, "Hook Registration", "every phx-hook registered in app.js Hooks"},
+      {:W4, "PubSub Coverage", "every subscribed topic has a publisher"}
     ]
   end
 
@@ -274,10 +280,10 @@ defmodule ApmWeb.WiringMonitorLive do
   defp check_tone(_errors, warnings) when warnings > 0, do: "warning"
   defp check_tone(_, _), do: "success"
 
-  defp tone_border_var("error"),   do: "error"
+  defp tone_border_var("error"), do: "error"
   defp tone_border_var("warning"), do: "warning"
   defp tone_border_var("success"), do: "success"
-  defp tone_border_var(_),         do: "border"
+  defp tone_border_var(_), do: "border"
 
   defp overall_tone(%{error: e}) when e > 0, do: "error"
   defp overall_tone(%{warning: w}) when w > 0, do: "warning"

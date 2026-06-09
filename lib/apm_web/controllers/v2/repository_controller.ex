@@ -23,12 +23,13 @@ defmodule ApmWeb.V2.RepositoryController do
 
   @doc "GET /api/v2/plugins/repositories — list all repositories"
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["Plugins"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, _params) do
     repos = PluginRepositoryStore.list_repos()
@@ -37,12 +38,13 @@ defmodule ApmWeb.V2.RepositoryController do
 
   @doc "POST /api/v2/plugins/repositories — add a custom repository"
   @spec create(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :create,
+  operation(:create,
     summary: "Create",
     tags: ["Plugins"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def create(conn, params) do
     case PluginRepositoryStore.add_repo(params) do
@@ -53,12 +55,13 @@ defmodule ApmWeb.V2.RepositoryController do
 
   @doc "GET /api/v2/plugins/repositories/:name — get a single repository by name"
   @spec show(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :show,
+  operation(:show,
     summary: "Get one",
     tags: ["Plugins"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def show(conn, %{"name" => name}) do
     case PluginRepositoryStore.get_repo(name) do
@@ -69,12 +72,13 @@ defmodule ApmWeb.V2.RepositoryController do
 
   @doc "PATCH /api/v2/plugins/repositories/:name — update repo metadata"
   @spec update(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :update,
+  operation(:update,
     summary: "Update",
     tags: ["Plugins"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def update(conn, %{"name" => name} = params) do
     case PluginRepositoryStore.update_repo(name, Map.delete(params, "name")) do
@@ -85,18 +89,24 @@ defmodule ApmWeb.V2.RepositoryController do
 
   @doc "DELETE /api/v2/plugins/repositories/:name — delete (custom repos only)"
   @spec delete(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :delete,
+  operation(:delete,
     summary: "Delete",
     tags: ["Plugins"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def delete(conn, %{"name" => name}) do
     case PluginRepositoryStore.delete_repo(name) do
-      :ok -> send_resp(conn, 204, "")
-      {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "not found"})
-      {:error, :builtin_protected} -> conn |> put_status(403) |> json(%{error: "Cannot delete built-in repository"})
+      :ok ->
+        send_resp(conn, 204, "")
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "not found"})
+
+      {:error, :builtin_protected} ->
+        conn |> put_status(403) |> json(%{error: "Cannot delete built-in repository"})
     end
   end
 end

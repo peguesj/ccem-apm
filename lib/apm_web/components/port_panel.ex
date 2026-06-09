@@ -33,30 +33,47 @@ defmodule ApmWeb.Components.PortPanel do
       <%!-- Clash alerts --%>
       <div :if={@port_clashes != []} class="space-y-1">
         <div class="text-[10px] uppercase tracking-wider text-error/70 font-semibold">Clashes</div>
-        <div :for={clash <- @port_clashes} class="p-2 rounded bg-error/10 border border-error/20 text-xs">
+        <div
+          :for={clash <- @port_clashes}
+          class="p-2 rounded bg-error/10 border border-error/20 text-xs"
+        >
           <div class="flex items-center gap-2 mb-1">
             <span class="font-mono font-bold text-error">:{clash.port}</span>
             <span class="text-base-content/50">{Enum.join(clash.projects, " + ")}</span>
           </div>
-          <button phx-click="get_remediation" phx-value-port={clash.port}
-            class="text-[10px] text-primary hover:underline">
+          <button
+            phx-click="get_remediation"
+            phx-value-port={clash.port}
+            class="text-[10px] text-primary hover:underline"
+          >
             Suggest fix
           </button>
         </div>
       </div>
 
       <%!-- Remediation suggestion --%>
-      <div :if={@port_remediation} class="p-2 rounded bg-info/10 border border-info/20 text-xs space-y-1">
+      <div
+        :if={@port_remediation}
+        class="p-2 rounded bg-info/10 border border-info/20 text-xs space-y-1"
+      >
         <div class="font-semibold text-info">Remediation for :{@port_remediation.port}</div>
         <div class="text-base-content/60">{@port_remediation.recommendation}</div>
         <div :if={@port_remediation.alternatives != []} class="flex gap-1 mt-1">
           <span class="text-[10px] text-base-content/40">Available:</span>
-          <span :for={alt <- @port_remediation.alternatives} class="badge badge-xs badge-ghost font-mono">{alt}</span>
+          <span
+            :for={alt <- @port_remediation.alternatives}
+            class="badge badge-xs badge-ghost font-mono"
+          >
+            {alt}
+          </span>
         </div>
       </div>
 
       <%!-- Project configs --%>
-      <div :for={{name, config} <- Enum.sort_by(@project_configs, fn {n, _} -> n end)} class="space-y-1">
+      <div
+        :for={{name, config} <- Enum.sort_by(@project_configs, fn {n, _} -> n end)}
+        class="space-y-1"
+      >
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold text-base-content/80">{name}</span>
           <span class={["badge badge-xs", stack_badge(config.stack)]}>{config.stack}</span>
@@ -68,11 +85,19 @@ defmodule ApmWeb.Components.PortPanel do
           <%!-- Ports --%>
           <div :for={port_info <- config.ports} class="space-y-0.5">
             <div class="flex items-center gap-2">
-              <span class={["w-1.5 h-1.5 rounded-full", if(port_info[:active], do: "bg-success", else: "bg-base-content/20")]}></span>
+              <span class={[
+                "w-1.5 h-1.5 rounded-full",
+                if(port_info[:active], do: "bg-success", else: "bg-base-content/20")
+              ]}>
+              </span>
               <span class="font-mono font-bold">:{port_info.port}</span>
-              <span class={["badge badge-xs", ns_badge(port_info.namespace)]}>{port_info.namespace}</span>
-              <span :if={port_info[:server_type] && port_info[:server_type] != :unknown}
-                class={["badge badge-xs", server_type_badge(port_info[:server_type])]}>
+              <span class={["badge badge-xs", ns_badge(port_info.namespace)]}>
+                {port_info.namespace}
+              </span>
+              <span
+                :if={port_info[:server_type] && port_info[:server_type] != :unknown}
+                class={["badge badge-xs", server_type_badge(port_info[:server_type])]}
+              >
                 {port_info[:server_type]}
               </span>
               <span class="text-base-content/30 ml-auto">{port_info.file}</span>
@@ -81,7 +106,11 @@ defmodule ApmWeb.Components.PortPanel do
               <div :if={port_info[:cwd]} class="font-mono truncate" title={port_info[:cwd]}>
                 cwd: {port_info[:cwd]}
               </div>
-              <div :if={port_info[:full_command]} class="font-mono truncate" title={port_info[:full_command]}>
+              <div
+                :if={port_info[:full_command]}
+                class="font-mono truncate"
+                title={port_info[:full_command]}
+              >
                 cmd: {port_info[:full_command]}
               </div>
               <div :if={port_info[:pid]} class="font-mono">

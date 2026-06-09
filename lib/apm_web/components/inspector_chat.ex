@@ -29,10 +29,16 @@ defmodule ApmWeb.Components.InspectorChat do
           No messages yet. Type below to start a conversation.
         </div>
 
-        <div :for={msg <- @messages} class={[
-          "rounded-lg p-2 text-xs max-w-[95%]",
-          if(msg["role"] == "user", do: "ml-auto bg-primary/20 text-primary-content", else: "bg-base-300")
-        ]}>
+        <div
+          :for={msg <- @messages}
+          class={[
+            "rounded-lg p-2 text-xs max-w-[95%]",
+            if(msg["role"] == "user",
+              do: "ml-auto bg-primary/20 text-primary-content",
+              else: "bg-base-300"
+            )
+          ]}
+        >
           <%!-- Message header --%>
           <div class="flex items-center gap-1 mb-1">
             <span class={[
@@ -41,7 +47,10 @@ defmodule ApmWeb.Components.InspectorChat do
             ]}>
               {msg["role"] || "system"}
             </span>
-            <span :if={msg["agent_id"]} class="text-[10px] text-base-content/40 font-mono truncate max-w-[120px]">
+            <span
+              :if={msg["agent_id"]}
+              class="text-[10px] text-base-content/40 font-mono truncate max-w-[120px]"
+            >
               {msg["agent_id"]}
             </span>
             <span class="text-[10px] text-base-content/30 ml-auto">
@@ -55,7 +64,10 @@ defmodule ApmWeb.Components.InspectorChat do
           </div>
 
           <%!-- Tool call card (collapsible) --%>
-          <div :if={msg["type"] == "TOOL_CALL"} class="border border-base-content/10 rounded p-1.5 mt-1">
+          <div
+            :if={msg["type"] == "TOOL_CALL"}
+            class="border border-base-content/10 rounded p-1.5 mt-1"
+          >
             <details>
               <summary class="cursor-pointer text-warning font-mono text-[11px]">
                 Tool: {msg["tool_name"] || "unknown"}
@@ -90,11 +102,13 @@ defmodule ApmWeb.Components.InspectorChat do
   end
 
   defp format_timestamp(nil), do: ""
+
   defp format_timestamp(ts) when is_binary(ts) do
     case DateTime.from_iso8601(ts) do
       {:ok, dt, _} -> Calendar.strftime(dt, "%H:%M:%S")
       _ -> String.slice(ts, 11, 8)
     end
   end
+
   defp format_timestamp(_), do: ""
 end

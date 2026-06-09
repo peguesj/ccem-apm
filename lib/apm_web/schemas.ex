@@ -79,7 +79,11 @@ defmodule ApmWeb.Schemas do
         wave: %Schema{type: :integer, nullable: true},
         task_subject: %Schema{type: :string, nullable: true},
         session_id: %Schema{type: :string, nullable: true},
-        display_name: %Schema{type: :string, nullable: true, description: "Scoped label (e.g. ccem/wave-1/stripe-env)"}
+        display_name: %Schema{
+          type: :string,
+          nullable: true,
+          description: "Scoped label (e.g. ccem/wave-1/stripe-env)"
+        }
       },
       required: [:id, :name, :project, :role, :status, :registered_at, :last_heartbeat]
     })
@@ -143,11 +147,18 @@ defmodule ApmWeb.Schemas do
       properties: %{
         agent_id: %Schema{type: :string},
         session_id: %Schema{type: :string},
-        tool_name: %Schema{type: :string, description: "Preferred field; falls back to 'tool' for v9.x callers"},
+        tool_name: %Schema{
+          type: :string,
+          description: "Preferred field; falls back to 'tool' for v9.x callers"
+        },
         tool: %Schema{type: :string, description: "v9.x compat alias for tool_name"},
         role: %Schema{type: :string, default: "agent"},
         params: %Schema{type: :object, additionalProperties: true, description: "Tool parameters"},
-        args: %Schema{type: :object, additionalProperties: true, description: "v9.x compat alias for params"},
+        args: %Schema{
+          type: :object,
+          additionalProperties: true,
+          description: "v9.x compat alias for params"
+        },
         trust_requested: %Schema{type: :string, description: "v9.x compat; APM auto-downgrades"}
       },
       required: [:agent_id, :session_id]
@@ -186,7 +197,10 @@ defmodule ApmWeb.Schemas do
       title: "PolicyRule",
       type: :object,
       properties: %{
-        tool_name: %Schema{type: :string, description: "Tool name or glob pattern (e.g. '*', 'Bash')"},
+        tool_name: %Schema{
+          type: :string,
+          description: "Tool name or glob pattern (e.g. '*', 'Bash')"
+        },
         action: %Schema{
           type: :string,
           enum: ["always_allow", "always_deny", "permit", "deny", "escalate"],

@@ -45,7 +45,9 @@ defmodule Apm.Plugins.Memory.FederationRouterTest do
   describe "route_query/2 — viki source" do
     test "maps viki results with source tag", %{bypass: bypass} do
       Bypass.expect_once(bypass, "POST", "/api/search", fn conn ->
-        body = Jason.encode!(%{results: [%{text: "VIKI result", score: 0.9, conversation_id: "c1"}]})
+        body =
+          Jason.encode!(%{results: [%{text: "VIKI result", score: 0.9, conversation_id: "c1"}]})
+
         Plug.Conn.resp(conn, 200, body)
       end)
 

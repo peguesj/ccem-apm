@@ -53,22 +53,47 @@ defmodule Apm.Plugins.Pm.PmPlugin do
   @impl Apm.Plugins.PluginBehaviour
   def list_endpoints do
     [
-      %{action: "resolve_adapter", description: "Resolve active PM adapter for a project", params: %{project_root: "string (optional)", pm: "string (optional override)"}},
-      %{action: "list_issues",     description: "List issues via the resolved adapter",     params: %{project_id: "string (optional)"}},
-      %{action: "get_issue",       description: "Get a single issue via resolved adapter",  params: %{issue_id: "string (required)"}},
-      %{action: "update_state",    description: "Update issue state",                       params: %{issue_id: "string (required)", state: "string (required)"}},
-      %{action: "list_projects",   description: "List PM projects via resolved adapter",    params: %{}},
-      %{action: "board_state",     description: "Kanban board via resolved adapter",        params: %{project_id: "string (optional)"}}
+      %{
+        action: "resolve_adapter",
+        description: "Resolve active PM adapter for a project",
+        params: %{project_root: "string (optional)", pm: "string (optional override)"}
+      },
+      %{
+        action: "list_issues",
+        description: "List issues via the resolved adapter",
+        params: %{project_id: "string (optional)"}
+      },
+      %{
+        action: "get_issue",
+        description: "Get a single issue via resolved adapter",
+        params: %{issue_id: "string (required)"}
+      },
+      %{
+        action: "update_state",
+        description: "Update issue state",
+        params: %{issue_id: "string (required)", state: "string (required)"}
+      },
+      %{
+        action: "list_projects",
+        description: "List PM projects via resolved adapter",
+        params: %{}
+      },
+      %{
+        action: "board_state",
+        description: "Kanban board via resolved adapter",
+        params: %{project_id: "string (optional)"}
+      }
     ]
   end
 
   @impl Apm.Plugins.PluginBehaviour
   def nav_items do
     base = "/plugins/pm"
+
     [
-      {"Board",           "#{base}/board",    "hero-view-columns"},
+      {"Board", "#{base}/board", "hero-view-columns"},
       {"Resolver Status", "#{base}/resolver", "hero-arrows-right-left"},
-      {"Config",          "#{base}/config",   "hero-cog-6-tooth"}
+      {"Config", "#{base}/config", "hero-cog-6-tooth"}
     ]
   end
 

@@ -16,7 +16,8 @@ defmodule Apm.UPM.Adapters.PMAdapter do
   @callback create_issue(integration(), work_item_attrs()) :: {:ok, map()} | {:error, term()}
 
   @doc "Update an existing issue on the PM platform."
-  @callback update_issue(integration(), issue_id(), work_item_attrs()) :: {:ok, map()} | {:error, term()}
+  @callback update_issue(integration(), issue_id(), work_item_attrs()) ::
+              {:ok, map()} | {:error, term()}
 
   @doc "Normalize a platform-native issue map to a canonical WorkItem attribute map."
   @callback normalize(map()) :: map()

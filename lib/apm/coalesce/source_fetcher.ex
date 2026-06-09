@@ -31,10 +31,13 @@ defmodule Apm.Coalesce.SourceFetcher do
       on_timeout: :kill_task
     )
     |> Enum.reduce([], fn
-      {:ok, {:ok, source}}, acc -> [source | acc]
+      {:ok, {:ok, source}}, acc ->
+        [source | acc]
+
       {:ok, {:error, reason}}, acc ->
         Logger.warning("[SourceFetcher] Fetch failed: #{inspect(reason)}")
         acc
+
       {:exit, reason}, acc ->
         Logger.warning("[SourceFetcher] Task exit: #{inspect(reason)}")
         acc
@@ -84,19 +87,21 @@ defmodule Apm.Coalesce.SourceFetcher do
 
     case :httpc.request(:get, {String.to_charlist(url), []}, [{:timeout, @fetch_timeout_ms}], []) do
       {:ok, {{_, 200, _}, _headers, body}} ->
-        content = body
+        content =
+          body
           |> to_string()
           |> _strip_html_to_text()
           |> String.slice(0, 50_000)
 
-        {:ok, %{
-          url: url,
-          domain: domain,
-          source_type: :url,
-          content: content,
-          fetched_at: DateTime.utc_now() |> DateTime.to_iso8601(),
-          byte_size: byte_size(to_string(body))
-        }}
+        {:ok,
+         %{
+           url: url,
+           domain: domain,
+           source_type: :url,
+           content: content,
+           fetched_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+           byte_size: byte_size(to_string(body))
+         }}
 
       {:ok, {{_, status, _}, _, _}} ->
         {:error, {:http_error, status, url}}
@@ -113,14 +118,15 @@ defmodule Apm.Coalesce.SourceFetcher do
 
     case File.read(path) do
       {:ok, content} ->
-        {:ok, %{
-          url: path,
-          domain: "local",
-          source_type: :local_file,
-          content: String.slice(content, 0, 50_000),
-          fetched_at: DateTime.utc_now() |> DateTime.to_iso8601(),
-          byte_size: byte_size(content)
-        }}
+        {:ok,
+         %{
+           url: path,
+           domain: "local",
+           source_type: :local_file,
+           content: String.slice(content, 0, 50_000),
+           fetched_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+           byte_size: byte_size(content)
+         }}
 
       {:error, reason} ->
         {:error, {:file_read_failed, reason, path}}
@@ -131,14 +137,15 @@ defmodule Apm.Coalesce.SourceFetcher do
     Logger.info("[SourceFetcher] PDF fetch not yet implemented: #{path}")
 
     # Placeholder — in production, would shell out to pdf skill or pdftotext
-    {:ok, %{
-      url: path,
-      domain: "local",
-      source_type: :pdf,
-      content: "[PDF content extraction pending — use /pdf skill to pre-extract]",
-      fetched_at: DateTime.utc_now() |> DateTime.to_iso8601(),
-      byte_size: 0
-    }}
+    {:ok,
+     %{
+       url: path,
+       domain: "local",
+       source_type: :pdf,
+       content: "[PDF content extraction pending — use /pdf skill to pre-extract]",
+       fetched_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+       byte_size: 0
+     }}
   end
 
   defp _fetch_viki(query) do
@@ -151,23 +158,25 @@ defmodule Apm.Coalesce.SourceFetcher do
       {:ok, {{_, 200, _}, _, body}} ->
         content = body |> to_string() |> _viki_results_to_text()
 
-        {:ok, %{
-          url: "viki:#{query}",
-          domain: "viki",
-          source_type: :viki,
-          content: content,
-          fetched_at: DateTime.utc_now() |> DateTime.to_iso8601()
-        }}
+        {:ok,
+         %{
+           url: "viki:#{query}",
+           domain: "viki",
+           source_type: :viki,
+           content: content,
+           fetched_at: DateTime.utc_now() |> DateTime.to_iso8601()
+         }}
 
       _ ->
         # VIKI not running — return empty but non-failing
-        {:ok, %{
-          url: "viki:#{query}",
-          domain: "viki",
-          source_type: :viki,
-          content: "[VIKI not running at localhost:3033]",
-          fetched_at: DateTime.utc_now() |> DateTime.to_iso8601()
-        }}
+        {:ok,
+         %{
+           url: "viki:#{query}",
+           domain: "viki",
+           source_type: :viki,
+           content: "[VIKI not running at localhost:3033]",
+           fetched_at: DateTime.utc_now() |> DateTime.to_iso8601()
+         }}
     end
   end
 
@@ -176,13 +185,14 @@ defmodule Apm.Coalesce.SourceFetcher do
 
     case :httpc.request(:get, {String.to_charlist(url), []}, [{:timeout, 5_000}], []) do
       {:ok, {{_, 200, _}, _, body}} ->
-        {:ok, %{
-          url: url,
-          domain: "apm",
-          source_type: :apm,
-          content: to_string(body),
-          fetched_at: DateTime.utc_now() |> DateTime.to_iso8601()
-        }}
+        {:ok,
+         %{
+           url: url,
+           domain: "apm",
+           source_type: :apm,
+           content: to_string(body),
+           fetched_at: DateTime.utc_now() |> DateTime.to_iso8601()
+         }}
 
       {:ok, {{_, status, _}, _, _}} ->
         {:error, {:apm_http_error, status}}

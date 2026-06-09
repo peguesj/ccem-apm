@@ -78,7 +78,12 @@ defmodule ApmWeb.FormationsLive do
 
     {:noreply,
      socket
-     |> assign(scope: scope, formations: formations, graph_nodes: graph_nodes, graph_edges: graph_edges)
+     |> assign(
+       scope: scope,
+       formations: formations,
+       graph_nodes: graph_nodes,
+       graph_edges: graph_edges
+     )
      |> push_graph_data(graph_nodes, graph_edges)}
   end
 
@@ -341,7 +346,10 @@ defmodule ApmWeb.FormationsLive do
                   </button>
                 </:col>
                 <:col :let={f} label="Status">
-                  <.badge tone={status_tone(formation_status(f))} dot={formation_status(f) == "active"}>
+                  <.badge
+                    tone={status_tone(formation_status(f))}
+                    dot={formation_status(f) == "active"}
+                  >
                     {formation_status(f)}
                   </.badge>
                 </:col>
@@ -409,7 +417,9 @@ defmodule ApmWeb.FormationsLive do
 
               <%!-- Legend for dot colours --%>
               <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--ccem-line-subtle); flex-wrap: wrap;">
-                <span style="font-size: 11px; color: var(--ccem-fg-dim); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;">Status:</span>
+                <span style="font-size: 11px; color: var(--ccem-fg-dim); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;">
+                  Status:
+                </span>
                 <.badge tone="success" dot={true}>active</.badge>
                 <.badge tone="info">complete</.badge>
                 <.badge tone="error">error</.badge>
@@ -475,8 +485,21 @@ defmodule ApmWeb.FormationsLive do
               </div>
             <% else %>
               <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 16px; color: var(--ccem-fg-dim); text-align: center;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="opacity: 0.3; margin-bottom: 10px;">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="32"
+                  height="32"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  style="opacity: 0.3; margin-bottom: 10px;"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
+                  />
                 </svg>
                 <p style="font-size: 13px; font-weight: 500; margin: 0 0 4px; color: var(--ccem-fg-muted);">
                   No selection
@@ -524,16 +547,29 @@ defmodule ApmWeb.FormationsLive do
   defp empty_state_view(assigns) do
     ~H"""
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 16px; color: var(--ccem-fg-dim);">
-      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="opacity: 0.25; margin-bottom: 16px;">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="48"
+        height="48"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        style="opacity: 0.25; margin-bottom: 16px;"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.5"
+          d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
+        />
       </svg>
       <p style="font-size: 15px; font-weight: 600; margin: 0 0 6px; color: var(--ccem-fg-muted);">
         No Formations Active
       </p>
       <p style="font-size: 12px; margin: 0; text-align: center; max-width: 320px; line-height: 1.6; opacity: 0.65;">
         Formations appear when agents register with a <code style="font-family: var(--ccem-font-mono);">formation_id</code>.
-        Use <code style="font-family: var(--ccem-font-mono);">/formation deploy</code> or POST to
-        <code style="font-family: var(--ccem-font-mono);">/api/register</code>.
+        Use <code style="font-family: var(--ccem-font-mono);">/formation deploy</code>
+        or POST to <code style="font-family: var(--ccem-font-mono);">/api/register</code>.
       </p>
     </div>
     """
@@ -548,7 +584,10 @@ defmodule ApmWeb.FormationsLive do
     <div style="display: flex; align-items: center; gap: 6px;">
       <svg width="28" height="8" style="flex-shrink: 0;">
         <line
-          x1="0" y1="4" x2="28" y2="4"
+          x1="0"
+          y1="4"
+          x2="28"
+          y2="4"
           stroke={@color}
           stroke-width="1.5"
           stroke-dasharray={@dash}
@@ -569,7 +608,14 @@ defmodule ApmWeb.FormationsLive do
   @spec load_formations(String.t() | nil) :: {list(), list(), list()}
   defp load_formations(scope) do
     agents = AgentRegistry.list_agents()
-    upm_formations = try do UpmStore.list_formations() catch :exit, _ -> [] end
+
+    upm_formations =
+      try do
+        UpmStore.list_formations()
+      catch
+        :exit, _ -> []
+      end
+
     all_formations = build_formation_tree(agents, upm_formations)
 
     formations =
@@ -887,9 +933,14 @@ defmodule ApmWeb.FormationsLive do
 
         status =
           cond do
-            Enum.any?(notifs, &String.contains?(Map.get(&1, :title, ""), "Complete")) -> "complete"
-            Enum.any?(notifs, &(&1.type == "error")) -> "error"
-            true -> "active"
+            Enum.any?(notifs, &String.contains?(Map.get(&1, :title, ""), "Complete")) ->
+              "complete"
+
+            Enum.any?(notifs, &(&1.type == "error")) ->
+              "error"
+
+            true ->
+              "active"
           end
 
         %{
@@ -949,8 +1000,12 @@ defmodule ApmWeb.FormationsLive do
 
   defp derive_status(agents) do
     cond do
-      Enum.any?(agents, &(&1[:status] == "error")) -> "error"
-      Enum.any?(agents, &(&1[:status] == "active")) -> "active"
+      Enum.any?(agents, &(&1[:status] == "error")) ->
+        "error"
+
+      Enum.any?(agents, &(&1[:status] == "active")) ->
+        "active"
+
       Enum.all?(agents, &(&1[:status] in ["pass", "complete", "done"])) and agents != [] ->
         "complete"
 
@@ -978,8 +1033,12 @@ defmodule ApmWeb.FormationsLive do
     all_agents = all_formation_agents(formation)
 
     cond do
-      Enum.any?(all_agents, &(&1.status == "error")) -> "error"
-      Enum.any?(all_agents, &(&1.status == "active")) -> "active"
+      Enum.any?(all_agents, &(&1.status == "error")) ->
+        "error"
+
+      Enum.any?(all_agents, &(&1.status == "active")) ->
+        "active"
+
       Enum.all?(all_agents, &(&1.status in ["pass", "complete", "done"])) and all_agents != [] ->
         "complete"
 

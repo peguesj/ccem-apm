@@ -34,14 +34,27 @@ defmodule Apm.UPM.Adapters.AzureDevOps do
     repo = integration.repo_url || ""
     title = Map.get(attrs, :title) || Map.get(attrs, "title") || "New PR"
     source = Map.get(attrs, :source_branch) || Map.get(attrs, "source_branch") || "HEAD"
-    target = Map.get(attrs, :target_branch) || Map.get(attrs, "target_branch") || integration.default_branch || "main"
 
-    args = ["devops", "repos", "pr", "create",
-            "--repository", repo,
-            "--title", title,
-            "--source-branch", source,
-            "--target-branch", target,
-            "--output", "json"]
+    target =
+      Map.get(attrs, :target_branch) || Map.get(attrs, "target_branch") ||
+        integration.default_branch || "main"
+
+    args = [
+      "devops",
+      "repos",
+      "pr",
+      "create",
+      "--repository",
+      repo,
+      "--title",
+      title,
+      "--source-branch",
+      source,
+      "--target-branch",
+      target,
+      "--output",
+      "json"
+    ]
 
     case System.cmd("az", args, stderr_to_stdout: true) do
       {output, 0} ->
@@ -59,10 +72,18 @@ defmodule Apm.UPM.Adapters.AzureDevOps do
   def get_branch_status(integration, branch) do
     repo = integration.repo_url || ""
 
-    args = ["devops", "repos", "ref", "list",
-            "--repository", repo,
-            "--filter", "heads/#{branch}",
-            "--output", "json"]
+    args = [
+      "devops",
+      "repos",
+      "ref",
+      "list",
+      "--repository",
+      repo,
+      "--filter",
+      "heads/#{branch}",
+      "--output",
+      "json"
+    ]
 
     case System.cmd("az", args, stderr_to_stdout: true) do
       {output, 0} ->

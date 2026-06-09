@@ -22,12 +22,15 @@ defmodule Apm.NamespaceResolver do
   @spec agent_label(String.t(), keyword()) :: String.t()
   def agent_label(agent_id, opts \\ []) do
     cache_key = {:agent, agent_id}
+
     case cached(cache_key) do
       nil ->
         label = compute_agent_label(agent_id, opts)
         put_cache(cache_key, label)
         label
-      label -> label
+
+      label ->
+        label
     end
   end
 
@@ -35,12 +38,15 @@ defmodule Apm.NamespaceResolver do
   @spec session_label(String.t(), keyword()) :: String.t()
   def session_label(session_id, opts \\ []) do
     cache_key = {:session, session_id}
+
     case cached(cache_key) do
       nil ->
         label = compute_session_label(session_id, opts)
         put_cache(cache_key, label)
         label
-      label -> label
+
+      label ->
+        label
     end
   end
 
@@ -48,12 +54,15 @@ defmodule Apm.NamespaceResolver do
   @spec gate_label(String.t(), String.t()) :: String.t()
   def gate_label(request_id, tool_name) do
     cache_key = {:gate, request_id}
+
     case cached(cache_key) do
       nil ->
         label = compute_gate_label(request_id, tool_name)
         put_cache(cache_key, label)
         label
-      label -> label
+
+      label ->
+        label
     end
   end
 
@@ -76,6 +85,7 @@ defmodule Apm.NamespaceResolver do
   defp compute_agent_label(agent_id, opts) do
     # Priority 1: display_name or agent_name from AgentRegistry (set by AgentIdentity.build/2)
     registry_name = lookup_agent_name(agent_id)
+
     if registry_name && registry_name != "" && registry_name != agent_id do
       registry_name
     else
@@ -86,7 +96,9 @@ defmodule Apm.NamespaceResolver do
 
       formation_scope =
         case opts[:formation_id] do
-          nil -> nil
+          nil ->
+            nil
+
           fmt_id ->
             parts = [fmt_id, opts[:squadron]] |> Enum.reject(&is_nil/1)
             Enum.join(parts, "/")
@@ -104,6 +116,7 @@ defmodule Apm.NamespaceResolver do
         [] ->
           role_fallback = format_role(opts[:role]) || "agent"
           "#{role_fallback}.#{String.slice(agent_id, -8, 8)}"
+
         _ ->
           Enum.join(parts, "/")
       end
@@ -131,6 +144,7 @@ defmodule Apm.NamespaceResolver do
     branch = opts[:branch] |> branch_short()
 
     parts = [project, branch] |> Enum.reject(&is_nil/1) |> Enum.reject(&(&1 == ""))
+
     case parts do
       [] -> short_id(session_id)
       _ -> Enum.join(parts, "/")
@@ -139,11 +153,13 @@ defmodule Apm.NamespaceResolver do
 
   defp compute_gate_label(request_id, tool_name) do
     time_part = extract_time_from_id(request_id)
+
     tool_slug =
       tool_name
       |> String.downcase()
       |> String.replace(~r/[^a-z0-9]/, "-")
       |> String.slice(0, 12)
+
     "#{tool_slug}/#{time_part}"
   end
 
@@ -151,17 +167,26 @@ defmodule Apm.NamespaceResolver do
     # Formation IDs like "fmt-agentlock-notif-20260328-001-alpha-b1-001"
     # Extract meaningful prefix; fallback to nil
     cond do
-      String.contains?(id, "ccem") -> "ccem"
-      String.contains?(id, "lcc") -> "lcc"
-      String.contains?(id, "viki") -> "viki"
+      String.contains?(id, "ccem") ->
+        "ccem"
+
+      String.contains?(id, "lcc") ->
+        "lcc"
+
+      String.contains?(id, "viki") ->
+        "viki"
+
       String.contains?(id, "fmt-") ->
         id |> String.split("-") |> Enum.drop(1) |> Enum.take(2) |> Enum.join("-")
-      true -> nil
+
+      true ->
+        nil
     end
   end
 
   defp format_role(nil), do: nil
   defp format_role(role) when is_atom(role), do: role |> Atom.to_string() |> format_role()
+
   defp format_role(role) do
     role
     |> String.replace("_", "-")
@@ -173,6 +198,7 @@ defmodule Apm.NamespaceResolver do
   end
 
   defp task_slug(nil), do: nil
+
   defp task_slug(subject) do
     subject
     |> String.downcase()
@@ -186,6 +212,7 @@ defmodule Apm.NamespaceResolver do
   end
 
   defp branch_short(nil), do: nil
+
   defp branch_short(branch) do
     branch
     |> String.replace(~r/^(main|master|ralph|feat|fix|chore)\//, "")

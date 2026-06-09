@@ -155,17 +155,17 @@ defmodule Apm.Auth.PolicyEngine do
   """
   @spec from_mcp_annotations(map()) :: Types.risk_level()
   def from_mcp_annotations(annotations) when is_map(annotations) do
-    read_only   = Map.get(annotations, "readOnly",    Map.get(annotations, :readOnly,    false))
+    read_only = Map.get(annotations, "readOnly", Map.get(annotations, :readOnly, false))
     destructive = Map.get(annotations, "destructive", Map.get(annotations, :destructive, false))
-    open_world  = Map.get(annotations, "openWorld",   Map.get(annotations, :openWorld,   false))
-    idempotent  = Map.get(annotations, "idempotent",  Map.get(annotations, :idempotent,  false))
+    open_world = Map.get(annotations, "openWorld", Map.get(annotations, :openWorld, false))
+    idempotent = Map.get(annotations, "idempotent", Map.get(annotations, :idempotent, false))
 
     cond do
-      read_only   -> :none
+      read_only -> :none
       destructive -> :critical
-      open_world  -> :high
-      idempotent  -> :medium
-      true        -> :low
+      open_world -> :high
+      idempotent -> :medium
+      true -> :low
     end
   end
 
@@ -196,8 +196,8 @@ defmodule Apm.Auth.PolicyEngine do
 
           if destructive_command?(command) do
             # KRI: critical_command_rate
-            agent_id   = Map.get(context, :agent_id, "unknown")
-            cmd_sig    = String.slice(command, 0, 120)
+            agent_id = Map.get(context, :agent_id, "unknown")
+            cmd_sig = String.slice(command, 0, 120)
 
             :telemetry.execute(
               [:apm, :governance, :critical_command_rate],
@@ -233,7 +233,11 @@ defmodule Apm.Auth.PolicyEngine do
         :telemetry.execute(
           [:apm, :governance, :critical_command_rate],
           %{count: 1},
-          %{tool_name: tool_name, agent_id: agent_id, command_signature: "mcp_annotation_destructive"}
+          %{
+            tool_name: tool_name,
+            agent_id: agent_id,
+            command_signature: "mcp_annotation_destructive"
+          }
         )
       end
 
@@ -244,7 +248,8 @@ defmodule Apm.Auth.PolicyEngine do
   end
 
   defp check_auto_permit(risk) when risk in [:none] do
-    {:permit, %PolicyDecision{allowed: true, risk_level: risk, detail: "Auto-permitted (no risk)"}}
+    {:permit,
+     %PolicyDecision{allowed: true, risk_level: risk, detail: "Auto-permitted (no risk)"}}
   end
 
   defp check_auto_permit(risk), do: {:continue, risk}

@@ -12,13 +12,17 @@ defmodule ApmWeb.Components.AgentControlPanel do
 
   def control_bar(assigns) do
     ~H"""
-    <div :if={@selected_agent} class="px-2 py-1.5 bg-base-300/70 border-b border-base-300 flex items-center gap-1.5">
+    <div
+      :if={@selected_agent}
+      class="px-2 py-1.5 bg-base-300/70 border-b border-base-300 flex items-center gap-1.5"
+    >
       <%!-- Status indicator --%>
       <div class="flex items-center gap-1 mr-auto">
         <span class={[
           "w-2 h-2 rounded-full",
           status_dot_class(@agent_status)
-        ]}></span>
+        ]}>
+        </span>
         <span class="text-[10px] text-base-content/50">{@agent_status}</span>
       </div>
 
@@ -31,8 +35,17 @@ defmodule ApmWeb.Components.AgentControlPanel do
         class="btn btn-xs btn-success btn-outline gap-0.5"
         title="Connect agent"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-3 w-3"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+            clip-rule="evenodd"
+          />
         </svg>
         Connect
       </button>
@@ -46,8 +59,17 @@ defmodule ApmWeb.Components.AgentControlPanel do
         data-confirm="Disconnect this agent?"
         title="Disconnect agent"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-3 w-3"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
+            clip-rule="evenodd"
+          />
         </svg>
         Disconnect
       </button>
@@ -60,8 +82,17 @@ defmodule ApmWeb.Components.AgentControlPanel do
         data-confirm="Restart this agent?"
         title="Restart agent"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-3 w-3"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+            clip-rule="evenodd"
+          />
         </svg>
         Restart
       </button>
@@ -69,11 +100,19 @@ defmodule ApmWeb.Components.AgentControlPanel do
       <%!-- Formation-level controls --%>
       <div :if={@selected_agent[:formation_id]} class="dropdown dropdown-end">
         <button tabindex="0" class="btn btn-xs btn-ghost gap-0.5">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-3 w-3"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
             <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
           </svg>
         </button>
-        <ul tabindex="0" class="dropdown-content z-10 menu p-1 shadow bg-base-200 rounded-lg w-40 text-xs">
+        <ul
+          tabindex="0"
+          class="dropdown-content z-10 menu p-1 shadow bg-base-200 rounded-lg w-40 text-xs"
+        >
           <li>
             <button
               phx-click="formation:control"

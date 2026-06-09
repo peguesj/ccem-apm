@@ -57,6 +57,7 @@ defmodule Apm.AgentRegistry.HordeTest do
 
       # Register current process (ExUnit test process)
       result = Horde.Registry.register(HordeRegistry, key, metadata)
+
       assert match?({:ok, _pid}, result) or result == :ok or match?({:ok, _}, result),
              "Expected successful registration, got: #{inspect(result)}"
 

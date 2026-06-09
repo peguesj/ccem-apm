@@ -26,7 +26,9 @@ defmodule Apm.Integrations.Worktree.WorktreeIntegration do
   @impl true
   def integration_name, do: "worktree"
   @impl true
-  def integration_description, do: "Bidirectional git worktree management — observe and command worktree lifecycle"
+  def integration_description,
+    do: "Bidirectional git worktree management — observe and command worktree lifecycle"
+
   @impl true
   def integration_version, do: "1.0.0"
   @impl true
@@ -90,7 +92,10 @@ defmodule Apm.Integrations.Worktree.WorktreeIntegration do
   def handle_event("create_worktree", payload, _opts) do
     branch = Map.get(payload, "branch") || Map.get(payload, :branch)
     base = Map.get(payload, "base_branch") || Map.get(payload, :base_branch, "main")
-    project_root = Map.get(payload, "project_root") || Map.get(payload, :project_root, File.cwd!())
+
+    project_root =
+      Map.get(payload, "project_root") || Map.get(payload, :project_root, File.cwd!())
+
     worktree_path = Path.join([project_root, ".claude", "worktrees", branch])
 
     case System.cmd("git", ["worktree", "add", worktree_path, "-b", branch, base],

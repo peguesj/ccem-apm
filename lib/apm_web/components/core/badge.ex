@@ -19,7 +19,8 @@ defmodule ApmWeb.Components.Core.Badge do
   """
   use Phoenix.Component
 
-  attr :tone, :string, default: "neutral",
+  attr :tone, :string,
+    default: "neutral",
     values: ~w(success warning error info neutral)
 
   attr :prominent, :boolean, default: false
@@ -44,7 +45,7 @@ defmodule ApmWeb.Components.Core.Badge do
       <%= if @dot do %>
         <span class={["apm-badge__dot", @pulse && "apm-pulse"]} aria-hidden="true" />
       <% end %>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </span>
     """
   end

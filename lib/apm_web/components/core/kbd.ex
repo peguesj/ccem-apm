@@ -24,7 +24,7 @@ defmodule ApmWeb.Components.Core.Kbd do
   def kbd(assigns) do
     ~H"""
     <span class="apm-kbd apm-mono" {@rest}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </span>
     """
   end

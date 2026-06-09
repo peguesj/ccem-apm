@@ -215,7 +215,8 @@ defmodule Apm.Governance.VerifiableCredentialTest do
           valid_seconds: -10
         )
 
-      assert {:error, :credential_expired} = VerifiableCredential.verify_credential(jwt, keystore: ks)
+      assert {:error, :credential_expired} =
+               VerifiableCredential.verify_credential(jwt, keystore: ks)
     end
 
     test "tampered VC payload is rejected", %{key_store: ks} do
@@ -226,7 +227,10 @@ defmodule Apm.Governance.VerifiableCredentialTest do
       # Tamper: decode payload, change agent_id, re-encode
       [h, p, s] = String.split(jwt, ".")
       {:ok, payload_json} = Base.url_decode64(p, padding: false)
-      tampered_payload = Jason.decode!(payload_json) |> put_in(["vc", "credentialSubject", "agent_id"], "ATTACKER")
+
+      tampered_payload =
+        Jason.decode!(payload_json) |> put_in(["vc", "credentialSubject", "agent_id"], "ATTACKER")
+
       tampered_p = Base.url_encode64(Jason.encode!(tampered_payload), padding: false)
       tampered_jwt = Enum.join([h, tampered_p, s], ".")
 
@@ -247,7 +251,8 @@ defmodule Apm.Governance.VerifiableCredentialTest do
       corrupted_s = before <> "XXXXX" <> rest
       tampered_jwt = Enum.join([h, p, corrupted_s], ".")
 
-      assert {:error, _reason} = VerifiableCredential.verify_credential(tampered_jwt, keystore: ks)
+      assert {:error, _reason} =
+               VerifiableCredential.verify_credential(tampered_jwt, keystore: ks)
     end
 
     test "malformed JWT string is rejected", %{key_store: ks} do

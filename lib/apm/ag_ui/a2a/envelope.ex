@@ -77,8 +77,12 @@ defmodule Apm.AgUi.A2A.Envelope do
     end
 
     cond do
-      is_nil(from) -> {:error, "from_agent_id is required"}
-      is_nil(to) -> {:error, "invalid address"}
+      is_nil(from) ->
+        {:error, "from_agent_id is required"}
+
+      is_nil(to) ->
+        {:error, "invalid address"}
+
       true ->
         {:ok,
          %__MODULE__{

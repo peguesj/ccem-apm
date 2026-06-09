@@ -24,7 +24,10 @@ defmodule ApmWeb.Components.Core.Skeleton do
     ~H"""
     <div class="apm-skeleton" {@rest}>
       <%= for i <- 0..(@count - 1) do %>
-        <div class="apm-skeleton__row" style={"border-bottom:1px solid var(--apm-border-subtle);display:flex;gap:16px;padding:9px 14px"}>
+        <div
+          class="apm-skeleton__row"
+          style="border-bottom:1px solid var(--apm-border-subtle);display:flex;gap:16px;padding:9px 14px"
+        >
           <%= for j <- 0..(@cols - 1) do %>
             <div
               class="apm-shimmer"

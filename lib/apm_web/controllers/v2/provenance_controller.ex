@@ -132,7 +132,7 @@ defmodule ApmWeb.V2.ProvenanceController do
   # ── GET /api/v2/provenance/agents/:id ──────────────────────────────────────
   # prov-w4-s9 / CP-283
 
-  operation :agent_provenance,
+  operation(:agent_provenance,
     summary: "Full provenance record for an agent",
     description: """
     Returns the complete provenance record for a registered agent, combining:
@@ -150,6 +150,7 @@ defmodule ApmWeb.V2.ProvenanceController do
       ok: {"Agent provenance record", "application/json", %OpenApiSpex.Schema{type: :object}},
       not_found: {"Agent not found", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   @doc "GET /api/v2/provenance/agents/:id — full provenance record for an agent"
   @spec agent_provenance(Plug.Conn.t(), map()) :: Plug.Conn.t()
@@ -211,7 +212,7 @@ defmodule ApmWeb.V2.ProvenanceController do
   # ── GET /api/v2/provenance/artifacts ──────────────────────────────────────
   # prov-w4-s9 / CP-283
 
-  operation :artifacts,
+  operation(:artifacts,
     summary: "Paginated artifact attestations with signature verification",
     description: """
     Returns a filtered, paginated list of artifact attestations from the
@@ -227,7 +228,12 @@ defmodule ApmWeb.V2.ProvenanceController do
     """,
     tags: ["Provenance"],
     parameters: [
-      session_id: [in: :query, description: "Filter by session ID", type: :string, required: false],
+      session_id: [
+        in: :query,
+        description: "Filter by session ID",
+        type: :string,
+        required: false
+      ],
       agent_id: [in: :query, description: "Filter by agent ID", type: :string, required: false],
       since: [
         in: :query,
@@ -235,12 +241,23 @@ defmodule ApmWeb.V2.ProvenanceController do
         type: :string,
         required: false
       ],
-      limit: [in: :query, description: "Max results (default 50, max 200)", type: :integer, required: false],
-      offset: [in: :query, description: "Pagination offset (default 0)", type: :integer, required: false]
+      limit: [
+        in: :query,
+        description: "Max results (default 50, max 200)",
+        type: :integer,
+        required: false
+      ],
+      offset: [
+        in: :query,
+        description: "Pagination offset (default 0)",
+        type: :integer,
+        required: false
+      ]
     ],
     responses: [
       ok: {"Attestations list", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   @doc "GET /api/v2/provenance/artifacts — paginated artifact attestations with verify status"
   @spec artifacts(Plug.Conn.t(), map()) :: Plug.Conn.t()
@@ -278,7 +295,7 @@ defmodule ApmWeb.V2.ProvenanceController do
   # ── POST /api/v2/provenance/verify ─────────────────────────────────────────
   # prov-w4-s9 / CP-283
 
-  operation :verify,
+  operation(:verify,
     summary: "Verify an artifact attestation signature",
     description: """
     Accepts an attestation map and a hex-encoded Ed25519 signature.
@@ -312,6 +329,7 @@ defmodule ApmWeb.V2.ProvenanceController do
       unprocessable_entity:
         {"Validation error", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   @doc "POST /api/v2/provenance/verify — verify attestation signature"
   @spec verify(Plug.Conn.t(), map()) :: Plug.Conn.t()
@@ -322,6 +340,7 @@ defmodule ApmWeb.V2.ProvenanceController do
          payload <- build_verify_payload(attestation_map),
          {:ok, pub_key} <- fetch_public_key() do
       valid = KeyStore.verify(payload, sig_bytes, pub_key)
+
       agent_id =
         Map.get(attestation_map, "agent_id") || Map.get(attestation_map, :agent_id, "unknown")
 

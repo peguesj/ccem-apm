@@ -90,7 +90,12 @@ defmodule Apm.EnvironmentScanner do
       :ets.insert(@table, {env.name, env})
     end)
 
-    Phoenix.PubSub.broadcast(Apm.PubSub, "apm:environments", {:environments_updated, length(envs)})
+    Phoenix.PubSub.broadcast(
+      Apm.PubSub,
+      "apm:environments",
+      {:environments_updated, length(envs)}
+    )
+
     envs
   end
 
@@ -132,8 +137,11 @@ defmodule Apm.EnvironmentScanner do
 
     last_modified =
       case File.stat(project_path) do
-        {:ok, %{mtime: mtime}} -> NaiveDateTime.from_erl!(mtime) |> DateTime.from_naive!("Etc/UTC")
-        _ -> DateTime.utc_now()
+        {:ok, %{mtime: mtime}} ->
+          NaiveDateTime.from_erl!(mtime) |> DateTime.from_naive!("Etc/UTC")
+
+        _ ->
+          DateTime.utc_now()
       end
 
     %{

@@ -46,7 +46,11 @@ defmodule Apm.Actions.Synergize do
   def preview(params) do
     copilot = Map.get(params, "copilot", "all")
     targets = if copilot == "all", do: Map.keys(@copilots), else: [copilot]
-    previews = Enum.filter(targets, &Map.has_key?(@copilots, &1)) |> Enum.map(&%{id: &1, config: @copilots[&1]})
+
+    previews =
+      Enum.filter(targets, &Map.has_key?(@copilots, &1))
+      |> Enum.map(&%{id: &1, config: @copilots[&1]})
+
     {:ok, %{targets: previews, count: length(previews)}}
   end
 
@@ -74,7 +78,9 @@ defmodule Apm.Actions.Synergize do
         end
 
       :reference ->
-        content = "# CCEM Synergized Config\n# Source: #{source}\n# See CLAUDE.md for authoritative instructions\n"
+        content =
+          "# CCEM Synergized Config\n# Source: #{source}\n# See CLAUDE.md for authoritative instructions\n"
+
         case File.write(target, content) do
           :ok -> {:ok, "reference"}
           {:error, r} -> {:error, inspect(r)}

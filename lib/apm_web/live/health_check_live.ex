@@ -17,6 +17,7 @@ defmodule ApmWeb.HealthCheckLive do
       # US-021: EventBus subscription for AG-UI health events
       Apm.AgUi.EventBus.subscribe("lifecycle:*")
     end
+
     {:ok,
      socket
      |> assign(sidebar_collapsed: false, inspector_open: false)
@@ -54,15 +55,19 @@ defmodule ApmWeb.HealthCheckLive do
         <%!-- Page header --%>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Health Checks</h1>
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+              Health Checks
+            </h1>
             <.badge tone={overall_health_tone(@overall)}>{to_string(@overall)}</.badge>
           </div>
           <.btn variant="ghost" size="xs" phx-click="run_checks">Run Checks</.btn>
         </div>
 
         <%!-- Empty state --%>
-        <div :if={@checks == []}
-             style="text-align: center; padding: 32px; font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
+        <div
+          :if={@checks == []}
+          style="text-align: center; padding: 32px; font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);"
+        >
           Running health checks...
         </div>
 

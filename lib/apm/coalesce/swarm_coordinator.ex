@@ -28,11 +28,15 @@ defmodule Apm.Coalesce.SwarmCoordinator do
   """
   @spec deploy_swarms(String.t(), [String.t()], map()) :: {:ok, [String.t()]}
   def deploy_swarms(formation_id, skill_names, params) do
-    swarm_agents = Enum.flat_map(skill_names, fn skill_name ->
-      _spawn_skill_swarm(formation_id, skill_name, params)
-    end)
+    swarm_agents =
+      Enum.flat_map(skill_names, fn skill_name ->
+        _spawn_skill_swarm(formation_id, skill_name, params)
+      end)
 
-    Logger.info("[SwarmCoordinator] Deployed #{length(swarm_agents)} agents for formation #{formation_id}")
+    Logger.info(
+      "[SwarmCoordinator] Deployed #{length(swarm_agents)} agents for formation #{formation_id}"
+    )
+
     {:ok, Enum.map(swarm_agents, & &1.agent_id)}
   end
 
@@ -48,13 +52,14 @@ defmodule Apm.Coalesce.SwarmCoordinator do
       {"skills-inventory", "Inventories all skills in scope", 1}
     ]
 
-    agents = Enum.flat_map(roles, fn {role, description, count} ->
-      Enum.map(1..count, fn i ->
-        agent_id = "#{formation_id}-intel-#{role}-#{i}"
-        _register_agent(agent_id, formation_id, role, description, 1, nil)
-        %{agent_id: agent_id, role: role}
+    agents =
+      Enum.flat_map(roles, fn {role, description, count} ->
+        Enum.map(1..count, fn i ->
+          agent_id = "#{formation_id}-intel-#{role}-#{i}"
+          _register_agent(agent_id, formation_id, role, description, 1, nil)
+          %{agent_id: agent_id, role: role}
+        end)
       end)
-    end)
 
     {:ok, Enum.map(agents, & &1.agent_id)}
   end
@@ -92,7 +97,8 @@ defmodule Apm.Coalesce.SwarmCoordinator do
     validation_agents = 8
     orchestrator_agents = num_squadrons
 
-    total_agents = intelligence_agents + generation_agents + validation_agents + orchestrator_agents
+    total_agents =
+      intelligence_agents + generation_agents + validation_agents + orchestrator_agents
 
     squadrons = _build_squadron_plan(skill_names, num_squadrons)
 
@@ -138,7 +144,8 @@ defmodule Apm.Coalesce.SwarmCoordinator do
       formation_role: _formation_role(role),
       parent_agent_id: "#{formation_id}-orchestrator",
       wave: wave,
-      task_subject: if(skill_name, do: "coalesce: #{skill_name} #{role}", else: "coalesce: #{role}"),
+      task_subject:
+        if(skill_name, do: "coalesce: #{skill_name} #{role}", else: "coalesce: #{role}"),
       description: description
     }
 
@@ -173,43 +180,100 @@ defmodule Apm.Coalesce.SwarmCoordinator do
 
   defp _build_squadron_plan(skill_names, num_squadrons) do
     pm_skills = [
-      "customer-journey-map", "customer-journey-mapping-workshop",
-      "discovery-process", "discovery-interview-prep", "proto-persona"
+      "customer-journey-map",
+      "customer-journey-mapping-workshop",
+      "discovery-process",
+      "discovery-interview-prep",
+      "proto-persona"
     ]
 
     strategy_skills = [
-      "positioning-statement", "positioning-workshop", "product-strategy-session",
-      "jobs-to-be-done", "prd", "prd-development"
+      "positioning-statement",
+      "positioning-workshop",
+      "product-strategy-session",
+      "jobs-to-be-done",
+      "prd",
+      "prd-development"
     ]
 
     narrative_skills = [
-      "press-release", "storyboard", "user-story-mapping",
-      "user-story-mapping-workshop", "epic-hypothesis"
+      "press-release",
+      "storyboard",
+      "user-story-mapping",
+      "user-story-mapping-workshop",
+      "epic-hypothesis"
     ]
 
     channel_skills = [
-      "acquisition-channel-advisor", "tam-sam-som-calculator", "roadmap-planning",
-      "prioritization-advisor", "opportunity-solution-tree"
+      "acquisition-channel-advisor",
+      "tam-sam-som-calculator",
+      "roadmap-planning",
+      "prioritization-advisor",
+      "opportunity-solution-tree"
     ]
 
     dep_skills = [
-      "context-engineering-advisor", "recommendation-canvas",
-      "epic-breakdown-advisor", "ai-shaped-readiness-advisor"
+      "context-engineering-advisor",
+      "recommendation-canvas",
+      "epic-breakdown-advisor",
+      "ai-shaped-readiness-advisor"
     ]
 
     squads = [
-      %{name: "Squadron 1: Intelligence", wave: 1, purpose: "Source analysis + VIKI + UPM state", agent_count: 5},
-      %{name: "Squadron 2: PM Discovery", wave: 2, skills: pm_skills, agent_count: length(pm_skills) * 3},
-      %{name: "Squadron 3: PM Strategy", wave: 3, skills: strategy_skills, agent_count: length(strategy_skills) * 3},
-      %{name: "Squadron 4: PM Narrative", wave: 3, skills: narrative_skills, agent_count: length(narrative_skills) * 3},
-      %{name: "Squadron 5: Channel & Growth", wave: 4, skills: channel_skills, agent_count: length(channel_skills) * 3},
-      %{name: "Squadron 6: Dependent Skills", wave: 4, skills: dep_skills, agent_count: length(dep_skills) * 3},
-      %{name: "Squadron 7: Consolidation", wave: 5, purpose: "Orchestrator consolidation", agent_count: 2},
-      %{name: "Squadron 8: Validation", wave: 6, purpose: "Double-verify + regression + frontmatter", agent_count: 8}
+      %{
+        name: "Squadron 1: Intelligence",
+        wave: 1,
+        purpose: "Source analysis + VIKI + UPM state",
+        agent_count: 5
+      },
+      %{
+        name: "Squadron 2: PM Discovery",
+        wave: 2,
+        skills: pm_skills,
+        agent_count: length(pm_skills) * 3
+      },
+      %{
+        name: "Squadron 3: PM Strategy",
+        wave: 3,
+        skills: strategy_skills,
+        agent_count: length(strategy_skills) * 3
+      },
+      %{
+        name: "Squadron 4: PM Narrative",
+        wave: 3,
+        skills: narrative_skills,
+        agent_count: length(narrative_skills) * 3
+      },
+      %{
+        name: "Squadron 5: Channel & Growth",
+        wave: 4,
+        skills: channel_skills,
+        agent_count: length(channel_skills) * 3
+      },
+      %{
+        name: "Squadron 6: Dependent Skills",
+        wave: 4,
+        skills: dep_skills,
+        agent_count: length(dep_skills) * 3
+      },
+      %{
+        name: "Squadron 7: Consolidation",
+        wave: 5,
+        purpose: "Orchestrator consolidation",
+        agent_count: 2
+      },
+      %{
+        name: "Squadron 8: Validation",
+        wave: 6,
+        purpose: "Double-verify + regression + frontmatter",
+        agent_count: 8
+      }
     ]
 
     # Filter remaining skills not in predefined squads
-    assigned = MapSet.new(pm_skills ++ strategy_skills ++ narrative_skills ++ channel_skills ++ dep_skills)
+    assigned =
+      MapSet.new(pm_skills ++ strategy_skills ++ narrative_skills ++ channel_skills ++ dep_skills)
+
     remaining = Enum.reject(skill_names, &MapSet.member?(assigned, &1))
 
     squads_needed = Enum.take(squads, num_squadrons)

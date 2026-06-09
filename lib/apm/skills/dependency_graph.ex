@@ -86,11 +86,14 @@ defmodule Apm.Skills.DependencyGraph do
         }
   def impact_analysis(graph, skill_id) do
     direct_deps = Map.get(graph, skill_id, [])
-    transitive_deps = get_transitive_closure(graph, skill_id) |> Map.keys() |> List.delete(skill_id)
+
+    transitive_deps =
+      get_transitive_closure(graph, skill_id) |> Map.keys() |> List.delete(skill_id)
 
     dependents = get_dependents(graph, skill_id)
 
-    direct_dependents = [skill_id | direct_deps] |> Enum.filter(&direct_dependent?(graph, skill_id, &1))
+    direct_dependents =
+      [skill_id | direct_deps] |> Enum.filter(&direct_dependent?(graph, skill_id, &1))
 
     transitive_dependents =
       dependents
@@ -180,6 +183,7 @@ defmodule Apm.Skills.DependencyGraph do
               {q, v, d}
             else
               new_dist = dist + 1
+
               {
                 :queue.in({neighbor, new_dist}, q),
                 MapSet.put(v, neighbor),

@@ -90,7 +90,7 @@ defmodule Apm.AgUi.HookBridge do
     cond do
       # Lifecycle: agent/run started
       event_type in ["spawn", "agent_spawned", "run_started"] or
-        (category == "agent" and event_type == "spawn") ->
+          (category == "agent" and event_type == "spawn") ->
         EventStream.emit(EventType.run_started(), %{
           agent_id: agent_id,
           run_id: payload["formation_id"] || payload["agent_id"] || "unknown",
@@ -110,7 +110,7 @@ defmodule Apm.AgUi.HookBridge do
 
       # Lifecycle: agent/run error
       event_type in ["task_fail", "agent_failed", "run_error", "upm_kill_criteria"] or
-        (payload["type"] == "error" and is_nil(event_type)) ->
+          (payload["type"] == "error" and is_nil(event_type)) ->
         EventStream.emit(EventType.run_error(), %{
           agent_id: agent_id,
           message: payload["message"] || "Agent failed",
@@ -121,6 +121,7 @@ defmodule Apm.AgUi.HookBridge do
       # Step started: wave/squadron begins
       event_type in ["upm_wave_start", "squadron_started", "swarm_spawned", "step_started"] ->
         step_name = payload["title"] || event_type
+
         EventStream.emit(EventType.step_started(), %{
           agent_id: agent_id,
           step_name: step_name,
@@ -132,6 +133,7 @@ defmodule Apm.AgUi.HookBridge do
       # Step finished: wave/squadron complete
       event_type in ["upm_wave_complete", "squadron_complete", "swarm_complete", "step_finished"] ->
         step_name = payload["title"] || event_type
+
         EventStream.emit(EventType.step_finished(), %{
           agent_id: agent_id,
           step_name: step_name,
@@ -144,16 +146,19 @@ defmodule Apm.AgUi.HookBridge do
       event_type in ["agent_input_required", "input_required"] ->
         message_id = "msg-#{agent_id}-#{System.system_time(:millisecond)}"
         msg = payload["message"] || payload["title"] || "Input required"
+
         EventStream.emit(EventType.text_message_start(), %{
           agent_id: agent_id,
           message_id: message_id,
           role: "assistant"
         })
+
         EventStream.emit(EventType.text_message_content(), %{
           agent_id: agent_id,
           message_id: message_id,
           delta: msg
         })
+
         EventStream.emit(EventType.text_message_end(), %{
           agent_id: agent_id,
           message_id: message_id
@@ -162,6 +167,7 @@ defmodule Apm.AgUi.HookBridge do
       # Default: emit CUSTOM with semantic name (title, category preserved)
       true ->
         semantic_name = event_type || category || "notification"
+
         EventStream.emit(EventType.custom(), %{
           name: semantic_name,
           agent_id: agent_id,
@@ -210,7 +216,12 @@ defmodule Apm.AgUi.HookBridge do
     ToolCallTracker.track_end(tc_id)
 
     # Return the events for backward compatibility
-    [%{type: "TOOL_CALL_START", data: %{agent_id: agent_id, tool_call_id: tc_id, tool_name: tool_name}}]
+    [
+      %{
+        type: "TOOL_CALL_START",
+        data: %{agent_id: agent_id, tool_call_id: tc_id, tool_name: tool_name}
+      }
+    ]
   end
 
   @doc """

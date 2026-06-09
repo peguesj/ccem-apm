@@ -58,7 +58,8 @@ defmodule Apm.Plugins.Worktree.WorktreePlugin do
       },
       %{
         action: "sync",
-        description: "Reconcile ETS against live git worktree list; registers missing, prunes ghosts",
+        description:
+          "Reconcile ETS against live git worktree list; registers missing, prunes ghosts",
         params: %{project_root: "string (optional, defaults to cwd)"}
       },
       %{

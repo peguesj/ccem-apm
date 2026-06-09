@@ -133,7 +133,8 @@ defmodule Apm.AgUi.EventBus do
     deliver_to_subscribers(topic, stamped_event)
 
     # Add to replay buffer (US-046)
-    {buffer, count} = buffer_event(state.replay_buffer, state.replay_count, {seq, topic, stamped_event})
+    {buffer, count} =
+      buffer_event(state.replay_buffer, state.replay_count, {seq, topic, stamped_event})
 
     {:noreply,
      %{

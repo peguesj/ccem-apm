@@ -156,13 +156,13 @@ defmodule Apm.GraphBuilder do
       agent_type = Map.get(agent, :agent_type) || Map.get(agent, "agent_type") || "individual"
 
       %{
-        "id"         => id,
-        "name"       => name,
-        "type"       => "agent",
-        "status"     => status,
+        "id" => id,
+        "name" => name,
+        "type" => "agent",
+        "status" => status,
         "agent_type" => agent_type,
         "agent_count" => 0,
-        "children"   => []
+        "children" => []
       }
     end)
     |> Enum.sort_by(& &1["name"])
@@ -171,18 +171,18 @@ defmodule Apm.GraphBuilder do
   # --- Node constructor with status aggregation ---
 
   defp make_node(opts) do
-    id       = Keyword.fetch!(opts, :id)
-    name     = Keyword.fetch!(opts, :name)
-    type     = Keyword.fetch!(opts, :type)
+    id = Keyword.fetch!(opts, :id)
+    name = Keyword.fetch!(opts, :name)
+    type = Keyword.fetch!(opts, :type)
     children = Keyword.get(opts, :children, [])
 
     %{
-      "id"          => id,
-      "name"        => name,
-      "type"        => type,
-      "status"      => aggregate_status(children),
+      "id" => id,
+      "name" => name,
+      "type" => type,
+      "status" => aggregate_status(children),
       "agent_count" => count_agents(children),
-      "children"    => children
+      "children" => children
     }
   end
 
@@ -206,7 +206,7 @@ defmodule Apm.GraphBuilder do
   # --- Collapse state collection ---
 
   defp collect_collapsed_ids(node, current_depth, max_expanded_depth) do
-    node_id  = node["id"]
+    node_id = node["id"]
     children = Map.get(node, "children", [])
 
     own_id =

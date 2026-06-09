@@ -56,7 +56,9 @@ defmodule Apm.Plugins.Memory.FederationRouter do
     else
       sources = Map.get(params, :sources) || Map.get(params, "sources") || [:claude_mem, :viki]
       top_n = Map.get(params, :top_n) || Map.get(params, "top_n") || @default_top_n
-      timeout_ms = Map.get(params, :timeout_ms) || Map.get(params, "timeout_ms") || @default_timeout_ms
+
+      timeout_ms =
+        Map.get(params, :timeout_ms) || Map.get(params, "timeout_ms") || @default_timeout_ms
 
       {results, errors} = fanout(query, sources, timeout_ms)
 

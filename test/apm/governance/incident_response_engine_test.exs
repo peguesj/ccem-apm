@@ -53,7 +53,11 @@ defmodule Apm.Governance.IncidentResponseEngineTest do
     record_decisions(sid, :allow, :low, 9)
 
     # Force evaluation via a cast to the GenServer
-    send(Process.whereis(IncidentResponseEngine), {:policy_decision, %{session_id: sid, risk_level: :critical, outcome: :allow}})
+    send(
+      Process.whereis(IncidentResponseEngine),
+      {:policy_decision, %{session_id: sid, risk_level: :critical, outcome: :allow}}
+    )
+
     # Give GenServer time to process
     Process.sleep(50)
 
@@ -61,7 +65,10 @@ defmodule Apm.Governance.IncidentResponseEngineTest do
     # The critical_rate is now 10% so it should trip
     # Re-send a few times to ensure threshold check triggers
     for _ <- 1..5 do
-      send(Process.whereis(IncidentResponseEngine), {:policy_decision, %{session_id: sid, risk_level: :critical, outcome: :allow}})
+      send(
+        Process.whereis(IncidentResponseEngine),
+        {:policy_decision, %{session_id: sid, risk_level: :critical, outcome: :allow}}
+      )
     end
 
     Process.sleep(100)
@@ -89,7 +96,10 @@ defmodule Apm.Governance.IncidentResponseEngineTest do
     record_decisions(sid, :allow, :low, 7)
 
     for _ <- 1..10 do
-      send(Process.whereis(IncidentResponseEngine), {:policy_decision, %{session_id: sid, risk_level: :critical, outcome: :allow}})
+      send(
+        Process.whereis(IncidentResponseEngine),
+        {:policy_decision, %{session_id: sid, risk_level: :critical, outcome: :allow}}
+      )
     end
 
     Process.sleep(150)
@@ -117,7 +127,14 @@ defmodule Apm.Governance.IncidentResponseEngineTest do
     send(Process.whereis(IncidentResponseEngine), {
       :risk_aggregated,
       {:session, sid},
-      %{denial_rate: 0.40, score: 3.0, level: :high, tool_call_count: 10, critical_count: 0, last_updated: DateTime.utc_now()}
+      %{
+        denial_rate: 0.40,
+        score: 3.0,
+        level: :high,
+        tool_call_count: 10,
+        critical_count: 0,
+        last_updated: DateTime.utc_now()
+      }
     })
 
     Process.sleep(100)

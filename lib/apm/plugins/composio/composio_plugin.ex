@@ -64,7 +64,11 @@ defmodule Apm.Plugins.Composio.ComposioPlugin do
       %{
         action: "list_toolkits",
         description: "List available Composio toolkits",
-        params: %{page: "integer (optional)", limit: "integer (optional)", search: "string (optional)"}
+        params: %{
+          page: "integer (optional)",
+          limit: "integer (optional)",
+          search: "string (optional)"
+        }
       },
       %{
         action: "list_tools",
@@ -74,7 +78,11 @@ defmodule Apm.Plugins.Composio.ComposioPlugin do
       %{
         action: "execute_tool",
         description: "Execute a Composio tool action via proxy",
-        params: %{action: "string (required)", params: "map (required)", user_id: "string (required)"}
+        params: %{
+          action: "string (required)",
+          params: "map (required)",
+          user_id: "string (required)"
+        }
       },
       %{
         action: "list_connected_accounts",
@@ -133,7 +141,11 @@ defmodule Apm.Plugins.Composio.ComposioPlugin do
     {:error, {:missing_param, "toolkit"}}
   end
 
-  def handle_action("execute_tool", %{"action" => action, "params" => tool_params, "user_id" => user_id}, _opts)
+  def handle_action(
+        "execute_tool",
+        %{"action" => action, "params" => tool_params, "user_id" => user_id},
+        _opts
+      )
       when is_binary(action) and is_map(tool_params) and is_binary(user_id) do
     case ComposioClient.execute_tool(action, tool_params, user_id) do
       {:ok, result} -> {:ok, result}

@@ -34,14 +34,14 @@ defmodule ApmWeb.Components.Templates.DetailPage do
     ~H"""
     <div class="apm-detail-page apm-page-enter" {@rest}>
       <div class="apm-detail-page__header">
-        <%= render_slot(@header) %>
+        {render_slot(@header)}
       </div>
       <div class="apm-detail-page__body apm-scroll">
-        <%= render_slot(@body) %>
+        {render_slot(@body)}
       </div>
       <%= if @footer != [] do %>
         <div class="apm-detail-page__footer">
-          <%= render_slot(@footer) %>
+          {render_slot(@footer)}
         </div>
       <% end %>
     </div>

@@ -93,8 +93,8 @@ defmodule ApmWeb.ApprovalsLive do
       </:topbar>
       <:main>
         <div style="padding: 24px; display: flex; flex-direction: column; gap: 24px;">
-
-          <!-- Stat tiles -->
+          
+    <!-- Stat tiles -->
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
             <.card>
               <.stat_tile
@@ -118,11 +118,13 @@ defmodule ApmWeb.ApprovalsLive do
               />
             </.card>
           </div>
-
-          <!-- Pending approvals table -->
+          
+    <!-- Pending approvals table -->
           <.card padded={false}>
             <div style="padding: 16px 16px 0 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-              <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">Pending Decisions</span>
+              <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+                Pending Decisions
+              </span>
               <.badge tone={if @pending_count > 0, do: "warning", else: "neutral"}>
                 {@pending_count}
               </.badge>
@@ -142,13 +144,28 @@ defmodule ApmWeb.ApprovalsLive do
               </:col>
               <:col :let={item} label="Actions">
                 <div style="display: flex; gap: 6px;">
-                  <.btn variant="primary" size="xs" phx-click="approve" phx-value-id={Map.get(item, :id, "")}>
+                  <.btn
+                    variant="primary"
+                    size="xs"
+                    phx-click="approve"
+                    phx-value-id={Map.get(item, :id, "")}
+                  >
                     Approve
                   </.btn>
-                  <.btn variant="destructive" size="xs" phx-click="deny" phx-value-id={Map.get(item, :id, "")}>
+                  <.btn
+                    variant="destructive"
+                    size="xs"
+                    phx-click="deny"
+                    phx-value-id={Map.get(item, :id, "")}
+                  >
                     Deny
                   </.btn>
-                  <.btn variant="ghost" size="xs" phx-click="defer" phx-value-id={Map.get(item, :id, "")}>
+                  <.btn
+                    variant="ghost"
+                    size="xs"
+                    phx-click="defer"
+                    phx-value-id={Map.get(item, :id, "")}
+                  >
                     Defer
                   </.btn>
                 </div>
@@ -160,11 +177,13 @@ defmodule ApmWeb.ApprovalsLive do
               </div>
             <% end %>
           </.card>
-
-          <!-- Recent audit entries -->
+          
+    <!-- Recent audit entries -->
           <.card padded={false}>
             <div style="padding: 16px 16px 0 16px; margin-bottom: 12px;">
-              <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">Recent Decisions</span>
+              <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+                Recent Decisions
+              </span>
             </div>
             <.data_table id="audit-table" rows={@recent_audit}>
               <:col :let={entry} label="Decision">
@@ -187,7 +206,6 @@ defmodule ApmWeb.ApprovalsLive do
               </div>
             <% end %>
           </.card>
-
         </div>
       </:main>
     </.page_layout>
@@ -228,14 +246,17 @@ defmodule ApmWeb.ApprovalsLive do
   defp match_today?(_, _), do: false
 
   defp format_ttl(nil), do: "—"
+
   defp format_ttl(%DateTime{} = expires_at) do
     diff = DateTime.diff(expires_at, DateTime.utc_now(), :second)
+
     cond do
       diff <= 0 -> "expired"
       diff < 60 -> "#{diff}s"
       true -> "#{div(diff, 60)}m #{rem(diff, 60)}s"
     end
   end
+
   defp format_ttl(_), do: "—"
 
   defp catch_exit(fun) do
@@ -249,8 +270,10 @@ defmodule ApmWeb.ApprovalsLive do
   end
 
   defp format_dt(nil), do: "—"
+
   defp format_dt(%DateTime{} = dt) do
     diff = DateTime.diff(DateTime.utc_now(), dt, :second)
+
     cond do
       diff < 60 -> "just now"
       diff < 3600 -> "#{div(diff, 60)}m ago"
@@ -258,6 +281,7 @@ defmodule ApmWeb.ApprovalsLive do
       true -> "#{div(diff, 86400)}d ago"
     end
   end
+
   defp format_dt(_), do: "—"
 
   defp risk_tone(:high), do: "error"

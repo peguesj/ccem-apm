@@ -99,7 +99,9 @@ defmodule Apm.FormationDot do
       sq_id = dot_id(sq_raw)
 
       acc
-      |> append(~s'  #{sq_id} [label=#{dot_label(squadron.name)}, fillcolor="#{@squadron_color}", fontcolor="white", color="#{@squadron_color}"];')
+      |> append(
+        ~s'  #{sq_id} [label=#{dot_label(squadron.name)}, fillcolor="#{@squadron_color}", fontcolor="white", color="#{@squadron_color}"];'
+      )
       |> append(~s'  #{parent_id} -> #{sq_id} [color="black"];')
       |> render_direct_agents(sq_id, squadron.agents)
       |> render_swarms(sq_id, squadron.swarms)
@@ -112,7 +114,9 @@ defmodule Apm.FormationDot do
       sw_id = dot_id(sw_raw)
 
       acc
-      |> append(~s'  #{sw_id} [label=#{dot_label(swarm.name)}, fillcolor="#{@swarm_color}", fontcolor="white", color="#{@swarm_color}"];')
+      |> append(
+        ~s'  #{sw_id} [label=#{dot_label(swarm.name)}, fillcolor="#{@swarm_color}", fontcolor="white", color="#{@swarm_color}"];'
+      )
       |> append(~s'  #{parent_id} -> #{sw_id} [color="black"];')
       |> render_direct_agents(sw_id, swarm.agents)
       |> render_clusters(sw_id, swarm.clusters)
@@ -125,7 +129,9 @@ defmodule Apm.FormationDot do
       cl_id = dot_id(cl_raw)
 
       acc
-      |> append(~s'  #{cl_id} [label=#{dot_label(cluster.name)}, fillcolor="#{@cluster_color}", fontcolor="white", color="#{@cluster_color}"];')
+      |> append(
+        ~s'  #{cl_id} [label=#{dot_label(cluster.name)}, fillcolor="#{@cluster_color}", fontcolor="white", color="#{@cluster_color}"];'
+      )
       |> append(~s'  #{parent_id} -> #{cl_id} [color="black"];')
       |> render_direct_agents(cl_id, cluster.agents)
     end)
@@ -137,7 +143,9 @@ defmodule Apm.FormationDot do
       label = agent_val(agent, :name) || agent_val(agent, :id) || "agent"
 
       acc
-      |> append(~s'  #{agent_id} [label=#{dot_label(label)}, fillcolor="#{@agent_color}", fontcolor="#1a2e0a", color="#4a7c2e"];')
+      |> append(
+        ~s'  #{agent_id} [label=#{dot_label(label)}, fillcolor="#{@agent_color}", fontcolor="#1a2e0a", color="#4a7c2e"];'
+      )
       |> append(~s'  #{parent_id} -> #{agent_id} [color="black"];')
     end)
   end

@@ -25,7 +25,9 @@ defmodule Apm.Integrations.ClaudeMem.ClaudeMemIntegration do
   @impl true
   def integration_name, do: "claude_mem"
   @impl true
-  def integration_description, do: "Claude Memory — project memory file access and search (delegates to MemoryPlugin)"
+  def integration_description,
+    do: "Claude Memory — project memory file access and search (delegates to MemoryPlugin)"
+
   @impl true
   def integration_version, do: "2.0.0"
   @impl true
@@ -45,24 +47,39 @@ defmodule Apm.Integrations.ClaudeMem.ClaudeMemIntegration do
   @impl true
   def list_endpoints do
     [
-      %{action: "list_memories", description: "List observations — delegates to MemoryPlugin list_observations (deprecated)"},
-      %{action: "search_memories", description: "Search observations — delegates to MemoryPlugin search_observations (deprecated)"},
-      %{action: "get_memory", description: "Get observation by id — delegates to MemoryPlugin get_observation (deprecated)"}
+      %{
+        action: "list_memories",
+        description:
+          "List observations — delegates to MemoryPlugin list_observations (deprecated)"
+      },
+      %{
+        action: "search_memories",
+        description:
+          "Search observations — delegates to MemoryPlugin search_observations (deprecated)"
+      },
+      %{
+        action: "get_memory",
+        description:
+          "Get observation by id — delegates to MemoryPlugin get_observation (deprecated)"
+      }
     ]
   end
 
-  @doc deprecated: "Use Apm.Plugins.Memory.MemoryPlugin.handle_action/3 with action \"list_observations\" instead."
+  @doc deprecated:
+         "Use Apm.Plugins.Memory.MemoryPlugin.handle_action/3 with action \"list_observations\" instead."
   @impl true
   def handle_event("list_memories", params, opts) do
     MemoryPlugin.handle_action("list_observations", params, opts)
   end
 
-  @doc deprecated: "Use Apm.Plugins.Memory.MemoryPlugin.handle_action/3 with action \"search_observations\" instead."
+  @doc deprecated:
+         "Use Apm.Plugins.Memory.MemoryPlugin.handle_action/3 with action \"search_observations\" instead."
   def handle_event("search_memories", %{"query" => query} = _payload, opts) do
     MemoryPlugin.handle_action("search_observations", %{"query" => query}, opts)
   end
 
-  @doc deprecated: "Use Apm.Plugins.Memory.MemoryPlugin.handle_action/3 with action \"get_observation\" instead."
+  @doc deprecated:
+         "Use Apm.Plugins.Memory.MemoryPlugin.handle_action/3 with action \"get_observation\" instead."
   def handle_event("get_memory", %{"path" => id} = _payload, opts) do
     MemoryPlugin.handle_action("get_observation", %{"id" => id}, opts)
   end

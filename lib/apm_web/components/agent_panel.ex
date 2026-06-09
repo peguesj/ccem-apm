@@ -56,13 +56,23 @@ defmodule ApmWeb.Components.AgentPanel do
             <div>
               <div class="text-sm font-medium truncate flex items-center gap-1.5">
                 {agent[:agent_name] || agent[:name] || agent[:id] || agent[:agent_id] || "(unnamed)"}
-                <span :if={agent[:formation_id]} class="badge badge-xs badge-primary badge-outline font-mono text-[9px]" title={"Formation: #{agent[:formation_id]}"}>
+                <span
+                  :if={agent[:formation_id]}
+                  class="badge badge-xs badge-primary badge-outline font-mono text-[9px]"
+                  title={"Formation: #{agent[:formation_id]}"}
+                >
                   {formation_role_badge(agent[:role] || agent[:agent_type])}
                 </span>
-                <span :if={agent[:member_count] && agent[:member_count] > 1} class="badge badge-xs badge-info">
+                <span
+                  :if={agent[:member_count] && agent[:member_count] > 1}
+                  class="badge badge-xs badge-info"
+                >
                   {agent[:member_count]}
                 </span>
-                <span :if={agent[:story_id]} class="badge badge-xs badge-primary badge-outline font-mono">
+                <span
+                  :if={agent[:story_id]}
+                  class="badge badge-xs badge-primary badge-outline font-mono"
+                >
                   {agent[:story_id]}
                 </span>
               </div>
@@ -72,10 +82,15 @@ defmodule ApmWeb.Components.AgentPanel do
                   {NamespaceResolver.agent_label(safe_id,
                     project: agent[:project],
                     role: agent[:formation_role] || agent[:role],
-                    task_subject: agent[:task_subject])}
+                    task_subject: agent[:task_subject]
+                  )}
                 </span>
                 <span :if={agent[:namespace]} class="text-primary/60">/ {agent[:namespace]}</span>
-                <span :if={agent[:agent_definition] && agent[:agent_definition] != ""} class="text-base-content/20 italic truncate max-w-[100px]" title={agent[:agent_definition]}>
+                <span
+                  :if={agent[:agent_definition] && agent[:agent_definition] != ""}
+                  class="text-base-content/20 italic truncate max-w-[100px]"
+                  title={agent[:agent_definition]}
+                >
                   {agent[:agent_definition]}
                 </span>
               </div>

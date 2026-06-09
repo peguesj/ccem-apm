@@ -291,7 +291,6 @@ defmodule ApmWeb.ConversationMonitorLive do
 
         <%!-- Two-column split: 40% list | 60% transcript --%>
         <div style="display: grid; grid-template-columns: 40% 1fr; gap: 16px; min-height: 0;">
-
           <%!-- Left: Conversation list --%>
           <.card padded={false}>
             <%!-- Card header --%>
@@ -305,7 +304,10 @@ defmodule ApmWeb.ConversationMonitorLive do
             </div>
 
             <%!-- Empty state --%>
-            <div :if={@total_count == 0} style="padding: 32px 16px; text-align: center; color: var(--ccem-fg-dim); font-size: 13px;">
+            <div
+              :if={@total_count == 0}
+              style="padding: 32px 16px; text-align: center; color: var(--ccem-fg-dim); font-size: 13px;"
+            >
               No sessions found in ~/.claude/projects/
             </div>
 
@@ -318,11 +320,21 @@ defmodule ApmWeb.ConversationMonitorLive do
               >
                 <thead>
                   <tr>
-                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">Session</th>
-                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">Project</th>
-                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">Size</th>
-                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">Status</th>
-                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">Last Active</th>
+                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">
+                      Session
+                    </th>
+                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">
+                      Project
+                    </th>
+                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">
+                      Size
+                    </th>
+                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">
+                      Status
+                    </th>
+                    <th style="height: 36px; padding: 0 12px; background: var(--ccem-bg-2); color: var(--ccem-fg-dim); font-family: var(--ccem-font-sans, sans-serif); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line));">
+                      Last Active
+                    </th>
                   </tr>
                 </thead>
                 <tbody id="conversations-rows" phx-update="stream">
@@ -347,7 +359,10 @@ defmodule ApmWeb.ConversationMonitorLive do
                       </button>
                     </td>
                     <td style="padding: 0 12px; font-family: var(--ccem-font-sans, sans-serif); font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg);">
-                      <span style="font-size: 12px; color: var(--ccem-fg); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block;" title={conv.project}>
+                      <span
+                        style="font-size: 12px; color: var(--ccem-fg); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block;"
+                        title={conv.project}
+                      >
                         {truncate(conv.project, 16)}
                       </span>
                     </td>
@@ -411,13 +426,19 @@ defmodule ApmWeb.ConversationMonitorLive do
           </.card>
 
           <%!-- Right: Transcript panel --%>
-          <.card padded={false} style="display: flex; flex-direction: column; overflow: hidden; min-height: 320px;">
+          <.card
+            padded={false}
+            style="display: flex; flex-direction: column; overflow: hidden; min-height: 320px;"
+          >
             <%!-- Transcript header --%>
             <div style="padding: 10px 12px; border-bottom: 1px solid var(--ccem-line-subtle, var(--ccem-line)); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
               <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
                 Transcript
               </span>
-              <span :if={@selected_session} style="font-family: var(--ccem-font-mono, monospace); font-size: 10px; color: var(--ccem-fg-muted);">
+              <span
+                :if={@selected_session}
+                style="font-family: var(--ccem-font-mono, monospace); font-size: 10px; color: var(--ccem-fg-muted);"
+              >
                 {Path.basename(@selected_session)}
               </span>
             </div>
@@ -428,12 +449,30 @@ defmodule ApmWeb.ConversationMonitorLive do
               style="flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px;"
             >
               <%!-- Empty state --%>
-              <div :if={is_nil(@selected_session)} style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--ccem-fg-dim); text-align: center; padding: 24px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="opacity: 0.3; margin-bottom: 10px;">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              <div
+                :if={is_nil(@selected_session)}
+                style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--ccem-fg-dim); text-align: center; padding: 24px;"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="32"
+                  height="32"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  style="opacity: 0.3; margin-bottom: 10px;"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
                 </svg>
                 <p style="font-size: 13px; font-weight: 500; margin: 0 0 4px;">No session selected</p>
-                <p style="font-size: 12px; margin: 0; opacity: 0.6;">Click a row in the session list to view its transcript.</p>
+                <p style="font-size: 12px; margin: 0; opacity: 0.6;">
+                  Click a row in the session list to view its transcript.
+                </p>
               </div>
 
               <%!-- Loading shimmer --%>
@@ -441,7 +480,10 @@ defmodule ApmWeb.ConversationMonitorLive do
 
               <%!-- Messages --%>
               <%= if !is_nil(@selected_session) && !@messages_loading do %>
-                <div :if={@messages == []} style="color: var(--ccem-fg-dim); font-size: 13px; text-align: center; padding: 24px 0;">
+                <div
+                  :if={@messages == []}
+                  style="color: var(--ccem-fg-dim); font-size: 13px; text-align: center; padding: 24px 0;"
+                >
                   No messages found in this session.
                 </div>
 
@@ -465,7 +507,10 @@ defmodule ApmWeb.ConversationMonitorLive do
                     <span style="font-size: 10px; font-family: var(--ccem-font-mono, monospace); color: var(--ccem-fg-dim);">
                       {format_ts(msg.timestamp)}
                     </span>
-                    <span :if={length(msg.tool_calls) > 0} style="font-size: 10px; color: var(--ccem-info, #3b82f6);">
+                    <span
+                      :if={length(msg.tool_calls) > 0}
+                      style="font-size: 10px; color: var(--ccem-info, #3b82f6);"
+                    >
                       {length(msg.tool_calls)} tool call(s)
                     </span>
                   </div>
@@ -477,7 +522,6 @@ defmodule ApmWeb.ConversationMonitorLive do
               <% end %>
             </div>
           </.card>
-
         </div>
       </:main>
 
@@ -494,7 +538,9 @@ defmodule ApmWeb.ConversationMonitorLive do
           <:filters>
             <div style="display: flex; flex-direction: column; gap: 12px;">
               <div>
-                <p style="margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">View Mode</p>
+                <p style="margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+                  View Mode
+                </p>
                 <.segmented_control
                   options={["Live", "History"]}
                   active={@view_mode}
@@ -502,7 +548,9 @@ defmodule ApmWeb.ConversationMonitorLive do
                 />
               </div>
               <div>
-                <p style="margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">Filter</p>
+                <p style="margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ccem-fg-dim);">
+                  Filter
+                </p>
                 <.ds_input
                   type="search"
                   placeholder="Filter conversations..."

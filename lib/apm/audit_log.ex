@@ -245,6 +245,7 @@ defmodule Apm.AuditLog do
     :ets.new(@ets_table, [:ordered_set, :named_table, :protected, read_concurrency: true])
     :ets.new(@ring_table, [:set, :named_table, :protected, read_concurrency: true])
     log_dir = log_dir()
+
     {:ok, %{counter: 0, prev_hash: "genesis", log_dir: log_dir, today: Date.utc_today()},
      {:continue, :init_log_dir}}
   end
@@ -264,7 +265,11 @@ defmodule Apm.AuditLog do
   end
 
   @impl true
-  def handle_call({:log, event_type, actor, resource, details, correlation_id, context}, _from, state) do
+  def handle_call(
+        {:log, event_type, actor, resource, details, correlation_id, context},
+        _from,
+        state
+      ) do
     {event, state} = do_log(event_type, actor, resource, details, correlation_id, context, state)
     {:reply, event, state}
   end
@@ -418,7 +423,9 @@ defmodule Apm.AuditLog do
                       Logger.debug("[AuditLog] chmod 0444: #{filename}")
 
                     {:error, reason} ->
-                      Logger.warning("[AuditLog] chmod failed for #{filename}: #{inspect(reason)}")
+                      Logger.warning(
+                        "[AuditLog] chmod failed for #{filename}: #{inspect(reason)}"
+                      )
                   end
 
                 true ->
@@ -431,7 +438,9 @@ defmodule Apm.AuditLog do
         end)
 
       {:error, reason} ->
-        Logger.warning("[AuditLog] daily_purge: cannot list log dir #{log_dir}: #{inspect(reason)}")
+        Logger.warning(
+          "[AuditLog] daily_purge: cannot list log dir #{log_dir}: #{inspect(reason)}"
+        )
     end
 
     :ok
@@ -578,9 +587,7 @@ defmodule Apm.AuditLog do
           end
         rescue
           e ->
-            Logger.warning(
-              "[AuditLog] Sink #{inspect(sink_module)} raised: #{inspect(e)}"
-            )
+            Logger.warning("[AuditLog] Sink #{inspect(sink_module)} raised: #{inspect(e)}")
         end
       end)
     end)

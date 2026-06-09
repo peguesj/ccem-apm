@@ -72,7 +72,8 @@ defmodule ApmWeb.ShowcaseIpcTest do
       Phoenix.PubSub.broadcast(
         Apm.PubSub,
         "ccem:ipc:events",
-        {:ccem_ipc, %{"event_type" => "formation.spawn", "payload" => %{"formation_id" => "fmt-001"}}}
+        {:ccem_ipc,
+         %{"event_type" => "formation.spawn", "payload" => %{"formation_id" => "fmt-001"}}}
       )
 
       assert_push_event(view, "showcase:ipc_event", %{event_type: "formation.spawn"})

@@ -182,7 +182,9 @@ defmodule Apm.Plugins.Memory.ConversationMemoryCorrelator do
 
   defp parse_time(ts) when is_binary(ts) do
     case DateTime.from_iso8601(ts) do
-      {:ok, dt, _} -> dt
+      {:ok, dt, _} ->
+        dt
+
       _ ->
         Logger.debug("ConversationMemoryCorrelator: unparseable timestamp #{inspect(ts)}")
         nil
@@ -194,6 +196,7 @@ defmodule Apm.Plugins.Memory.ConversationMemoryCorrelator do
   @spec filter_by_time_range([observation()], DateTime.t() | nil, DateTime.t() | nil) ::
           [observation()]
   defp filter_by_time_range(observations, nil, _end), do: observations
+
   defp filter_by_time_range(observations, _start, nil) do
     # No end time — session still active; include everything after start
     observations
@@ -204,8 +207,11 @@ defmodule Apm.Plugins.Memory.ConversationMemoryCorrelator do
       ts = obs["timestamp"] || obs[:timestamp]
 
       case parse_time(ts) do
-        nil -> false
-        obs_time -> not DateTime.before?(obs_time, start_time) and not DateTime.after?(obs_time, end_time)
+        nil ->
+          false
+
+        obs_time ->
+          not DateTime.before?(obs_time, start_time) and not DateTime.after?(obs_time, end_time)
       end
     end)
   end

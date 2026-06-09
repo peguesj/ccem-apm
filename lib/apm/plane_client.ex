@@ -50,11 +50,14 @@ defmodule Apm.PlaneClient do
   defp get(path) do
     url = String.to_charlist("#{@base_url}#{path}")
     headers = build_headers()
+
     case :httpc.request(:get, {url, headers}, [{:timeout, 10_000}], []) do
       {:ok, {{_, 200, _}, _headers, body}} ->
         decode_body(body)
+
       {:ok, {{_, status, _}, _headers, body}} ->
         {:error, %{status: status, body: to_string(body)}}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -64,11 +67,19 @@ defmodule Apm.PlaneClient do
     url = String.to_charlist("#{@base_url}#{path}")
     headers = build_headers()
     encoded = Jason.encode!(body)
-    case :httpc.request(:post, {url, headers, ~c"application/json", String.to_charlist(encoded)}, [{:timeout, 10_000}], []) do
+
+    case :httpc.request(
+           :post,
+           {url, headers, ~c"application/json", String.to_charlist(encoded)},
+           [{:timeout, 10_000}],
+           []
+         ) do
       {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
         decode_body(resp_body)
+
       {:ok, {{_, status, _}, _headers, resp_body}} ->
         {:error, %{status: status, body: to_string(resp_body)}}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -78,11 +89,19 @@ defmodule Apm.PlaneClient do
     url = String.to_charlist("#{@base_url}#{path}")
     headers = build_headers()
     encoded = Jason.encode!(body)
-    case :httpc.request(:patch, {url, headers, ~c"application/json", String.to_charlist(encoded)}, [{:timeout, 10_000}], []) do
+
+    case :httpc.request(
+           :patch,
+           {url, headers, ~c"application/json", String.to_charlist(encoded)},
+           [{:timeout, 10_000}],
+           []
+         ) do
       {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
         decode_body(resp_body)
+
       {:ok, {{_, status, _}, _headers, resp_body}} ->
         {:error, %{status: status, body: to_string(resp_body)}}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -103,6 +122,7 @@ defmodule Apm.PlaneClient do
   @spec get_api_key() :: String.t()
   def get_api_key do
     path = Path.expand(@key_file_path)
+
     case File.read(path) do
       {:ok, content} ->
         content
@@ -112,6 +132,7 @@ defmodule Apm.PlaneClient do
         |> String.split(",")
         |> List.last("")
         |> String.trim()
+
       {:error, _} ->
         Logger.warning("[PlaneClient] Cannot read API key from #{path}")
         System.get_env("PLANE_API_KEY", "plane_api_73588ec6f1c34e09b389b8565b7b63c9")

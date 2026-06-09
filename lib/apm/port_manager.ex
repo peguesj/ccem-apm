@@ -52,11 +52,14 @@ defmodule Apm.PortManager do
   def suggest_remediation(port), do: GenServer.call(@server, {:suggest_remediation, port})
 
   @doc "Reassign a project to a new port in its namespace, updating the config file."
-  @spec reassign_port(String.t(), non_neg_integer()) :: {:ok, non_neg_integer()} | {:error, term()}
-  def reassign_port(project_name, new_port), do: GenServer.call(@server, {:reassign_port, project_name, new_port})
+  @spec reassign_port(String.t(), non_neg_integer()) ::
+          {:ok, non_neg_integer()} | {:error, term()}
+  def reassign_port(project_name, new_port),
+    do: GenServer.call(@server, {:reassign_port, project_name, new_port})
 
   @doc "Set a project's primary port and ownership in apm_config.json."
-  @spec set_primary_port(String.t(), non_neg_integer(), String.t()) :: {:ok, map()} | {:error, term()}
+  @spec set_primary_port(String.t(), non_neg_integer(), String.t()) ::
+          {:ok, map()} | {:error, term()}
   def set_primary_port(project_name, port, ownership \\ "shared") do
     GenServer.call(@server, {:set_primary_port, project_name, port, ownership})
   end
@@ -89,7 +92,8 @@ defmodule Apm.PortManager do
     # Schedule continuous scan loop (US-602)
     Process.send_after(self(), :continuous_scan, state.scan_interval_ms)
 
-    {:noreply, %{state | port_map: port_map, project_configs: project_configs, scan_in_flight: true}}
+    {:noreply,
+     %{state | port_map: port_map, project_configs: project_configs, scan_in_flight: true}}
   end
 
   @impl true
@@ -139,6 +143,7 @@ defmodule Apm.PortManager do
         ports_with_status =
           Enum.map(config.ports, fn port_info ->
             active_info = Map.get(state.active_ports, port_info.port)
+
             Map.put(port_info, :active, active_info != nil)
             |> Map.put(:pid, if(active_info, do: active_info.pid))
             |> Map.put(:command, if(active_info, do: active_info.command))
@@ -161,6 +166,7 @@ defmodule Apm.PortManager do
         {name, enriched_config}
       end)
       |> Enum.into(%{})
+
     {:reply, enriched, state}
   end
 
@@ -174,7 +180,13 @@ defmodule Apm.PortManager do
       end)
       |> Enum.map(fn {name, config} ->
         port_info = Enum.find(config.ports, &(&1.port == port))
-        %{project: name, source: port_info.source, file: port_info.file, namespace: categorize(port)}
+
+        %{
+          project: name,
+          source: port_info.source,
+          file: port_info.file,
+          namespace: categorize(port)
+        }
       end)
 
     ns = categorize(port)
@@ -194,6 +206,7 @@ defmodule Apm.PortManager do
       alternatives: alternatives,
       recommendation: build_recommendation(claimants, alternatives)
     }
+
     {:reply, suggestion, state}
   end
 
@@ -239,10 +252,10 @@ defmodule Apm.PortManager do
   @impl true
   def handle_call({:set_primary_port, project_name, port, ownership}, _from, state) do
     case Apm.ConfigLoader.update_project(%{
-      "name" => project_name,
-      "primary_port" => port,
-      "port_ownership" => ownership
-    }) do
+           "name" => project_name,
+           "primary_port" => port,
+           "port_ownership" => ownership
+         }) do
       {:ok, _config} ->
         # Rebuild state asynchronously to avoid blocking on file I/O
         Task.start(fn ->
@@ -319,7 +332,14 @@ defmodule Apm.PortManager do
       end
     end
 
-    {:noreply, %{state | active_ports: active, port_map: enriched_port_map, last_scan: DateTime.utc_now(), scan_in_flight: false}}
+    {:noreply,
+     %{
+       state
+       | active_ports: active,
+         port_map: enriched_port_map,
+         last_scan: DateTime.utc_now(),
+         scan_in_flight: false
+     }}
   end
 
   # Private
@@ -346,7 +366,8 @@ defmodule Apm.PortManager do
     project_configs
     |> Enum.flat_map(fn {name, config} ->
       Enum.map(config.ports, fn port_info ->
-        {port_info.port, %{project: name, root: config.root, namespace: port_info.namespace, active: false}}
+        {port_info.port,
+         %{project: name, root: config.root, namespace: port_info.namespace, active: false}}
       end)
     end)
     |> Enum.into(%{})
@@ -358,7 +379,9 @@ defmodule Apm.PortManager do
         files
         |> Enum.filter(&String.ends_with?(&1, ".json"))
         |> Enum.map(&Path.join(@sessions_dir, &1))
-      {:error, _} -> []
+
+      {:error, _} ->
+        []
     end
   end
 
@@ -367,20 +390,22 @@ defmodule Apm.PortManager do
          {:ok, data} <- Jason.decode(content) do
       root = data["project_root"] || data["working_directory"]
       name = data["project_name"] || Path.basename(root || "unknown")
+
       if root do
         ports = detect_ports_detailed(root)
         config_files = detect_config_files(root)
         stack = detect_stack(root)
 
-        {name, %{
-          root: root,
-          name: name,
-          session_file: path,
-          ports: ports,
-          config_files: config_files,
-          stack: stack,
-          session_data: Map.take(data, ["session_id", "started_at", "project_name"])
-        }}
+        {name,
+         %{
+           root: root,
+           name: name,
+           session_file: path,
+           ports: ports,
+           config_files: config_files,
+           stack: stack,
+           session_data: Map.take(data, ["session_id", "started_at", "project_name"])
+         }}
       end
     else
       _ -> nil
@@ -397,6 +422,7 @@ defmodule Apm.PortManager do
 
   defp detect_env_detailed(root) do
     path = Path.join(root, ".env")
+
     with {:ok, c} <- File.read(path),
          [_, p] <- Regex.run(~r/^PORT=(\d+)/m, c),
          {port, _} <- Integer.parse(p) do
@@ -408,6 +434,7 @@ defmodule Apm.PortManager do
 
   defp detect_pkg_json_detailed(root) do
     path = Path.join(root, "package.json")
+
     with {:ok, c} <- File.read(path) do
       Regex.scan(~r/(?:--port|-p)\s+(\d+)/, c)
       |> Enum.map(fn [_, p] ->
@@ -444,12 +471,22 @@ defmodule Apm.PortManager do
 
   defp detect_config_files(root) do
     candidates = [
-      ".env", ".env.local", ".env.development",
-      "package.json", "mix.exs",
-      "next.config.js", "next.config.mjs", "next.config.ts",
-      "config/dev.exs", "config/config.exs", "config/runtime.exs",
-      "docker-compose.yml", "docker-compose.yaml",
-      "Procfile", "fly.toml", "vercel.json"
+      ".env",
+      ".env.local",
+      ".env.development",
+      "package.json",
+      "mix.exs",
+      "next.config.js",
+      "next.config.mjs",
+      "next.config.ts",
+      "config/dev.exs",
+      "config/config.exs",
+      "config/runtime.exs",
+      "docker-compose.yml",
+      "docker-compose.yaml",
+      "Procfile",
+      "fly.toml",
+      "vercel.json"
     ]
 
     Enum.filter(candidates, fn f -> File.exists?(Path.join(root, f)) end)
@@ -457,13 +494,29 @@ defmodule Apm.PortManager do
 
   defp detect_stack(root) do
     cond do
-      File.exists?(Path.join(root, "mix.exs")) -> :elixir
-      File.exists?(Path.join(root, "next.config.js")) or File.exists?(Path.join(root, "next.config.mjs")) or File.exists?(Path.join(root, "next.config.ts")) -> :nextjs
-      File.exists?(Path.join(root, "package.json")) -> :node
-      File.exists?(Path.join(root, "Cargo.toml")) -> :rust
-      File.exists?(Path.join(root, "go.mod")) -> :go
-      File.exists?(Path.join(root, "requirements.txt")) or File.exists?(Path.join(root, "pyproject.toml")) -> :python
-      true -> :unknown
+      File.exists?(Path.join(root, "mix.exs")) ->
+        :elixir
+
+      File.exists?(Path.join(root, "next.config.js")) or
+        File.exists?(Path.join(root, "next.config.mjs")) or
+          File.exists?(Path.join(root, "next.config.ts")) ->
+        :nextjs
+
+      File.exists?(Path.join(root, "package.json")) ->
+        :node
+
+      File.exists?(Path.join(root, "Cargo.toml")) ->
+        :rust
+
+      File.exists?(Path.join(root, "go.mod")) ->
+        :go
+
+      File.exists?(Path.join(root, "requirements.txt")) or
+          File.exists?(Path.join(root, "pyproject.toml")) ->
+        :python
+
+      true ->
+        :unknown
     end
   end
 
@@ -476,21 +529,26 @@ defmodule Apm.PortManager do
       end)
 
     case {length(claimants), alternatives, exclusive_owner} do
-      {1, _, _} -> "Single claimant - no conflict"
-      {_, [], _} -> "No available ports in namespace - consider expanding range"
+      {1, _, _} ->
+        "Single claimant - no conflict"
+
+      {_, [], _} ->
+        "No available ports in namespace - consider expanding range"
+
       {_, [alt | _], %{project: owner}} ->
         # Owner stays, everyone else moves
         moveables = Enum.reject(claimants, &(&1.project == owner))
         names = Enum.map_join(moveables, ", ", & &1.project)
         "#{owner} has exclusive ownership. Move #{names} to port #{alt}+"
+
       {2, [alt | _], nil} ->
         moveable = List.last(claimants)
         "Move #{moveable.project} to port #{alt} (update #{moveable.file})"
+
       {n, [alt | _], nil} ->
         "#{n} projects claim this port. Suggest moving all but the primary to #{alt}+"
     end
   end
-
 
   defp categorize(port) when port in 3000..3999, do: :web
   defp categorize(port) when port in 4000..4999, do: :api
@@ -509,6 +567,7 @@ defmodule Apm.PortManager do
           |> Enum.drop(1)
           |> Enum.reduce(%{}, fn line, acc ->
             parts = String.split(line, ~r/\s+/)
+
             with [cmd, pid_s | _] <- parts,
                  {pid, _} <- Integer.parse(pid_s),
                  [_, port_s] <- Regex.run(~r/:(\d+)$/, line),
@@ -525,7 +584,9 @@ defmodule Apm.PortManager do
           {port, Map.merge(info, enriched)}
         end)
         |> Enum.into(%{})
-      _ -> %{}
+
+      _ ->
+        %{}
     end
   end
 
@@ -553,7 +614,9 @@ defmodule Apm.PortManager do
             String.slice(line, 1..-1//1)
           end
         end)
-      _ -> nil
+
+      _ ->
+        nil
     end
   end
 
@@ -569,21 +632,50 @@ defmodule Apm.PortManager do
     full_lower = String.downcase(full_cmd || "")
 
     cond do
-      cmd_lower == "beam.smp" or String.contains?(full_lower, "phx.server") -> :phoenix
-      cmd_lower == "beam.smp" or String.contains?(full_lower, "mix") -> :elixir
-      String.contains?(full_lower, "next-server") or String.contains?(full_lower, "next dev") -> :nextjs
-      String.contains?(full_lower, "vite") -> :vite
-      String.contains?(full_lower, "webpack") -> :webpack
-      String.contains?(full_lower, "npm") or String.contains?(full_lower, "npx") -> :node_script
-      String.contains?(full_lower, "uvicorn") or String.contains?(full_lower, "gunicorn") -> :python_web
-      String.contains?(full_lower, "flask") or String.contains?(full_lower, "django") -> :python_web
-      String.contains?(full_lower, "ruby") or String.contains?(full_lower, "rails") -> :rails
-      cmd_lower == "node" -> :node
-      cmd_lower == "python3" or cmd_lower == "python" -> :python
-      cmd_lower == "docker" or String.contains?(full_lower, "docker") -> :docker
-      cmd_lower == "postgres" or cmd_lower == "postmaster" -> :postgres
-      cmd_lower == "redis-server" -> :redis
-      true -> :unknown
+      cmd_lower == "beam.smp" or String.contains?(full_lower, "phx.server") ->
+        :phoenix
+
+      cmd_lower == "beam.smp" or String.contains?(full_lower, "mix") ->
+        :elixir
+
+      String.contains?(full_lower, "next-server") or String.contains?(full_lower, "next dev") ->
+        :nextjs
+
+      String.contains?(full_lower, "vite") ->
+        :vite
+
+      String.contains?(full_lower, "webpack") ->
+        :webpack
+
+      String.contains?(full_lower, "npm") or String.contains?(full_lower, "npx") ->
+        :node_script
+
+      String.contains?(full_lower, "uvicorn") or String.contains?(full_lower, "gunicorn") ->
+        :python_web
+
+      String.contains?(full_lower, "flask") or String.contains?(full_lower, "django") ->
+        :python_web
+
+      String.contains?(full_lower, "ruby") or String.contains?(full_lower, "rails") ->
+        :rails
+
+      cmd_lower == "node" ->
+        :node
+
+      cmd_lower == "python3" or cmd_lower == "python" ->
+        :python
+
+      cmd_lower == "docker" or String.contains?(full_lower, "docker") ->
+        :docker
+
+      cmd_lower == "postgres" or cmd_lower == "postmaster" ->
+        :postgres
+
+      cmd_lower == "redis-server" ->
+        :redis
+
+      true ->
+        :unknown
     end
   end
 

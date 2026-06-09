@@ -103,7 +103,10 @@ defmodule Apm.WorkflowSchemaStore do
         }
 
         :ets.insert(@table, {wf.workflow_id, wf})
-        Logger.info("[WorkflowSchemaStore] registered workflow #{wf.workflow_id} (skill: #{wf.skill})")
+
+        Logger.info(
+          "[WorkflowSchemaStore] registered workflow #{wf.workflow_id} (skill: #{wf.skill})"
+        )
 
         # Broadcast to LiveView subscribers
         Phoenix.PubSub.broadcast(Apm.PubSub, "apm:workflows", {:workflow_registered, wf})
@@ -146,6 +149,7 @@ defmodule Apm.WorkflowSchemaStore do
         patch =
           Enum.reduce(allowed, %{}, fn key, acc ->
             str = Atom.to_string(key)
+
             cond do
               Map.has_key?(attrs, key) -> Map.put(acc, key, attrs[key])
               Map.has_key?(attrs, str) -> Map.put(acc, key, attrs[str])

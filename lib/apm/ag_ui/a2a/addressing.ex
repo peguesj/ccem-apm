@@ -12,8 +12,13 @@ defmodule Apm.AgUi.A2A.Addressing do
   def resolve({:formation, formation_id}) do
     try do
       case Apm.UpmStore.get_formation(formation_id) do
-        nil -> []
-        formation -> Map.get(formation, :agents, []) |> Enum.map(& &1[:agent_id] || &1["agent_id"]) |> Enum.reject(&is_nil/1)
+        nil ->
+          []
+
+        formation ->
+          Map.get(formation, :agents, [])
+          |> Enum.map(&(&1[:agent_id] || &1["agent_id"]))
+          |> Enum.reject(&is_nil/1)
       end
     rescue
       _ -> []

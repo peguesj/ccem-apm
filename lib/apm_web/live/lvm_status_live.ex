@@ -30,7 +30,9 @@ defmodule ApmWeb.LvmStatusLive do
       |> assign(:active_skill_count, skill_count())
       |> load_data()
 
-    {:ok, socket |> assign(:sidebar_collapsed, false)
+    {:ok,
+     socket
+     |> assign(:sidebar_collapsed, false)
      |> assign(:inspector_open, false)
      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -77,104 +79,143 @@ defmodule ApmWeb.LvmStatusLive do
         <.sidebar_nav current_path="/integrations/lvm" skill_count={@active_skill_count} />
       </:sidebar>
       <:main>
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+              <h2 class="text-sm font-semibold text-base-content">LVM Platform Status</h2>
+              <div class="badge badge-sm badge-ghost">{length(@models)} models</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-base-content/40">Auto-refresh 30s</span>
+              <button phx-click="refresh" class="btn btn-xs btn-ghost gap-1">
+                <.icon name="hero-arrow-path" class="size-3.5" /> Refresh
+              </button>
+            </div>
+          </header>
 
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold text-base-content">LVM Platform Status</h2>
-            <div class="badge badge-sm badge-ghost"><%= length(@models) %> models</div>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-base-content/40">Auto-refresh 30s</span>
-            <button phx-click="refresh" class="btn btn-xs btn-ghost gap-1">
-              <.icon name="hero-arrow-path" class="size-3.5" /> Refresh
-            </button>
-          </div>
-        </header>
+          <main class="flex-1 overflow-y-auto p-4 space-y-4">
+            <%!-- Tab navigation --%>
+            <div role="tablist" class="tabs tabs-bordered">
+              <a
+                role="tab"
+                class={"tab #{if @active_tab == "models", do: "tab-active"}"}
+                phx-click="switch_tab"
+                phx-value-tab="models"
+              >
+                Models ({length(@models)})
+              </a>
+              <a
+                role="tab"
+                class={"tab #{if @active_tab == "usage", do: "tab-active"}"}
+                phx-click="switch_tab"
+                phx-value-tab="usage"
+              >
+                Usage
+              </a>
+              <a
+                role="tab"
+                class={"tab #{if @active_tab == "capabilities", do: "tab-active"}"}
+                phx-click="switch_tab"
+                phx-value-tab="capabilities"
+              >
+                Dynamic Capabilities ({map_size(@dynamic_caps)})
+              </a>
+            </div>
 
-        <main class="flex-1 overflow-y-auto p-4 space-y-4">
-          <%!-- Tab navigation --%>
-          <div role="tablist" class="tabs tabs-bordered">
-        <a role="tab" class={"tab #{if @active_tab == "models", do: "tab-active"}"} phx-click="switch_tab" phx-value-tab="models">
-          Models (<%= length(@models) %>)
-        </a>
-        <a role="tab" class={"tab #{if @active_tab == "usage", do: "tab-active"}"} phx-click="switch_tab" phx-value-tab="usage">
-          Usage
-        </a>
-        <a role="tab" class={"tab #{if @active_tab == "capabilities", do: "tab-active"}"} phx-click="switch_tab" phx-value-tab="capabilities">
-          Dynamic Capabilities (<%= map_size(@dynamic_caps) %>)
-        </a>
-      </div>
-
-      <%!-- Tab content --%>
-      <div class="mt-4">
-        <%= case @active_tab do %>
-          <% "models" -> %>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <%= for model <- @models do %>
-                <div class="card bg-base-200 shadow">
-                  <div class="card-body p-4">
-                    <h3 class="card-title text-sm font-mono"><%= model.model %></h3>
-                    <div class="grid grid-cols-2 gap-2 text-xs">
-                      <div>Context: <span class="font-bold"><%= format_tokens(Map.get(model, :context_window, 0)) %></span></div>
-                      <div>Max Output: <span class="font-bold"><%= format_tokens(Map.get(model, :max_output_tokens, 0)) %></span></div>
-                      <div>Vision: <%= bool_badge(Map.get(model, :vision, false)) %></div>
-                      <div>Tool Use: <%= bool_badge(Map.get(model, :tool_use, false)) %></div>
-                      <div>Computer Use: <%= bool_badge(Map.get(model, :computer_use, false)) %></div>
-                      <div>Thinking: <%= bool_badge(Map.get(model, :extended_thinking, false)) %></div>
-                    </div>
-                    <div class="mt-2">
-                      <span class={"badge badge-sm #{tier_color(Map.get(model, :tier, "unknown"))}"}><%= Map.get(model, :tier, "unknown") %></span>
-                    </div>
+            <%!-- Tab content --%>
+            <div class="mt-4">
+              <%= case @active_tab do %>
+                <% "models" -> %>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <%= for model <- @models do %>
+                      <div class="card bg-base-200 shadow">
+                        <div class="card-body p-4">
+                          <h3 class="card-title text-sm font-mono">{model.model}</h3>
+                          <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              Context:
+                              <span class="font-bold">
+                                {format_tokens(Map.get(model, :context_window, 0))}
+                              </span>
+                            </div>
+                            <div>
+                              Max Output:
+                              <span class="font-bold">
+                                {format_tokens(Map.get(model, :max_output_tokens, 0))}
+                              </span>
+                            </div>
+                            <div>Vision: {bool_badge(Map.get(model, :vision, false))}</div>
+                            <div>Tool Use: {bool_badge(Map.get(model, :tool_use, false))}</div>
+                            <div>
+                              Computer Use: {bool_badge(Map.get(model, :computer_use, false))}
+                            </div>
+                            <div>
+                              Thinking: {bool_badge(Map.get(model, :extended_thinking, false))}
+                            </div>
+                          </div>
+                          <div class="mt-2">
+                            <span class={"badge badge-sm #{tier_color(Map.get(model, :tier, "unknown"))}"}>
+                              {Map.get(model, :tier, "unknown")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    <% end %>
                   </div>
-                </div>
-              <% end %>
-            </div>
-
-          <% "usage" -> %>
-            <div class="overflow-x-auto">
-              <table class="table table-sm">
-                <thead>
-                  <tr><th>Project</th><th>Effort</th><th>Input Tokens</th><th>Output Tokens</th><th>Tool Calls</th></tr>
-                </thead>
-                <tbody>
-                  <%= for {project, data} <- @usage_summary do %>
-                    <tr>
-                      <td class="font-mono"><%= project %></td>
-                      <td><span class={"badge badge-sm #{effort_color(Map.get(data, :effort_level, "low"))}"}><%= Map.get(data, :effort_level, "low") %></span></td>
-                      <td><%= format_tokens(Map.get(data, :input_tokens, 0)) %></td>
-                      <td><%= format_tokens(Map.get(data, :output_tokens, 0)) %></td>
-                      <td><%= Map.get(data, :tool_calls, 0) %></td>
-                    </tr>
-                  <% end %>
-                </tbody>
-              </table>
-              <%= if map_size(@usage_summary) == 0 do %>
-                <div class="text-center text-sm opacity-50 py-8">No usage data recorded</div>
-              <% end %>
-            </div>
-
-          <% "capabilities" -> %>
-            <div class="space-y-3">
-              <%= for {model, caps} <- @dynamic_caps do %>
-                <div class="card bg-base-200 shadow-sm">
-                  <div class="card-body p-3">
-                    <h4 class="font-mono text-sm"><%= model %></h4>
-                    <pre class="text-xs bg-base-300 p-2 rounded overflow-x-auto"><%= Jason.encode!(caps, pretty: true) %></pre>
+                <% "usage" -> %>
+                  <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                      <thead>
+                        <tr>
+                          <th>Project</th>
+                          <th>Effort</th>
+                          <th>Input Tokens</th>
+                          <th>Output Tokens</th>
+                          <th>Tool Calls</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <%= for {project, data} <- @usage_summary do %>
+                          <tr>
+                            <td class="font-mono">{project}</td>
+                            <td>
+                              <span class={"badge badge-sm #{effort_color(Map.get(data, :effort_level, "low"))}"}>
+                                {Map.get(data, :effort_level, "low")}
+                              </span>
+                            </td>
+                            <td>{format_tokens(Map.get(data, :input_tokens, 0))}</td>
+                            <td>{format_tokens(Map.get(data, :output_tokens, 0))}</td>
+                            <td>{Map.get(data, :tool_calls, 0)}</td>
+                          </tr>
+                        <% end %>
+                      </tbody>
+                    </table>
+                    <%= if map_size(@usage_summary) == 0 do %>
+                      <div class="text-center text-sm opacity-50 py-8">No usage data recorded</div>
+                    <% end %>
                   </div>
-                </div>
-              <% end %>
-              <%= if map_size(@dynamic_caps) == 0 do %>
-                <div class="text-center text-sm opacity-50 py-8">No dynamic capabilities recorded. Capabilities are populated via POST /api/usage/record with model metadata.</div>
+                <% "capabilities" -> %>
+                  <div class="space-y-3">
+                    <%= for {model, caps} <- @dynamic_caps do %>
+                      <div class="card bg-base-200 shadow-sm">
+                        <div class="card-body p-3">
+                          <h4 class="font-mono text-sm">{model}</h4>
+                          <pre class="text-xs bg-base-300 p-2 rounded overflow-x-auto"><%= Jason.encode!(caps, pretty: true) %></pre>
+                        </div>
+                      </div>
+                    <% end %>
+                    <%= if map_size(@dynamic_caps) == 0 do %>
+                      <div class="text-center text-sm opacity-50 py-8">
+                        No dynamic capabilities recorded. Capabilities are populated via POST /api/usage/record with model metadata.
+                      </div>
+                    <% end %>
+                  </div>
+                <% _ -> %>
+                  <div class="text-center text-sm opacity-50 py-8">Unknown tab</div>
               <% end %>
             </div>
-
-          <% _ -> %>
-            <div class="text-center text-sm opacity-50 py-8">Unknown tab</div>
-        <% end %>
-          </div>
-        </main>
-      </div>
+          </main>
+        </div>
       </:main>
     </.page_layout>
     """
@@ -198,11 +239,15 @@ defmodule ApmWeb.LvmStatusLive do
     |> assign(:dynamic_caps, dynamic_caps)
   end
 
-  defp format_tokens(n) when is_integer(n) and n >= 1_000_000, do: "#{Float.round(n / 1_000_000, 1)}M"
+  defp format_tokens(n) when is_integer(n) and n >= 1_000_000,
+    do: "#{Float.round(n / 1_000_000, 1)}M"
+
   defp format_tokens(n) when is_integer(n) and n >= 1_000, do: "#{Float.round(n / 1_000, 1)}K"
   defp format_tokens(n), do: "#{n}"
 
-  defp bool_badge(true), do: Phoenix.HTML.raw("<span class=\"badge badge-xs badge-success\">Yes</span>")
+  defp bool_badge(true),
+    do: Phoenix.HTML.raw("<span class=\"badge badge-xs badge-success\">Yes</span>")
+
   defp bool_badge(_), do: Phoenix.HTML.raw("<span class=\"badge badge-xs badge-ghost\">No</span>")
 
   defp tier_color("flagship"), do: "badge-primary"

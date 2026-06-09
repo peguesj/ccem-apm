@@ -57,13 +57,13 @@ defmodule ApmWeb.Components.Composite.Card do
           </div>
           <%= if @action != [] do %>
             <div class="apm-card__action">
-              <%= render_slot(@action) %>
+              {render_slot(@action)}
             </div>
           <% end %>
         </div>
       <% end %>
       <div class="apm-card__body">
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
       </div>
     </div>
     """

@@ -21,7 +21,8 @@ defmodule Apm.Integrations.RalphIntegration do
   @impl true
   def disconnect, do: :ok
   @impl true
-  def status, do: %{name: "ralph", status: :connected, version: integration_version(), protocol: :custom}
+  def status,
+    do: %{name: "ralph", status: :connected, version: integration_version(), protocol: :custom}
 
   @impl true
   def list_endpoints do
@@ -36,8 +37,10 @@ defmodule Apm.Integrations.RalphIntegration do
   @impl true
   def handle_event(event, data, context) do
     case event do
-      action when action in ~w(list_prds get_prd trigger_loop list_formations get_formation loop_status) ->
+      action
+      when action in ~w(list_prds get_prd trigger_loop list_formations get_formation loop_status) ->
         Apm.Plugins.Ralph.RalphPlugin.handle_action(action, data, context)
+
       _ ->
         {:error, "Unknown Ralph event: #{event}"}
     end

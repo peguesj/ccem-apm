@@ -287,7 +287,11 @@ defmodule ApmWeb.DecidePendingLive do
                       body="No pending decisions. Use ↑↓ / j k to navigate; Enter to allow; D or Esc to deny."
                     >
                       <:action>
-                        <CoreButton.button variant="ghost" phx-click="navigate" phx-value-id="policies">
+                        <CoreButton.button
+                          variant="ghost"
+                          phx-click="navigate"
+                          phx-value-id="policies"
+                        >
                           View policies →
                         </CoreButton.button>
                       </:action>
@@ -340,20 +344,26 @@ defmodule ApmWeb.DecidePendingLive do
                                 phx-click="decide"
                                 phx-value-id={item.id}
                                 phx-value-decision="deny"
-                              >Deny</CoreButton.button>
+                              >
+                                Deny
+                              </CoreButton.button>
                               <CoreButton.button
                                 variant="ghost"
                                 size="sm"
                                 phx-click="open_ask_modal"
                                 phx-value-id={item.id}
-                              >Ask…</CoreButton.button>
+                              >
+                                Ask…
+                              </CoreButton.button>
                               <CoreButton.button
                                 variant="primary"
                                 size="sm"
                                 phx-click="decide"
                                 phx-value-id={item.id}
                                 phx-value-decision="allow"
-                              >Allow</CoreButton.button>
+                              >
+                                Allow
+                              </CoreButton.button>
                             </div>
                           </div>
                         </div>
@@ -399,8 +409,7 @@ defmodule ApmWeb.DecidePendingLive do
 
           <div class="apm-decision-modal__sticky-toggle">
             <label class="apm-toggle-label">
-              <input type="checkbox" phx-click="toggle_sticky" />
-              Create sticky policy rule
+              <input type="checkbox" phx-click="toggle_sticky" /> Create sticky policy rule
             </label>
             <div class="apm-decision-modal__rule-preview apm-mono">
               allow {@modal_item.tool_name} where scope = {@modal_item.scope || "*"}
@@ -414,20 +423,29 @@ defmodule ApmWeb.DecidePendingLive do
             phx-click="modal_decide"
             phx-value-decision="deny"
             phx-value-sticky={to_string(@sticky_rule)}
-          >Deny</CoreButton.button>
+          >
+            Deny
+          </CoreButton.button>
           <CoreButton.button
             variant="primary"
             phx-click="modal_decide"
             phx-value-decision="allow"
             phx-value-sticky={to_string(@sticky_rule)}
-          >Allow</CoreButton.button>
+          >
+            Allow
+          </CoreButton.button>
         </:footer>
       </Modal.modal>
     <% end %>
 
     <%!-- Toast notifications --%>
     <%= if @toast do %>
-      <div class="apm-toast-region" role="status" aria-live="polite" style="position:fixed;bottom:24px;right:24px;z-index:300">
+      <div
+        class="apm-toast-region"
+        role="status"
+        aria-live="polite"
+        style="position:fixed;bottom:24px;right:24px;z-index:300"
+      >
         <Toast.toast
           id="decision-toast"
           tone={@toast.tone}

@@ -194,7 +194,10 @@ defmodule Apm.NativeTransport.UnixSocket do
   end
 
   defp handle_client_frame(socket, {:hello, client_info}) do
-    send_frame(socket, {:hello_ack, %{server: "apm", ts: System.system_time(:millisecond), client: client_info}})
+    send_frame(
+      socket,
+      {:hello_ack, %{server: "apm", ts: System.system_time(:millisecond), client: client_info}}
+    )
   end
 
   defp handle_client_frame(_socket, _other), do: :ok

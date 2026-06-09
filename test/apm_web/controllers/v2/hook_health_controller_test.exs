@@ -95,7 +95,10 @@ defmodule ApmWeb.V2.HookHealthControllerTest do
       assert body["ok"] == true
     end
 
-    test "returns 409 when project has filesystem issue (:missing_remember)", %{conn: conn, dev_root: root} do
+    test "returns 409 when project has filesystem issue (:missing_remember)", %{
+      conn: conn,
+      dev_root: root
+    } do
       # Project exists but has NO .remember/ at all
       proj_path = Path.join(root, "brokenproj")
       File.mkdir_p!(Path.join(proj_path, ".git"))

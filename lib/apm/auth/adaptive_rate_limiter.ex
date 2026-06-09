@@ -163,9 +163,7 @@ defmodule Apm.Auth.AdaptiveRateLimiter do
       {:adaptive_scaled, factor}
     )
 
-    Logger.info(
-      "[AdaptiveRateLimiter] factor=#{Float.round(factor, 3)} queue_len=#{queue_len}"
-    )
+    Logger.info("[AdaptiveRateLimiter] factor=#{Float.round(factor, 3)} queue_len=#{queue_len}")
 
     # FormationRateLimiter is a pure module (no process); the updated factor
     # is read via adaptive_factor/0 on the next budget calculation automatically.

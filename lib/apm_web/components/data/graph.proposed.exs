@@ -58,7 +58,7 @@ defmodule ApmWeb.Components.Data.Graph do
       <%!-- GraphD3 hook manages SVG content. Slots below are rendered initially
            and replaced by the hook once D3 initializes. --%>
       <%= if @nodes == [] && @edges == [] do %>
-        <%= render_slot(@empty) %>
+        {render_slot(@empty)}
       <% end %>
     </div>
     """

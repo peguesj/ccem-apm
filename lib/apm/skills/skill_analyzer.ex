@@ -17,7 +17,8 @@ defmodule Apm.Skills.SkillAnalyzer do
   require Logger
 
   @table :skill_analyzer_cache
-  @default_refresh_interval 5 * 60 * 1000  # 5 minutes
+  # 5 minutes
+  @default_refresh_interval 5 * 60 * 1000
 
   # ── Client API ──────────────────────────────────────────────────────────────
 
@@ -85,7 +86,9 @@ defmodule Apm.Skills.SkillAnalyzer do
       {:ok, skills} ->
         graph = build_and_cache(skills)
         stats = Apm.Skills.DependencyGraph.stats(graph)
-        {:reply, {:ok, stats}, %{state | last_refresh: System.monotonic_time(:second), retry_count: 0}}
+
+        {:reply, {:ok, stats},
+         %{state | last_refresh: System.monotonic_time(:second), retry_count: 0}}
 
       {:error, reason} ->
         Logger.error("[SkillAnalyzer] Analysis failed: #{inspect(reason)}")
@@ -116,10 +119,14 @@ defmodule Apm.Skills.SkillAnalyzer do
   def handle_info(:scan_initial, state) do
     Task.start(fn ->
       case scan_skills() do
-        {:ok, skills} -> build_and_cache(skills)
-        {:error, reason} -> Logger.warning("[SkillAnalyzer] Initial scan failed: #{inspect(reason)}")
+        {:ok, skills} ->
+          build_and_cache(skills)
+
+        {:error, reason} ->
+          Logger.warning("[SkillAnalyzer] Initial scan failed: #{inspect(reason)}")
       end
     end)
+
     Process.send_after(self(), :refresh, @default_refresh_interval)
     {:noreply, %{state | last_refresh: System.monotonic_time(:second), retry_count: 0}}
   end
@@ -136,6 +143,7 @@ defmodule Apm.Skills.SkillAnalyzer do
           Logger.warning("[SkillAnalyzer] Refresh failed: #{inspect(reason)}")
       end
     end)
+
     Process.send_after(self(), :refresh, @default_refresh_interval)
     {:noreply, %{state | last_refresh: System.monotonic_time(:second)}}
   end

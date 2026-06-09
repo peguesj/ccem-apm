@@ -162,13 +162,19 @@ defmodule ApmWeb.GovernanceLive do
             <.stat_tile label="Overall Score" value={"#{@overall_score}/100"} />
           </.card>
           <.card>
-            <.stat_tile label="Controls Satisfied" value={to_string(@report.controls_by_status.satisfied)} />
+            <.stat_tile
+              label="Controls Satisfied"
+              value={to_string(@report.controls_by_status.satisfied)}
+            />
           </.card>
           <.card>
             <.stat_tile label="Partial" value={to_string(@report.controls_by_status.partial)} />
           </.card>
           <.card>
-            <.stat_tile label="Gaps" value={to_string(@report.controls_by_status.gap + @report.controls_by_status.absent)} />
+            <.stat_tile
+              label="Gaps"
+              value={to_string(@report.controls_by_status.gap + @report.controls_by_status.absent)}
+            />
           </.card>
         </div>
 
@@ -212,8 +218,8 @@ defmodule ApmWeb.GovernanceLive do
             <%= for fw <- [:nist_ai_rmf, :soc2, :iso_27001, :nist_csf, :eu_ai_act, :pci_dss, :cis] do %>
               <% fw_data = Map.get(@by_framework, fw, %{score: 0, controls: []}) %>
               <% satisfied = Enum.count(fw_data.controls, &(&1.status == :satisfied)) %>
-              <% partial    = Enum.count(fw_data.controls, &(&1.status == :partial)) %>
-              <% gap        = Enum.count(fw_data.controls, &(&1.status in [:gap, :absent])) %>
+              <% partial = Enum.count(fw_data.controls, &(&1.status == :partial)) %>
+              <% gap = Enum.count(fw_data.controls, &(&1.status in [:gap, :absent])) %>
               <div>
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
                   <span style="font-size:13px; font-weight:500; color:var(--ccem-fg);">
@@ -233,9 +239,7 @@ defmodule ApmWeb.GovernanceLive do
                   </div>
                 </div>
                 <div style="height:6px; background:var(--ccem-bg-2); border-radius:3px; overflow:hidden;">
-                  <div
-                    style={"height:100%; width:#{fw_data.score}%; background:#{score_bar_color(fw_data.score)}; border-radius:3px; transition:width 0.4s ease;"}
-                  >
+                  <div style={"height:100%; width:#{fw_data.score}%; background:#{score_bar_color(fw_data.score)}; border-radius:3px; transition:width 0.4s ease;"}>
                   </div>
                 </div>
               </div>
@@ -271,7 +275,9 @@ defmodule ApmWeb.GovernanceLive do
                   <.badge tone={risk_tone(agg.level)}>{agg.level}</.badge>
                 </:col>
                 <:col :let={{_sid, agg}} label="Calls">
-                  <span style="font-size:12px; color:var(--ccem-fg-muted);">{agg.tool_call_count}</span>
+                  <span style="font-size:12px; color:var(--ccem-fg-muted);">
+                    {agg.tool_call_count}
+                  </span>
                 </:col>
               </.data_table>
             <% end %>
@@ -303,7 +309,9 @@ defmodule ApmWeb.GovernanceLive do
                   <.badge tone={risk_tone(agg.level)}>{agg.level}</.badge>
                 </:col>
                 <:col :let={{_fid, agg}} label="Calls">
-                  <span style="font-size:12px; color:var(--ccem-fg-muted);">{agg.tool_call_count}</span>
+                  <span style="font-size:12px; color:var(--ccem-fg-muted);">
+                    {agg.tool_call_count}
+                  </span>
                 </:col>
               </.data_table>
             <% end %>

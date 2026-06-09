@@ -76,7 +76,8 @@ defmodule Apm.Auth.JwtAssertionTest do
 
       tampered_jwt = Enum.join([header, tampered_payload, sig], ".")
 
-      assert {:error, :invalid_signature} = JwtAssertion.verify_assertion(tampered_jwt, keystore: ks)
+      assert {:error, :invalid_signature} =
+               JwtAssertion.verify_assertion(tampered_jwt, keystore: ks)
     end
 
     test "tampered signature fails verification", %{keystore: ks} do
@@ -102,7 +103,7 @@ defmodule Apm.Auth.JwtAssertionTest do
     test "expired JWT rejected (ttl=-1)", %{keystore: ks} do
       claims = %{agent_id: "agent-expired", session_id: "sess-z"}
       # Negative TTL → already expired
-      jwt = JwtAssertion.sign_assertion(claims, [keystore: ks, ttl_seconds: -1])
+      jwt = JwtAssertion.sign_assertion(claims, keystore: ks, ttl_seconds: -1)
 
       assert {:error, :token_expired} = JwtAssertion.verify_assertion(jwt, keystore: ks)
     end
@@ -161,7 +162,7 @@ defmodule Apm.Auth.JwtAssertionTest do
     end
 
     test "custom ttl_seconds honored", %{keystore: ks} do
-      jwt = JwtAssertion.sign_assertion(%{agent_id: "a"}, [keystore: ks, ttl_seconds: 60])
+      jwt = JwtAssertion.sign_assertion(%{agent_id: "a"}, keystore: ks, ttl_seconds: 60)
       {:ok, claims} = JwtAssertion.verify_assertion(jwt, keystore: ks)
       assert_in_delta claims["exp"], claims["iat"] + 60, 1
     end

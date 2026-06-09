@@ -180,7 +180,6 @@ defmodule ApmWeb.SessionDetailLive do
 
       <:main>
         <div style="display: flex; flex-direction: column; gap: 16px; min-height: 100%;">
-
           <%!-- Session header --%>
           <.card>
             <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
@@ -266,8 +265,10 @@ defmodule ApmWeb.SessionDetailLive do
         <.skeleton lines={6} />
       </div>
 
-      <div :if={!@loading and @messages == []}
-           style="text-align: center; padding: 48px 0; color: var(--ccem-fg-dim); font-size: 13px;">
+      <div
+        :if={!@loading and @messages == []}
+        style="text-align: center; padding: 48px 0; color: var(--ccem-fg-dim); font-size: 13px;"
+      >
         No messages found for this session.
       </div>
 
@@ -282,12 +283,16 @@ defmodule ApmWeb.SessionDetailLive do
           <span style="font-family: var(--ccem-font-mono, monospace); font-size: 11px; color: var(--ccem-fg-dim);">
             {format_ts(msg.timestamp)}
           </span>
-          <span :if={length(msg.tool_calls) > 0}
-                style="font-size: 11px; color: var(--ccem-iris, #7c6cf8);">
+          <span
+            :if={length(msg.tool_calls) > 0}
+            style="font-size: 11px; color: var(--ccem-iris, #7c6cf8);"
+          >
             {length(msg.tool_calls)} tool call(s)
           </span>
-          <span :if={msg.usage}
-                style="font-size: 11px; color: var(--ccem-fg-dim); margin-left: auto;">
+          <span
+            :if={msg.usage}
+            style="font-size: 11px; color: var(--ccem-fg-dim); margin-left: auto;"
+          >
             {format_usage_inline(msg.usage)}
           </span>
         </div>
@@ -299,8 +304,10 @@ defmodule ApmWeb.SessionDetailLive do
         />
 
         <%!-- Tool call chips --%>
-        <div :if={length(msg.tool_calls) > 0}
-             style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
+        <div
+          :if={length(msg.tool_calls) > 0}
+          style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;"
+        >
           <button
             :for={tc <- msg.tool_calls}
             phx-click="select_tool_call"
@@ -322,8 +329,10 @@ defmodule ApmWeb.SessionDetailLive do
         <.skeleton lines={4} />
       </div>
 
-      <div :if={!@loading and @tool_calls == []}
-           style="text-align: center; padding: 48px 0; color: var(--ccem-fg-dim); font-size: 13px;">
+      <div
+        :if={!@loading and @tool_calls == []}
+        style="text-align: center; padding: 48px 0; color: var(--ccem-fg-dim); font-size: 13px;"
+      >
         No tool calls recorded for this session.
       </div>
 
@@ -400,10 +409,26 @@ defmodule ApmWeb.SessionDetailLive do
           Token Breakdown
         </div>
         <div style="display: flex; flex-direction: column; gap: 8px;">
-          <.token_row label="Total Input" value={@token_stats.input} total={token_total(@token_stats)} />
-          <.token_row label="Total Output" value={@token_stats.output} total={token_total(@token_stats)} />
-          <.token_row label="Cache Reads" value={@token_stats.cache_read} total={token_total(@token_stats)} />
-          <.token_row label="Cache Writes" value={@token_stats.cache_creation} total={token_total(@token_stats)} />
+          <.token_row
+            label="Total Input"
+            value={@token_stats.input}
+            total={token_total(@token_stats)}
+          />
+          <.token_row
+            label="Total Output"
+            value={@token_stats.output}
+            total={token_total(@token_stats)}
+          />
+          <.token_row
+            label="Cache Reads"
+            value={@token_stats.cache_read}
+            total={token_total(@token_stats)}
+          />
+          <.token_row
+            label="Cache Writes"
+            value={@token_stats.cache_creation}
+            total={token_total(@token_stats)}
+          />
         </div>
         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ccem-line-subtle);">
           <div style="display: flex; justify-content: space-between; font-size: 13px;">
@@ -412,8 +437,10 @@ defmodule ApmWeb.SessionDetailLive do
               {format_tokens(token_total(@token_stats))}
             </span>
           </div>
-          <div :if={@messages != []}
-               style="margin-top: 4px; font-size: 11px; color: var(--ccem-fg-dim);">
+          <div
+            :if={@messages != []}
+            style="margin-top: 4px; font-size: 11px; color: var(--ccem-fg-dim);"
+          >
             across {length(@messages)} message(s) · {length(@tool_calls)} tool call(s)
           </div>
         </div>

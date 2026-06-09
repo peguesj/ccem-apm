@@ -26,12 +26,13 @@ defmodule ApmWeb.V2.ActionController do
 
   @doc "Returns the ActionEngine catalog as a JSON list."
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["Actions"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, _params) do
     catalog =
@@ -53,12 +54,13 @@ defmodule ApmWeb.V2.ActionController do
 
   @doc "Starts an async action run. Returns 202 on success, 404 for unknown type."
   @spec run(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :run,
+  operation(:run,
     summary: "Run",
     tags: ["Actions"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def run(conn, %{"type" => action_type} = params) do
     project_path = Map.get(params, "project_path", System.tmp_dir!())
@@ -77,7 +79,12 @@ defmodule ApmWeb.V2.ActionController do
       {:error, :unknown_action} ->
         conn
         |> put_status(:not_found)
-        |> json(%{error: %{code: "unknown_action", message: "Action type '#{action_type}' not found in catalog"}})
+        |> json(%{
+          error: %{
+            code: "unknown_action",
+            message: "Action type '#{action_type}' not found in catalog"
+          }
+        })
     end
   end
 
@@ -85,12 +92,13 @@ defmodule ApmWeb.V2.ActionController do
 
   @doc "Lists recent runs. Query params: action_type (optional), limit (default 50)."
   @spec list_runs(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :list_runs,
+  operation(:list_runs,
     summary: "List runs",
     tags: ["Actions"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def list_runs(conn, params) do
     opts =
@@ -106,12 +114,13 @@ defmodule ApmWeb.V2.ActionController do
 
   @doc "Fetches a single run by id."
   @spec get_run(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :get_run,
+  operation(:get_run,
     summary: "Get run",
     tags: ["Actions"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def get_run(conn, %{"run_id" => run_id}) do
     case ActionRunStore.get_run(run_id) do

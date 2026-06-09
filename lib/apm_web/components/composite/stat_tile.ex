@@ -36,8 +36,11 @@ defmodule ApmWeb.Components.Composite.StatTile do
   attr :value, :string, required: true
   attr :unit, :string, default: nil
   attr :delta, :string, default: nil
-  attr :delta_tone, :string, default: "success",
+
+  attr :delta_tone, :string,
+    default: "success",
     values: ~w(success warning error info neutral)
+
   attr :mono, :boolean, default: true
   attr :count_up, :boolean, default: false
   attr :rest, :global
@@ -66,7 +69,7 @@ defmodule ApmWeb.Components.Composite.StatTile do
       </div>
       <%= if @spark != [] do %>
         <div class="apm-stat-tile__spark">
-          <%= render_slot(@spark) %>
+          {render_slot(@spark)}
         </div>
       <% end %>
     </div>

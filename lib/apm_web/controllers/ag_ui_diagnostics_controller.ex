@@ -19,12 +19,13 @@ defmodule ApmWeb.V2.AgUiDiagnosticsController do
   alias Apm.AgUi.EventBusHealth
 
   @doc "GET /api/v2/ag-ui/diagnostics - EventBus health and throughput data."
-  operation :diagnostics,
+  operation(:diagnostics,
     summary: "Diagnostics",
     tags: ["AG-UI"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def diagnostics(conn, _params) do
     json(conn, EventBusHealth.diagnostics())

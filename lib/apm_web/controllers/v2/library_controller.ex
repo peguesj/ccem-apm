@@ -27,30 +27,34 @@ defmodule ApmWeb.V2.LibraryController do
   alias Apm.LibraryStore
 
   @doc "GET /api/v2/library -- full catalog summary"
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["Library"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, _params) do
     summary = LibraryStore.summary()
 
     json(conn, %{
       data: summary,
-      total: summary.agents + summary.skills + summary.mcp_servers +
-             summary.tools + Map.get(summary, :hooks, 0) + summary.commands + summary.patterns + summary.learnings
+      total:
+        summary.agents + summary.skills + summary.mcp_servers +
+          summary.tools + Map.get(summary, :hooks, 0) + summary.commands + summary.patterns +
+          summary.learnings
     })
   end
 
   @doc "GET /api/v2/library/agents -- all agents"
-  operation :agents,
+  operation(:agents,
     summary: "Agents",
     tags: ["Library"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def agents(conn, _params) do
     items = LibraryStore.list_agents()
@@ -58,12 +62,13 @@ defmodule ApmWeb.V2.LibraryController do
   end
 
   @doc "GET /api/v2/library/skills -- all skills"
-  operation :skills,
+  operation(:skills,
     summary: "Skills",
     tags: ["Library"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def skills(conn, _params) do
     items = LibraryStore.list_skills()
@@ -71,12 +76,13 @@ defmodule ApmWeb.V2.LibraryController do
   end
 
   @doc "GET /api/v2/library/commands -- all commands"
-  operation :commands,
+  operation(:commands,
     summary: "Commands",
     tags: ["Library"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def commands(conn, _params) do
     items = LibraryStore.list_commands()
@@ -84,12 +90,13 @@ defmodule ApmWeb.V2.LibraryController do
   end
 
   @doc "GET /api/v2/library/mcp -- all MCP servers"
-  operation :mcp,
+  operation(:mcp,
     summary: "Mcp",
     tags: ["Library"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def mcp(conn, _params) do
     items = LibraryStore.list_mcp_servers()
@@ -97,12 +104,13 @@ defmodule ApmWeb.V2.LibraryController do
   end
 
   @doc "GET /api/v2/library/tools -- all tools and hooks"
-  operation :tools,
+  operation(:tools,
     summary: "Tools",
     tags: ["Library"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def tools(conn, _params) do
     items = LibraryStore.list_tools()
@@ -110,12 +118,13 @@ defmodule ApmWeb.V2.LibraryController do
   end
 
   @doc "GET /api/v2/library/hooks -- all hooks"
-  operation :hooks,
+  operation(:hooks,
     summary: "Hooks",
     tags: ["Library"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def hooks(conn, _params) do
     items = LibraryStore.list_hooks()
@@ -123,12 +132,13 @@ defmodule ApmWeb.V2.LibraryController do
   end
 
   @doc "GET /api/v2/library/patterns -- all reusable patterns"
-  operation :patterns,
+  operation(:patterns,
     summary: "Patterns",
     tags: ["Library"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def patterns(conn, _params) do
     items = LibraryStore.list_patterns()
@@ -136,12 +146,13 @@ defmodule ApmWeb.V2.LibraryController do
   end
 
   @doc "GET /api/v2/library/learnings -- all learnings"
-  operation :learnings,
+  operation(:learnings,
     summary: "Learnings",
     tags: ["Library"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def learnings(conn, _params) do
     items = LibraryStore.list_learnings()
@@ -149,12 +160,13 @@ defmodule ApmWeb.V2.LibraryController do
   end
 
   @doc "POST /api/v2/library/refresh -- trigger a rescan"
-  operation :refresh,
+  operation(:refresh,
     summary: "Refresh",
     tags: ["Library"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def refresh(conn, _params) do
     LibraryStore.refresh()
@@ -169,12 +181,13 @@ defmodule ApmWeb.V2.LibraryController do
     * `depth` — neighborhood radius (default 2)
     * `types` — comma-separated node types to include (e.g. `skill,agent`)
   """
-  operation :graph,
+  operation(:graph,
     summary: "Graph",
     tags: ["Library"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def graph(conn, params) do
     opts =
@@ -193,16 +206,19 @@ defmodule ApmWeb.V2.LibraryController do
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp put_depth(opts, nil), do: Keyword.put(opts, :depth, 2)
+
   defp put_depth(opts, value) when is_binary(value) do
     case Integer.parse(value) do
       {n, _} when n > 0 -> Keyword.put(opts, :depth, n)
       _ -> Keyword.put(opts, :depth, 2)
     end
   end
+
   defp put_depth(opts, value) when is_integer(value), do: Keyword.put(opts, :depth, value)
 
   defp put_types(opts, nil), do: opts
   defp put_types(opts, ""), do: opts
+
   defp put_types(opts, types) when is_binary(types) do
     parsed =
       types

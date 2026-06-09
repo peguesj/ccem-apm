@@ -55,20 +55,86 @@ defmodule Apm.HookRegistry do
 
   defp register_defaults do
     defaults = [
-      %{name: "pre_tool_use", category: :pre_tool, module: :external, description: "Before tool execution"},
-      %{name: "post_tool_use", category: :post_tool, module: :external, description: "After tool execution"},
-      %{name: "session_start", category: :session, module: :external, description: "Session initialized"},
-      %{name: "session_end", category: :session, module: :external, description: "Session terminated"},
-      %{name: "agent_registered", category: :formation, module: Apm.AgentRegistry, description: "New agent registered"},
-      %{name: "formation_deployed", category: :formation, module: Apm.FormationStore, description: "Formation deployed"},
-      %{name: "notification_added", category: :notification, module: Apm.NotificationBroadcaster, description: "Notification created"},
-      %{name: "auth_decision", category: :authorization, module: Apm.Auth.PendingDecisions, description: "Authorization decided"},
-      %{name: "settings_changed", category: :custom, module: Apm.SettingsStore, description: "Settings updated"},
-      %{name: "error_detected", category: :custom, module: Apm.ErrorDaemon, description: "Error captured by daemon"},
-      %{name: "harness_mem_check", category: :harness, module: :external, description: "Harness memory daemon connectivity check"},
-      %{name: "harness_state_poll", category: :harness, module: :internal, description: "Periodic harness session.json state poll"},
-      %{name: "harness_hook_ingest", category: :harness, module: :internal, description: "Hook telemetry ingestion into HookTelemetryBuffer"}
+      %{
+        name: "pre_tool_use",
+        category: :pre_tool,
+        module: :external,
+        description: "Before tool execution"
+      },
+      %{
+        name: "post_tool_use",
+        category: :post_tool,
+        module: :external,
+        description: "After tool execution"
+      },
+      %{
+        name: "session_start",
+        category: :session,
+        module: :external,
+        description: "Session initialized"
+      },
+      %{
+        name: "session_end",
+        category: :session,
+        module: :external,
+        description: "Session terminated"
+      },
+      %{
+        name: "agent_registered",
+        category: :formation,
+        module: Apm.AgentRegistry,
+        description: "New agent registered"
+      },
+      %{
+        name: "formation_deployed",
+        category: :formation,
+        module: Apm.FormationStore,
+        description: "Formation deployed"
+      },
+      %{
+        name: "notification_added",
+        category: :notification,
+        module: Apm.NotificationBroadcaster,
+        description: "Notification created"
+      },
+      %{
+        name: "auth_decision",
+        category: :authorization,
+        module: Apm.Auth.PendingDecisions,
+        description: "Authorization decided"
+      },
+      %{
+        name: "settings_changed",
+        category: :custom,
+        module: Apm.SettingsStore,
+        description: "Settings updated"
+      },
+      %{
+        name: "error_detected",
+        category: :custom,
+        module: Apm.ErrorDaemon,
+        description: "Error captured by daemon"
+      },
+      %{
+        name: "harness_mem_check",
+        category: :harness,
+        module: :external,
+        description: "Harness memory daemon connectivity check"
+      },
+      %{
+        name: "harness_state_poll",
+        category: :harness,
+        module: :internal,
+        description: "Periodic harness session.json state poll"
+      },
+      %{
+        name: "harness_hook_ingest",
+        category: :harness,
+        module: :internal,
+        description: "Hook telemetry ingestion into HookTelemetryBuffer"
+      }
     ]
+
     Enum.each(defaults, fn hook -> :ets.insert(@table, {hook.name, hook}) end)
   end
 end

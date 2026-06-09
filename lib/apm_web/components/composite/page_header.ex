@@ -51,12 +51,12 @@ defmodule ApmWeb.Components.Composite.PageHeader do
         <% end %>
         <%= if @badge != [] do %>
           <span class="apm-page-header__badge">
-            <%= render_slot(@badge) %>
+            {render_slot(@badge)}
           </span>
         <% end %>
         <%= if @actions != [] do %>
           <div class="apm-page-header__actions">
-            <%= render_slot(@actions) %>
+            {render_slot(@actions)}
           </div>
         <% end %>
       </div>

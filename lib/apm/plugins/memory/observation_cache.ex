@@ -162,7 +162,11 @@ defmodule Apm.Plugins.Memory.ObservationCache do
 
       %{count: non_neg_integer(), oldest: DateTime.t() | nil, newest: DateTime.t() | nil}
   """
-  @spec stats() :: %{count: non_neg_integer(), oldest: DateTime.t() | nil, newest: DateTime.t() | nil}
+  @spec stats() :: %{
+          count: non_neg_integer(),
+          oldest: DateTime.t() | nil,
+          newest: DateTime.t() | nil
+        }
   def stats do
     now = System.monotonic_time(:millisecond)
 

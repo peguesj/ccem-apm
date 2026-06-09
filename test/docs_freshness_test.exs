@@ -8,16 +8,18 @@ defmodule Apm.DocsFreshnessTest do
     test "latest field equals current version" do
       path = Path.join(@docs_root, "versions.json")
       data = path |> File.read!() |> Jason.decode!()
+
       assert data["latest"] == @current_version,
-        "versions.json latest is #{data["latest"]}, expected #{@current_version}"
+             "versions.json latest is #{data["latest"]}, expected #{@current_version}"
     end
 
     test "current version entry exists" do
       path = Path.join(@docs_root, "versions.json")
       data = path |> File.read!() |> Jason.decode!()
       versions = Enum.map(data["versions"] || [], & &1["version"])
+
       assert @current_version in versions,
-        "versions.json missing entry for #{@current_version}"
+             "versions.json missing entry for #{@current_version}"
     end
   end
 
@@ -25,31 +27,35 @@ defmodule Apm.DocsFreshnessTest do
     test "version field equals current version" do
       path = Path.join(@docs_root, "docs.json")
       data = path |> File.read!() |> Jason.decode!()
+
       assert data["version"] == @current_version,
-        "docs.json version is #{data["version"]}, expected #{@current_version}"
+             "docs.json version is #{data["version"]}, expected #{@current_version}"
     end
   end
 
   describe "index.md" do
     test "version header is current" do
       content = File.read!(Path.join(@docs_root, "index.md"))
+
       assert String.contains?(content, "**Version #{@current_version}**") or
-             String.contains?(content, "Version #{@current_version}"),
-        "index.md does not declare Version #{@current_version} in header"
+               String.contains?(content, "Version #{@current_version}"),
+             "index.md does not declare Version #{@current_version} in header"
     end
 
     test "What's New section references current version" do
       content = File.read!(Path.join(@docs_root, "index.md"))
+
       assert String.contains?(content, "v#{@current_version}"),
-        "index.md What's New section does not reference v#{@current_version}"
+             "index.md What's New section does not reference v#{@current_version}"
     end
   end
 
   describe "sidebar_nav.ex" do
     test "uses dynamic Application.spec version (not hardcoded @app_version)" do
       content = File.read!("lib/apm_web/components/sidebar_nav.ex")
+
       assert String.contains?(content, "Application.spec(:apm, :vsn)"),
-        "sidebar_nav.ex should use Application.spec(:apm, :vsn) for dynamic versioning"
+             "sidebar_nav.ex should use Application.spec(:apm, :vsn) for dynamic versioning"
     end
   end
 
@@ -57,8 +63,9 @@ defmodule Apm.DocsFreshnessTest do
     test "header references current version" do
       content = File.read!(Path.join(@docs_root, "changelog.md"))
       first_200 = String.slice(content, 0, 200)
+
       assert String.contains?(first_200, @current_version),
-        "changelog.md header (first 200 chars) does not reference #{@current_version}"
+             "changelog.md header (first 200 chars) does not reference #{@current_version}"
     end
   end
 
@@ -66,8 +73,9 @@ defmodule Apm.DocsFreshnessTest do
     test "opening version declaration is current" do
       content = File.read!(Path.join(@docs_root, "developer/api-reference.md"))
       first_100 = String.slice(content, 0, 100)
+
       assert String.contains?(first_100, @current_version),
-        "api-reference.md opening line does not declare #{@current_version}"
+             "api-reference.md opening line does not declare #{@current_version}"
     end
   end
 
@@ -75,8 +83,9 @@ defmodule Apm.DocsFreshnessTest do
     test "Version field in header is current" do
       content = File.read!(Path.join(@docs_root, "developer/liveview-pages.md"))
       first_200 = String.slice(content, 0, 200)
+
       assert String.contains?(first_200, @current_version),
-        "liveview-pages.md version header is not #{@current_version}"
+             "liveview-pages.md version header is not #{@current_version}"
     end
   end
 
@@ -84,8 +93,9 @@ defmodule Apm.DocsFreshnessTest do
     test "version declaration is current" do
       content = File.read!(Path.join(@docs_root, "user/skills.md"))
       first_300 = String.slice(content, 0, 300)
+
       assert String.contains?(first_300, @current_version),
-        "user/skills.md version header is not #{@current_version}"
+             "user/skills.md version header is not #{@current_version}"
     end
   end
 
@@ -93,8 +103,9 @@ defmodule Apm.DocsFreshnessTest do
     test "version declaration is current" do
       content = File.read!(Path.join(@docs_root, "user/usage.md"))
       first_200 = String.slice(content, 0, 200)
+
       assert String.contains?(first_200, @current_version),
-        "user/usage.md version header is not #{@current_version}"
+             "user/usage.md version header is not #{@current_version}"
     end
   end
 
@@ -102,8 +113,9 @@ defmodule Apm.DocsFreshnessTest do
     test "version declaration is current" do
       content = File.read!(Path.join(@docs_root, "user/getting-started.md"))
       first_200 = String.slice(content, 0, 200)
+
       assert String.contains?(first_200, @current_version),
-        "user/getting-started.md version header is not #{@current_version}"
+             "user/getting-started.md version header is not #{@current_version}"
     end
   end
 end

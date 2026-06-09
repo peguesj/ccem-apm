@@ -139,7 +139,8 @@ defmodule Apm.Plugins.Security.SecurityGuidancePlugin do
   @impl true
   @spec plugin_description() :: String.t()
   def plugin_description,
-    do: "Security guidance hook — surfaces coverage metadata and scan history for the security-guidance Claude Code plugin"
+    do:
+      "Security guidance hook — surfaces coverage metadata and scan history for the security-guidance Claude Code plugin"
 
   @impl true
   @spec plugin_version() :: String.t()

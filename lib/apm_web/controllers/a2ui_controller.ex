@@ -14,7 +14,7 @@ defmodule ApmWeb.A2uiController do
 
   alias Apm.A2ui.ComponentBuilder
 
-  operation :components,
+  operation(:components,
     summary: "A2UI component specifications",
     description: """
     Returns A2UI declarative component specifications per the Google A2UI protocol.
@@ -24,13 +24,19 @@ defmodule ApmWeb.A2uiController do
     """,
     tags: ["A2UI"],
     responses: [
-      ok: {"A2UI components (JSONL or JSON)", "application/json", %OpenApiSpex.Schema{
-        type: :object,
-        properties: %{
-          components: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :object, additionalProperties: true}}
-        }
-      }}
+      ok:
+        {"A2UI components (JSONL or JSON)", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{
+             components: %OpenApiSpex.Schema{
+               type: :array,
+               items: %OpenApiSpex.Schema{type: :object, additionalProperties: true}
+             }
+           }
+         }}
     ]
+  )
 
   # Catch-all for any action not explicitly annotated above.
   def open_api_operation(_action), do: nil

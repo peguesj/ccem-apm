@@ -92,7 +92,8 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
   @impl true
   @spec plugin_description() :: String.t()
   def plugin_description,
-    do: "SimpleAgents — Rust LLM framework bridge: workspace info, running agents, workflow traces, tool definitions, execution metrics, provider stats, parity contracts"
+    do:
+      "SimpleAgents — Rust LLM framework bridge: workspace info, running agents, workflow traces, tool definitions, execution metrics, provider stats, parity contracts"
 
   @impl true
   @spec plugin_version() :: String.t()
@@ -104,17 +105,20 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
     [
       %{
         action: "workspace_info",
-        description: "Workspace metadata: root path, workspace version, Rust edition, crate inventory",
+        description:
+          "Workspace metadata: root path, workspace version, Rust edition, crate inventory",
         params: %{workspace_root: "string (optional)"}
       },
       %{
         action: "list_agents",
-        description: "Detect running SimpleAgents OS processes (CLI sessions, gRPC workers) via pgrep",
+        description:
+          "Detect running SimpleAgents OS processes (CLI sessions, gRPC workers) via pgrep",
         params: %{}
       },
       %{
         action: "list_tools",
-        description: "Extract tool definitions from workflow YAML files in known SimpleAgents directories",
+        description:
+          "Extract tool definitions from workflow YAML files in known SimpleAgents directories",
         params: %{
           scan_path: "string (optional — override default scan root)",
           workflow_name: "string (optional — filter by workflow name substring)"
@@ -130,7 +134,8 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
       },
       %{
         action: "get_trace",
-        description: "Parse and return a single trace file by path (absolute or workspace-relative)",
+        description:
+          "Parse and return a single trace file by path (absolute or workspace-relative)",
         params: %{path: "string (required)"}
       },
       %{
@@ -144,12 +149,14 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
       },
       %{
         action: "get_metrics",
-        description: "Aggregate metrics across all discovered traces: counts, success rate, node stats, workflow frequency",
+        description:
+          "Aggregate metrics across all discovered traces: counts, success rate, node stats, workflow frequency",
         params: %{scan_path: "string (optional)"}
       },
       %{
         action: "trace_summary",
-        description: "Aggregate stats across workspace traces: min/max/avg durations, unique workflows",
+        description:
+          "Aggregate stats across workspace traces: min/max/avg durations, unique workflows",
         params: %{
           workspace_root: "string (optional)",
           trace_dirs: "list of strings (optional)"
@@ -157,7 +164,8 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
       },
       %{
         action: "provider_stats",
-        description: "Token and request metrics from traces grouped by inferred provider (openai/anthropic/openrouter)",
+        description:
+          "Token and request metrics from traces grouped by inferred provider (openai/anthropic/openrouter)",
         params: %{
           workspace_root: "string (optional)",
           trace_dirs: "list of strings (optional)"
@@ -204,7 +212,8 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
          }}
 
       {:error, :not_found} ->
-        {:error, {:not_found, "SimpleAgents workspace not found at #{root}. Set workspace_root param."}}
+        {:error,
+         {:not_found, "SimpleAgents workspace not found at #{root}. Set workspace_root param."}}
 
       {:error, reason} ->
         {:error, reason}
@@ -359,8 +368,11 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
     # Prefer workspace-structured discovery; fall back to wildcard scan
     workflows =
       case discover_workspace_workflows(root) do
-        [] -> discover_workflow_files(resolve_scan_path(params)) |> Enum.map(&enrich_workflow_file/1)
-        found -> found
+        [] ->
+          discover_workflow_files(resolve_scan_path(params)) |> Enum.map(&enrich_workflow_file/1)
+
+        found ->
+          found
       end
 
     {:ok,
@@ -387,7 +399,12 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
 
             case read_json_file(path) do
               {:ok, data} ->
-                %{file: file, path: path, keys: (if is_map(data), do: Map.keys(data), else: []), status: "parsed"}
+                %{
+                  file: file,
+                  path: path,
+                  keys: if(is_map(data), do: Map.keys(data), else: []),
+                  status: "parsed"
+                }
 
               {:error, _} ->
                 %{file: file, path: path, keys: [], status: "parse_error"}
@@ -397,7 +414,13 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
         {:ok, %{fixtures_dir: fixtures_dir, contracts: contracts, count: length(contracts)}}
 
       {:error, :enoent} ->
-        {:ok, %{fixtures_dir: fixtures_dir, contracts: [], count: 0, note: "parity-fixtures directory not found"}}
+        {:ok,
+         %{
+           fixtures_dir: fixtures_dir,
+           contracts: [],
+           count: 0,
+           note: "parity-fixtures directory not found"
+         }}
 
       {:error, reason} ->
         {:error, {:filesystem_error, reason}}
@@ -410,7 +433,9 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
 
   # ── Workspace helpers ─────────────────────────────────────────────────────────
 
-  defp workspace_root(%{"workspace_root" => root}) when is_binary(root) and root != "", do: Path.expand(root)
+  defp workspace_root(%{"workspace_root" => root}) when is_binary(root) and root != "",
+    do: Path.expand(root)
+
   defp workspace_root(_), do: @default_workspace
 
   defp trace_dirs(%{"trace_dirs" => dirs}) when is_list(dirs) and dirs != [], do: dirs
@@ -428,7 +453,9 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
 
   defp extract_version(cargo_toml) when is_binary(cargo_toml) do
     case Regex.run(~r/\[workspace\.package\].*?version\s*=\s*"([^"]+)"/ms, cargo_toml) do
-      [_, version] -> version
+      [_, version] ->
+        version
+
       _ ->
         case Regex.run(~r/version\s*=\s*"([^"]+)"/, cargo_toml) do
           [_, version] -> version
@@ -467,7 +494,13 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
 
       {:error, _} ->
         Enum.map(@crate_names, fn name ->
-          %{name: name, path: Path.join([root, "crates", name]), version: "unknown", src_files: 0, is_known: true}
+          %{
+            name: name,
+            path: Path.join([root, "crates", name]),
+            version: "unknown",
+            src_files: 0,
+            is_known: true
+          }
         end)
     end
   end
@@ -546,7 +579,9 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
 
   # ── Wildcard Workflow Discovery (for list_tools / list_tasks) ─────────────────
 
-  defp resolve_scan_path(%{"scan_path" => path}) when is_binary(path) and path != "", do: Path.expand(path)
+  defp resolve_scan_path(%{"scan_path" => path}) when is_binary(path) and path != "",
+    do: Path.expand(path)
+
   defp resolve_scan_path(_), do: @scan_roots |> List.first() |> Path.expand()
 
   defp discover_workflow_files(scan_path) do
@@ -656,7 +691,8 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
   defp extract_tools_from_workflows(workflow_files, filter) do
     workflow_files
     |> Enum.filter(fn path ->
-      filter == "" or String.contains?(String.downcase(Path.basename(path)), String.downcase(filter))
+      filter == "" or
+        String.contains?(String.downcase(Path.basename(path)), String.downcase(filter))
     end)
     |> Enum.flat_map(&extract_tools_from_file/1)
     |> Enum.uniq_by(& &1.tool_name)
@@ -827,8 +863,11 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
     failed = Enum.count(traces, fn t -> Map.get(t, :status) == "failed" end)
     active = total - completed - failed
 
-    total_nodes = traces |> Enum.map(& &1[:node_success_count]) |> Enum.reject(&is_nil/1) |> Enum.sum()
-    total_errors = traces |> Enum.map(& &1[:node_error_count]) |> Enum.reject(&is_nil/1) |> Enum.sum()
+    total_nodes =
+      traces |> Enum.map(& &1[:node_success_count]) |> Enum.reject(&is_nil/1) |> Enum.sum()
+
+    total_errors =
+      traces |> Enum.map(& &1[:node_error_count]) |> Enum.reject(&is_nil/1) |> Enum.sum()
 
     durations =
       traces
@@ -836,7 +875,8 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
       |> Enum.reject(&is_nil/1)
       |> Enum.reject(&(&1 < 0))
 
-    avg_duration_ms = if durations == [], do: nil, else: Enum.sum(durations) |> div(length(durations))
+    avg_duration_ms =
+      if durations == [], do: nil, else: Enum.sum(durations) |> div(length(durations))
 
     success_rate = if total > 0, do: Float.round(completed / total * 100, 1), else: nil
 
@@ -872,12 +912,14 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
 
     durations = traces |> Enum.map(& &1.duration_ms) |> Enum.filter(&is_integer/1)
 
-    avg_duration_ms = if durations == [], do: nil, else: Enum.sum(durations) |> div(length(durations))
+    avg_duration_ms =
+      if durations == [], do: nil, else: Enum.sum(durations) |> div(length(durations))
 
     total_events = traces |> Enum.map(& &1.event_count) |> Enum.sum()
     total_errors = traces |> Enum.map(& &1.node_error_count) |> Enum.sum()
 
-    unique_workflows = traces |> Enum.map(& &1.workflow_name) |> Enum.filter(& &1) |> Enum.uniq() |> Enum.sort()
+    unique_workflows =
+      traces |> Enum.map(& &1.workflow_name) |> Enum.filter(& &1) |> Enum.uniq() |> Enum.sort()
 
     %{
       total_traces: total,
@@ -914,7 +956,8 @@ defmodule Apm.Plugins.SimpleAgents.SimpleAgentsPlugin do
         trace_count: total,
         completed: completed,
         success_rate_pct: if(total > 0, do: Float.round(completed / total * 100, 1), else: 0.0),
-        avg_duration_ms: if(durations == [], do: nil, else: Enum.sum(durations) |> div(length(durations))),
+        avg_duration_ms:
+          if(durations == [], do: nil, else: Enum.sum(durations) |> div(length(durations))),
         workflows:
           traces
           |> Enum.map(& &1.workflow_name)

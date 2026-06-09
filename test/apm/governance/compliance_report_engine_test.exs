@@ -16,6 +16,7 @@ defmodule Apm.Governance.ComplianceReportEngineTest do
     assert is_map(report)
     assert %DateTime{} = report.generated_at
     assert is_integer(report.overall_score)
+
     assert report.overall_score >= 50,
            "Expected overall_score >= 50, got #{report.overall_score}. " <>
              "Controls: #{inspect(report.controls_by_status)}"

@@ -31,14 +31,14 @@ defmodule ApmWeb.Components.Templates.QueuePage do
     ~H"""
     <div class="apm-queue-page" {@rest}>
       <div class="apm-queue-page__filter-rail">
-        <%= render_slot(@filter_rail) %>
+        {render_slot(@filter_rail)}
       </div>
       <div class="apm-queue-page__list">
-        <%= render_slot(@list) %>
+        {render_slot(@list)}
       </div>
       <%= if @show_inspector && @inspector != [] do %>
         <div class="apm-queue-page__inspector">
-          <%= render_slot(@inspector) %>
+          {render_slot(@inspector)}
         </div>
       <% end %>
     </div>

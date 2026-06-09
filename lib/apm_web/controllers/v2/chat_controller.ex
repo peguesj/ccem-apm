@@ -16,12 +16,13 @@ defmodule ApmWeb.V2.ChatController do
     render_error: ApmWeb.Plugs.OpenApiErrorRenderer
 
   @doc "GET /api/v2/chat/:scope — list messages for a scope"
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["Chat"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, %{"scope" => scope} = params) do
     limit = params |> Map.get("limit", "50") |> String.to_integer() |> min(500)
@@ -30,12 +31,13 @@ defmodule ApmWeb.V2.ChatController do
   end
 
   @doc "POST /api/v2/chat/:scope/send — send a message to a scope"
-  operation :send_message,
+  operation(:send_message,
     summary: "Send message",
     tags: ["Chat"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def send_message(conn, %{"scope" => scope, "content" => content} = params) do
     metadata = Map.take(params, ["role", "agent_id"])
@@ -51,12 +53,13 @@ defmodule ApmWeb.V2.ChatController do
   end
 
   @doc "DELETE /api/v2/chat/:scope — clear messages for a scope"
-  operation :clear,
+  operation(:clear,
     summary: "Clear",
     tags: ["Chat"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def clear(conn, %{"scope" => scope}) do
     Apm.ChatStore.clear_scope(scope)

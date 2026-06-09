@@ -16,7 +16,8 @@ defmodule Apm.Plugins.Builder.BuilderPlugin do
   def plugin_name, do: "builder"
 
   @impl true
-  def plugin_description, do: "Interactive wizard to scaffold CCEM plugins from existing repositories"
+  def plugin_description,
+    do: "Interactive wizard to scaffold CCEM plugins from existing repositories"
 
   @impl true
   def plugin_version, do: @plugin_version

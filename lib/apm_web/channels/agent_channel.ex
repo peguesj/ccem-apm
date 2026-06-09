@@ -73,7 +73,8 @@ defmodule ApmWeb.AgentChannel do
 
     case agent_id && AgentRegistry.get_agent(agent_id) do
       %{path: path} when is_binary(path) and path != "" ->
-        {:reply, {:ok, %{status: "command_received", agent_id: agent_id, command: command}}, socket}
+        {:reply, {:ok, %{status: "command_received", agent_id: agent_id, command: command}},
+         socket}
 
       _ ->
         {:reply, {:error, %{reason: "agent not found or has no path"}}, socket}

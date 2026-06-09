@@ -24,12 +24,13 @@ defmodule ApmWeb.V2.WorktreeController do
   alias Apm.WorktreeStore
 
   @doc "GET /api/worktrees — list all worktrees (optional ?project=foo filter)"
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["Worktrees"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, params) do
     items =
@@ -42,12 +43,13 @@ defmodule ApmWeb.V2.WorktreeController do
   end
 
   @doc "POST /api/worktrees/register — register a new worktree"
-  operation :register,
+  operation(:register,
     summary: "Register",
     tags: ["Worktrees"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def register(conn, params) do
     case WorktreeStore.register(params) do
@@ -64,12 +66,13 @@ defmodule ApmWeb.V2.WorktreeController do
   end
 
   @doc "GET /api/worktrees/:id — fetch a single worktree"
-  operation :show,
+  operation(:show,
     summary: "Get one",
     tags: ["Worktrees"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def show(conn, %{"id" => id}) do
     case WorktreeStore.get(id) do
@@ -84,12 +87,13 @@ defmodule ApmWeb.V2.WorktreeController do
   end
 
   @doc "PATCH /api/worktrees/:id — update worktree metadata"
-  operation :update,
+  operation(:update,
     summary: "Update",
     tags: ["Worktrees"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def update(conn, %{"id" => id} = params) do
     attrs = Map.drop(params, ["id"])
@@ -111,12 +115,13 @@ defmodule ApmWeb.V2.WorktreeController do
   end
 
   @doc "DELETE /api/worktrees/:id — prune a worktree"
-  operation :delete,
+  operation(:delete,
     summary: "Delete",
     tags: ["Worktrees"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def delete(conn, %{"id" => id}) do
     case WorktreeStore.prune(id) do

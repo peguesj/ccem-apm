@@ -16,29 +16,45 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "Welcome to CCEM APM",
         subtitle: "Your Agent Performance & Management",
-        body: "CCEM APM gives you real-time visibility into your AI agent fleet. Monitor performance, manage resources, and orchestrate complex multi-agent formations — all from a single dashboard.",
-        features: ["Real-time agent fleet status", "Formation orchestration", "Token & performance telemetry"],
+        body:
+          "CCEM APM gives you real-time visibility into your AI agent fleet. Monitor performance, manage resources, and orchestrate complex multi-agent formations — all from a single dashboard.",
+        features: [
+          "Real-time agent fleet status",
+          "Formation orchestration",
+          "Token & performance telemetry"
+        ],
         illustration: "monitoring"
       },
       %{
         title: "Monitor Agents",
         subtitle: "Live heartbeats and status",
-        body: "Every agent self-registers via the REST API and sends periodic heartbeats. Color-coded status indicators update in real time so you always know what's running.",
+        body:
+          "Every agent self-registers via the REST API and sends periodic heartbeats. Color-coded status indicators update in real time so you always know what's running.",
         features: ["Self-registration API", "Live heartbeat tracking", "Project-level grouping"],
         illustration: "agents"
       },
       %{
         title: "Formation Orchestration",
         subtitle: "Hierarchical agent deployment",
-        body: "Deploy squadrons organized into formations. Each formation executes in waves with automatic gating. Visualize progress in the formation graph view.",
-        features: ["Squadron / Swarm / Cluster hierarchy", "Wave-based execution", "Formation graph visualization"],
+        body:
+          "Deploy squadrons organized into formations. Each formation executes in waves with automatic gating. Visualize progress in the formation graph view.",
+        features: [
+          "Squadron / Swarm / Cluster hierarchy",
+          "Wave-based execution",
+          "Formation graph visualization"
+        ],
         illustration: "formation"
       },
       %{
         title: "Real-Time Updates",
         subtitle: "Always current, zero polling",
-        body: "The dashboard uses Phoenix LiveView and PubSub to push updates directly to your browser. No manual refresh needed — everything streams live.",
-        features: ["Phoenix LiveView WebSocket", "PubSub event streaming", "AG-UI protocol events"],
+        body:
+          "The dashboard uses Phoenix LiveView and PubSub to push updates directly to your browser. No manual refresh needed — everything streams live.",
+        features: [
+          "Phoenix LiveView WebSocket",
+          "PubSub event streaming",
+          "AG-UI protocol events"
+        ],
         illustration: "realtime"
       }
     ],
@@ -46,14 +62,16 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "Dashboard Overview",
         subtitle: "Your command center",
-        body: "The main dashboard aggregates your entire agent fleet, active formations, notifications, and telemetry into one real-time view.",
+        body:
+          "The main dashboard aggregates your entire agent fleet, active formations, notifications, and telemetry into one real-time view.",
         features: ["Agent fleet summary", "Active formation status", "Notification toasts"],
         illustration: "monitoring"
       },
       %{
         title: "Dependency Graph",
         subtitle: "Agentic hierarchy visualized",
-        body: "The dependency graph renders your Session → Formation → Squadron → Swarm → Agent → Task hierarchy using D3.js. Click any node to inspect it.",
+        body:
+          "The dependency graph renders your Session → Formation → Squadron → Swarm → Agent → Task hierarchy using D3.js. Click any node to inspect it.",
         features: ["D3.js force-directed graph", "Click-to-inspect nodes", "Live edge updates"],
         illustration: "formation"
       }
@@ -62,15 +80,21 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "Agent Monitoring",
         subtitle: "Track every agent in your fleet",
-        body: "The agents view shows every registered agent with live status, heartbeat timing, project assignment, and formation membership.",
+        body:
+          "The agents view shows every registered agent with live status, heartbeat timing, project assignment, and formation membership.",
         features: ["Live status badges", "Heartbeat timing", "Formation membership"],
         illustration: "agents"
       },
       %{
         title: "Agent Control",
         subtitle: "Connect, disconnect, restart",
-        body: "Use the agent control panel to connect, disconnect, restart, or pause agents. Send messages via the contextual chat panel without leaving the view.",
-        features: ["Connect / Disconnect / Restart", "Contextual chat panel", "Bulk selection actions"],
+        body:
+          "Use the agent control panel to connect, disconnect, restart, or pause agents. Send messages via the contextual chat panel without leaving the view.",
+        features: [
+          "Connect / Disconnect / Restart",
+          "Contextual chat panel",
+          "Bulk selection actions"
+        ],
         illustration: "actions"
       }
     ],
@@ -78,14 +102,20 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "Formation Visualization",
         subtitle: "Hierarchical deployment at a glance",
-        body: "Formations organize agents into squadrons, swarms, and clusters. The formation graph shows every node in the hierarchy with live status color coding.",
-        features: ["Squadron / Swarm / Cluster hierarchy", "Wave progress tracking", "Deep-link from notifications"],
+        body:
+          "Formations organize agents into squadrons, swarms, and clusters. The formation graph shows every node in the hierarchy with live status color coding.",
+        features: [
+          "Squadron / Swarm / Cluster hierarchy",
+          "Wave progress tracking",
+          "Deep-link from notifications"
+        ],
         illustration: "formation"
       },
       %{
         title: "Deploy a Formation",
         subtitle: "Use /formation deploy",
-        body: "Run `/formation deploy` in Claude Code to launch a full formation. Agents register automatically and appear in this view within seconds.",
+        body:
+          "Run `/formation deploy` in Claude Code to launch a full formation. Agents register automatically and appear in this view within seconds.",
         features: ["Auto-registration via API", "Wave-based gating", "Real-time progress updates"],
         illustration: "realtime"
       }
@@ -94,14 +124,16 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "AG-UI Event Stream",
         subtitle: "Open agent-user interaction protocol",
-        body: "The AG-UI view streams live protocol events from your agents. Filter by event type, inspect payloads, and watch agent state transitions in real time.",
+        body:
+          "The AG-UI view streams live protocol events from your agents. Filter by event type, inspect payloads, and watch agent state transitions in real time.",
         features: ["33 AG-UI event types", "Live payload inspector", "Agent state viewer"],
         illustration: "realtime"
       },
       %{
         title: "Event Types",
         subtitle: "Lifecycle, state, activity, and more",
-        body: "Events cover the full agent lifecycle: RUN_STARTED, TOOL_CALL, STATE_DELTA, TEXT_MESSAGE, and 29 more. CCEM APM maps APM hooks to AG-UI events automatically.",
+        body:
+          "Events cover the full agent lifecycle: RUN_STARTED, TOOL_CALL, STATE_DELTA, TEXT_MESSAGE, and 29 more. CCEM APM maps APM hooks to AG-UI events automatically.",
         features: ["Lifecycle events", "Tool call tracing", "State delta streaming"],
         illustration: "agents"
       }
@@ -110,14 +142,16 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "Project Showcase",
         subtitle: "GIMME-style interactive diagrams",
-        body: "The showcase renders C4-abstracted SVG architecture diagrams for your project. IP-safe by design — no proprietary details exposed in the visual layer.",
+        body:
+          "The showcase renders C4-abstracted SVG architecture diagrams for your project. IP-safe by design — no proprietary details exposed in the visual layer.",
         features: ["C4 abstraction layers", "Anime.js animations", "WCAG AA compliant"],
         illustration: "monitoring"
       },
       %{
         title: "Showcase Navigation",
         subtitle: "Switch projects, go fullscreen",
-        body: "Use the project picker to switch between showcases. Hit the fullscreen button to cover the APM chrome entirely. Press Esc to exit fullscreen.",
+        body:
+          "Use the project picker to switch between showcases. Hit the fullscreen button to cover the APM chrome entirely. Press Esc to exit fullscreen.",
         features: ["Multi-project support", "Fullscreen mode", "Live APM data overlay"],
         illustration: "actions"
       }
@@ -126,14 +160,16 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "Port Management",
         subtitle: "Detect and resolve port conflicts",
-        body: "The ports view lists every registered port across your projects. Conflict detection highlights clashes with color-coded severity, and smart reassignment resolves them automatically.",
+        body:
+          "The ports view lists every registered port across your projects. Conflict detection highlights clashes with color-coded severity, and smart reassignment resolves them automatically.",
         features: ["Conflict detection", "Utilization heatmap", "Smart port reassignment"],
         illustration: "ports"
       },
       %{
         title: "Port Actions",
         subtitle: "Automated port intelligence",
-        body: "Use the action engine port actions to register all ports in bulk, analyze assignments, or trigger smart reassignment across your entire project namespace.",
+        body:
+          "Use the action engine port actions to register all ports in bulk, analyze assignments, or trigger smart reassignment across your entire project namespace.",
         features: ["register_all_ports", "analyze_port_assignment", "smart_reassign_ports"],
         illustration: "actions"
       }
@@ -142,14 +178,16 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "Action Engine",
         subtitle: "Automated maintenance tasks",
-        body: "The action engine runs catalogued maintenance tasks: updating hooks, adding memory pointers, backfilling APM config, analyzing projects, and managing ports.",
+        body:
+          "The action engine runs catalogued maintenance tasks: updating hooks, adding memory pointers, backfilling APM config, analyzing projects, and managing ports.",
         features: ["Async task execution", "Run history log", "Result inspection panel"],
         illustration: "actions"
       },
       %{
         title: "Running Actions",
         subtitle: "One-click execution",
-        body: "Click any action card to open the run modal. Provide optional parameters, then submit. The action runs asynchronously and results appear in the recent runs table.",
+        body:
+          "Click any action card to open the run modal. Provide optional parameters, then submit. The action runs asynchronously and results appear in the recent runs table.",
         features: ["Modal parameter entry", "Async execution", "Result detail view"],
         illustration: "tasks"
       }
@@ -158,14 +196,16 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "Background Tasks",
         subtitle: "Track Claude Code processes",
-        body: "The tasks view tracks every background process spawned by Claude Code. See name, definition, invoking process, project, status, PID, and runtime in one table.",
+        body:
+          "The tasks view tracks every background process spawned by Claude Code. See name, definition, invoking process, project, status, PID, and runtime in one table.",
         features: ["Live status updates", "Log viewer", "Stop / Delete controls"],
         illustration: "tasks"
       },
       %{
         title: "Task Logs",
         subtitle: "In-browser log streaming",
-        body: "Click Logs on any task to open the log viewer modal. Log lines stream in real time from the background process, making it easy to diagnose issues without leaving the dashboard.",
+        body:
+          "Click Logs on any task to open the log viewer modal. Log lines stream in real time from the background process, making it easy to diagnose issues without leaving the dashboard.",
         features: ["Real-time log streaming", "Modal log viewer", "Scrollable output"],
         illustration: "realtime"
       }
@@ -174,14 +214,16 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "Project Scanner",
         subtitle: "Discover your dev environment",
-        body: "The scanner crawls configured directories and detects projects by stack signature. Each project shows its framework, active ports, agent count, and CLAUDE.md sections.",
+        body:
+          "The scanner crawls configured directories and detects projects by stack signature. Each project shows its framework, active ports, agent count, and CLAUDE.md sections.",
         features: ["Stack auto-detection", "Active port listing", "Agent count per project"],
         illustration: "agents"
       },
       %{
         title: "Scanner Configuration",
         subtitle: "Set scan paths",
-        body: "Configure the scanner path via the path input. Trigger a manual scan or let the 3-second auto-refresh keep the list current as you work.",
+        body:
+          "Configure the scanner path via the path input. Trigger a manual scan or let the 3-second auto-refresh keep the list current as you work.",
         features: ["Configurable scan path", "Manual trigger", "3s auto-refresh"],
         illustration: "monitoring"
       }
@@ -190,14 +232,16 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "Skills Registry",
         subtitle: "Health dashboard for your skills",
-        body: "The skills registry tracks every installed skill across three health tiers: healthy (score ≥ 80), needs attention (50–79), and critical (<50).",
+        body:
+          "The skills registry tracks every installed skill across three health tiers: healthy (score ≥ 80), needs attention (50–79), and critical (<50).",
         features: ["Three-tier health scoring", "Audit All action", "Per-skill fix button"],
         illustration: "agents"
       },
       %{
         title: "Skill Health Scores",
         subtitle: "Computed from metadata quality",
-        body: "Health scores combine: valid frontmatter, description quality, trigger coverage, project memory entries, and hook wiring. Fix issues with one click via the action engine.",
+        body:
+          "Health scores combine: valid frontmatter, description quality, trigger coverage, project memory entries, and hook wiring. Fix issues with one click via the action engine.",
         features: ["Frontmatter validation", "Description quality", "Trigger coverage"],
         illustration: "tasks"
       }
@@ -206,14 +250,16 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "Notifications",
         subtitle: "Tabbed event categories",
-        body: "The notifications panel groups events into tabs: All, Agents, Formations, Skills, and Ship. Each card shows severity, timestamp, project, and formation context.",
+        body:
+          "The notifications panel groups events into tabs: All, Agents, Formations, Skills, and Ship. Each card shows severity, timestamp, project, and formation context.",
         features: ["Tabbed categories", "Severity badges", "Formation deep-links"],
         illustration: "realtime"
       },
       %{
         title: "Notification Details",
         subtitle: "Click to expand",
-        body: "Click any notification card to expand the detail view. See the full payload, story ID, squadron ID, namespace, and project name in a structured layout.",
+        body:
+          "Click any notification card to expand the detail view. See the full payload, story ID, squadron ID, namespace, and project name in a structured layout.",
         features: ["Expandable detail view", "Full payload display", "Context metadata"],
         illustration: "monitoring"
       }
@@ -222,14 +268,20 @@ defmodule ApmWeb.Components.GettingStartedWizard do
       %{
         title: "UPM — Unified Project Management",
         subtitle: "PM adapter integration hub",
-        body: "UPM connects CCEM APM to your project management tools. Sync issues from Plane, Linear, Jira, or Monday. Drift detection flags work items that have fallen out of sync.",
-        features: ["Plane / Linear / Jira / Monday adapters", "Drift detection", "Auto-sync every 5 minutes"],
+        body:
+          "UPM connects CCEM APM to your project management tools. Sync issues from Plane, Linear, Jira, or Monday. Drift detection flags work items that have fallen out of sync.",
+        features: [
+          "Plane / Linear / Jira / Monday adapters",
+          "Drift detection",
+          "Auto-sync every 5 minutes"
+        ],
         illustration: "agents"
       },
       %{
         title: "Kanban Board",
         subtitle: "Live work item tracking",
-        body: "The UPM board view renders a Kanban board from your synced work items. Columns map to PM states. Click any card to see full issue detail.",
+        body:
+          "The UPM board view renders a Kanban board from your synced work items. Columns map to PM states. Click any card to see full issue detail.",
         features: ["Kanban board layout", "PM state columns", "Issue detail panel"],
         illustration: "formation"
       }
@@ -243,6 +295,7 @@ defmodule ApmWeb.Components.GettingStartedWizard do
   def wizard(assigns) do
     slides = Map.get(@slide_sets, assigns.page, @slide_sets["welcome"])
     dom_id = assigns.dom_id || "ccem-wizard-#{assigns.page}"
+
     assigns =
       assigns
       |> assign(:slides, slides)
@@ -331,7 +384,8 @@ defmodule ApmWeb.Components.GettingStartedWizard do
         class="absolute inset-0 bg-black/75 backdrop-blur-sm"
         data-wizard-dismiss
         aria-hidden="true"
-      ></div>
+      >
+      </div>
 
       <%!-- Modal — split layout --%>
       <div class="relative w-full max-w-4xl mx-4 bg-base-200 rounded-2xl shadow-2xl border border-base-300 overflow-hidden flex flex-col">
@@ -339,8 +393,17 @@ defmodule ApmWeb.Components.GettingStartedWizard do
         <div class="flex items-center justify-between px-6 py-3 border-b border-base-300 flex-shrink-0">
           <div class="flex items-center gap-3">
             <div class="w-7 h-7 rounded-md bg-primary/15 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-primary" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-4 h-4 text-primary"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"
+                  clip-rule="evenodd"
+                />
               </svg>
             </div>
             <div>
@@ -349,14 +412,25 @@ defmodule ApmWeb.Components.GettingStartedWizard do
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <span data-wizard-counter class="text-xs text-base-content/40 font-mono tabular-nums">1 / <%= @slide_count %></span>
+            <span data-wizard-counter class="text-xs text-base-content/40 font-mono tabular-nums">
+              1 / {@slide_count}
+            </span>
             <button
               data-wizard-dismiss
               class="btn btn-ghost btn-sm btn-circle"
               aria-label="Close wizard"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clip-rule="evenodd"
+                />
               </svg>
             </button>
           </div>
@@ -371,23 +445,34 @@ defmodule ApmWeb.Components.GettingStartedWizard do
             >
               <%!-- Left column: illustration (40%) --%>
               <div class="w-2/5 flex-shrink-0 bg-base-300/60 border-r border-base-300 flex items-center justify-center p-6">
-                <%= illustration(slide.illustration) %>
+                {illustration(slide.illustration)}
               </div>
 
               <%!-- Right column: content (60%) --%>
               <div class="flex-1 flex flex-col justify-center px-8 py-8">
-                <h3 class="text-xl font-bold text-base-content mb-1 leading-tight"><%= slide.title %></h3>
-                <p class="text-xs text-primary font-medium mb-4 uppercase tracking-wide"><%= slide.subtitle %></p>
-                <p class="text-sm text-base-content/70 leading-relaxed mb-6"><%= slide.body %></p>
+                <h3 class="text-xl font-bold text-base-content mb-1 leading-tight">{slide.title}</h3>
+                <p class="text-xs text-primary font-medium mb-4 uppercase tracking-wide">
+                  {slide.subtitle}
+                </p>
+                <p class="text-sm text-base-content/70 leading-relaxed mb-6">{slide.body}</p>
                 <ul class="space-y-2">
                   <%= for feature <- slide.features do %>
                     <li class="wizard-feature-item flex items-center gap-2 text-sm text-base-content/80">
                       <span class="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5 text-primary" viewBox="0 0 20 20" fill="currentColor">
-                          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="w-2.5 h-2.5 text-primary"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clip-rule="evenodd"
+                          />
                         </svg>
                       </span>
-                      <%= feature %>
+                      {feature}
                     </li>
                   <% end %>
                 </ul>
@@ -410,7 +495,8 @@ defmodule ApmWeb.Components.GettingStartedWizard do
                 role="tab"
                 aria-label={"Slide #{idx + 1}"}
                 aria-selected={idx == 0}
-              ></button>
+              >
+              </button>
             <% end %>
           </div>
 
@@ -513,128 +599,401 @@ defmodule ApmWeb.Components.GettingStartedWizard do
 
   defp illustration("monitoring") do
     assigns = %{}
+
     ~H"""
     <svg viewBox="0 0 240 180" class="w-full max-w-[220px]" aria-hidden="true">
-      <rect class="wizard-block-1" x="10" y="20" width="220" height="28" rx="5" fill="#6366f1" opacity="0.75"/>
-      <rect class="wizard-block-2" x="10" y="58" width="170" height="18" rx="4" fill="#0ea5e9" opacity="0.55"/>
-      <rect class="wizard-block-3" x="10" y="86" width="200" height="18" rx="4" fill="#22c55e" opacity="0.45"/>
-      <rect class="wizard-block-4" x="10" y="114" width="140" height="18" rx="4" fill="#f59e0b" opacity="0.45"/>
-      <circle class="wizard-pulse-dot"   cx="218" cy="34"  r="5" fill="#22c55e"/>
-      <circle class="wizard-pulse-dot-2" cx="218" cy="67"  r="4" fill="#0ea5e9"/>
-      <circle class="wizard-pulse-dot-3" cx="218" cy="95"  r="4" fill="#22c55e"/>
+      <rect
+        class="wizard-block-1"
+        x="10"
+        y="20"
+        width="220"
+        height="28"
+        rx="5"
+        fill="#6366f1"
+        opacity="0.75"
+      />
+      <rect
+        class="wizard-block-2"
+        x="10"
+        y="58"
+        width="170"
+        height="18"
+        rx="4"
+        fill="#0ea5e9"
+        opacity="0.55"
+      />
+      <rect
+        class="wizard-block-3"
+        x="10"
+        y="86"
+        width="200"
+        height="18"
+        rx="4"
+        fill="#22c55e"
+        opacity="0.45"
+      />
+      <rect
+        class="wizard-block-4"
+        x="10"
+        y="114"
+        width="140"
+        height="18"
+        rx="4"
+        fill="#f59e0b"
+        opacity="0.45"
+      />
+      <circle class="wizard-pulse-dot" cx="218" cy="34" r="5" fill="#22c55e" />
+      <circle class="wizard-pulse-dot-2" cx="218" cy="67" r="4" fill="#0ea5e9" />
+      <circle class="wizard-pulse-dot-3" cx="218" cy="95" r="4" fill="#22c55e" />
       <!-- mini chart bars -->
-      <rect x="10"  y="148" width="14" height="20" rx="2" fill="#6366f1" opacity="0.5"/>
-      <rect x="30"  y="138" width="14" height="30" rx="2" fill="#6366f1" opacity="0.6"/>
-      <rect x="50"  y="143" width="14" height="25" rx="2" fill="#6366f1" opacity="0.55"/>
-      <rect x="70"  y="134" width="14" height="34" rx="2" fill="#6366f1" opacity="0.65"/>
-      <rect x="90"  y="141" width="14" height="27" rx="2" fill="#6366f1" opacity="0.55"/>
-      <rect x="110" y="132" width="14" height="36" rx="2" fill="#22c55e" opacity="0.7"/>
+      <rect x="10" y="148" width="14" height="20" rx="2" fill="#6366f1" opacity="0.5" />
+      <rect x="30" y="138" width="14" height="30" rx="2" fill="#6366f1" opacity="0.6" />
+      <rect x="50" y="143" width="14" height="25" rx="2" fill="#6366f1" opacity="0.55" />
+      <rect x="70" y="134" width="14" height="34" rx="2" fill="#6366f1" opacity="0.65" />
+      <rect x="90" y="141" width="14" height="27" rx="2" fill="#6366f1" opacity="0.55" />
+      <rect x="110" y="132" width="14" height="36" rx="2" fill="#22c55e" opacity="0.7" />
     </svg>
     """
   end
 
   defp illustration("agents") do
     assigns = %{}
+
     ~H"""
     <svg viewBox="0 0 240 180" class="w-full max-w-[220px]" aria-hidden="true">
       <!-- Root node -->
-      <circle class="wizard-node-1" cx="120" cy="30" r="16" fill="#6366f1" opacity="0.85"/>
-      <text x="120" y="35" text-anchor="middle" font-size="10" fill="white" font-family="monospace">APM</text>
+      <circle class="wizard-node-1" cx="120" cy="30" r="16" fill="#6366f1" opacity="0.85" />
+      <text x="120" y="35" text-anchor="middle" font-size="10" fill="white" font-family="monospace">
+        APM
+      </text>
       <!-- Connectors -->
-      <line x1="120" y1="46" x2="60"  y2="80" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
-      <line x1="120" y1="46" x2="120" y2="80" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
-      <line x1="120" y1="46" x2="180" y2="80" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
+      <line x1="120" y1="46" x2="60" y2="80" stroke="#6366f1" stroke-width="1.5" opacity="0.4" />
+      <line x1="120" y1="46" x2="120" y2="80" stroke="#6366f1" stroke-width="1.5" opacity="0.4" />
+      <line x1="120" y1="46" x2="180" y2="80" stroke="#6366f1" stroke-width="1.5" opacity="0.4" />
       <!-- Child nodes -->
-      <circle class="wizard-node-2" cx="60"  cy="90" r="12" fill="#0ea5e9" opacity="0.8"/>
-      <circle class="wizard-node-3" cx="120" cy="90" r="12" fill="#22c55e" opacity="0.8"/>
-      <circle class="wizard-node-4" cx="180" cy="90" r="12" fill="#f59e0b" opacity="0.8"/>
-      <circle class="wizard-pulse-dot"   cx="60"  cy="90" r="5" fill="white" opacity="0.6"/>
-      <circle class="wizard-pulse-dot-2" cx="120" cy="90" r="5" fill="white" opacity="0.6"/>
-      <circle class="wizard-pulse-dot-3" cx="180" cy="90" r="5" fill="white" opacity="0.6"/>
+      <circle class="wizard-node-2" cx="60" cy="90" r="12" fill="#0ea5e9" opacity="0.8" />
+      <circle class="wizard-node-3" cx="120" cy="90" r="12" fill="#22c55e" opacity="0.8" />
+      <circle class="wizard-node-4" cx="180" cy="90" r="12" fill="#f59e0b" opacity="0.8" />
+      <circle class="wizard-pulse-dot" cx="60" cy="90" r="5" fill="white" opacity="0.6" />
+      <circle class="wizard-pulse-dot-2" cx="120" cy="90" r="5" fill="white" opacity="0.6" />
+      <circle class="wizard-pulse-dot-3" cx="180" cy="90" r="5" fill="white" opacity="0.6" />
       <!-- Status bars -->
-      <rect class="wizard-block-3" x="30"  y="116" width="60" height="8"  rx="3" fill="#0ea5e9" opacity="0.5"/>
-      <rect class="wizard-block-3" x="90"  y="116" width="60" height="8"  rx="3" fill="#22c55e" opacity="0.5"/>
-      <rect class="wizard-block-4" x="150" y="116" width="60" height="8"  rx="3" fill="#f59e0b" opacity="0.5"/>
-      <rect class="wizard-block-4" x="30"  y="132" width="40" height="6"  rx="3" fill="#0ea5e9" opacity="0.3"/>
-      <rect class="wizard-block-4" x="90"  y="132" width="55" height="6"  rx="3" fill="#22c55e" opacity="0.3"/>
-      <rect class="wizard-block-4" x="150" y="132" width="35" height="6"  rx="3" fill="#f59e0b" opacity="0.3"/>
+      <rect
+        class="wizard-block-3"
+        x="30"
+        y="116"
+        width="60"
+        height="8"
+        rx="3"
+        fill="#0ea5e9"
+        opacity="0.5"
+      />
+      <rect
+        class="wizard-block-3"
+        x="90"
+        y="116"
+        width="60"
+        height="8"
+        rx="3"
+        fill="#22c55e"
+        opacity="0.5"
+      />
+      <rect
+        class="wizard-block-4"
+        x="150"
+        y="116"
+        width="60"
+        height="8"
+        rx="3"
+        fill="#f59e0b"
+        opacity="0.5"
+      />
+      <rect
+        class="wizard-block-4"
+        x="30"
+        y="132"
+        width="40"
+        height="6"
+        rx="3"
+        fill="#0ea5e9"
+        opacity="0.3"
+      />
+      <rect
+        class="wizard-block-4"
+        x="90"
+        y="132"
+        width="55"
+        height="6"
+        rx="3"
+        fill="#22c55e"
+        opacity="0.3"
+      />
+      <rect
+        class="wizard-block-4"
+        x="150"
+        y="132"
+        width="35"
+        height="6"
+        rx="3"
+        fill="#f59e0b"
+        opacity="0.3"
+      />
     </svg>
     """
   end
 
   defp illustration("formation") do
     assigns = %{}
+
     ~H"""
     <svg viewBox="0 0 240 180" class="w-full max-w-[220px]" aria-hidden="true">
       <!-- Formation (top) -->
-      <rect class="wizard-node-1" x="80" y="8" width="80" height="22" rx="4" fill="#8b5cf6" opacity="0.85"/>
-      <text x="120" y="23" text-anchor="middle" font-size="9" fill="white" font-family="monospace">Formation</text>
+      <rect
+        class="wizard-node-1"
+        x="80"
+        y="8"
+        width="80"
+        height="22"
+        rx="4"
+        fill="#8b5cf6"
+        opacity="0.85"
+      />
+      <text x="120" y="23" text-anchor="middle" font-size="9" fill="white" font-family="monospace">
+        Formation
+      </text>
       <!-- Squadron row -->
-      <line x1="120" y1="30" x2="70"  y2="54" stroke="#8b5cf6" stroke-width="1.5" opacity="0.4"/>
-      <line x1="120" y1="30" x2="170" y2="54" stroke="#8b5cf6" stroke-width="1.5" opacity="0.4"/>
-      <rect class="wizard-node-2" x="30"  y="54" width="80" height="18" rx="3" fill="#6366f1" opacity="0.8"/>
-      <rect class="wizard-node-3" x="130" y="54" width="80" height="18" rx="3" fill="#6366f1" opacity="0.8"/>
-      <text x="70"  y="66" text-anchor="middle" font-size="8" fill="white" font-family="monospace">Squadron A</text>
-      <text x="170" y="66" text-anchor="middle" font-size="8" fill="white" font-family="monospace">Squadron B</text>
+      <line x1="120" y1="30" x2="70" y2="54" stroke="#8b5cf6" stroke-width="1.5" opacity="0.4" />
+      <line x1="120" y1="30" x2="170" y2="54" stroke="#8b5cf6" stroke-width="1.5" opacity="0.4" />
+      <rect
+        class="wizard-node-2"
+        x="30"
+        y="54"
+        width="80"
+        height="18"
+        rx="3"
+        fill="#6366f1"
+        opacity="0.8"
+      />
+      <rect
+        class="wizard-node-3"
+        x="130"
+        y="54"
+        width="80"
+        height="18"
+        rx="3"
+        fill="#6366f1"
+        opacity="0.8"
+      />
+      <text x="70" y="66" text-anchor="middle" font-size="8" fill="white" font-family="monospace">
+        Squadron A
+      </text>
+      <text x="170" y="66" text-anchor="middle" font-size="8" fill="white" font-family="monospace">
+        Squadron B
+      </text>
       <!-- Wave progress -->
-      <rect x="30"  y="82" width="80" height="6" rx="2" fill="#1e293b" opacity="0.5"/>
-      <rect class="wizard-sweep" x="30" y="82" width="60" height="6" rx="2" fill="#22c55e" opacity="0.7"/>
-      <rect x="130" y="82" width="80" height="6" rx="2" fill="#1e293b" opacity="0.5"/>
-      <rect class="wizard-sweep" x="130" y="82" width="35" height="6" rx="2" fill="#f59e0b" opacity="0.7"/>
+      <rect x="30" y="82" width="80" height="6" rx="2" fill="#1e293b" opacity="0.5" />
+      <rect
+        class="wizard-sweep"
+        x="30"
+        y="82"
+        width="60"
+        height="6"
+        rx="2"
+        fill="#22c55e"
+        opacity="0.7"
+      />
+      <rect x="130" y="82" width="80" height="6" rx="2" fill="#1e293b" opacity="0.5" />
+      <rect
+        class="wizard-sweep"
+        x="130"
+        y="82"
+        width="35"
+        height="6"
+        rx="2"
+        fill="#f59e0b"
+        opacity="0.7"
+      />
       <!-- Agent leaves -->
-      <circle class="wizard-node-4" cx="42"  cy="108" r="8" fill="#0ea5e9" opacity="0.75"/>
-      <circle class="wizard-node-4" cx="62"  cy="108" r="8" fill="#0ea5e9" opacity="0.75"/>
-      <circle class="wizard-node-4" cx="82"  cy="108" r="8" fill="#22c55e" opacity="0.75"/>
-      <circle class="wizard-node-5" cx="142" cy="108" r="8" fill="#f59e0b" opacity="0.75"/>
-      <circle class="wizard-node-5" cx="162" cy="108" r="8" fill="#f59e0b" opacity="0.75"/>
-      <circle class="wizard-pulse-dot"   cx="42"  cy="108" r="3" fill="white" opacity="0.7"/>
-      <circle class="wizard-pulse-dot-2" cx="62"  cy="108" r="3" fill="white" opacity="0.7"/>
-      <circle class="wizard-pulse-dot-3" cx="82"  cy="108" r="3" fill="white" opacity="0.7"/>
+      <circle class="wizard-node-4" cx="42" cy="108" r="8" fill="#0ea5e9" opacity="0.75" />
+      <circle class="wizard-node-4" cx="62" cy="108" r="8" fill="#0ea5e9" opacity="0.75" />
+      <circle class="wizard-node-4" cx="82" cy="108" r="8" fill="#22c55e" opacity="0.75" />
+      <circle class="wizard-node-5" cx="142" cy="108" r="8" fill="#f59e0b" opacity="0.75" />
+      <circle class="wizard-node-5" cx="162" cy="108" r="8" fill="#f59e0b" opacity="0.75" />
+      <circle class="wizard-pulse-dot" cx="42" cy="108" r="3" fill="white" opacity="0.7" />
+      <circle class="wizard-pulse-dot-2" cx="62" cy="108" r="3" fill="white" opacity="0.7" />
+      <circle class="wizard-pulse-dot-3" cx="82" cy="108" r="3" fill="white" opacity="0.7" />
     </svg>
     """
   end
 
   defp illustration("realtime") do
     assigns = %{}
+
     ~H"""
     <svg viewBox="0 0 240 180" class="w-full max-w-[220px]" aria-hidden="true">
       <!-- Streaming lines -->
-      <rect class="wizard-block-1" x="10" y="24" width="220" height="10" rx="3" fill="#6366f1" opacity="0.6"/>
-      <rect class="wizard-block-2" x="10" y="42" width="180" height="10" rx="3" fill="#0ea5e9" opacity="0.5"/>
-      <rect class="wizard-block-3" x="10" y="60" width="200" height="10" rx="3" fill="#22c55e" opacity="0.4"/>
-      <rect class="wizard-block-4" x="10" y="78" width="160" height="10" rx="3" fill="#8b5cf6" opacity="0.45"/>
-      <rect class="wizard-block-1" x="10" y="96" width="220" height="10" rx="3" fill="#f59e0b" opacity="0.4"/>
-      <rect class="wizard-block-2" x="10" y="114" width="150" height="10" rx="3" fill="#6366f1" opacity="0.35"/>
+      <rect
+        class="wizard-block-1"
+        x="10"
+        y="24"
+        width="220"
+        height="10"
+        rx="3"
+        fill="#6366f1"
+        opacity="0.6"
+      />
+      <rect
+        class="wizard-block-2"
+        x="10"
+        y="42"
+        width="180"
+        height="10"
+        rx="3"
+        fill="#0ea5e9"
+        opacity="0.5"
+      />
+      <rect
+        class="wizard-block-3"
+        x="10"
+        y="60"
+        width="200"
+        height="10"
+        rx="3"
+        fill="#22c55e"
+        opacity="0.4"
+      />
+      <rect
+        class="wizard-block-4"
+        x="10"
+        y="78"
+        width="160"
+        height="10"
+        rx="3"
+        fill="#8b5cf6"
+        opacity="0.45"
+      />
+      <rect
+        class="wizard-block-1"
+        x="10"
+        y="96"
+        width="220"
+        height="10"
+        rx="3"
+        fill="#f59e0b"
+        opacity="0.4"
+      />
+      <rect
+        class="wizard-block-2"
+        x="10"
+        y="114"
+        width="150"
+        height="10"
+        rx="3"
+        fill="#6366f1"
+        opacity="0.35"
+      />
       <!-- Live badge -->
-      <rect class="wizard-node-1" x="170" y="140" width="56" height="20" rx="8" fill="#22c55e" opacity="0.85"/>
-      <circle class="wizard-pulse-dot" cx="181" cy="150" r="4" fill="white"/>
-      <text x="193" y="154" font-size="9" fill="white" font-family="sans-serif" font-weight="600">LIVE</text>
+      <rect
+        class="wizard-node-1"
+        x="170"
+        y="140"
+        width="56"
+        height="20"
+        rx="8"
+        fill="#22c55e"
+        opacity="0.85"
+      />
+      <circle class="wizard-pulse-dot" cx="181" cy="150" r="4" fill="white" />
+      <text x="193" y="154" font-size="9" fill="white" font-family="sans-serif" font-weight="600">
+        LIVE
+      </text>
       <!-- Arrow sweep -->
-      <path class="wizard-block-3" d="M 10 150 L 155 150" stroke="#6366f1" stroke-width="2" opacity="0.4" fill="none" stroke-dasharray="6 3"/>
+      <path
+        class="wizard-block-3"
+        d="M 10 150 L 155 150"
+        stroke="#6366f1"
+        stroke-width="2"
+        opacity="0.4"
+        fill="none"
+        stroke-dasharray="6 3"
+      />
     </svg>
     """
   end
 
   defp illustration("actions") do
     assigns = %{}
+
     ~H"""
     <svg viewBox="0 0 240 180" class="w-full max-w-[220px]" aria-hidden="true">
       <!-- Action cards -->
-      <rect class="wizard-node-1" x="10" y="14" width="100" height="50" rx="5" fill="#6366f1" opacity="0.2" stroke="#6366f1" stroke-width="1" stroke-opacity="0.5"/>
-      <rect class="wizard-node-2" x="125" y="14" width="100" height="50" rx="5" fill="#0ea5e9" opacity="0.2" stroke="#0ea5e9" stroke-width="1" stroke-opacity="0.5"/>
-      <rect class="wizard-node-3" x="10" y="76" width="100" height="50" rx="5" fill="#22c55e" opacity="0.2" stroke="#22c55e" stroke-width="1" stroke-opacity="0.5"/>
-      <rect class="wizard-node-4" x="125" y="76" width="100" height="50" rx="5" fill="#f59e0b" opacity="0.2" stroke="#f59e0b" stroke-width="1" stroke-opacity="0.5"/>
+      <rect
+        class="wizard-node-1"
+        x="10"
+        y="14"
+        width="100"
+        height="50"
+        rx="5"
+        fill="#6366f1"
+        opacity="0.2"
+        stroke="#6366f1"
+        stroke-width="1"
+        stroke-opacity="0.5"
+      />
+      <rect
+        class="wizard-node-2"
+        x="125"
+        y="14"
+        width="100"
+        height="50"
+        rx="5"
+        fill="#0ea5e9"
+        opacity="0.2"
+        stroke="#0ea5e9"
+        stroke-width="1"
+        stroke-opacity="0.5"
+      />
+      <rect
+        class="wizard-node-3"
+        x="10"
+        y="76"
+        width="100"
+        height="50"
+        rx="5"
+        fill="#22c55e"
+        opacity="0.2"
+        stroke="#22c55e"
+        stroke-width="1"
+        stroke-opacity="0.5"
+      />
+      <rect
+        class="wizard-node-4"
+        x="125"
+        y="76"
+        width="100"
+        height="50"
+        rx="5"
+        fill="#f59e0b"
+        opacity="0.2"
+        stroke="#f59e0b"
+        stroke-width="1"
+        stroke-opacity="0.5"
+      />
       <!-- Labels -->
-      <rect x="18" y="24" width="50" height="6" rx="2" fill="#6366f1" opacity="0.6"/>
-      <rect x="18" y="36" width="80" height="4" rx="2" fill="#6366f1" opacity="0.3"/>
-      <rect x="18" y="46" width="60" height="4" rx="2" fill="#6366f1" opacity="0.25"/>
-      <rect x="133" y="24" width="50" height="6" rx="2" fill="#0ea5e9" opacity="0.6"/>
-      <rect x="133" y="36" width="80" height="4" rx="2" fill="#0ea5e9" opacity="0.3"/>
-      <rect x="18" y="86" width="50" height="6" rx="2" fill="#22c55e" opacity="0.6"/>
-      <rect x="133" y="86" width="50" height="6" rx="2" fill="#f59e0b" opacity="0.6"/>
+      <rect x="18" y="24" width="50" height="6" rx="2" fill="#6366f1" opacity="0.6" />
+      <rect x="18" y="36" width="80" height="4" rx="2" fill="#6366f1" opacity="0.3" />
+      <rect x="18" y="46" width="60" height="4" rx="2" fill="#6366f1" opacity="0.25" />
+      <rect x="133" y="24" width="50" height="6" rx="2" fill="#0ea5e9" opacity="0.6" />
+      <rect x="133" y="36" width="80" height="4" rx="2" fill="#0ea5e9" opacity="0.3" />
+      <rect x="18" y="86" width="50" height="6" rx="2" fill="#22c55e" opacity="0.6" />
+      <rect x="133" y="86" width="50" height="6" rx="2" fill="#f59e0b" opacity="0.6" />
       <!-- Cursor -->
       <g class="wizard-cursor" style="transform-origin: 160px 130px;">
-        <path d="M 155 125 L 155 148 L 161 141 L 167 156 L 171 154 L 165 139 L 172 139 Z" fill="white" opacity="0.85"/>
+        <path
+          d="M 155 125 L 155 148 L 161 141 L 167 156 L 171 154 L 165 139 L 172 139 Z"
+          fill="white"
+          opacity="0.85"
+        />
       </g>
     </svg>
     """
@@ -642,29 +1001,76 @@ defmodule ApmWeb.Components.GettingStartedWizard do
 
   defp illustration("tasks") do
     assigns = %{}
+
     ~H"""
     <svg viewBox="0 0 240 180" class="w-full max-w-[220px]" aria-hidden="true">
       <!-- Table header -->
-      <rect class="wizard-block-1" x="10" y="16" width="220" height="20" rx="3" fill="#6366f1" opacity="0.5"/>
+      <rect
+        class="wizard-block-1"
+        x="10"
+        y="16"
+        width="220"
+        height="20"
+        rx="3"
+        fill="#6366f1"
+        opacity="0.5"
+      />
       <!-- Rows -->
-      <rect class="wizard-block-2" x="10" y="42" width="220" height="16" rx="2" fill="#1e293b" opacity="0.5"/>
-      <rect class="wizard-block-3" x="10" y="64" width="220" height="16" rx="2" fill="#1e293b" opacity="0.4"/>
-      <rect class="wizard-block-4" x="10" y="86" width="220" height="16" rx="2" fill="#1e293b" opacity="0.35"/>
-      <rect class="wizard-block-4" x="10" y="108" width="220" height="16" rx="2" fill="#1e293b" opacity="0.3"/>
+      <rect
+        class="wizard-block-2"
+        x="10"
+        y="42"
+        width="220"
+        height="16"
+        rx="2"
+        fill="#1e293b"
+        opacity="0.5"
+      />
+      <rect
+        class="wizard-block-3"
+        x="10"
+        y="64"
+        width="220"
+        height="16"
+        rx="2"
+        fill="#1e293b"
+        opacity="0.4"
+      />
+      <rect
+        class="wizard-block-4"
+        x="10"
+        y="86"
+        width="220"
+        height="16"
+        rx="2"
+        fill="#1e293b"
+        opacity="0.35"
+      />
+      <rect
+        class="wizard-block-4"
+        x="10"
+        y="108"
+        width="220"
+        height="16"
+        rx="2"
+        fill="#1e293b"
+        opacity="0.3"
+      />
       <!-- Status badges in rows -->
-      <rect x="160" y="46" width="44" height="8" rx="3" fill="#22c55e" opacity="0.7"/>
-      <rect x="160" y="68" width="44" height="8" rx="3" fill="#f59e0b" opacity="0.7"/>
-      <rect x="160" y="90" width="44" height="8" rx="3" fill="#0ea5e9" opacity="0.7"/>
-      <rect x="160" y="112" width="44" height="8" rx="3" fill="#ef4444" opacity="0.65"/>
+      <rect x="160" y="46" width="44" height="8" rx="3" fill="#22c55e" opacity="0.7" />
+      <rect x="160" y="68" width="44" height="8" rx="3" fill="#f59e0b" opacity="0.7" />
+      <rect x="160" y="90" width="44" height="8" rx="3" fill="#0ea5e9" opacity="0.7" />
+      <rect x="160" y="112" width="44" height="8" rx="3" fill="#ef4444" opacity="0.65" />
       <!-- Pulse on first row -->
-      <circle class="wizard-pulse-dot" cx="22" cy="50" r="4" fill="#22c55e" opacity="0.8"/>
-      <circle class="wizard-pulse-dot-2" cx="22" cy="72" r="4" fill="#f59e0b" opacity="0.8"/>
+      <circle class="wizard-pulse-dot" cx="22" cy="50" r="4" fill="#22c55e" opacity="0.8" />
+      <circle class="wizard-pulse-dot-2" cx="22" cy="72" r="4" fill="#f59e0b" opacity="0.8" />
     </svg>
     """
   end
 
   defp illustration("ports") do
     assigns = %{}
+
     ~H"""
     <svg viewBox="0 0 240 180" class="w-full max-w-[220px]" aria-hidden="true">
       <!-- Port grid -->
@@ -673,17 +1079,37 @@ defmodule ApmWeb.Components.GettingStartedWizard do
         <% row = div(idx, 3) %>
         <% x = 10 + col * 75 %>
         <% y = 20 + row * 65 %>
-        <% color = cond do
-          port == 3032 -> "#22c55e"
-          port == 4001 -> "#ef4444"
-          true -> "#6366f1"
-        end %>
-        <rect x={x} y={y} width="65" height="50" rx="5"
-              fill={color} opacity="0.15"
-              stroke={color} stroke-width="1" stroke-opacity="0.5"
-              class="wizard-node-1"/>
-        <text x={x + 32} y={y + 18} text-anchor="middle" font-size="11" fill={color} font-family="monospace" font-weight="600"><%= port %></text>
-        <circle cx={x + 32} cy={y + 34} r="5" fill={color} opacity="0.7" class="wizard-pulse-dot"/>
+        <% color =
+          cond do
+            port == 3032 -> "#22c55e"
+            port == 4001 -> "#ef4444"
+            true -> "#6366f1"
+          end %>
+        <rect
+          x={x}
+          y={y}
+          width="65"
+          height="50"
+          rx="5"
+          fill={color}
+          opacity="0.15"
+          stroke={color}
+          stroke-width="1"
+          stroke-opacity="0.5"
+          class="wizard-node-1"
+        />
+        <text
+          x={x + 32}
+          y={y + 18}
+          text-anchor="middle"
+          font-size="11"
+          fill={color}
+          font-family="monospace"
+          font-weight="600"
+        >
+          {port}
+        </text>
+        <circle cx={x + 32} cy={y + 34} r="5" fill={color} opacity="0.7" class="wizard-pulse-dot" />
       <% end %>
     </svg>
     """
@@ -691,34 +1117,81 @@ defmodule ApmWeb.Components.GettingStartedWizard do
 
   defp illustration(other) when other in ["scanner", "skills", "notifications", "upm"] do
     assigns = %{type: other}
+
     ~H"""
     <svg viewBox="0 0 240 180" class="w-full max-w-[220px]" aria-hidden="true">
       <!-- Generic scan / radar ring animation -->
-      <circle cx="120" cy="90" r="60" fill="none" stroke="#6366f1" stroke-width="1" opacity="0.25"/>
-      <circle cx="120" cy="90" r="40" fill="none" stroke="#6366f1" stroke-width="1" opacity="0.35"/>
-      <circle cx="120" cy="90" r="20" fill="#6366f1" opacity="0.2"/>
+      <circle cx="120" cy="90" r="60" fill="none" stroke="#6366f1" stroke-width="1" opacity="0.25" />
+      <circle cx="120" cy="90" r="40" fill="none" stroke="#6366f1" stroke-width="1" opacity="0.35" />
+      <circle cx="120" cy="90" r="20" fill="#6366f1" opacity="0.2" />
       <!-- Rotating sweep -->
       <g class="wizard-spin" style="transform-origin: 120px 90px;">
-        <line x1="120" y1="90" x2="120" y2="30" stroke="#6366f1" stroke-width="2" opacity="0.6"/>
-        <line x1="120" y1="90" x2="165" y2="60" stroke="#6366f1" stroke-width="1" opacity="0.3"/>
+        <line x1="120" y1="90" x2="120" y2="30" stroke="#6366f1" stroke-width="2" opacity="0.6" />
+        <line x1="120" y1="90" x2="165" y2="60" stroke="#6366f1" stroke-width="1" opacity="0.3" />
       </g>
       <!-- Center dot -->
-      <circle class="wizard-pulse-dot" cx="120" cy="90" r="6" fill="#22c55e"/>
+      <circle class="wizard-pulse-dot" cx="120" cy="90" r="6" fill="#22c55e" />
       <!-- Block rows -->
-      <rect class="wizard-block-3" x="10" y="160" width="100" height="8" rx="3" fill="#6366f1" opacity="0.4"/>
-      <rect class="wizard-block-4" x="120" y="160" width="80" height="8" rx="3" fill="#0ea5e9" opacity="0.35"/>
+      <rect
+        class="wizard-block-3"
+        x="10"
+        y="160"
+        width="100"
+        height="8"
+        rx="3"
+        fill="#6366f1"
+        opacity="0.4"
+      />
+      <rect
+        class="wizard-block-4"
+        x="120"
+        y="160"
+        width="80"
+        height="8"
+        rx="3"
+        fill="#0ea5e9"
+        opacity="0.35"
+      />
     </svg>
     """
   end
 
   defp illustration(_) do
     assigns = %{}
+
     ~H"""
     <svg viewBox="0 0 240 180" class="w-full max-w-[220px]" aria-hidden="true">
-      <rect class="wizard-block-1" x="10" y="30" width="220" height="28" rx="5" fill="#6366f1" opacity="0.7"/>
-      <rect class="wizard-block-2" x="10" y="70" width="180" height="18" rx="4" fill="#0ea5e9" opacity="0.55"/>
-      <rect class="wizard-block-3" x="10" y="98" width="200" height="18" rx="4" fill="#22c55e" opacity="0.5"/>
-      <circle class="wizard-pulse-dot" cx="218" cy="44" r="5" fill="#22c55e"/>
+      <rect
+        class="wizard-block-1"
+        x="10"
+        y="30"
+        width="220"
+        height="28"
+        rx="5"
+        fill="#6366f1"
+        opacity="0.7"
+      />
+      <rect
+        class="wizard-block-2"
+        x="10"
+        y="70"
+        width="180"
+        height="18"
+        rx="4"
+        fill="#0ea5e9"
+        opacity="0.55"
+      />
+      <rect
+        class="wizard-block-3"
+        x="10"
+        y="98"
+        width="200"
+        height="18"
+        rx="4"
+        fill="#22c55e"
+        opacity="0.5"
+      />
+      <circle class="wizard-pulse-dot" cx="218" cy="44" r="5" fill="#22c55e" />
     </svg>
     """
   end

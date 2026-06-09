@@ -19,7 +19,8 @@ defmodule Apm.Integrations.Agentlock.AgentlockIntegration do
   @impl true
   @spec integration_description() :: String.t()
   def integration_description,
-    do: "AgentLock authorization pipeline — 3-layer risk evaluation, token management, rate limiting, and audit trail."
+    do:
+      "AgentLock authorization pipeline — 3-layer risk evaluation, token management, rate limiting, and audit trail."
 
   @impl true
   @spec integration_version() :: String.t()
@@ -50,7 +51,12 @@ defmodule Apm.Integrations.Agentlock.AgentlockIntegration do
       %{
         action: "authorize",
         description: "Authorize a tool call for an agent/session",
-        params: %{agent_id: "string", session_id: "string", tool_name: "string", role: "string (optional)"}
+        params: %{
+          agent_id: "string",
+          session_id: "string",
+          tool_name: "string",
+          role: "string (optional)"
+        }
       },
       %{
         action: "summary",
@@ -72,7 +78,11 @@ defmodule Apm.Integrations.Agentlock.AgentlockIntegration do
 
   @impl true
   @spec handle_event(String.t(), map(), keyword()) :: {:ok, map()} | {:error, term()}
-  def handle_event("authorize", %{"agent_id" => agent_id, "session_id" => session_id, "tool_name" => tool_name} = params, _opts) do
+  def handle_event(
+        "authorize",
+        %{"agent_id" => agent_id, "session_id" => session_id, "tool_name" => tool_name} = params,
+        _opts
+      ) do
     role = Map.get(params, "role", "agent")
     extra = Map.drop(params, ["agent_id", "session_id", "tool_name", "role"])
 
@@ -97,7 +107,11 @@ defmodule Apm.Integrations.Agentlock.AgentlockIntegration do
     {:ok, %{tools: tools, count: length(tools)}}
   end
 
-  def handle_event("record_execution", %{"token_id" => token_id, "tool_name" => tool_name} = params, _opts) do
+  def handle_event(
+        "record_execution",
+        %{"token_id" => token_id, "tool_name" => tool_name} = params,
+        _opts
+      ) do
     result = Map.get(params, "result", %{})
     AuthorizationGate.record_execution(token_id, tool_name, result)
     {:ok, %{status: "recorded", token_id: token_id}}

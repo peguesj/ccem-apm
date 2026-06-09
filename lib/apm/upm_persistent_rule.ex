@@ -36,6 +36,7 @@ defmodule Apm.UpmPersistentRule do
   @spec check_rule() :: {:present, String.t()} | {:absent, String.t()}
   def check_rule do
     path = Path.expand(@claude_md_path)
+
     case File.read(path) do
       {:ok, content} ->
         if String.contains?(content, @rule_marker) do
@@ -43,8 +44,10 @@ defmodule Apm.UpmPersistentRule do
         else
           {:absent, "Rule not found in #{path}"}
         end
+
       {:error, :enoent} ->
         {:absent, "#{path} does not exist"}
+
       {:error, reason} ->
         {:absent, "Cannot read #{path}: #{inspect(reason)}"}
     end
@@ -53,22 +56,26 @@ defmodule Apm.UpmPersistentRule do
   @spec insert_rule() :: {:ok, String.t()} | {:error, String.t()}
   def insert_rule do
     path = Path.expand(@claude_md_path)
+
     case File.read(path) do
       {:ok, content} ->
         if String.contains?(content, @rule_marker) do
           {:ok, "Rule already present in #{path}"}
         else
           new_content = content <> @rule_content
+
           case File.write(path, new_content) do
             :ok -> {:ok, "Rule inserted into #{path}"}
             {:error, reason} -> {:error, "Cannot write #{path}: #{inspect(reason)}"}
           end
         end
+
       {:error, :enoent} ->
         case File.write(path, @rule_content) do
           :ok -> {:ok, "Created #{path} with rule"}
           {:error, reason} -> {:error, inspect(reason)}
         end
+
       {:error, reason} ->
         {:error, "Cannot read #{path}: #{inspect(reason)}"}
     end

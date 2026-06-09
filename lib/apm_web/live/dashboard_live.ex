@@ -182,7 +182,9 @@ defmodule ApmWeb.DashboardLive do
   defp load_widget_layout(socket) do
     try do
       case LayoutStore.get_user_layout(socket.id) do
-        %{placements: placements} -> placements
+        %{placements: placements} ->
+          placements
+
         _ ->
           preset = LayoutStore.get_preset("default")
           if preset, do: preset.placements, else: []
@@ -202,16 +204,20 @@ defmodule ApmWeb.DashboardLive do
 
   defp filter_by_agent_type(agents, nil), do: agents
   defp filter_by_agent_type(agents, ""), do: agents
-  defp filter_by_agent_type(agents, t), do: Enum.filter(agents, &((&1[:agent_type] || "individual") == t))
+
+  defp filter_by_agent_type(agents, t),
+    do: Enum.filter(agents, &((&1[:agent_type] || "individual") == t))
 
   defp filter_by_query(agents, nil), do: agents
   defp filter_by_query(agents, ""), do: agents
+
   defp filter_by_query(agents, q) do
     q = String.downcase(q)
+
     Enum.filter(agents, fn a ->
       String.contains?(String.downcase(a.name || ""), q) ||
-      String.contains?(String.downcase(a.id || ""), q) ||
-      String.contains?(String.downcase(a[:namespace] || ""), q)
+        String.contains?(String.downcase(a.id || ""), q) ||
+        String.contains?(String.downcase(a[:namespace] || ""), q)
     end)
   end
 
@@ -300,14 +306,14 @@ defmodule ApmWeb.DashboardLive do
             <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
               <.badge tone="warning" dot>Approval Required</.badge>
               <span style="font-family: var(--ccem-font-mono); color: var(--ccem-warn); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                <%= label %>
+                {label}
               </span>
               <span style="color: var(--ccem-fg-dim);">&middot;</span>
               <span style="color: var(--ccem-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                <%= agent_lbl %>
+                {agent_lbl}
               </span>
               <span style="color: var(--ccem-fg-dim);">&middot;</span>
-              <span style="color: var(--ccem-fg-muted);"><%= top.risk_level %> risk</span>
+              <span style="color: var(--ccem-fg-muted);">{top.risk_level} risk</span>
               <div
                 phx-hook="CountdownTimer"
                 id={"dashboard-toast-cd-#{top.request_id}"}
@@ -317,14 +323,19 @@ defmodule ApmWeb.DashboardLive do
                 <span data-countdown-display>20s</span>
               </div>
               <%= if length(@agentlock_pending) > 1 do %>
-                <.badge tone="warning" square><%= length(@agentlock_pending) %></.badge>
+                <.badge tone="warning" square>{length(@agentlock_pending)}</.badge>
               <% end %>
             </div>
             <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
               <.btn variant="primary" size="xs" phx-click="approve_gate" phx-value-id={top.request_id}>
                 Approve
               </.btn>
-              <.btn variant="destructive" size="xs" phx-click="deny_gate" phx-value-id={top.request_id}>
+              <.btn
+                variant="destructive"
+                size="xs"
+                phx-click="deny_gate"
+                phx-value-id={top.request_id}
+              >
                 Deny
               </.btn>
               <.link navigate="/authorization">
@@ -402,8 +413,10 @@ defmodule ApmWeb.DashboardLive do
                     node={@hierarchy}
                     depth={0}
                     expanded={@list_expanded_nodes}
-                    selected_id={@selected_agent &&
-                      (@selected_agent[:id] || @selected_agent["id"])}
+                    selected_id={
+                      @selected_agent &&
+                        (@selected_agent[:id] || @selected_agent["id"])
+                    }
                   />
                 <% else %>
                   <div style="text-align: center; font-size: 12px; color: var(--ccem-fg-faint); padding: 48px 0;">
@@ -435,7 +448,9 @@ defmodule ApmWeb.DashboardLive do
                 />
                 <.badge :if={@filter_status} tone="accent">{@filter_status}</.badge>
                 <.btn
-                  :if={@filter_status || @filter_namespace || @filter_agent_type || @filter_query != ""}
+                  :if={
+                    @filter_status || @filter_namespace || @filter_agent_type || @filter_query != ""
+                  }
                   variant="ghost"
                   size="xs"
                   phx-click="clear_filters"
@@ -591,8 +606,10 @@ defmodule ApmWeb.DashboardLive do
                 </.btn>
               </div>
               <.btn
-                :if={@filter_status || @filter_namespace || @filter_agent_type ||
-                  @filter_query != ""}
+                :if={
+                  @filter_status || @filter_namespace || @filter_agent_type ||
+                    @filter_query != ""
+                }
                 variant="destructive"
                 size="sm"
                 phx-click="clear_filters"
@@ -607,7 +624,6 @@ defmodule ApmWeb.DashboardLive do
     </.page_layout>
     """
   end
-
 
   # --- Event Handlers ---
 
@@ -638,10 +654,12 @@ defmodule ApmWeb.DashboardLive do
   # Chat events
   def handle_event("chat:send", %{"content" => content}, socket) when content != "" do
     scope = socket.assigns.chat_scope
-    metadata = case socket.assigns.selected_agent do
-      nil -> %{}
-      agent -> %{"agent_id" => agent.id}
-    end
+
+    metadata =
+      case socket.assigns.selected_agent do
+        nil -> %{}
+        agent -> %{"agent_id" => agent.id}
+      end
 
     case ChatStore.send_message(scope, content, metadata) do
       {:ok, _msg} ->
@@ -651,7 +669,9 @@ defmodule ApmWeb.DashboardLive do
   end
 
   def handle_event("chat:send", _params, socket), do: {:noreply, socket}
-  def handle_event("chat:input", %{"content" => val}, socket), do: {:noreply, assign(socket, :chat_input, val)}
+
+  def handle_event("chat:input", %{"content" => val}, socket),
+    do: {:noreply, assign(socket, :chat_input, val)}
 
   # Scope navigation — re-subscribe to new chat scope PubSub topic
   def handle_event("scope:set", %{"scope" => scope}, socket) do
@@ -681,6 +701,7 @@ defmodule ApmWeb.DashboardLive do
     session_id = socket.id
     WidgetConfigStore.put_config(session_id, widget_id, config)
     updated_configs = WidgetConfigStore.get_all_configs(session_id)
+
     {:noreply,
      socket
      |> assign(:widget_edit_panel_id, nil)
@@ -700,7 +721,11 @@ defmodule ApmWeb.DashboardLive do
     {:noreply, socket}
   end
 
-  def handle_event("widget_scope_select", %{"scope_type" => scope_type_str, "scope_value" => scope_value}, socket) do
+  def handle_event(
+        "widget_scope_select",
+        %{"scope_type" => scope_type_str, "scope_value" => scope_value},
+        socket
+      ) do
     session_id = socket.id
     scope_type = String.to_existing_atom(scope_type_str)
     DashboardScopeEngine.broadcast_scope(session_id, scope_type, scope_value)
@@ -709,7 +734,8 @@ defmodule ApmWeb.DashboardLive do
     ArgumentError -> {:noreply, socket}
   end
 
-  def handle_event("layout_reorder", %{"order" => widget_order}, socket) when is_list(widget_order) do
+  def handle_event("layout_reorder", %{"order" => widget_order}, socket)
+      when is_list(widget_order) do
     session_id = socket.id
     current_layout = LayoutStore.get_user_layout(session_id) || %{}
     LayoutStore.save_user_layout(session_id, Map.put(current_layout, :widget_order, widget_order))
@@ -720,6 +746,7 @@ defmodule ApmWeb.DashboardLive do
     case LayoutStore.get_preset(preset_id) do
       nil ->
         {:noreply, socket}
+
       preset ->
         {:noreply, assign(socket, :widget_layout_placements, preset.placements)}
     end
@@ -727,15 +754,16 @@ defmodule ApmWeb.DashboardLive do
 
   # Agent control events — call registry directly (same server)
   def handle_event("agent:control", %{"action" => action, "id" => id}, socket) do
-    new_status = case action do
-      "connect" -> "active"
-      "disconnect" -> "offline"
-      "restart" -> "active"
-      "stop" -> "offline"
-      "pause" -> "idle"
-      "resume" -> "active"
-      _ -> nil
-    end
+    new_status =
+      case action do
+        "connect" -> "active"
+        "disconnect" -> "offline"
+        "restart" -> "active"
+        "stop" -> "offline"
+        "pause" -> "idle"
+        "resume" -> "active"
+        _ -> nil
+      end
 
     if new_status do
       AgentRegistry.update_agent(id, %{status: new_status})
@@ -747,14 +775,16 @@ defmodule ApmWeb.DashboardLive do
   end
 
   def handle_event("formation:control", %{"action" => action, "id" => formation_id}, socket) do
-    agents = AgentRegistry.list_agents()
-    |> Enum.filter(fn a -> (a[:formation_id] || a["formation_id"]) == formation_id end)
+    agents =
+      AgentRegistry.list_agents()
+      |> Enum.filter(fn a -> (a[:formation_id] || a["formation_id"]) == formation_id end)
 
-    new_status = case action do
-      "restart" -> "active"
-      "stop" -> "offline"
-      _ -> nil
-    end
+    new_status =
+      case action do
+        "restart" -> "active"
+        "stop" -> "offline"
+        _ -> nil
+      end
 
     if new_status do
       Enum.each(agents, fn a ->
@@ -825,10 +855,12 @@ defmodule ApmWeb.DashboardLive do
 
   def handle_event("toggle_graph", _params, socket) do
     expanded = !socket.assigns.graph_expanded
+
     socket =
       socket
       |> assign(:graph_expanded, expanded)
       |> push_event("graph_resize", %{expanded: expanded})
+
     {:noreply, socket}
   end
 
@@ -1026,6 +1058,7 @@ defmodule ApmWeb.DashboardLive do
     safe_call(fn -> PortManager.scan_active_ports() end, :ok)
     project_configs = safe_call(fn -> PortManager.get_project_configs() end, %{})
     port_clashes = safe_call(fn -> PortManager.detect_clashes() end, [])
+
     {:noreply,
      socket
      |> assign(:project_configs, project_configs)
@@ -1158,7 +1191,9 @@ defmodule ApmWeb.DashboardLive do
   def handle_info({:port_assigned, _, _}, socket) do
     project_configs = safe_call(fn -> PortManager.get_project_configs() end, %{})
     port_clashes = safe_call(fn -> PortManager.detect_clashes() end, [])
-    {:noreply, socket |> assign(:project_configs, project_configs) |> assign(:port_clashes, port_clashes)}
+
+    {:noreply,
+     socket |> assign(:project_configs, project_configs) |> assign(:port_clashes, port_clashes)}
   end
 
   # US-017: Handle AG-UI EventBus events
@@ -1199,6 +1234,7 @@ defmodule ApmWeb.DashboardLive do
   # US-003: AgentLock pending decision real-time updates (floating banner)
   def handle_info({:pending_decision_added, entry}, socket) do
     pending = [entry | socket.assigns.agentlock_pending]
+
     {:noreply,
      socket
      |> assign(:agentlock_pending, pending)
@@ -1219,36 +1255,40 @@ defmodule ApmWeb.DashboardLive do
   # AgentLock authorization decision toasts
   def handle_info({:auth_denied, %{tool_name: tool, agent_id: _agent} = data}, socket) do
     risk = data |> Map.get(:risk_level, :unknown) |> to_string()
-    {:noreply, push_event(socket, "show_toast", %{
-      type: "error",
-      title: "AgentLock: #{tool} DENIED",
-      message: "risk: #{risk}",
-      category: "agentlock"
-    })}
+
+    {:noreply,
+     push_event(socket, "show_toast", %{
+       type: "error",
+       title: "AgentLock: #{tool} DENIED",
+       message: "risk: #{risk}",
+       category: "agentlock"
+     })}
   end
 
   def handle_info({:auth_granted, %{tool_name: tool} = data}, socket) do
     risk = data |> Map.get(:risk_level, :none) |> to_string()
 
     if risk in ["high", "critical"] do
-      {:noreply, push_event(socket, "show_toast", %{
-        type: "warning",
-        title: "AgentLock: #{tool} authorized",
-        message: "high risk operation permitted",
-        category: "agentlock"
-      })}
+      {:noreply,
+       push_event(socket, "show_toast", %{
+         type: "warning",
+         title: "AgentLock: #{tool} authorized",
+         message: "high risk operation permitted",
+         category: "agentlock"
+       })}
     else
       {:noreply, socket}
     end
   end
 
   def handle_info({:auth_escalated, %{tool_name: tool}}, socket) do
-    {:noreply, push_event(socket, "show_toast", %{
-      type: "warning",
-      title: "AgentLock: #{tool} escalated",
-      message: "approval required",
-      category: "agentlock"
-    })}
+    {:noreply,
+     push_event(socket, "show_toast", %{
+       type: "warning",
+       title: "AgentLock: #{tool} escalated",
+       message: "approval required",
+       category: "agentlock"
+     })}
   end
 
   def handle_info({:token_consumed, _}, socket), do: {:noreply, socket}
@@ -1409,16 +1449,22 @@ defmodule ApmWeb.DashboardLive do
     # 3. .claude/ralph/ directory presence
     ralph_detected =
       prd_path != nil or
-      ralph_detected_via_skills?() or
-      ralph_dir_present?(project_config)
+        ralph_detected_via_skills?() or
+        ralph_dir_present?(project_config)
 
     case Ralph.load(prd_path) do
       {:ok, data} ->
         data
 
       _ when ralph_detected ->
-        %{project: project_name || "", branch: "", description: "Ralph detected via skills/directory",
-          stories: [], total: 0, passed: 0}
+        %{
+          project: project_name || "",
+          branch: "",
+          description: "Ralph detected via skills/directory",
+          stories: [],
+          total: 0,
+          passed: 0
+        }
 
       _ ->
         %{project: "", branch: "", description: "", stories: [], total: 0, passed: 0}
@@ -1435,6 +1481,7 @@ defmodule ApmWeb.DashboardLive do
   end
 
   defp ralph_dir_present?(nil), do: false
+
   defp ralph_dir_present?(project_config) do
     root = project_config["root"]
     root != nil and File.dir?(Path.join(root, ".claude/ralph"))
@@ -1509,6 +1556,7 @@ defmodule ApmWeb.DashboardLive do
     total = length(stories)
     "#{passed}/#{total} passed"
   end
+
   defp upm_story_summary(_), do: ""
 
   defp safe_get_config do
@@ -1591,15 +1639,18 @@ defmodule ApmWeb.DashboardLive do
         <%!-- Expand/collapse chevron --%>
         <span class="w-3 flex-shrink-0 text-[10px] text-base-content/40">
           <%= cond do %>
-            <% @has_children && @is_expanded -> %>&#x25BE;
-            <% @has_children -> %>&#x25B8;
-            <% true -> %>&nbsp;
+            <% @has_children && @is_expanded -> %>
+              &#x25BE;
+            <% @has_children -> %>
+              &#x25B8;
+            <% true -> %>
+              &nbsp;
           <% end %>
         </span>
 
         <%!-- Type icon --%>
         <span class={["text-[11px] flex-shrink-0", status_text_class(@node_status)]}>
-          <%= node_type_icon(@node_type) %>
+          {node_type_icon(@node_type)}
         </span>
 
         <%!-- Name --%>
@@ -1618,7 +1669,8 @@ defmodule ApmWeb.DashboardLive do
 
         <%!-- Status dot for agents --%>
         <%= if @node_type == "agent" do %>
-          <span class={["w-1.5 h-1.5 rounded-full flex-shrink-0", status_dot_class(@node_status)]}></span>
+          <span class={["w-1.5 h-1.5 rounded-full flex-shrink-0", status_dot_class(@node_status)]}>
+          </span>
         <% end %>
       </div>
 

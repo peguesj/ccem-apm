@@ -71,11 +71,12 @@ defmodule Apm.Plugins.ClaudeCode.ClaudeCodePlugin do
   def handle_action("discover_settings", _params, _opts) do
     case read_settings_json() do
       {:ok, settings} ->
-        {:ok, %{
-          settings: sanitize_settings(settings),
-          path: resolve_settings_path(),
-          discovered_at: DateTime.utc_now() |> DateTime.to_iso8601()
-        }}
+        {:ok,
+         %{
+           settings: sanitize_settings(settings),
+           path: resolve_settings_path(),
+           discovered_at: DateTime.utc_now() |> DateTime.to_iso8601()
+         }}
 
       {:error, reason} ->
         {:error, {:settings_read_failed, reason}}
@@ -215,7 +216,9 @@ defmodule Apm.Plugins.ClaudeCode.ClaudeCodePlugin do
 
   defp resolve_settings_path do
     # Check project-level first, then user-level
-    project_settings = Path.join([System.get_env("HOME"), "Developer", "ccem", ".claude", "settings.json"])
+    project_settings =
+      Path.join([System.get_env("HOME"), "Developer", "ccem", ".claude", "settings.json"])
+
     user_settings = Path.join(@claude_home, "settings.json")
 
     cond do
@@ -240,9 +243,11 @@ defmodule Apm.Plugins.ClaudeCode.ClaudeCodePlugin do
     |> Map.drop(["apiKey", "apiKeys", "credentials", "tokens"])
     |> Map.update("mcpServers", %{}, fn servers ->
       Map.new(servers, fn {name, config} ->
-        sanitized = Map.update(config, "env", %{}, fn env ->
-          Map.new(env, fn {k, _v} -> {k, "<redacted>"} end)
-        end)
+        sanitized =
+          Map.update(config, "env", %{}, fn env ->
+            Map.new(env, fn {k, _v} -> {k, "<redacted>"} end)
+          end)
+
         {name, sanitized}
       end)
     end)

@@ -34,7 +34,7 @@ defmodule ApmWeb.Components.Data.JsonViewer do
   def json_viewer(assigns) do
     ~H"""
     <div class="apm-json-viewer apm-mono" {@rest}>
-      <%= render_json_value(@data, 0) %>
+      {render_json_value(@data, 0)}
     </div>
     """
   end
@@ -62,6 +62,7 @@ defmodule ApmWeb.Components.Data.JsonViewer do
       |> Enum.with_index()
       |> Enum.map(fn {item, i} ->
         comma = if i < length(list) - 1, do: ",", else: ""
+
         ~s(<div style="margin-left:#{(depth + 1) * 14}px">#{Phoenix.HTML.safe_to_string(render_json_value(item, depth + 1))}#{comma}</div>)
       end)
       |> Enum.join("")
@@ -78,7 +79,10 @@ defmodule ApmWeb.Components.Data.JsonViewer do
       |> Enum.with_index()
       |> Enum.map(fn {{k, v}, i} ->
         comma = if i < n - 1, do: ",", else: ""
-        key_html = ~s(<span class="apm-json--key">#{Phoenix.HTML.html_escape(to_string(k)) |> Phoenix.HTML.safe_to_string()}</span>)
+
+        key_html =
+          ~s(<span class="apm-json--key">#{Phoenix.HTML.html_escape(to_string(k)) |> Phoenix.HTML.safe_to_string()}</span>)
+
         val_html = Phoenix.HTML.safe_to_string(render_json_value(v, depth + 1))
         ~s(<div style="margin-left:#{(depth + 1) * 14}px">#{key_html}: #{val_html}#{comma}</div>)
       end)

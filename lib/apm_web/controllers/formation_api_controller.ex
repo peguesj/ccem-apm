@@ -19,15 +19,16 @@ defmodule ApmWeb.FormationApiController do
   alias Apm.AgentRegistry
   alias Apm.Upm.FormationStateMachine
 
-  operation :list_formations,
+  operation(:list_formations,
     summary: "List formations",
     description: "Returns all formations from UpmStore.",
     tags: ["Formations"],
     responses: [
       ok: {"Formation list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :get_formation,
+  operation(:get_formation,
     summary: "Get formation",
     description: "Returns a single formation by ID with its agents.",
     tags: ["Formations"],
@@ -38,32 +39,39 @@ defmodule ApmWeb.FormationApiController do
       ok: {"Formation detail", "application/json", Schemas.OkResponse},
       not_found: {"Not found", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :create_formation,
+  operation(:create_formation,
     summary: "Create formation",
     description: "Creates a new formation from a template or raw params. Broadcasts via PubSub.",
     tags: ["Formations"],
-    request_body: {"Formation payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Formation payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       created: {"Formation created", "application/json", Schemas.OkResponse},
       unprocessable_entity: {"Unknown template", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :update_formation,
+  operation(:update_formation,
     summary: "Update formation",
-    description: "Updates a formation's attributes. Validates state transitions via FormationStateMachine.",
+    description:
+      "Updates a formation's attributes. Validates state transitions via FormationStateMachine.",
     tags: ["Formations"],
     parameters: [
       id: [in: :path, type: :string, required: true, description: "Formation ID"]
     ],
-    request_body: {"Formation update payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Formation update payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Formation updated", "application/json", Schemas.OkResponse},
       not_found: {"Not found", "application/json", Schemas.ErrorResponse},
-      unprocessable_entity: {"Invalid state transition", "application/json", Schemas.ErrorResponse}
+      unprocessable_entity:
+        {"Invalid state transition", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :get_formation_agents,
+  operation(:get_formation_agents,
     summary: "List formation agents",
     description: "Returns all agents belonging to a formation.",
     tags: ["Formations"],
@@ -73,8 +81,9 @@ defmodule ApmWeb.FormationApiController do
     responses: [
       ok: {"Formation agents", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :dot,
+  operation(:dot,
     summary: "Formation DOT graph",
     description: "Returns a Graphviz DOT source string for the formation's agent graph.",
     tags: ["Formations"],
@@ -85,6 +94,7 @@ defmodule ApmWeb.FormationApiController do
       ok: {"DOT source (text/plain)", "text/plain", %Schema{type: :string}},
       not_found: {"Formation not found", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
   # Catch-all for any action not explicitly annotated above.
   def open_api_operation(_action), do: nil
@@ -123,11 +133,16 @@ defmodule ApmWeb.FormationApiController do
       {:ok, id} ->
         formation = UpmStore.get_formation(id)
 
-        Phoenix.PubSub.broadcast(@pubsub, @topic, {:formation_created, %{
-          id: id,
-          name: formation.name,
-          template: template_name
-        }})
+        Phoenix.PubSub.broadcast(
+          @pubsub,
+          @topic,
+          {:formation_created,
+           %{
+             id: id,
+             name: formation.name,
+             template: template_name
+           }}
+        )
 
         conn
         |> put_status(201)
@@ -144,11 +159,16 @@ defmodule ApmWeb.FormationApiController do
     {:ok, id} = UpmStore.register_formation(params)
     formation = UpmStore.get_formation(id)
 
-    Phoenix.PubSub.broadcast(@pubsub, @topic, {:formation_created, %{
-      id: id,
-      name: params["name"],
-      formation_id: params["formation_id"]
-    }})
+    Phoenix.PubSub.broadcast(
+      @pubsub,
+      @topic,
+      {:formation_created,
+       %{
+         id: id,
+         name: params["name"],
+         formation_id: params["formation_id"]
+       }}
+    )
 
     conn
     |> put_status(201)
@@ -167,11 +187,15 @@ defmodule ApmWeb.FormationApiController do
           attrs
 
         requested_status ->
-          with {:parse_new, {:ok, new_state}} <- {:parse_new, FormationStateMachine.parse(requested_status)},
+          with {:parse_new, {:ok, new_state}} <-
+                 {:parse_new, FormationStateMachine.parse(requested_status)},
                formation when not is_nil(formation) <- UpmStore.get_formation(id),
-               current_raw = Map.get(formation, :status) || Map.get(formation, "status") || "registered",
-               {:parse_current, {:ok, current_state}} <- {:parse_current, FormationStateMachine.parse(current_raw)},
-               {:transition, {:ok, _}} <- {:transition, FormationStateMachine.transition(current_state, new_state)} do
+               current_raw =
+                 Map.get(formation, :status) || Map.get(formation, "status") || "registered",
+               {:parse_current, {:ok, current_state}} <-
+                 {:parse_current, FormationStateMachine.parse(current_raw)},
+               {:transition, {:ok, _}} <-
+                 {:transition, FormationStateMachine.transition(current_state, new_state)} do
             # Normalize status to string for backward compat storage
             Map.put(attrs, "status", Atom.to_string(new_state))
           else
@@ -206,10 +230,15 @@ defmodule ApmWeb.FormationApiController do
           :ok ->
             formation = UpmStore.get_formation(id)
 
-            Phoenix.PubSub.broadcast(@pubsub, @topic, {:formation_updated, %{
-              id: id,
-              attrs: clean_attrs
-            }})
+            Phoenix.PubSub.broadcast(
+              @pubsub,
+              @topic,
+              {:formation_updated,
+               %{
+                 id: id,
+                 attrs: clean_attrs
+               }}
+            )
 
             json(conn, formation)
 

@@ -87,9 +87,7 @@ defmodule Apm.Orchestration.FormationReactor do
 
       run_id = Map.get(context, :run_id, "unknown")
 
-      Logger.warning(
-        "[FormationReactor] Undoing (successful) wave #{wave_id} for run #{run_id}"
-      )
+      Logger.warning("[FormationReactor] Undoing (successful) wave #{wave_id} for run #{run_id}")
 
       broadcast_saga_event(run_id, wave_id)
 

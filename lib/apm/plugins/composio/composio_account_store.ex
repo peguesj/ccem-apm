@@ -45,7 +45,9 @@ defmodule Apm.Plugins.Composio.ComposioAccountStore do
           put_accounts(user_id, accounts)
 
         {:error, reason} ->
-          Logger.warning("[ComposioAccountStore] refresh_accounts(#{user_id}) failed: #{inspect(reason)}")
+          Logger.warning(
+            "[ComposioAccountStore] refresh_accounts(#{user_id}) failed: #{inspect(reason)}"
+          )
       end
     end)
 

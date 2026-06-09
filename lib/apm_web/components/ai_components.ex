@@ -51,8 +51,11 @@ defmodule ApmWeb.Components.AiComponents do
   attr :rest, :global
 
   def sparkline(assigns) do
-    assigns = assign(assigns, :points_str, sparkline_points(assigns.data, assigns.width, assigns.height))
-    assigns = assign(assigns, :last_point, sparkline_last(assigns.data, assigns.width, assigns.height))
+    assigns =
+      assign(assigns, :points_str, sparkline_points(assigns.data, assigns.width, assigns.height))
+
+    assigns =
+      assign(assigns, :last_point, sparkline_last(assigns.data, assigns.width, assigns.height))
 
     ~H"""
     <svg
@@ -114,7 +117,7 @@ defmodule ApmWeb.Components.AiComponents do
     pad = 2
     usable_h = height - pad * 2
     last_v = List.last(data)
-    x = width - pad |> Kernel.-(0.0)
+    x = (width - pad) |> Kernel.-(0.0)
     y = pad + usable_h - (last_v - min) / range * usable_h
     {x, y}
   end
@@ -143,7 +146,10 @@ defmodule ApmWeb.Components.AiComponents do
   def streaming_text(assigns) do
     ~H"""
     <span class={["font-mono text-sm", @class]} style="color: var(--ccem-fg);">
-      {@text}<%= if @streaming do %><span class="ccem-caret" aria-hidden="true"></span><% end %>
+      {@text}
+      <%= if @streaming do %>
+        <span class="ccem-caret" aria-hidden="true"></span>
+      <% end %>
     </span>
     """
   end
@@ -332,7 +338,9 @@ defmodule ApmWeb.Components.AiComponents do
         font-family="'Geist Mono', monospace"
         font-size={round(@size * 0.22)}
         fill="var(--ccem-fg)"
-      >{@clamped}</text>
+      >
+        {@clamped}
+      </text>
       <%= if @label do %>
         <text
           x={@cx}
@@ -342,7 +350,9 @@ defmodule ApmWeb.Components.AiComponents do
           font-family="'Geist', sans-serif"
           font-size={round(@size * 0.14)}
           fill="var(--ccem-fg-muted)"
-        >{@label}</text>
+        >
+          {@label}
+        </text>
       <% end %>
     </svg>
     """
@@ -396,7 +406,7 @@ defmodule ApmWeb.Components.AiComponents do
             "position: absolute; bottom: 0; right: 0;",
             "width: 7px; height: 7px; border-radius: 50%;",
             "border: 1.5px solid var(--ccem-bg-0);",
-            "background: #{if user[:status] == "active", do: "var(--ccem-accent)", else: "var(--ccem-fg-faint)"};",
+            "background: #{if user[:status] == "active", do: "var(--ccem-accent)", else: "var(--ccem-fg-faint)"};"
           ]} />
         </div>
       <% end %>
@@ -408,7 +418,7 @@ defmodule ApmWeb.Components.AiComponents do
           "display: flex; align-items: center; justify-content: center;",
           "font-family: 'Geist Mono', monospace; font-size: 9px;",
           "color: var(--ccem-fg-dim);",
-          "flex-shrink: 0; margin-left: -8px;",
+          "flex-shrink: 0; margin-left: -8px;"
         ]}>
           +{@overflow}
         </div>
@@ -457,14 +467,19 @@ defmodule ApmWeb.Components.AiComponents do
         "border-radius: 8px;",
         "background: var(--ccem-bg-1);",
         "border: 1px solid var(--ccem-line-subtle);",
-        "display: flex; flex-direction: column; gap: 8px;",
+        "display: flex; flex-direction: column; gap: 8px;"
       ]}
       {@rest}
     >
       <div style="display: flex; align-items: center; gap: 8px;">
         <%!-- Identicon --%>
-        <svg width="28" height="28" viewBox="0 0 5 5" xmlns="http://www.w3.org/2000/svg"
-             style="border-radius: 4px; flex-shrink: 0; background: var(--ccem-bg-2);">
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 5 5"
+          xmlns="http://www.w3.org/2000/svg"
+          style="border-radius: 4px; flex-shrink: 0; background: var(--ccem-bg-2);"
+        >
           <%= for {row, col, on} <- @identicon_cells do %>
             <%= if on do %>
               <rect x={col} y={row} width="1" height="1" fill="var(--ccem-accent)" opacity="0.9" />
@@ -604,7 +619,7 @@ defmodule ApmWeb.Components.AiComponents do
           height={round(item.value / @max_val * @height)}
           rx="2"
           fill={item[:color] || "var(--ccem-accent)"}
-          style={"transition: height var(--ccem-dur-base) var(--ccem-ease-out), y var(--ccem-dur-base) var(--ccem-ease-out)"}
+          style="transition: height var(--ccem-dur-base) var(--ccem-ease-out), y var(--ccem-dur-base) var(--ccem-ease-out)"
         />
       <% end %>
     </svg>

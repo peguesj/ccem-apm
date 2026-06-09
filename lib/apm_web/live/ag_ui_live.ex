@@ -6,7 +6,6 @@ defmodule ApmWeb.AgUiLive do
 
   use ApmWeb, :live_view
 
-
   alias Apm.AgUi.EventRouter
   alias Apm.AgUi.StateManager
   alias Apm.AgentRegistry
@@ -38,7 +37,9 @@ defmodule ApmWeb.AgUiLive do
       |> assign(:event_types, @event_types)
       |> assign(:paused, false)
 
-    {:ok, socket |> assign(:sidebar_collapsed, false)
+    {:ok,
+     socket
+     |> assign(:sidebar_collapsed, false)
      |> assign(:inspector_open, false)
      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -51,130 +52,154 @@ defmodule ApmWeb.AgUiLive do
         <.sidebar_nav current_path="/ag-ui" />
       </:sidebar>
       <:main>
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <div class="flex items-center gap-3">
-            <h2 class="text-sm font-semibold">AG-UI Protocol</h2>
-            <div class="badge badge-sm badge-ghost">{length(@events)} events</div>
-            <div class="badge badge-sm badge-ghost">{@router_stats.routed_count} routed</div>
-          </div>
-          <div class="flex items-center gap-2">
-            <button phx-click="toggle_pause" class={["btn btn-xs", @paused && "btn-warning" || "btn-ghost"]}>
-              <.icon name={if @paused, do: "hero-play", else: "hero-pause"} class="size-3" />
-              {if @paused, do: "Resume", else: "Pause"}
-            </button>
-            <button phx-click="clear_events" class="btn btn-ghost btn-xs">
-              <.icon name="hero-trash" class="size-3" /> Clear
-            </button>
-            <button phx-click="refresh" class="btn btn-ghost btn-xs">
-              <.icon name="hero-arrow-path" class="size-3" /> Refresh
-            </button>
-          </div>
-        </header>
-
-        <div class="flex-1 flex overflow-hidden">
-          <%!-- Event feed --%>
-          <div class="flex-1 flex flex-col overflow-hidden">
-            <%!-- Type filters --%>
-            <div class="flex flex-wrap gap-1 p-2 border-b border-base-300 bg-base-200">
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <%!-- Header --%>
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+              <h2 class="text-sm font-semibold">AG-UI Protocol</h2>
+              <div class="badge badge-sm badge-ghost">{length(@events)} events</div>
+              <div class="badge badge-sm badge-ghost">{@router_stats.routed_count} routed</div>
+            </div>
+            <div class="flex items-center gap-2">
               <button
-                :for={type <- @event_types}
-                phx-click="toggle_type"
-                phx-value-type={type}
-                class={[
-                  "badge badge-sm cursor-pointer transition-colors",
-                  MapSet.member?(@enabled_types, type) && event_badge_class(type),
-                  !MapSet.member?(@enabled_types, type) && "badge-ghost opacity-30"
-                ]}
+                phx-click="toggle_pause"
+                class={["btn btn-xs", (@paused && "btn-warning") || "btn-ghost"]}
               >
-                {type}
+                <.icon name={if @paused, do: "hero-play", else: "hero-pause"} class="size-3" />
+                {if @paused, do: "Resume", else: "Pause"}
+              </button>
+              <button phx-click="clear_events" class="btn btn-ghost btn-xs">
+                <.icon name="hero-trash" class="size-3" /> Clear
+              </button>
+              <button phx-click="refresh" class="btn btn-ghost btn-xs">
+                <.icon name="hero-arrow-path" class="size-3" /> Refresh
               </button>
             </div>
+          </header>
 
-            <%!-- Event list --%>
-            <div class="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-xs" id="event-feed">
-              <div :if={filtered_events(@events, @enabled_types) == []} class="text-center text-base-content/30 py-16">
-                No AG-UI events yet. Events appear when agents emit via POST /api/v2/ag-ui/emit
-              </div>
-              <div
-                :for={event <- filtered_events(@events, @enabled_types)}
-                class="flex items-start gap-2 p-2 rounded bg-base-200 hover:bg-base-200/80"
-              >
-                <span class={["badge badge-xs flex-shrink-0 mt-0.5", event_badge_class(event.type)]}>
-                  {event.type}
-                </span>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
-                    <span :if={event.data[:agent_id]} class="text-primary/70">{event.data[:agent_id]}</span>
-                    <span class="text-base-content/30">{format_ts(event.timestamp)}</span>
-                  </div>
-                  <div class="text-base-content/60 truncate mt-0.5">
-                    {summarize_event(event)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <%!-- Right panel: Stats + Agent State --%>
-          <div class="w-72 border-l border-base-300 bg-base-200 flex flex-col flex-shrink-0 overflow-y-auto">
-            <%!-- Router Stats --%>
-            <div class="p-4 border-b border-base-300">
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">Router Stats</h3>
-              <div class="space-y-2">
-                <div class="flex justify-between text-xs">
-                  <span class="text-base-content/50">Total Routed</span>
-                  <span class="font-mono">{@router_stats.routed_count}</span>
-                </div>
-                <div :for={{type, count} <- Enum.sort_by(@router_stats.by_type, fn {_, c} -> c end, :desc) |> Enum.take(10)} class="flex justify-between text-xs">
-                  <span class={["badge badge-xs", event_badge_class(type)]}>{type}</span>
-                  <span class="font-mono text-base-content/60">{count}</span>
-                </div>
-                <div :if={@router_stats.last_routed_at} class="text-[10px] text-base-content/30 mt-2">
-                  Last: {format_ts(@router_stats.last_routed_at)}
-                </div>
-              </div>
-            </div>
-
-            <%!-- Agent State Viewer --%>
-            <div class="p-4 border-b border-base-300">
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">Agent State</h3>
-              <div class="space-y-1">
+          <div class="flex-1 flex overflow-hidden">
+            <%!-- Event feed --%>
+            <div class="flex-1 flex flex-col overflow-hidden">
+              <%!-- Type filters --%>
+              <div class="flex flex-wrap gap-1 p-2 border-b border-base-300 bg-base-200">
                 <button
-                  :for={agent <- @agents |> Enum.take(20)}
-                  phx-click="select_agent"
-                  phx-value-id={agent.id}
+                  :for={type <- @event_types}
+                  phx-click="toggle_type"
+                  phx-value-type={type}
                   class={[
-                    "w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 transition-colors",
-                    @selected_agent == agent.id && "bg-primary/10 text-primary",
-                    @selected_agent != agent.id && "text-base-content/60 hover:bg-base-300"
+                    "badge badge-sm cursor-pointer transition-colors",
+                    MapSet.member?(@enabled_types, type) && event_badge_class(type),
+                    !MapSet.member?(@enabled_types, type) && "badge-ghost opacity-30"
                   ]}
                 >
-                  <span class={["w-1.5 h-1.5 rounded-full", status_dot(agent.status)]}></span>
-                  <span class="truncate">{agent.name || agent.id}</span>
+                  {type}
                 </button>
-                <div :if={@agents == []} class="text-xs text-base-content/30 py-4 text-center">
-                  No agents registered
+              </div>
+
+              <%!-- Event list --%>
+              <div class="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-xs" id="event-feed">
+                <div
+                  :if={filtered_events(@events, @enabled_types) == []}
+                  class="text-center text-base-content/30 py-16"
+                >
+                  No AG-UI events yet. Events appear when agents emit via POST /api/v2/ag-ui/emit
+                </div>
+                <div
+                  :for={event <- filtered_events(@events, @enabled_types)}
+                  class="flex items-start gap-2 p-2 rounded bg-base-200 hover:bg-base-200/80"
+                >
+                  <span class={["badge badge-xs flex-shrink-0 mt-0.5", event_badge_class(event.type)]}>
+                    {event.type}
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span :if={event.data[:agent_id]} class="text-primary/70">
+                        {event.data[:agent_id]}
+                      </span>
+                      <span class="text-base-content/30">{format_ts(event.timestamp)}</span>
+                    </div>
+                    <div class="text-base-content/60 truncate mt-0.5">
+                      {summarize_event(event)}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <%!-- Selected Agent State --%>
-            <div :if={@agent_state} class="p-4">
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">
-                State: {@selected_agent}
-              </h3>
-              <pre class="text-[10px] text-base-content/60 bg-base-300 rounded p-2 overflow-x-auto max-h-64">{Jason.encode!(@agent_state, pretty: true)}</pre>
-            </div>
-            <div :if={@selected_agent && !@agent_state} class="p-4 text-xs text-base-content/30 text-center">
-              No state tracked for this agent
+            <%!-- Right panel: Stats + Agent State --%>
+            <div class="w-72 border-l border-base-300 bg-base-200 flex flex-col flex-shrink-0 overflow-y-auto">
+              <%!-- Router Stats --%>
+              <div class="p-4 border-b border-base-300">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">
+                  Router Stats
+                </h3>
+                <div class="space-y-2">
+                  <div class="flex justify-between text-xs">
+                    <span class="text-base-content/50">Total Routed</span>
+                    <span class="font-mono">{@router_stats.routed_count}</span>
+                  </div>
+                  <div
+                    :for={
+                      {type, count} <-
+                        Enum.sort_by(@router_stats.by_type, fn {_, c} -> c end, :desc)
+                        |> Enum.take(10)
+                    }
+                    class="flex justify-between text-xs"
+                  >
+                    <span class={["badge badge-xs", event_badge_class(type)]}>{type}</span>
+                    <span class="font-mono text-base-content/60">{count}</span>
+                  </div>
+                  <div
+                    :if={@router_stats.last_routed_at}
+                    class="text-[10px] text-base-content/30 mt-2"
+                  >
+                    Last: {format_ts(@router_stats.last_routed_at)}
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Agent State Viewer --%>
+              <div class="p-4 border-b border-base-300">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-3">
+                  Agent State
+                </h3>
+                <div class="space-y-1">
+                  <button
+                    :for={agent <- @agents |> Enum.take(20)}
+                    phx-click="select_agent"
+                    phx-value-id={agent.id}
+                    class={[
+                      "w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 transition-colors",
+                      @selected_agent == agent.id && "bg-primary/10 text-primary",
+                      @selected_agent != agent.id && "text-base-content/60 hover:bg-base-300"
+                    ]}
+                  >
+                    <span class={["w-1.5 h-1.5 rounded-full", status_dot(agent.status)]}></span>
+                    <span class="truncate">{agent.name || agent.id}</span>
+                  </button>
+                  <div :if={@agents == []} class="text-xs text-base-content/30 py-4 text-center">
+                    No agents registered
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Selected Agent State --%>
+              <div :if={@agent_state} class="p-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">
+                  State: {@selected_agent}
+                </h3>
+                <pre class="text-[10px] text-base-content/60 bg-base-300 rounded p-2 overflow-x-auto max-h-64">{Jason.encode!(@agent_state, pretty: true)}</pre>
+              </div>
+              <div
+                :if={@selected_agent && !@agent_state}
+                class="p-4 text-xs text-base-content/30 text-center"
+              >
+                No state tracked for this agent
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-agui" />
+        <.wizard page="ag-ui" dom_id="ccem-wizard-ag-ui-agui" />
       </:main>
     </.page_layout>
     """
@@ -185,10 +210,12 @@ defmodule ApmWeb.AgUiLive do
   @impl true
   def handle_event("toggle_type", %{"type" => type}, socket) do
     enabled = socket.assigns.enabled_types
+
     new_enabled =
       if MapSet.member?(enabled, type),
         do: MapSet.delete(enabled, type),
         else: MapSet.put(enabled, type)
+
     {:noreply, assign(socket, :enabled_types, new_enabled)}
   end
 
@@ -210,6 +237,7 @@ defmodule ApmWeb.AgUiLive do
 
   def handle_event("select_agent", %{"id" => id}, socket) do
     state = StateManager.get_state(id)
+
     {:noreply,
      socket
      |> assign(:selected_agent, id)
@@ -224,6 +252,7 @@ defmodule ApmWeb.AgUiLive do
       {:noreply, socket}
     else
       events = [event | socket.assigns.events] |> Enum.take(200)
+
       {:noreply,
        socket
        |> assign(:events, events)
@@ -257,21 +286,25 @@ defmodule ApmWeb.AgUiLive do
 
   defp format_ts(nil), do: ""
   defp format_ts(%DateTime{} = dt), do: Calendar.strftime(dt, "%H:%M:%S")
+
   defp format_ts(ts) when is_binary(ts) do
     case DateTime.from_iso8601(ts) do
       {:ok, dt, _} -> Calendar.strftime(dt, "%H:%M:%S")
       _ -> ts
     end
   end
+
   defp format_ts(_), do: ""
 
-  defp summarize_event(%{type: type, data: data}) when type in ["RUN_STARTED", "RUN_FINISHED", "RUN_ERROR"] do
+  defp summarize_event(%{type: type, data: data})
+       when type in ["RUN_STARTED", "RUN_FINISHED", "RUN_ERROR"] do
     agent = data[:agent_id] || data[:run_id] || ""
     msg = data[:message] || data[:result] || ""
     "#{String.downcase(String.replace(type, "_", " "))} #{agent} #{msg}" |> String.trim()
   end
 
-  defp summarize_event(%{type: type, data: data}) when type in ["STEP_STARTED", "STEP_FINISHED"] do
+  defp summarize_event(%{type: type, data: data})
+       when type in ["STEP_STARTED", "STEP_FINISHED"] do
     step = data[:step_name] || ""
     wave = if data[:wave], do: " wave=#{data[:wave]}", else: ""
     "#{step}#{wave}"
@@ -380,7 +413,10 @@ defmodule ApmWeb.AgUiLive do
   defp event_badge_class("TEXT_MESSAGE_CHUNK"), do: "badge-primary opacity-70"
   defp event_badge_class("THINKING_TEXT_MESSAGE_START"), do: "badge-secondary badge-outline"
   defp event_badge_class("THINKING_TEXT_MESSAGE_CONTENT"), do: "badge-secondary"
-  defp event_badge_class("THINKING_TEXT_MESSAGE_END"), do: "badge-secondary badge-outline opacity-70"
+
+  defp event_badge_class("THINKING_TEXT_MESSAGE_END"),
+    do: "badge-secondary badge-outline opacity-70"
+
   defp event_badge_class("THINKING_START"), do: "badge-secondary badge-outline"
   defp event_badge_class("THINKING_END"), do: "badge-secondary opacity-70"
   defp event_badge_class("STATE_SNAPSHOT"), do: "badge-accent badge-outline"

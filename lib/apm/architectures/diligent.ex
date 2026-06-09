@@ -22,11 +22,11 @@ defmodule Apm.Architectures.Diligent do
   @levels [:fleet, :formation, :squadron, :swarm, :agent]
 
   @level_config %{
-    fleet:     %{color: "#e879f9", shape: :hexagon, size: 28, glow: true},
+    fleet: %{color: "#e879f9", shape: :hexagon, size: 28, glow: true},
     formation: %{color: "#3b82f6", shape: :rounded_rect, size: 22, glow: true},
-    squadron:  %{color: "#06b6d4", shape: :rounded_rect, size: 18, glow: false},
-    swarm:     %{color: "#22c55e", shape: :circle, size: 14, glow: false},
-    agent:     %{color: "#f97316", shape: :circle, size: 10, glow: false}
+    squadron: %{color: "#06b6d4", shape: :rounded_rect, size: 18, glow: false},
+    swarm: %{color: "#22c55e", shape: :circle, size: 14, glow: false},
+    agent: %{color: "#f97316", shape: :circle, size: 10, glow: false}
   }
 
   @impl true
@@ -65,7 +65,7 @@ defmodule Apm.Architectures.Diligent do
           "metadata" => extract_formation_meta(fmt_agents)
         }
       end)
-      |> Enum.sort_by(&(&1["name"]))
+      |> Enum.sort_by(& &1["name"])
 
     %{
       "id" => "fleet-#{fleet_name}",
@@ -100,16 +100,18 @@ defmodule Apm.Architectures.Diligent do
   def graph_config do
     %{
       "architecture" => "diligent",
-      "levels" => Enum.map(@levels, fn level ->
-        config = Map.get(@level_config, level)
-        %{
-          "name" => Atom.to_string(level),
-          "color" => config.color,
-          "shape" => Atom.to_string(config.shape),
-          "size" => config.size,
-          "glow" => config.glow
-        }
-      end),
+      "levels" =>
+        Enum.map(@levels, fn level ->
+          config = Map.get(@level_config, level)
+
+          %{
+            "name" => Atom.to_string(level),
+            "color" => config.color,
+            "shape" => Atom.to_string(config.shape),
+            "size" => config.size,
+            "glow" => config.glow
+          }
+        end),
       "layout" => %{
         "type" => "tree",
         "direction" => "TB",
@@ -150,7 +152,7 @@ defmodule Apm.Architectures.Diligent do
         "metadata" => %{}
       }
     end)
-    |> Enum.sort_by(&(&1["name"]))
+    |> Enum.sort_by(& &1["name"])
   end
 
   defp build_swarms(agents, fmt_id, squad_id) do
@@ -169,7 +171,7 @@ defmodule Apm.Architectures.Diligent do
         "metadata" => %{}
       }
     end)
-    |> Enum.sort_by(&(&1["name"]))
+    |> Enum.sort_by(& &1["name"])
   end
 
   defp build_agent_leaves(agents) do
@@ -187,7 +189,7 @@ defmodule Apm.Architectures.Diligent do
         }
       }
     end)
-    |> Enum.sort_by(&(&1["name"]))
+    |> Enum.sort_by(& &1["name"])
   end
 
   defp aggregate_status([]), do: "idle"

@@ -127,12 +127,18 @@ defmodule Apm.UPM.Adapters.Linear do
   defp graphql_request(api_key, query) do
     url = String.to_charlist(@linear_api)
     body = Jason.encode!(%{query: query})
+
     headers = [
       {~c"Content-Type", ~c"application/json"},
       {~c"Authorization", String.to_charlist(api_key || "")}
     ]
 
-    case :httpc.request(:post, {url, headers, ~c"application/json", String.to_charlist(body)}, [], []) do
+    case :httpc.request(
+           :post,
+           {url, headers, ~c"application/json", String.to_charlist(body)},
+           [],
+           []
+         ) do
       {:ok, {{_, 200, _}, _, resp_body}} ->
         Jason.decode(List.to_string(resp_body))
 

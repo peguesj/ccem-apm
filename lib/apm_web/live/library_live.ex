@@ -108,11 +108,16 @@ defmodule ApmWeb.LibraryLive do
         <.top_bar project_name="CCEM APM" />
       </:topbar>
       <:main>
-        <div phx-window-keydown="keydown" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+        <div
+          phx-window-keydown="keydown"
+          style="display:flex;flex-direction:column;height:100%;overflow:hidden;"
+        >
           <%!-- Header --%>
           <div style="display:flex;align-items:center;justify-content:space-between;padding:0 1rem;height:3rem;border-bottom:1px solid var(--ccem-border);flex-shrink:0;">
             <div style="display:flex;align-items:center;gap:0.75rem;">
-              <span style="font-size:0.875rem;font-weight:600;color:var(--ccem-text-primary);">CCEM Libraries</span>
+              <span style="font-size:0.875rem;font-weight:600;color:var(--ccem-text-primary);">
+                CCEM Libraries
+              </span>
               <.badge tone="neutral">{total_count(assigns)} resources</.badge>
             </div>
             <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -130,7 +135,11 @@ defmodule ApmWeb.LibraryLive do
                 style={"padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:500;border-bottom:2px solid #{if @tab == tab, do: "var(--ccem-accent)", else: "transparent"};color:#{if @tab == tab, do: "var(--ccem-accent)", else: "var(--ccem-text-muted)"};background:none;cursor:pointer;white-space:nowrap;"}
               >
                 {tab_label(tab)}
-                <.badge tone={if @tab == tab, do: "accent", else: "neutral"} square={true} style="margin-left:0.25rem;">
+                <.badge
+                  tone={if @tab == tab, do: "accent", else: "neutral"}
+                  square={true}
+                  style="margin-left:0.25rem;"
+                >
                   {tab_count(assigns, tab)}
                 </.badge>
               </button>
@@ -152,9 +161,14 @@ defmodule ApmWeb.LibraryLive do
           <div style="flex:1;display:flex;overflow:hidden;">
             <%!-- Card grid --%>
             <div style="flex:1;overflow-y:auto;padding:1rem;">
-              <div :if={@filtered == []} style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);">
+              <div
+                :if={@filtered == []}
+                style="text-align:center;padding:3rem 0;color:var(--ccem-text-muted);"
+              >
                 <p style="font-size:1rem;">No {@tab} found</p>
-                <p :if={@search_query != ""} style="font-size:0.875rem;margin-top:0.25rem;">Try adjusting your search</p>
+                <p :if={@search_query != ""} style="font-size:0.875rem;margin-top:0.25rem;">
+                  Try adjusting your search
+                </p>
               </div>
 
               <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.75rem;">
@@ -175,8 +189,15 @@ defmodule ApmWeb.LibraryLive do
                         {item_description(item)}
                       </p>
                       <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;font-size:0.625rem;color:var(--ccem-text-faint,var(--ccem-text-muted));">
-                        <span :if={item[:source]} style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;">{item[:source]}</span>
-                        <span :if={item[:last_modified]} style="white-space:nowrap;">{relative_time(item[:last_modified])}</span>
+                        <span
+                          :if={item[:source]}
+                          style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;"
+                        >
+                          {item[:source]}
+                        </span>
+                        <span :if={item[:last_modified]} style="white-space:nowrap;">
+                          {relative_time(item[:last_modified])}
+                        </span>
                       </div>
                     </div>
                   </.card>
@@ -203,36 +224,58 @@ defmodule ApmWeb.LibraryLive do
 
                 <%!-- Description --%>
                 <div style="margin-bottom:1rem;">
-                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">Description</p>
-                  <p style="font-size:0.875rem;color:var(--ccem-text-secondary,var(--ccem-text-primary));">{item_description(@selected_item)}</p>
+                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">
+                    Description
+                  </p>
+                  <p style="font-size:0.875rem;color:var(--ccem-text-secondary,var(--ccem-text-primary));">
+                    {item_description(@selected_item)}
+                  </p>
                 </div>
 
                 <%!-- Properties table --%>
                 <div style="margin-bottom:1rem;">
-                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">Properties</p>
+                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">
+                    Properties
+                  </p>
                   <div style="background:var(--ccem-bg-secondary);border-radius:0.5rem;padding:0.75rem;">
                     <%= for {key, val} <- detail_properties(@selected_item) do %>
                       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem;">
-                        <span style="font-size:0.75rem;color:var(--ccem-text-muted);white-space:nowrap;">{key}</span>
-                        <span style="font-size:0.75rem;color:var(--ccem-text-primary);text-align:right;word-break:break-all;">{format_value(val)}</span>
+                        <span style="font-size:0.75rem;color:var(--ccem-text-muted);white-space:nowrap;">
+                          {key}
+                        </span>
+                        <span style="font-size:0.75rem;color:var(--ccem-text-primary);text-align:right;word-break:break-all;">
+                          {format_value(val)}
+                        </span>
                       </div>
                     <% end %>
                   </div>
                 </div>
 
                 <%!-- Triggers (skills only) --%>
-                <div :if={@tab == :skills and (@selected_item[:triggers] || []) != []} style="margin-bottom:1rem;">
-                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">Triggers</p>
+                <div
+                  :if={@tab == :skills and (@selected_item[:triggers] || []) != []}
+                  style="margin-bottom:1rem;"
+                >
+                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">
+                    Triggers
+                  </p>
                   <div style="display:flex;flex-direction:column;gap:0.25rem;">
                     <%= for trigger <- @selected_item[:triggers] || [] do %>
-                      <div style="font-size:0.75rem;background:var(--ccem-bg-secondary);border-radius:0.25rem;padding:0.25rem 0.5rem;color:var(--ccem-text-secondary,var(--ccem-text-primary));">{trigger}</div>
+                      <div style="font-size:0.75rem;background:var(--ccem-bg-secondary);border-radius:0.25rem;padding:0.25rem 0.5rem;color:var(--ccem-text-secondary,var(--ccem-text-primary));">
+                        {trigger}
+                      </div>
                     <% end %>
                   </div>
                 </div>
 
                 <%!-- Related skills (patterns only) --%>
-                <div :if={@tab == :patterns and (@selected_item[:related_skills] || []) != []} style="margin-bottom:1rem;">
-                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">Related Skills</p>
+                <div
+                  :if={@tab == :patterns and (@selected_item[:related_skills] || []) != []}
+                  style="margin-bottom:1rem;"
+                >
+                  <p style="font-size:0.75rem;font-weight:600;color:var(--ccem-text-muted);text-transform:uppercase;margin-bottom:0.25rem;">
+                    Related Skills
+                  </p>
                   <div style="display:flex;flex-wrap:wrap;gap:0.25rem;">
                     <%= for skill <- @selected_item[:related_skills] || [] do %>
                       <.badge tone="neutral">{skill}</.badge>
@@ -281,6 +324,7 @@ defmodule ApmWeb.LibraryLive do
   end
 
   defp filtered_items(%{assigns: assigns}), do: filtered_items(assigns)
+
   defp filtered_items(assigns) do
     tab = assigns[:tab] || :agents
     query = assigns[:search_query] || ""
@@ -290,13 +334,15 @@ defmodule ApmWeb.LibraryLive do
       items
     else
       lower_q = String.downcase(query)
+
       Enum.filter(items, fn item ->
         name = to_string(item[:name] || "") |> String.downcase()
         desc = to_string(item[:description] || "") |> String.downcase()
         display = to_string(item[:display_name] || "") |> String.downcase()
+
         String.contains?(name, lower_q) or
-        String.contains?(desc, lower_q) or
-        String.contains?(display, lower_q)
+          String.contains?(desc, lower_q) or
+          String.contains?(display, lower_q)
       end)
     end
   end
@@ -328,6 +374,7 @@ defmodule ApmWeb.LibraryLive do
   defp type_badge(assigns, item) do
     _ = assigns
     type = item[:type] || item[:category] || item[:scope] || nil
+
     if type do
       assigns = assign(assigns, :badge_type, type)
 
@@ -353,6 +400,7 @@ defmodule ApmWeb.LibraryLive do
       true -> "neutral"
     end
   end
+
   defp badge_tone(_), do: "neutral"
 
   defp detail_properties(item) do
@@ -362,7 +410,9 @@ defmodule ApmWeb.LibraryLive do
       k in [:__struct__, :description, :display_name, :triggers, :related_skills]
     end)
     |> Enum.filter(fn {_k, v} -> v != nil and v != "" and v != [] end)
-    |> Enum.map(fn {k, v} -> {k |> to_string() |> String.replace("_", " ") |> String.capitalize(), v} end)
+    |> Enum.map(fn {k, v} ->
+      {k |> to_string() |> String.replace("_", " ") |> String.capitalize(), v}
+    end)
     |> Enum.sort_by(fn {k, _v} -> k end)
   end
 
@@ -373,10 +423,12 @@ defmodule ApmWeb.LibraryLive do
   defp format_value(val), do: to_string(val)
 
   defp relative_time(nil), do: ""
+
   defp relative_time(iso_str) when is_binary(iso_str) do
     case DateTime.from_iso8601(iso_str) do
       {:ok, dt, _offset} ->
         diff = DateTime.diff(DateTime.utc_now(), dt, :second)
+
         cond do
           diff < 60 -> "just now"
           diff < 3600 -> "#{div(diff, 60)}m ago"
@@ -384,8 +436,11 @@ defmodule ApmWeb.LibraryLive do
           diff < 604_800 -> "#{div(diff, 86400)}d ago"
           true -> "#{div(diff, 604_800)}w ago"
         end
-      _ -> iso_str
+
+      _ ->
+        iso_str
     end
   end
+
   defp relative_time(_), do: ""
 end

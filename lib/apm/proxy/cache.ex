@@ -13,7 +13,9 @@ defmodule Apm.Proxy.Cache do
     case :ets.lookup(@table, key) do
       [{^key, value, expires_at}] ->
         if System.monotonic_time(:second) < expires_at, do: value, else: nil
-      _ -> nil
+
+      _ ->
+        nil
     end
   rescue
     ArgumentError -> nil
@@ -45,7 +47,14 @@ defmodule Apm.Proxy.Cache do
 
   @impl true
   def init(_opts) do
-    :ets.new(@table, [:named_table, :set, :public, read_concurrency: true, write_concurrency: true])
+    :ets.new(@table, [
+      :named_table,
+      :set,
+      :public,
+      read_concurrency: true,
+      write_concurrency: true
+    ])
+
     :timer.send_interval(@sweep_interval, :sweep)
     {:ok, %{}}
   end
@@ -53,10 +62,12 @@ defmodule Apm.Proxy.Cache do
   @impl true
   def handle_info(:sweep, state) do
     now = System.monotonic_time(:second)
+
     :ets.tab2list(@table)
     |> Enum.each(fn {key, _val, expires_at} ->
       if now >= expires_at, do: :ets.delete(@table, key)
     end)
+
     {:noreply, state}
   end
 end

@@ -260,7 +260,8 @@ defmodule Apm.Plugins.Memory.MemoryClientBridge do
   @spec sqlite_search(String.t()) :: {:ok, list(map())} | {:error, term()}
   defp sqlite_search(query) do
     with {:ok, db} <- open_db(),
-         sql = "SELECT * FROM observations WHERE content LIKE ? ORDER BY created_at DESC LIMIT 100",
+         sql =
+           "SELECT * FROM observations WHERE content LIKE ? ORDER BY created_at DESC LIMIT 100",
          {:ok, stmt} <- apply(@sqlite3, :prepare, [db, sql]),
          :ok <- apply(@sqlite3, :bind, [db, stmt, ["%#{query}%"]]),
          {:ok, rows} <- fetch_all_rows(db, stmt) do

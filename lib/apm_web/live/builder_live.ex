@@ -75,7 +75,7 @@ defmodule ApmWeb.BuilderLive do
             </div>
             <div class="flex items-center gap-2">
               <.badge tone={status_tone(@session.status)}>
-                <%= @session.status %>
+                {@session.status}
               </.badge>
             </div>
           </div>
@@ -85,18 +85,22 @@ defmodule ApmWeb.BuilderLive do
             <%= for {label, n} <- [{"Identity", 1}, {"Capabilities", 2}, {"Source", 3}, {"Preview", 4}, {"Write", 5}] do %>
               <div class={[
                 "flex items-center gap-1 text-sm px-2 py-1 rounded",
-                if(@step == n, do: "bg-accent/20 text-accent font-medium", else: "text-base-content/50")
+                if(@step == n,
+                  do: "bg-accent/20 text-accent font-medium",
+                  else: "text-base-content/50"
+                )
               ]}>
-                <span class={["w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold",
+                <span class={[
+                  "w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold",
                   cond do
                     n < @step -> "bg-ok text-ok-content"
                     n == @step -> "bg-accent text-accent-content"
                     true -> "bg-base-300 text-base-content/40"
                   end
                 ]}>
-                  <%= if n < @step, do: "✓", else: n %>
+                  {if n < @step, do: "✓", else: n}
                 </span>
-                <%= label %>
+                {label}
               </div>
               <%= if n < 5 do %>
                 <span class="text-base-content/20">›</span>
@@ -175,7 +179,7 @@ defmodule ApmWeb.BuilderLive do
                   size="sm"
                   disabled={@writing or @session.status == :complete}
                 >
-                  <%= if @writing, do: "Writing…", else: "Write files" %>
+                  {if @writing, do: "Writing…", else: "Write files"}
                 </.btn>
               <% @step < 3 -> %>
                 <.btn phx-click="next_step" size="sm">
@@ -200,7 +204,9 @@ defmodule ApmWeb.BuilderLive do
     <div class="space-y-6">
       <div>
         <h2 class="text-base font-semibold mb-1">Plugin identity</h2>
-        <p class="text-sm text-base-content/60">Give your plugin a name and a one-line description.</p>
+        <p class="text-sm text-base-content/60">
+          Give your plugin a name and a one-line description.
+        </p>
       </div>
       <div class="space-y-4">
         <div>
@@ -238,7 +244,9 @@ defmodule ApmWeb.BuilderLive do
     <div class="space-y-6">
       <div>
         <h2 class="text-base font-semibold mb-1">Capabilities</h2>
-        <p class="text-sm text-base-content/60">Select which Claude Code capabilities this plugin should scaffold.</p>
+        <p class="text-sm text-base-content/60">
+          Select which Claude Code capabilities this plugin should scaffold.
+        </p>
       </div>
       <div class="space-y-3">
         <%= for {cap, label, desc} <- [
@@ -255,8 +263,8 @@ defmodule ApmWeb.BuilderLive do
               phx-value-cap={cap}
             />
             <div>
-              <div class="text-sm font-medium"><%= label %></div>
-              <div class="text-xs text-base-content/60"><%= desc %></div>
+              <div class="text-sm font-medium">{label}</div>
+              <div class="text-xs text-base-content/60">{desc}</div>
             </div>
           </label>
         <% end %>
@@ -298,30 +306,33 @@ defmodule ApmWeb.BuilderLive do
 
       <%= if @session.status == :analyzing do %>
         <div class="flex items-center gap-2 text-sm text-base-content/60">
-          <span class="loading loading-spinner loading-xs"></span>
-          Analyzing source…
+          <span class="loading loading-spinner loading-xs"></span> Analyzing source…
         </div>
       <% end %>
 
       <%= if @session.status == :analyzed and @session.analyzed do %>
         <div class="rounded-lg border border-ok/30 bg-ok/10 p-4 space-y-2">
           <div class="flex items-center gap-2 text-sm font-medium text-ok">
-            <.icon name="hero-check-circle" class="w-4 h-4" />
-            Analysis complete
+            <.icon name="hero-check-circle" class="w-4 h-4" /> Analysis complete
           </div>
           <div class="grid grid-cols-2 gap-2 text-xs text-base-content/70">
-            <div>Language: <span class="font-mono"><%= @session.analyzed[:language] || "unknown" %></span></div>
-            <div>Capabilities detected: <span class="font-mono"><%= length(@session.analyzed[:capabilities] || []) %></span></div>
+            <div>
+              Language: <span class="font-mono">{@session.analyzed[:language] || "unknown"}</span>
+            </div>
+            <div>
+              Capabilities detected:
+              <span class="font-mono">{length(@session.analyzed[:capabilities] || [])}</span>
+            </div>
           </div>
           <%= if @session.analyzed[:description_hint] != "" do %>
-            <p class="text-xs text-base-content/60 italic"><%= @session.analyzed[:description_hint] %></p>
+            <p class="text-xs text-base-content/60 italic">{@session.analyzed[:description_hint]}</p>
           <% end %>
         </div>
       <% end %>
 
       <%= if @session.status == :error do %>
         <div class="rounded-lg border border-err/30 bg-err/10 p-4 text-sm text-err">
-          Analysis failed: <%= inspect(@session.error) %>
+          Analysis failed: {inspect(@session.error)}
         </div>
       <% end %>
     </div>
@@ -335,19 +346,22 @@ defmodule ApmWeb.BuilderLive do
     <div class="space-y-6">
       <div>
         <h2 class="text-base font-semibold mb-1">Preview</h2>
-        <p class="text-sm text-base-content/60">Review the generated plugin module and SKILL.md before writing.</p>
+        <p class="text-sm text-base-content/60">
+          Review the generated plugin module and SKILL.md before writing.
+        </p>
       </div>
 
       <%= if @session.status == :generating do %>
         <div class="flex items-center gap-2 text-sm text-base-content/60">
-          <span class="loading loading-spinner loading-xs"></span>
-          Generating code…
+          <span class="loading loading-spinner loading-xs"></span> Generating code…
         </div>
       <% end %>
 
       <%= if @session.generated_plugin_code do %>
         <div>
-          <div class="text-xs font-medium text-base-content/60 mb-1 font-mono">Plugin module (.ex)</div>
+          <div class="text-xs font-medium text-base-content/60 mb-1 font-mono">
+            Plugin module (.ex)
+          </div>
           <pre class="bg-base-300 rounded-lg p-4 text-xs font-mono overflow-auto max-h-64 whitespace-pre-wrap"><%= @session.generated_plugin_code %></pre>
         </div>
       <% end %>
@@ -360,7 +374,9 @@ defmodule ApmWeb.BuilderLive do
       <% end %>
 
       <%= if is_nil(@session.generated_plugin_code) and @session.status != :generating do %>
-        <p class="text-sm text-base-content/50">Click "Generate preview" to create the plugin scaffold.</p>
+        <p class="text-sm text-base-content/50">
+          Click "Generate preview" to create the plugin scaffold.
+        </p>
       <% end %>
     </div>
     """
@@ -382,8 +398,8 @@ defmodule ApmWeb.BuilderLive do
 
       <div class="space-y-3 rounded-lg border border-base-300 p-4 text-sm font-mono">
         <div class="text-base-content/60">Files to be written:</div>
-        <div>lib/apm/plugins/<%= slug_for(@session) %>/<%= slug_for(@session) %>_plugin.ex</div>
-        <div>~/.claude/skills/<%= slug_for(@session) %>/SKILL.md</div>
+        <div>lib/apm/plugins/{slug_for(@session)}/{slug_for(@session)}_plugin.ex</div>
+        <div>~/.claude/skills/{slug_for(@session)}/SKILL.md</div>
       </div>
 
       <%= if @write_result do %>
@@ -391,18 +407,17 @@ defmodule ApmWeb.BuilderLive do
           <% {:ok, paths} -> %>
             <div class="rounded-lg border border-ok/30 bg-ok/10 p-4 space-y-2">
               <div class="flex items-center gap-2 text-sm font-medium text-ok">
-                <.icon name="hero-check-circle" class="w-4 h-4" />
-                Files written successfully
+                <.icon name="hero-check-circle" class="w-4 h-4" /> Files written successfully
               </div>
               <ul class="text-xs font-mono text-base-content/70 space-y-1">
                 <%= for path <- paths do %>
-                  <li><%= path %></li>
+                  <li>{path}</li>
                 <% end %>
               </ul>
             </div>
           <% {:error, reason} -> %>
             <div class="rounded-lg border border-err/30 bg-err/10 p-4 text-sm text-err">
-              Write failed: <%= inspect(reason) %>
+              Write failed: {inspect(reason)}
             </div>
         <% end %>
       <% end %>

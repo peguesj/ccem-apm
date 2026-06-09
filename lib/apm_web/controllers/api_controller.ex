@@ -27,23 +27,25 @@ defmodule ApmWeb.ApiController do
   # OpenApiSpex annotations (api-s7 Wave 2b / CP-288)
   # ============================
 
-  operation :health,
+  operation(:health,
     summary: "Legacy health check",
     description: "Returns APM server health status (legacy v3-compatible endpoint).",
     tags: ["Health"],
     responses: [
       ok: {"Health status", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :status,
+  operation(:status,
     summary: "APM server status",
     description: "Returns full server status including agent counts, project, and version.",
     tags: ["Health"],
     responses: [
       ok: {"Status response", "application/json", Schemas.StatusResponse}
     ]
+  )
 
-  operation :agents,
+  operation(:agents,
     summary: "List agents (v1)",
     description: "Lists all registered agents. Optional `project` filter.",
     tags: ["Agents"],
@@ -53,17 +55,20 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Agent list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :register,
+  operation(:register,
     summary: "Register agent (v1)",
     description: "Registers a new agent or upserts an existing one.",
     tags: ["Agents"],
-    request_body: {"Agent registration payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Agent registration payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Registered", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :register_session,
+  operation(:register_session,
     summary: "Register session",
     description: "Persists a Claude Code session to disk and notifies SessionManager.",
     tags: ["Sessions"],
@@ -72,63 +77,84 @@ defmodule ApmWeb.ApiController do
       created: {"Session registered", "application/json", Schemas.OkResponse},
       bad_request: {"Missing session_id", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :heartbeat,
+  operation(:heartbeat,
     summary: "Agent heartbeat",
     description: "Updates the last_heartbeat timestamp for an agent.",
     tags: ["Agents"],
-    request_body: {"Heartbeat payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Heartbeat payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Heartbeat recorded", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :notify,
+  operation(:notify,
     summary: "Push notification",
     description: "Posts a notification to the APM notification bus.",
     tags: ["Notifications"],
-    request_body: {"Notification payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Notification payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Notification queued", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :activity_log,
+  operation(:activity_log,
     summary: "Agent activity log",
-    description: "Returns recent agent activity log entries. Optional `agent_id` and `limit` filters.",
+    description:
+      "Returns recent agent activity log entries. Optional `agent_id` and `limit` filters.",
     tags: ["Agents"],
     parameters: [
       agent_id: [in: :query, type: :string, required: false, description: "Filter by agent ID"],
-      limit: [in: :query, type: :integer, required: false, description: "Max entries (default 50, max 200)"]
+      limit: [
+        in: :query,
+        type: :integer,
+        required: false,
+        description: "Max entries (default 50, max 200)"
+      ]
     ],
     responses: [
       ok: {"Activity log entries", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :discover_agents,
+  operation(:discover_agents,
     summary: "Trigger agent discovery",
     description: "Runs AgentDiscovery.discover_now/0 and returns discovered agents.",
     tags: ["Agents"],
     responses: [
       ok: {"Discovered agents", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :notifications,
+  operation(:notifications,
     summary: "List notifications",
-    description: "Returns recent notifications with optional category/project/namespace/type filters.",
+    description:
+      "Returns recent notifications with optional category/project/namespace/type filters.",
     tags: ["Notifications"],
     parameters: [
       category: [in: :query, type: :string, required: false, description: "Filter by category"],
       project: [in: :query, type: :string, required: false, description: "Filter by project"],
       namespace: [in: :query, type: :string, required: false, description: "Filter by namespace"],
       type: [in: :query, type: :string, required: false, description: "Filter by type"],
-      limit: [in: :query, type: :integer, required: false, description: "Max results (default 100)"]
+      limit: [
+        in: :query,
+        type: :integer,
+        required: false,
+        description: "Max results (default 100)"
+      ]
     ],
     responses: [
       ok: {"Notification list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :get_notification,
+  operation(:get_notification,
     summary: "Get notification",
-    description: "Returns a single notification by ID with full refs, trace, metadata, and actions.",
+    description:
+      "Returns a single notification by ID with full refs, trace, metadata, and actions.",
     tags: ["Notifications"],
     parameters: [
       id: [in: :path, type: :string, required: true, description: "Notification ID"]
@@ -137,38 +163,50 @@ defmodule ApmWeb.ApiController do
       ok: {"Notification detail", "application/json", Schemas.OkResponse},
       not_found: {"Not found", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :add_notification,
+  operation(:add_notification,
     summary: "Add notification (alias)",
     description: "POST alias for notify — adds a notification to the bus.",
     tags: ["Notifications"],
-    request_body: {"Notification payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Notification payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Queued", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :read_all_notifications,
+  operation(:read_all_notifications,
     summary: "Mark all notifications read",
     description: "Sets read=true on all existing notifications.",
     tags: ["Notifications"],
     responses: [
       ok: {"Marked read", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :data,
+  operation(:data,
     summary: "Master data aggregation",
-    description: "Returns agents, edges, tasks, notifications, ralph data, commands, and input requests for the active project.",
+    description:
+      "Returns agents, edges, tasks, notifications, ralph data, commands, and input requests for the active project.",
     tags: ["Data"],
     parameters: [
-      project: [in: :query, type: :string, required: false, description: "Project name (defaults to active)"]
+      project: [
+        in: :query,
+        type: :string,
+        required: false,
+        description: "Project name (defaults to active)"
+      ]
     ],
     responses: [
       ok: {"Aggregated APM state", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :ralph,
+  operation(:ralph,
     summary: "Ralph methodology data",
-    description: "Returns the current Ralph methodology data (stories, flowchart nodes) for a project.",
+    description:
+      "Returns the current Ralph methodology data (stories, flowchart nodes) for a project.",
     tags: ["Ralph"],
     parameters: [
       project: [in: :query, type: :string, required: false, description: "Project name"]
@@ -176,10 +214,12 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Ralph data", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :ralph_flowchart,
+  operation(:ralph_flowchart,
     summary: "Ralph flowchart",
-    description: "Returns D3.js-compatible flowchart nodes and edges for the active Ralph session.",
+    description:
+      "Returns D3.js-compatible flowchart nodes and edges for the active Ralph session.",
     tags: ["Ralph"],
     parameters: [
       project: [in: :query, type: :string, required: false, description: "Project name"]
@@ -187,8 +227,9 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Flowchart data", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :commands,
+  operation(:commands,
     summary: "List slash commands",
     description: "Returns all registered slash commands for the active project.",
     tags: ["Commands"],
@@ -198,17 +239,20 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Command list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :register_commands,
+  operation(:register_commands,
     summary: "Register slash commands",
     description: "Registers or replaces the slash command set for a project.",
     tags: ["Commands"],
-    request_body: {"Commands payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Commands payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Commands registered", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :sync_tasks,
+  operation(:sync_tasks,
     summary: "Sync tasks",
     description: "Synchronizes tasks from an external source (e.g. Plane) into ProjectStore.",
     tags: ["Tasks"],
@@ -216,76 +260,89 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Tasks synced", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :pending_input,
+  operation(:pending_input,
     summary: "Get pending input requests",
     description: "Returns all unresolved human-input requests waiting for a response.",
     tags: ["Tasks"],
     responses: [
       ok: {"Pending inputs", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :request_input,
+  operation(:request_input,
     summary: "Request human input",
     description: "Creates a new human-input request and broadcasts it via PubSub.",
     tags: ["Tasks"],
-    request_body: {"Input request payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Input request payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Input requested", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :respond_input,
+  operation(:respond_input,
     summary: "Respond to input request",
     description: "Resolves a pending human-input request with the provided response.",
     tags: ["Tasks"],
-    request_body: {"Input response payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Input response payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Input resolved", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :projects,
+  operation(:projects,
     summary: "List projects",
     description: "Returns all configured projects from the APM config.",
     tags: ["Projects"],
     responses: [
       ok: {"Project list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :update_project,
+  operation(:update_project,
     summary: "Update active project",
     description: "Updates the active project name in the APM config.",
     tags: ["Projects"],
-    request_body: {"Project update payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Project update payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Project updated", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :reload_config,
+  operation(:reload_config,
     summary: "Reload APM config",
     description: "Reloads apm_config.json from disk and propagates changes.",
     tags: ["Config"],
     responses: [
       ok: {"Config reloaded", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :update_plane,
+  operation(:update_plane,
     summary: "Update Plane PM config",
     description: "Pushes a status update to the configured Plane workspace.",
     tags: ["Projects"],
-    request_body: {"Plane update payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Plane update payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Plane updated", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :export,
+  operation(:export,
     summary: "Export APM data",
     description: "Exports the full APM data set as a JSON snapshot.",
     tags: ["Export"],
     responses: [
       ok: {"APM export", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :import_data,
+  operation(:import_data,
     summary: "Import APM data",
     description: "Imports a previously exported APM snapshot.",
     tags: ["Export"],
@@ -293,58 +350,67 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Import result", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :ports,
+  operation(:ports,
     summary: "List ports",
     description: "Returns all registered ports and their assignments.",
     tags: ["Ports"],
     responses: [
       ok: {"Port list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :scan_ports,
+  operation(:scan_ports,
     summary: "Scan ports",
     description: "Triggers a live port scan and updates the port registry.",
     tags: ["Ports"],
     responses: [
       ok: {"Scan results", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :assign_port,
+  operation(:assign_port,
     summary: "Assign port",
     description: "Assigns a port to a service/agent.",
     tags: ["Ports"],
-    request_body: {"Port assignment payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Port assignment payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Port assigned", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :port_clashes,
+  operation(:port_clashes,
     summary: "Port clash report",
     description: "Returns a list of port conflicts across registered services.",
     tags: ["Ports"],
     responses: [
       ok: {"Clash report", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :set_primary_port,
+  operation(:set_primary_port,
     summary: "Set primary port",
     description: "Designates a port as the primary port for a service.",
     tags: ["Ports"],
-    request_body: {"Port designation payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Port designation payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Primary port set", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :environments,
+  operation(:environments,
     summary: "List environments",
     description: "Returns all CCEM-managed environments.",
     tags: ["Environments"],
     responses: [
       ok: {"Environment list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :environment_detail,
+  operation(:environment_detail,
     summary: "Get environment",
     description: "Returns details for a single named environment.",
     tags: ["Environments"],
@@ -355,8 +421,9 @@ defmodule ApmWeb.ApiController do
       ok: {"Environment detail", "application/json", Schemas.OkResponse},
       not_found: {"Not found", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :exec_command,
+  operation(:exec_command,
     summary: "Execute command in environment",
     description: "Runs a shell command in the named environment.",
     tags: ["Environments"],
@@ -367,8 +434,9 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Execution result", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :start_session,
+  operation(:start_session,
     summary: "Start environment session",
     description: "Starts a long-running session in the named environment.",
     tags: ["Environments"],
@@ -378,8 +446,9 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Session started", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :stop_session,
+  operation(:stop_session,
     summary: "Stop environment session",
     description: "Terminates the running session for the named environment.",
     tags: ["Environments"],
@@ -389,24 +458,27 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Session stopped", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :deploy_hooks,
+  operation(:deploy_hooks,
     summary: "Deploy hooks",
     description: "Deploys the latest hook scripts to all configured project directories.",
     tags: ["Config"],
     responses: [
       ok: {"Hooks deployed", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :list_bg_tasks,
+  operation(:list_bg_tasks,
     summary: "List background tasks",
     description: "Returns all registered background tasks.",
     tags: ["Tasks"],
     responses: [
       ok: {"Task list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :register_bg_task,
+  operation(:register_bg_task,
     summary: "Register background task",
     description: "Registers a new background task and starts tracking it.",
     tags: ["Tasks"],
@@ -414,8 +486,9 @@ defmodule ApmWeb.ApiController do
     responses: [
       created: {"Task registered", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :get_bg_task,
+  operation(:get_bg_task,
     summary: "Get background task",
     description: "Returns a single background task by ID.",
     tags: ["Tasks"],
@@ -426,8 +499,9 @@ defmodule ApmWeb.ApiController do
       ok: {"Task detail", "application/json", Schemas.OkResponse},
       not_found: {"Not found", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :get_bg_task_logs,
+  operation(:get_bg_task_logs,
     summary: "Get background task logs",
     description: "Returns log output for a background task.",
     tags: ["Tasks"],
@@ -437,8 +511,9 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Task logs", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :update_bg_task,
+  operation(:update_bg_task,
     summary: "Update background task",
     description: "Updates status or metadata for a background task.",
     tags: ["Tasks"],
@@ -449,8 +524,9 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Task updated", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :stop_bg_task,
+  operation(:stop_bg_task,
     summary: "Stop background task",
     description: "Terminates a running background task.",
     tags: ["Tasks"],
@@ -460,8 +536,9 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Task stopped", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :delete_bg_task,
+  operation(:delete_bg_task,
     summary: "Delete background task",
     description: "Removes a background task record.",
     tags: ["Tasks"],
@@ -471,57 +548,65 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Task deleted", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :scanner_scan,
+  operation(:scanner_scan,
     summary: "Run project scanner",
     description: "Scans configured project directories for changes.",
     tags: ["Projects"],
     responses: [
       ok: {"Scan initiated", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :scanner_results,
+  operation(:scanner_results,
     summary: "Get scanner results",
     description: "Returns the most recent scan results.",
     tags: ["Projects"],
     responses: [
       ok: {"Scan results", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :scanner_status,
+  operation(:scanner_status,
     summary: "Get scanner status",
     description: "Returns the current scanner run status.",
     tags: ["Projects"],
     responses: [
       ok: {"Scanner status", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :list_actions,
+  operation(:list_actions,
     summary: "List available actions",
     description: "Returns all actions registered in the ActionEngine catalog.",
     tags: ["Actions"],
     responses: [
       ok: {"Action catalog", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :run_action,
+  operation(:run_action,
     summary: "Run action",
     description: "Executes a named action from the ActionEngine catalog.",
     tags: ["Actions"],
-    request_body: {"Action run payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Action run payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Action result", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :list_action_runs,
+  operation(:list_action_runs,
     summary: "List action runs",
     description: "Returns history of all action executions.",
     tags: ["Actions"],
     responses: [
       ok: {"Action run history", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :get_action_run,
+  operation(:get_action_run,
     summary: "Get action run",
     description: "Returns the result of a single action execution by ID.",
     tags: ["Actions"],
@@ -532,16 +617,18 @@ defmodule ApmWeb.ApiController do
       ok: {"Action run detail", "application/json", Schemas.OkResponse},
       not_found: {"Not found", "application/json", Schemas.ErrorResponse}
     ]
+  )
 
-  operation :telemetry,
+  operation(:telemetry,
     summary: "Get telemetry data",
     description: "Returns raw telemetry metrics from the BEAM VM.",
     tags: ["Health"],
     responses: [
       ok: {"Telemetry data", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :intake_submit,
+  operation(:intake_submit,
     summary: "Submit intake item",
     description: "Submits a new work item to the UPM intake queue.",
     tags: ["Tasks"],
@@ -549,41 +636,47 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Intake accepted", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :intake_list,
+  operation(:intake_list,
     summary: "List intake items",
     description: "Returns all items in the intake queue.",
     tags: ["Tasks"],
     responses: [
       ok: {"Intake queue", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :intake_watchers,
+  operation(:intake_watchers,
     summary: "List intake watchers",
     description: "Returns all registered intake watchers.",
     tags: ["Tasks"],
     responses: [
       ok: {"Watcher list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :skills,
+  operation(:skills,
     summary: "List skills (v1 alias)",
     description: "Returns all tracked skills from SkillTracker.",
     tags: ["Skills"],
     responses: [
       ok: {"Skills list", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :track_skill,
+  operation(:track_skill,
     summary: "Track skill invocation",
     description: "Records a skill invocation event in SkillTracker.",
     tags: ["Skills"],
-    request_body: {"Skill tracking payload", "application/json", %Schema{type: :object}, required: true},
+    request_body:
+      {"Skill tracking payload", "application/json", %Schema{type: :object}, required: true},
     responses: [
       ok: {"Skill tracked", "application/json", Schemas.OkResponse}
     ]
+  )
 
-  operation :update_agent,
+  operation(:update_agent,
     summary: "Full agent update (v3-compat)",
     description: "Replaces all fields of a registered agent (v3 compatibility alias).",
     tags: ["Agents"],
@@ -591,6 +684,7 @@ defmodule ApmWeb.ApiController do
     responses: [
       ok: {"Agent updated", "application/json", Schemas.OkResponse}
     ]
+  )
 
   # Catch-all for any action not explicitly annotated above.
   def open_api_operation(_action), do: nil
@@ -800,9 +894,11 @@ defmodule ApmWeb.ApiController do
       _ ->
         json(conn, %{
           catalog: SkillTracker.get_skill_catalog(),
-          co_occurrence: SkillTracker.get_co_occurrence() |> Enum.map(fn {{a, b}, count} ->
-            %{skill_a: a, skill_b: b, count: count}
-          end)
+          co_occurrence:
+            SkillTracker.get_co_occurrence()
+            |> Enum.map(fn {{a, b}, count} ->
+              %{skill_a: a, skill_b: b, count: count}
+            end)
         })
     end
   end
@@ -901,7 +997,8 @@ defmodule ApmWeb.ApiController do
         agent_name: params["agent_name"] || params["name"],
         agent_type: params["agent_type"] || params["formation_role"] || "individual",
         agent_definition: params["agent_definition"] || params["role"] || "",
-        agent_description: params["agent_description"] || params["agent_definition"] || params["role"],
+        agent_description:
+          params["agent_description"] || params["agent_definition"] || params["role"],
         agent_version: params["agent_version"],
         # Provenance (new OTel-aligned fields)
         invoked_by: params["invoked_by"],
@@ -947,8 +1044,12 @@ defmodule ApmWeb.ApiController do
 
       # Return enriched identity fields so callers can confirm normalization
       registered = AgentRegistry.get_agent(agent_id)
-      display_name = if registered, do: Map.get(registered, :display_name, agent_id), else: agent_id
-      resolved_name = if registered, do: Map.get(registered, :agent_name, agent_id), else: agent_id
+
+      display_name =
+        if registered, do: Map.get(registered, :display_name, agent_id), else: agent_id
+
+      resolved_name =
+        if registered, do: Map.get(registered, :agent_name, agent_id), else: agent_id
 
       # v10.0.0/s1 (CP-289): RFC 7523 JWT Bearer Assertion — issue identity token.
       # Caller is expected to attach it as `Authorization: Bearer <token>` on
@@ -977,7 +1078,8 @@ defmodule ApmWeb.ApiController do
         display_name: display_name
       }
 
-      response = if identity_token, do: Map.put(response, :identity_token, identity_token), else: response
+      response =
+        if identity_token, do: Map.put(response, :identity_token, identity_token), else: response
 
       conn
       |> put_status(201)
@@ -1022,7 +1124,17 @@ defmodule ApmWeb.ApiController do
             role: params["role"] || "individual",
             project_name: params["project"],
             wave_number: params["wave"],
-            metadata: Map.drop(params, ["agent_id", "id", "status", "name", "formation_id", "role", "project", "wave"])
+            metadata:
+              Map.drop(params, [
+                "agent_id",
+                "id",
+                "status",
+                "name",
+                "formation_id",
+                "role",
+                "project",
+                "wave"
+              ])
           }
 
           AgentRegistry.register_agent(agent_id, metadata, params["project"])
@@ -1052,14 +1164,20 @@ defmodule ApmWeb.ApiController do
     # Parse upm_context — may arrive as JSON string or already-decoded map
     upm_context =
       case params["upm_context"] do
-        nil -> nil
-        ctx when is_map(ctx) -> ctx
+        nil ->
+          nil
+
+        ctx when is_map(ctx) ->
+          ctx
+
         ctx when is_binary(ctx) ->
           case Jason.decode(ctx) do
             {:ok, decoded} -> decoded
             _ -> nil
           end
-        _ -> nil
+
+        _ ->
+          nil
       end
 
     type = params["type"] || params["level"] || "info"
@@ -1349,8 +1467,7 @@ defmodule ApmWeb.ApiController do
     case EnvironmentScanner.get_environment(name) do
       {:ok, env} ->
         # Use pgrep safely with exact argument matching (no shell interpolation)
-        {output, _} = System.cmd("pgrep", ["-f", "claude.*#{env.path}"],
-          stderr_to_stdout: true)
+        {output, _} = System.cmd("pgrep", ["-f", "claude.*#{env.path}"], stderr_to_stdout: true)
 
         pids =
           output
@@ -1404,12 +1521,14 @@ defmodule ApmWeb.ApiController do
   defp maybe_add_filter(filters, key, value), do: [{key, value} | filters]
 
   defp parse_limit(nil, default), do: default
+
   defp parse_limit(val, default) when is_binary(val) do
     case Integer.parse(val) do
       {n, _} -> min(max(n, 1), 1000)
       :error -> default
     end
   end
+
   defp parse_limit(val, _default) when is_integer(val), do: min(max(val, 1), 1000)
   defp parse_limit(_, default), do: default
 
@@ -1457,15 +1576,21 @@ defmodule ApmWeb.ApiController do
 
     opts =
       case Map.get(params, "sections") do
-        nil -> opts
+        nil ->
+          opts
+
         sections when is_list(sections) ->
           Keyword.put(opts, :sections, Enum.map(sections, &String.to_existing_atom/1))
-        _ -> opts
+
+        _ ->
+          opts
       end
 
     opts =
       case Map.get(params, "since") do
-        nil -> opts
+        nil ->
+          opts
+
         since_str ->
           case DateTime.from_iso8601(since_str) do
             {:ok, dt, _} -> Keyword.put(opts, :since, dt)
@@ -1502,6 +1627,7 @@ defmodule ApmWeb.ApiController do
 
   def assign_port(conn, %{"namespace" => ns}) do
     atom_ns = String.to_existing_atom(ns)
+
     case Apm.PortManager.assign_port(atom_ns) do
       {:ok, port} -> json(conn, %{ok: true, port: port})
       {:error, reason} -> conn |> put_status(422) |> json(%{ok: false, error: to_string(reason)})
@@ -1526,7 +1652,9 @@ defmodule ApmWeb.ApiController do
     ownership = Map.get(params, "ownership", "shared")
 
     if ownership not in ["exclusive", "shared", "reserved"] do
-      conn |> put_status(400) |> json(%{ok: false, error: "invalid ownership: must be exclusive, shared, or reserved"})
+      conn
+      |> put_status(400)
+      |> json(%{ok: false, error: "invalid ownership: must be exclusive, shared, or reserved"})
     else
       case Apm.PortManager.set_primary_port(project, port, ownership) do
         :ok ->
@@ -1567,7 +1695,9 @@ defmodule ApmWeb.ApiController do
     filter =
       %{}
       |> then(fn f -> if params["status"], do: Map.put(f, :status, params["status"]), else: f end)
-      |> then(fn f -> if params["project"], do: Map.put(f, :project, params["project"]), else: f end)
+      |> then(fn f ->
+        if params["project"], do: Map.put(f, :project, params["project"]), else: f
+      end)
 
     tasks = Apm.BackgroundTasksStore.list_tasks(filter)
     json(conn, %{tasks: tasks})
@@ -1588,7 +1718,8 @@ defmodule ApmWeb.ApiController do
   end
 
   def get_bg_task_logs(conn, %{"id" => id} = params) do
-    lines = params["lines"] |> then(fn v -> if is_binary(v), do: String.to_integer(v), else: 50 end)
+    lines =
+      params["lines"] |> then(fn v -> if is_binary(v), do: String.to_integer(v), else: 50 end)
 
     case Apm.BackgroundTasksStore.get_task_logs(id, lines) do
       {:ok, log_lines} ->
@@ -1642,6 +1773,7 @@ defmodule ApmWeb.ApiController do
 
   def scanner_scan(conn, params) do
     base_path = params["base_path"]
+
     case Apm.ProjectScanner.scan(base_path) do
       {:ok, results} -> json(conn, %{results: results, count: length(results)})
       {:error, reason} -> conn |> put_status(500) |> json(%{error: to_string(reason)})
@@ -1697,6 +1829,7 @@ defmodule ApmWeb.ApiController do
     case Apm.Intake.Store.submit(params) do
       {:ok, event} ->
         json(conn, %{ok: true, id: event.id, received_at: DateTime.to_iso8601(event.received_at)})
+
       {:error, reason} ->
         conn
         |> put_status(503)
@@ -1721,11 +1854,18 @@ defmodule ApmWeb.ApiController do
   @doc "GET /api/intake/watchers -- list registered intake watchers"
   def intake_watchers(conn, _params) do
     watchers = Apm.Intake.Store.watchers()
+
     json(conn, %{
       ok: true,
-      watchers: Enum.map(watchers, fn m ->
-        %{name: m.name(), event_types: m.event_types(), sources: m.sources(), enabled: m.enabled?()}
-      end)
+      watchers:
+        Enum.map(watchers, fn m ->
+          %{
+            name: m.name(),
+            event_types: m.event_types(),
+            sources: m.sources(),
+            enabled: m.enabled?()
+          }
+        end)
     })
   end
 
@@ -1757,13 +1897,17 @@ defmodule ApmWeb.ApiController do
           Enum.filter(agents, fn agent ->
             registered =
               case Map.get(agent, :registered_at) || Map.get(agent, "registered_at") do
-                nil -> nil
+                nil ->
+                  nil
+
                 ts when is_binary(ts) ->
                   case DateTime.from_iso8601(ts) do
                     {:ok, dt, _} -> dt
                     _ -> nil
                   end
-                _ -> nil
+
+                _ ->
+                  nil
               end
 
             case registered do

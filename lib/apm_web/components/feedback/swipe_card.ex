@@ -54,17 +54,35 @@ defmodule ApmWeb.Components.Feedback.SwipeCard do
     >
       <%!-- Deny indicator (revealed on left swipe) --%>
       <div class="apm-swipe-card__indicator apm-swipe-card__indicator--deny" aria-hidden="true">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
         Deny
       </div>
       <%!-- Allow indicator (revealed on right swipe) --%>
       <div class="apm-swipe-card__indicator apm-swipe-card__indicator--allow" aria-hidden="true">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 5 5L20 6"/></svg>
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="m5 12 5 5L20 6" />
+        </svg>
         Allow
       </div>
       <%!-- Card face --%>
       <div class="apm-swipe-card__face">
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
       </div>
       <%!-- Accessible fallback buttons --%>
       <div class="apm-swipe-card__buttons" aria-label="Decision buttons">
@@ -74,14 +92,18 @@ defmodule ApmWeb.Components.Feedback.SwipeCard do
           phx-click={@on_decide}
           phx-value-decision="deny"
           phx-value-id={@decision_id}
-        >Deny</button>
+        >
+          Deny
+        </button>
         <button
           class="apm-btn apm-btn--variant-primary apm-btn--size-sm apm-focusable"
           type="button"
           phx-click={@on_decide}
           phx-value-decision="allow"
           phx-value-id={@decision_id}
-        >Allow</button>
+        >
+          Allow
+        </button>
       </div>
     </div>
     """

@@ -105,7 +105,8 @@ defmodule ApmWeb.Telemetry do
       counter("apm.governance.critical_command_rate",
         event_name: [:apm, :governance, :critical_command_rate],
         measurement: :count,
-        description: "ccem_governance_critical_command_rate — destructive / :critical Bash commands",
+        description:
+          "ccem_governance_critical_command_rate — destructive / :critical Bash commands",
         tags: [:tool_name, :agent_id]
       ),
 
@@ -113,7 +114,8 @@ defmodule ApmWeb.Telemetry do
       counter("apm.governance.trust_degradation_events",
         event_name: [:apm, :governance, :trust_degradation_events],
         measurement: :count,
-        description: "ccem_governance_trust_degradation_events — session trust ceiling downgrades",
+        description:
+          "ccem_governance_trust_degradation_events — session trust ceiling downgrades",
         tags: [:session_id]
       ),
 
@@ -129,7 +131,8 @@ defmodule ApmWeb.Telemetry do
       last_value("apm.governance.risk_score_p95",
         event_name: [:apm, :governance, :risk_score_p95],
         measurement: :value,
-        description: "ccem_governance_risk_score_p95 — p95 risk severity across PolicyDecisionStore (60s window)"
+        description:
+          "ccem_governance_risk_score_p95 — p95 risk severity across PolicyDecisionStore (60s window)"
       )
     ]
   end

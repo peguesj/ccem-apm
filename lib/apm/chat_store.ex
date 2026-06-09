@@ -71,11 +71,15 @@ defmodule Apm.ChatStore do
 
   @impl true
   def handle_call({:send_message, scope, content, metadata}, _from, state) do
-    message = build_message(content, Map.merge(metadata, %{
-      "scope" => scope,
-      "role" => Map.get(metadata, "role", "user"),
-      "source" => "chat_input"
-    }))
+    message =
+      build_message(
+        content,
+        Map.merge(metadata, %{
+          "scope" => scope,
+          "role" => Map.get(metadata, "role", "user"),
+          "source" => "chat_input"
+        })
+      )
 
     store_message(scope, message)
     broadcast_chat(scope, {:new_message, message})
@@ -87,11 +91,13 @@ defmodule Apm.ChatStore do
         message_id: message["id"],
         role: "user"
       })
+
       Apm.EventStream.emit(EventType.text_message_content(), %{
         agent_id: Map.get(metadata, "agent_id", "user"),
         message_id: message["id"],
         content: content
       })
+
       Apm.EventStream.emit(EventType.text_message_end(), %{
         agent_id: Map.get(metadata, "agent_id", "user"),
         message_id: message["id"]
@@ -146,7 +152,9 @@ defmodule Apm.ChatStore do
 
     state =
       case get_in(state, [:buffers, agent_id]) do
-        nil -> state
+        nil ->
+          state
+
         buffer ->
           updated = Map.update!(buffer, "content", &(&1 <> content))
           put_in(state, [:buffers, agent_id], updated)
@@ -160,16 +168,20 @@ defmodule Apm.ChatStore do
 
     state =
       case get_in(state, [:buffers, agent_id]) do
-        nil -> state
+        nil ->
+          state
+
         buffer ->
           scope = determine_scope(agent_id)
-          message = build_message(buffer["content"], %{
-            "scope" => scope,
-            "role" => buffer["role"],
-            "agent_id" => agent_id,
-            "source" => "ag_ui",
-            "id" => buffer["id"]
-          })
+
+          message =
+            build_message(buffer["content"], %{
+              "scope" => scope,
+              "role" => buffer["role"],
+              "agent_id" => agent_id,
+              "source" => "ag_ui",
+              "id" => buffer["id"]
+            })
 
           store_message(scope, message)
           broadcast_chat(scope, {:new_message, message})
@@ -193,6 +205,7 @@ defmodule Apm.ChatStore do
 
   defp build_message(content, metadata) do
     id = Map.get(metadata, "id", generate_id())
+
     %{
       "id" => id,
       "content" => content,

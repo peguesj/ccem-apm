@@ -26,15 +26,17 @@ defmodule ApmWeb.V2.UpmDecisionController do
   alias ApmWeb.Schemas
 
   @doc "Create a decision gate and block until resolved (or timeout)."
-  operation :create,
+  operation(:create,
     summary: "Create",
     tags: ["UPM Decision Gate"],
     responses: [
       ok: {"OK", "application/json", Schemas.GateDecision}
     ]
+  )
 
   def create(conn, params) do
     question = Map.get(params, "question", "Proceed with formation deployment?")
+
     opts = %{
       "context" => Map.get(params, "context", ""),
       "options" => Map.get(params, "options", ["Deploy", "Cancel"]),
@@ -56,12 +58,13 @@ defmodule ApmWeb.V2.UpmDecisionController do
   end
 
   @doc "List all decision gates."
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["UPM Decision Gate"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, _params) do
     gates =
@@ -72,12 +75,13 @@ defmodule ApmWeb.V2.UpmDecisionController do
   end
 
   @doc "Get a specific gate by ID."
-  operation :show,
+  operation(:show,
     summary: "Get one",
     tags: ["UPM Decision Gate"],
     responses: [
       ok: {"OK", "application/json", Schemas.Gate}
     ]
+  )
 
   def show(conn, %{"id" => gate_id}) do
     case DecisionGate.get(gate_id) do
@@ -90,12 +94,13 @@ defmodule ApmWeb.V2.UpmDecisionController do
   end
 
   @doc "Approve a pending gate."
-  operation :approve,
+  operation(:approve,
     summary: "Approve",
     tags: ["UPM Decision Gate"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def approve(conn, %{"id" => gate_id}) do
     case DecisionGate.approve(gate_id) do
@@ -111,12 +116,13 @@ defmodule ApmWeb.V2.UpmDecisionController do
   end
 
   @doc "Reject a pending gate."
-  operation :reject,
+  operation(:reject,
     summary: "Reject",
     tags: ["UPM Decision Gate"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def reject(conn, %{"id" => gate_id} = params) do
     reason = Map.get(params, "reason", "User rejected")

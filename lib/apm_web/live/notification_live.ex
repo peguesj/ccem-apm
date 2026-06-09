@@ -48,7 +48,9 @@ defmodule ApmWeb.NotificationLive do
       |> assign(:confirmation_dialog, nil)
       |> assign(:auto_approve_minutes, nil)
 
-    {:ok, socket |> assign(:sidebar_collapsed, false)
+    {:ok,
+     socket
+     |> assign(:sidebar_collapsed, false)
      |> assign(:inspector_open, false)
      |> ApmWeb.Components.SidebarNav.assign_sidebar_nav_data()}
   end
@@ -61,114 +63,137 @@ defmodule ApmWeb.NotificationLive do
         <.sidebar_nav current_path="/notifications" notification_count={@tab_counts["all"]} />
       </:sidebar>
       <:main>
+        <%!-- Main --%>
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <%!-- Header --%>
+          <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+            <h2 class="text-sm font-semibold">Notifications</h2>
+            <div class="flex items-center gap-2">
+              <label class="flex items-center gap-1.5 text-xs text-base-content/50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-xs"
+                  phx-click="toggle_showcase_filter"
+                  checked={@hide_showcase}
+                /> Hide showcase
+              </label>
+              <button
+                phx-click="toggle_grouped_view"
+                class={[
+                  "btn btn-ghost btn-xs gap-1",
+                  @grouped_view && "text-primary",
+                  !@grouped_view && "text-base-content/60"
+                ]}
+                title={if @grouped_view, do: "Switch to flat list", else: "Group by category"}
+              >
+                <.icon
+                  name={if @grouped_view, do: "hero-squares-2x2", else: "hero-list-bullet"}
+                  class="size-3"
+                />
+                {if @grouped_view, do: "Grouped", else: "Flat"}
+              </button>
+              <button
+                :if={@active_tab != "all"}
+                phx-click="dismiss_category"
+                phx-value-category={@active_tab}
+                class="btn btn-ghost btn-xs text-base-content/60"
+              >
+                Dismiss category
+              </button>
+              <button phx-click="mark_all_read" class="btn btn-ghost btn-xs text-base-content/60">
+                Mark all read
+              </button>
+            </div>
+          </header>
 
-      <%!-- Main --%>
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Header --%>
-        <header class="h-12 bg-base-200 border-b border-base-300 flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-          <h2 class="text-sm font-semibold">Notifications</h2>
-          <div class="flex items-center gap-2">
-            <label class="flex items-center gap-1.5 text-xs text-base-content/50 cursor-pointer">
-              <input
-                type="checkbox"
-                class="checkbox checkbox-xs"
-                phx-click="toggle_showcase_filter"
-                checked={@hide_showcase}
-              />
-              Hide showcase
-            </label>
-            <button
-              phx-click="toggle_grouped_view"
-              class={[
-                "btn btn-ghost btn-xs gap-1",
-                @grouped_view && "text-primary",
-                !@grouped_view && "text-base-content/60"
-              ]}
-              title={if @grouped_view, do: "Switch to flat list", else: "Group by category"}
-            >
-              <.icon name={if @grouped_view, do: "hero-squares-2x2", else: "hero-list-bullet"} class="size-3" />
-              {if @grouped_view, do: "Grouped", else: "Flat"}
-            </button>
-            <button phx-click="dismiss_category" phx-value-category={@active_tab} class="btn btn-ghost btn-xs text-base-content/60" :if={@active_tab != "all"}>
-              Dismiss category
-            </button>
-            <button phx-click="mark_all_read" class="btn btn-ghost btn-xs text-base-content/60">
-              Mark all read
-            </button>
-          </div>
-        </header>
-
-        <%!-- Tabs --%>
-        <div class="flex border-b border-base-300 bg-base-200 px-4 flex-shrink-0">
-          <.tab_btn label="All" tab="all" active={@active_tab} count={@tab_counts["all"]} />
-          <.tab_btn label="Agents" tab="agents" active={@active_tab} count={@tab_counts["agents"]} />
-          <.tab_btn label="Formations" tab="formations" active={@active_tab} count={@tab_counts["formations"]} />
-          <.tab_btn label="Skills" tab="skills" active={@active_tab} count={@tab_counts["skills"]} />
-          <.tab_btn label="Ship" tab="ship" active={@active_tab} count={@tab_counts["ship"]} />
-        </div>
-
-        <%!-- Notification list --%>
-        <div class="flex-1 overflow-y-auto p-4 space-y-2">
-          <% visible = visible_notifications(@notifications, @active_tab, @hide_showcase) %>
-          <% agentlock_notifs = Enum.filter(visible, fn n -> to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock") end) %>
-
-          <div :if={visible == []} class="text-center text-base-content/30 py-16 text-sm">
-            No notifications in this category
-          </div>
-
-          <%!-- Compact AgentLock Accordion Panel --%>
-          <.agentlock_accordion_panel
-            :if={agentlock_notifs != []}
-            notifs={agentlock_notifs}
-            expanded_groups={@agentlock_groups_expanded}
-          />
-
-          <% other_notifs = Enum.reject(visible, fn n -> to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock") end) %>
-
-          <%= if @grouped_view do %>
-            <%= for {cat, entries} <- group_notifications(other_notifs) do %>
-              <div class="mb-3">
-                <button
-                  phx-click="toggle_group"
-                  phx-value-category={cat}
-                  class="flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-base-300/50 transition-colors"
-                >
-                  <span class={["badge badge-sm", group_badge_class(cat)]}>{cat}</span>
-                  <span class="text-xs text-base-content/50">({length(entries)})</span>
-                  <.icon
-                    name={if MapSet.member?(@collapsed_groups, cat), do: "hero-chevron-right", else: "hero-chevron-down"}
-                    class="size-3 ml-auto text-base-content/40"
-                  />
-                </button>
-                <div :if={not MapSet.member?(@collapsed_groups, cat)} class="space-y-2 mt-1">
-                  <.notif_card
-                    :for={notif <- entries}
-                    notif={notif}
-                    expanded={MapSet.member?(@expanded_ids, notif.id)}
-                    formation_expanded={MapSet.member?(@expanded_formations, notif.id)}
-                    upm_expanded={MapSet.member?(@expanded_upm, notif.id)}
-                    pending_decision={Map.get(@pending_decisions, notif.id)}
-                    lazy_context={Map.get(@lazy_context, notif.id)}
-                  />
-                </div>
-              </div>
-            <% end %>
-          <% else %>
-            <.notif_card
-              :for={notif <- other_notifs}
-              notif={notif}
-              expanded={MapSet.member?(@expanded_ids, notif.id)}
-              formation_expanded={MapSet.member?(@expanded_formations, notif.id)}
-              upm_expanded={MapSet.member?(@expanded_upm, notif.id)}
-              pending_decision={Map.get(@pending_decisions, notif.id)}
-              lazy_context={Map.get(@lazy_context, notif.id)}
+          <%!-- Tabs --%>
+          <div class="flex border-b border-base-300 bg-base-200 px-4 flex-shrink-0">
+            <.tab_btn label="All" tab="all" active={@active_tab} count={@tab_counts["all"]} />
+            <.tab_btn label="Agents" tab="agents" active={@active_tab} count={@tab_counts["agents"]} />
+            <.tab_btn
+              label="Formations"
+              tab="formations"
+              active={@active_tab}
+              count={@tab_counts["formations"]}
             />
-          <% end %>
-        </div>
-      </div>
+            <.tab_btn label="Skills" tab="skills" active={@active_tab} count={@tab_counts["skills"]} />
+            <.tab_btn label="Ship" tab="ship" active={@active_tab} count={@tab_counts["ship"]} />
+          </div>
 
-      <%!-- Confirmation Dialog Modal --%>
-      <.confirmation_dialog confirmation={@confirmation_dialog} />
+          <%!-- Notification list --%>
+          <div class="flex-1 overflow-y-auto p-4 space-y-2">
+            <% visible = visible_notifications(@notifications, @active_tab, @hide_showcase) %>
+            <% agentlock_notifs =
+              Enum.filter(visible, fn n ->
+                to_string(n[:category]) == "agentlock" or
+                  String.contains?(to_string(n[:type]), "agentlock")
+              end) %>
+
+            <div :if={visible == []} class="text-center text-base-content/30 py-16 text-sm">
+              No notifications in this category
+            </div>
+
+            <%!-- Compact AgentLock Accordion Panel --%>
+            <.agentlock_accordion_panel
+              :if={agentlock_notifs != []}
+              notifs={agentlock_notifs}
+              expanded_groups={@agentlock_groups_expanded}
+            />
+
+            <% other_notifs =
+              Enum.reject(visible, fn n ->
+                to_string(n[:category]) == "agentlock" or
+                  String.contains?(to_string(n[:type]), "agentlock")
+              end) %>
+
+            <%= if @grouped_view do %>
+              <%= for {cat, entries} <- group_notifications(other_notifs) do %>
+                <div class="mb-3">
+                  <button
+                    phx-click="toggle_group"
+                    phx-value-category={cat}
+                    class="flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-base-300/50 transition-colors"
+                  >
+                    <span class={["badge badge-sm", group_badge_class(cat)]}>{cat}</span>
+                    <span class="text-xs text-base-content/50">({length(entries)})</span>
+                    <.icon
+                      name={
+                        if MapSet.member?(@collapsed_groups, cat),
+                          do: "hero-chevron-right",
+                          else: "hero-chevron-down"
+                      }
+                      class="size-3 ml-auto text-base-content/40"
+                    />
+                  </button>
+                  <div :if={not MapSet.member?(@collapsed_groups, cat)} class="space-y-2 mt-1">
+                    <.notif_card
+                      :for={notif <- entries}
+                      notif={notif}
+                      expanded={MapSet.member?(@expanded_ids, notif.id)}
+                      formation_expanded={MapSet.member?(@expanded_formations, notif.id)}
+                      upm_expanded={MapSet.member?(@expanded_upm, notif.id)}
+                      pending_decision={Map.get(@pending_decisions, notif.id)}
+                      lazy_context={Map.get(@lazy_context, notif.id)}
+                    />
+                  </div>
+                </div>
+              <% end %>
+            <% else %>
+              <.notif_card
+                :for={notif <- other_notifs}
+                notif={notif}
+                expanded={MapSet.member?(@expanded_ids, notif.id)}
+                formation_expanded={MapSet.member?(@expanded_formations, notif.id)}
+                upm_expanded={MapSet.member?(@expanded_upm, notif.id)}
+                pending_decision={Map.get(@pending_decisions, notif.id)}
+                lazy_context={Map.get(@lazy_context, notif.id)}
+              />
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Confirmation Dialog Modal --%>
+        <.confirmation_dialog confirmation={@confirmation_dialog} />
       </:main>
     </.page_layout>
     """
@@ -216,11 +241,13 @@ defmodule ApmWeb.NotificationLive do
             Cancel
           </button>
           <button
-            phx-click={case @confirmation do
-              {:approve_all, _} -> "confirm_approve_all"
-              {:deny_all, _} -> "confirm_deny_all"
-              _ -> nil
-            end}
+            phx-click={
+              case @confirmation do
+                {:approve_all, _} -> "confirm_approve_all"
+                {:deny_all, _} -> "confirm_deny_all"
+                _ -> nil
+              end
+            }
             class={[
               "btn btn-sm",
               case @confirmation do
@@ -229,11 +256,13 @@ defmodule ApmWeb.NotificationLive do
                 _ -> "btn-primary"
               end
             ]}
-            aria-label={case @confirmation do
-              {:approve_all, _} -> "Confirm approve all"
-              {:deny_all, _} -> "Confirm deny all"
-              _ -> "Confirm"
-            end}
+            aria-label={
+              case @confirmation do
+                {:approve_all, _} -> "Confirm approve all"
+                {:deny_all, _} -> "Confirm deny all"
+                _ -> "Confirm"
+              end
+            }
           >
             <%= case @confirmation do %>
               <% {:approve_all, _} -> %>
@@ -291,11 +320,19 @@ defmodule ApmWeb.NotificationLive do
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            <path
+              fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clip-rule="evenodd"
+            />
           </svg>
           <h3 class="text-sm font-semibold text-amber-300">AgentLock: {length(@notifs)} Pending</h3>
         </div>
-        <button phx-click="agentlock_approve_all" class="btn btn-xs btn-outline btn-success text-[11px] px-2" title="Keyboard: A">
+        <button
+          phx-click="agentlock_approve_all"
+          class="btn btn-xs btn-outline btn-success text-[11px] px-2"
+          title="Keyboard: A"
+        >
           Approve All <span class="text-[9px] opacity-60">(A)</span>
         </button>
       </div>
@@ -320,7 +357,11 @@ defmodule ApmWeb.NotificationLive do
               fill="currentColor"
               viewBox="0 0 20 20"
             >
-              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+              <path
+                fill-rule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
             </svg>
 
             <div class="flex-1 flex items-center gap-2 min-w-0">
@@ -378,10 +419,18 @@ defmodule ApmWeb.NotificationLive do
 
       <div class="flex flex-col gap-2 mt-3 pt-2 border-t border-amber-700/20">
         <div class="flex gap-2">
-          <button phx-click="deny_all_agentlock" class="btn btn-xs btn-outline btn-error flex-1 text-[11px]" title="Keyboard: D">
+          <button
+            phx-click="deny_all_agentlock"
+            class="btn btn-xs btn-outline btn-error flex-1 text-[11px]"
+            title="Keyboard: D"
+          >
             Deny All <span class="text-[9px] opacity-60">(D)</span>
           </button>
-          <button phx-click="agentlock_approve_all" class="btn btn-xs btn-success flex-1 text-[11px]" title="Keyboard: A">
+          <button
+            phx-click="agentlock_approve_all"
+            class="btn btn-xs btn-success flex-1 text-[11px]"
+            title="Keyboard: A"
+          >
             Approve All <span class="text-[9px] opacity-60">(A)</span>
           </button>
         </div>
@@ -458,7 +507,10 @@ defmodule ApmWeb.NotificationLive do
           <div class="flex items-start justify-between gap-2">
             <p class="text-sm font-medium text-base-content truncate">{@notif.title}</p>
             <div class="flex items-center gap-1.5 flex-shrink-0">
-              <span :if={@notif[:dupe_count] && @notif[:dupe_count] > 1} class="badge badge-xs badge-warning font-mono">
+              <span
+                :if={@notif[:dupe_count] && @notif[:dupe_count] > 1}
+                class="badge badge-xs badge-warning font-mono"
+              >
                 x{@notif.dupe_count}
               </span>
               <span class="text-[10px] text-base-content/40 font-mono">
@@ -466,18 +518,30 @@ defmodule ApmWeb.NotificationLive do
               </span>
             </div>
           </div>
-          <p :if={@notif.message && @notif.message != ""} class="text-xs text-base-content/60 mt-0.5 line-clamp-2">
+          <p
+            :if={@notif.message && @notif.message != ""}
+            class="text-xs text-base-content/60 mt-0.5 line-clamp-2"
+          >
             {format_message(@notif.message)}
           </p>
           <%!-- Category chip --%>
           <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span :if={@notif.category} class={["badge badge-xs font-mono", category_badge_class(@notif.category)]}>
+            <span
+              :if={@notif.category}
+              class={["badge badge-xs font-mono", category_badge_class(@notif.category)]}
+            >
               {@notif.category}
             </span>
-            <span :if={@notif[:formation_id]} class="badge badge-xs badge-outline badge-primary font-mono text-[9px]">
+            <span
+              :if={@notif[:formation_id]}
+              class="badge badge-xs badge-outline badge-primary font-mono text-[9px]"
+            >
               {@notif.formation_id}
             </span>
-            <span :if={@notif[:agent_id]} class="badge badge-xs badge-outline badge-info font-mono text-[9px]">
+            <span
+              :if={@notif[:agent_id]}
+              class="badge badge-xs badge-outline badge-info font-mono text-[9px]"
+            >
               {@notif.agent_id}
             </span>
           </div>
@@ -501,7 +565,10 @@ defmodule ApmWeb.NotificationLive do
             </a>
             <%!-- UPM contextual action buttons --%>
             <div
-              :if={String.contains?(to_string(@notif[:category]), "upm") || String.starts_with?(to_string(@notif[:type]), "upm:") || @notif[:upm_context] != nil}
+              :if={
+                String.contains?(to_string(@notif[:category]), "upm") ||
+                  String.starts_with?(to_string(@notif[:type]), "upm:") || @notif[:upm_context] != nil
+              }
               class="flex items-center gap-1 flex-wrap"
             >
               <.link
@@ -509,8 +576,7 @@ defmodule ApmWeb.NotificationLive do
                 navigate="/upm"
                 class="btn btn-xs btn-ghost text-primary"
               >
-                <.icon name="hero-document-text" class="size-3" />
-                Story {@notif[:story_id]}
+                <.icon name="hero-document-text" class="size-3" /> Story {@notif[:story_id]}
               </.link>
               <.link
                 :if={@notif[:wave_number]}
@@ -518,7 +584,9 @@ defmodule ApmWeb.NotificationLive do
                 class="btn btn-xs btn-ghost text-primary"
               >
                 <.icon name="hero-queue-list" class="size-3" />
-                Wave {@notif[:wave_number]}{if @notif[:wave_total], do: "/#{@notif[:wave_total]}", else: ""}
+                Wave {@notif[:wave_number]}{if @notif[:wave_total],
+                  do: "/#{@notif[:wave_total]}",
+                  else: ""}
               </.link>
               <.link navigate="/upm" class="btn btn-xs btn-ghost text-primary">
                 <.icon name="hero-book-open" class="size-3" /> View PRD
@@ -526,7 +594,9 @@ defmodule ApmWeb.NotificationLive do
             </div>
             <%!-- Ralph contextual action buttons --%>
             <div
-              :if={@notif[:category] == "ralph" || String.contains?(to_string(@notif[:title]), "Ralph")}
+              :if={
+                @notif[:category] == "ralph" || String.contains?(to_string(@notif[:title]), "Ralph")
+              }
               class="flex items-center gap-1 flex-wrap"
             >
               <.link navigate="/ralph" class="btn btn-xs btn-ghost text-warning">
@@ -539,7 +609,9 @@ defmodule ApmWeb.NotificationLive do
                 Story {@notif[:story_id]}
               </span>
               <span
-                :if={@notif[:event_type] && String.contains?(to_string(@notif[:event_type]), "complete")}
+                :if={
+                  @notif[:event_type] && String.contains?(to_string(@notif[:event_type]), "complete")
+                }
                 class="badge badge-xs badge-success font-mono"
               >
                 Done
@@ -581,7 +653,9 @@ defmodule ApmWeb.NotificationLive do
             </.link>
             <%!-- Decision Gate buttons — pending_approval type, decision or agentlock category --%>
             <div
-              :if={@notif[:type] == "pending_approval" || @notif[:category] in ["decision", "agentlock"]}
+              :if={
+                @notif[:type] == "pending_approval" || @notif[:category] in ["decision", "agentlock"]
+              }
               class="flex items-center gap-1"
             >
               <button
@@ -600,8 +674,15 @@ defmodule ApmWeb.NotificationLive do
               >
                 <.icon name="hero-x-mark" class="size-3" /> Reject
               </button>
-              <span :if={@pending_decision == :approved} class="badge badge-xs badge-success font-mono">approved</span>
-              <span :if={@pending_decision == :rejected} class="badge badge-xs badge-error font-mono">rejected</span>
+              <span
+                :if={@pending_decision == :approved}
+                class="badge badge-xs badge-success font-mono"
+              >
+                approved
+              </span>
+              <span :if={@pending_decision == :rejected} class="badge badge-xs badge-error font-mono">
+                rejected
+              </span>
             </div>
             <%!-- Formation tree toggle --%>
             <button
@@ -610,17 +691,26 @@ defmodule ApmWeb.NotificationLive do
               phx-value-id={@notif.id}
               class="btn btn-xs btn-ghost text-accent"
             >
-              <.icon name={if @formation_expanded, do: "hero-chevron-up", else: "hero-chevron-right"} class="size-3" />
+              <.icon
+                name={if @formation_expanded, do: "hero-chevron-up", else: "hero-chevron-right"}
+                class="size-3"
+              />
               {if @formation_expanded, do: "Hide Formation", else: "Show Formation"}
             </button>
             <%!-- UPM story progress toggle --%>
             <button
-              :if={String.contains?(to_string(@notif[:category]), "upm") || String.starts_with?(to_string(@notif[:type]), "upm:") || @notif[:upm_context] != nil}
+              :if={
+                String.contains?(to_string(@notif[:category]), "upm") ||
+                  String.starts_with?(to_string(@notif[:type]), "upm:") || @notif[:upm_context] != nil
+              }
               phx-click="toggle_upm_panel"
               phx-value-id={@notif.id}
               class="btn btn-xs btn-ghost text-primary"
             >
-              <.icon name={if @upm_expanded, do: "hero-chevron-up", else: "hero-chevron-right"} class="size-3" />
+              <.icon
+                name={if @upm_expanded, do: "hero-chevron-up", else: "hero-chevron-right"}
+                class="size-3"
+              />
               {if @upm_expanded, do: "Hide Story Progress", else: "Show Story Progress"}
             </button>
             <%!-- Inline action buttons — skip for agentlock (handled by phx-click buttons above) --%>
@@ -631,7 +721,7 @@ defmodule ApmWeb.NotificationLive do
                 class="btn btn-xs btn-ghost text-info gap-1"
               >
                 <.icon name="hero-arrow-top-right-on-square" class="size-3" />
-                <%= action[:label] || action["label"] %>
+                {action[:label] || action["label"]}
               </a>
             <% end %>
             <button
@@ -640,59 +730,103 @@ defmodule ApmWeb.NotificationLive do
               phx-value-id={@notif.id}
               class="btn btn-xs btn-ghost text-base-content/30 ml-auto"
             >
-              <.icon name={if @expanded, do: "hero-chevron-up", else: "hero-chevron-down"} class="size-3" />
+              <.icon
+                name={if @expanded, do: "hero-chevron-up", else: "hero-chevron-down"}
+                class="size-3"
+              />
               {if @expanded, do: "Less", else: "Details"}
             </button>
           </div>
           <%!-- Expanded metadata + refs + trace + actions --%>
-          <div :if={@expanded && has_metadata?(@notif)} class="mt-2 pt-2 border-t border-base-300 space-y-1">
-            <.meta_row :if={@notif[:wave_number]} label="Wave" value={"#{@notif[:wave_number]} / #{@notif[:wave_total]}"} />
+          <div
+            :if={@expanded && has_metadata?(@notif)}
+            class="mt-2 pt-2 border-t border-base-300 space-y-1"
+          >
+            <.meta_row
+              :if={@notif[:wave_number]}
+              label="Wave"
+              value={"#{@notif[:wave_number]} / #{@notif[:wave_total]}"}
+            />
             <.meta_row :if={@notif[:story_id]} label="Story" value={@notif[:story_id]} />
             <.meta_row :if={@notif[:squadron_id]} label="Squadron" value={@notif[:squadron_id]} />
             <.meta_row :if={@notif[:namespace]} label="Namespace" value={@notif[:namespace]} />
             <.meta_row :if={@notif[:project_name]} label="Project" value={@notif[:project_name]} />
             <%!-- refs: linked APM object references --%>
             <div :if={map_size(@notif[:refs] || %{}) > 0} class="mt-1.5 space-y-0.5">
-              <p class="text-[10px] uppercase tracking-widest text-base-content/30 font-semibold">References</p>
+              <p class="text-[10px] uppercase tracking-widest text-base-content/30 font-semibold">
+                References
+              </p>
               <%= for {key, val} <- (@notif[:refs] || %{}), not is_nil(val) do %>
                 <div class="flex items-center gap-2 text-xs font-mono">
-                  <span class="text-base-content/40 min-w-[7rem]"><%= humanize_key(key) %></span>
+                  <span class="text-base-content/40 min-w-[7rem]">{humanize_key(key)}</span>
                   <.ref_link_tag key={key} val={val} />
-                  <span class="text-base-content/20 text-[10px] italic"><%= ref_endpoint_hint(key, val) %></span>
+                  <span class="text-base-content/20 text-[10px] italic">
+                    {ref_endpoint_hint(key, val)}
+                  </span>
                 </div>
               <% end %>
             </div>
             <%!-- trace: causal / distributed trace context --%>
-            <div :if={is_map(@notif[:trace]) && map_size(@notif[:trace]) > 0} class="mt-1.5 space-y-0.5">
-              <p class="text-[10px] uppercase tracking-widest text-base-content/30 font-semibold">Trace</p>
+            <div
+              :if={is_map(@notif[:trace]) && map_size(@notif[:trace]) > 0}
+              class="mt-1.5 space-y-0.5"
+            >
+              <p class="text-[10px] uppercase tracking-widest text-base-content/30 font-semibold">
+                Trace
+              </p>
               <div :if={@notif[:trace][:parent_event_id]} class="flex items-center gap-2 text-xs">
                 <span class="text-base-content/40 min-w-[7rem]">Triggered by</span>
-                <a href={"/ag-ui?event_id=#{@notif[:trace][:parent_event_id]}"} class="font-mono text-info hover:underline"><%= @notif[:trace][:parent_event_id] %></a>
+                <a
+                  href={"/ag-ui?event_id=#{@notif[:trace][:parent_event_id]}"}
+                  class="font-mono text-info hover:underline"
+                >
+                  {@notif[:trace][:parent_event_id]}
+                </a>
               </div>
               <div :if={@notif[:trace][:correlation_id]} class="flex items-center gap-2 text-xs">
                 <span class="text-base-content/40 min-w-[7rem]">Correlation</span>
-                <span class="font-mono text-base-content/70"><%= @notif[:trace][:correlation_id] %></span>
+                <span class="font-mono text-base-content/70">{@notif[:trace][:correlation_id]}</span>
               </div>
-              <div :if={is_list(@notif[:trace][:caused_by]) && @notif[:trace][:caused_by] != []} class="flex items-start gap-2 text-xs">
+              <div
+                :if={is_list(@notif[:trace][:caused_by]) && @notif[:trace][:caused_by] != []}
+                class="flex items-start gap-2 text-xs"
+              >
                 <span class="text-base-content/40 min-w-[7rem]">Caused by</span>
                 <div class="flex flex-wrap gap-1">
-                  <a :for={id <- @notif[:trace][:caused_by]} href={"/agents?id=#{id}"} class="badge badge-xs badge-ghost font-mono hover:badge-info"><%= id %></a>
+                  <a
+                    :for={id <- @notif[:trace][:caused_by]}
+                    href={"/agents?id=#{id}"}
+                    class="badge badge-xs badge-ghost font-mono hover:badge-info"
+                  >
+                    {id}
+                  </a>
                 </div>
               </div>
-              <div :if={is_list(@notif[:trace][:affects]) && @notif[:trace][:affects] != []} class="flex items-start gap-2 text-xs">
+              <div
+                :if={is_list(@notif[:trace][:affects]) && @notif[:trace][:affects] != []}
+                class="flex items-start gap-2 text-xs"
+              >
                 <span class="text-base-content/40 min-w-[7rem]">Affects</span>
                 <div class="flex flex-wrap gap-1">
-                  <a :for={id <- @notif[:trace][:affects]} href={"/agents?id=#{id}"} class="badge badge-xs badge-ghost font-mono hover:badge-success"><%= id %></a>
+                  <a
+                    :for={id <- @notif[:trace][:affects]}
+                    href={"/agents?id=#{id}"}
+                    class="badge badge-xs badge-ghost font-mono hover:badge-success"
+                  >
+                    {id}
+                  </a>
                 </div>
               </div>
             </div>
             <%!-- extra metadata key-value --%>
             <div :if={map_size(@notif[:metadata] || %{}) > 0} class="mt-1.5 space-y-0.5">
-              <p class="text-[10px] uppercase tracking-widest text-base-content/30 font-semibold">Metadata</p>
+              <p class="text-[10px] uppercase tracking-widest text-base-content/30 font-semibold">
+                Metadata
+              </p>
               <%= for {key, val} <- (@notif[:metadata] || %{}) do %>
                 <div class="flex items-center gap-2 text-xs font-mono">
-                  <span class="text-base-content/40 min-w-[7rem]"><%= key %></span>
-                  <span class="text-base-content/70"><%= inspect_meta(val) %></span>
+                  <span class="text-base-content/40 min-w-[7rem]">{key}</span>
+                  <span class="text-base-content/70">{inspect_meta(val)}</span>
                 </div>
               <% end %>
             </div>
@@ -704,9 +838,17 @@ defmodule ApmWeb.NotificationLive do
                   target={action[:target] || action["target"] || "_self"}
                   class="btn btn-xs btn-outline btn-primary gap-1"
                 >
-                  <.icon :if={(action[:label] || action["label"]) =~ ~r/[Ww]orkflow/} name="hero-arrow-path" class="size-3" />
-                  <.icon :if={(action[:label] || action["label"]) =~ ~r/[Pp][Rr][Dd]/} name="hero-document-text" class="size-3" />
-                  <%= action[:label] || action["label"] %>
+                  <.icon
+                    :if={(action[:label] || action["label"]) =~ ~r/[Ww]orkflow/}
+                    name="hero-arrow-path"
+                    class="size-3"
+                  />
+                  <.icon
+                    :if={(action[:label] || action["label"]) =~ ~r/[Pp][Rr][Dd]/}
+                    name="hero-document-text"
+                    class="size-3"
+                  />
+                  {action[:label] || action["label"]}
                 </a>
               <% end %>
             </div>
@@ -716,26 +858,44 @@ defmodule ApmWeb.NotificationLive do
             <p class="text-xs font-semibold text-accent mb-1.5">Formation Hierarchy</p>
             <div :if={@lazy_context == nil} class="text-xs text-base-content/40 italic">
               Loading...
-              <span phx-hook="LoadContext" id={"ctx-#{@notif.id}"} phx-value-id={@notif.id} phx-value-type="formation" style="display:none" />
+              <span
+                phx-hook="LoadContext"
+                id={"ctx-#{@notif.id}"}
+                phx-value-id={@notif.id}
+                phx-value-type="formation"
+                style="display:none"
+              />
             </div>
             <div :if={@lazy_context != nil} class="font-mono text-xs">
               <%!-- Session row --%>
-              <div :if={@lazy_context[:session_id]} class="flex items-center gap-1.5 text-base-content/50">
+              <div
+                :if={@lazy_context[:session_id]}
+                class="flex items-center gap-1.5 text-base-content/50"
+              >
                 <span class="text-base-content/30">├─</span>
                 <.icon name="hero-circle-stack" class="size-3 text-base-content/40" />
                 <span class="text-base-content/50">session:</span>
                 <span class="text-base-content/60">{@lazy_context[:session_id]}</span>
               </div>
               <%!-- Formation row --%>
-              <div :if={@lazy_context[:formation_id]} class="flex items-center gap-1.5 pl-3 text-accent">
+              <div
+                :if={@lazy_context[:formation_id]}
+                class="flex items-center gap-1.5 pl-3 text-accent"
+              >
                 <span class="text-base-content/30">├─</span>
                 <.icon name="hero-rectangle-group" class="size-3 text-accent" />
                 <span class="text-accent/70">formation:</span>
                 <span class="text-accent font-semibold">{@lazy_context[:formation_id]}</span>
               </div>
               <%!-- Squadron rows --%>
-              <div :if={@lazy_context[:squadrons] && @lazy_context[:squadrons] != []} class="pl-6 space-y-0.5">
-                <div :for={sq <- @lazy_context[:squadrons]} class="flex items-center gap-1.5 text-info">
+              <div
+                :if={@lazy_context[:squadrons] && @lazy_context[:squadrons] != []}
+                class="pl-6 space-y-0.5"
+              >
+                <div
+                  :for={sq <- @lazy_context[:squadrons]}
+                  class="flex items-center gap-1.5 text-info"
+                >
                   <span class="text-base-content/30">├─</span>
                   <.icon name="hero-user-group" class="size-3 text-info" />
                   <span class="text-info/70">squadron:</span>
@@ -743,8 +903,14 @@ defmodule ApmWeb.NotificationLive do
                 </div>
               </div>
               <%!-- Swarm rows --%>
-              <div :if={@lazy_context[:swarms] && @lazy_context[:swarms] != []} class="pl-9 space-y-0.5">
-                <div :for={sw <- @lazy_context[:swarms]} class="flex items-center gap-1.5 text-warning">
+              <div
+                :if={@lazy_context[:swarms] && @lazy_context[:swarms] != []}
+                class="pl-9 space-y-0.5"
+              >
+                <div
+                  :for={sw <- @lazy_context[:swarms]}
+                  class="flex items-center gap-1.5 text-warning"
+                >
                   <span class="text-base-content/30">├─</span>
                   <.icon name="hero-squares-plus" class="size-3 text-warning" />
                   <span class="text-warning/70">swarm:</span>
@@ -752,8 +918,14 @@ defmodule ApmWeb.NotificationLive do
                 </div>
               </div>
               <%!-- Agent rows --%>
-              <div :if={@lazy_context[:agents] && @lazy_context[:agents] != []} class="pl-12 space-y-0.5">
-                <div :for={ag <- @lazy_context[:agents]} class="flex items-center gap-1.5 text-base-content/60">
+              <div
+                :if={@lazy_context[:agents] && @lazy_context[:agents] != []}
+                class="pl-12 space-y-0.5"
+              >
+                <div
+                  :for={ag <- @lazy_context[:agents]}
+                  class="flex items-center gap-1.5 text-base-content/60"
+                >
                   <span class="text-base-content/30">└─</span>
                   <.icon name="hero-cpu-chip" class="size-3 text-base-content/50" />
                   <span class="text-base-content/40">agent:</span>
@@ -761,7 +933,14 @@ defmodule ApmWeb.NotificationLive do
                 </div>
               </div>
               <%!-- Empty state --%>
-              <div :if={@lazy_context == %{} || (@lazy_context[:formation_id] == nil && @lazy_context[:squadrons] == [] && @lazy_context[:agents] == [])} class="text-base-content/30 italic">
+              <div
+                :if={
+                  @lazy_context == %{} ||
+                    (@lazy_context[:formation_id] == nil && @lazy_context[:squadrons] == [] &&
+                       @lazy_context[:agents] == [])
+                }
+                class="text-base-content/30 italic"
+              >
                 No hierarchy data available
               </div>
             </div>
@@ -771,17 +950,57 @@ defmodule ApmWeb.NotificationLive do
             <p class="text-xs font-semibold text-primary mb-1.5">Story Progress</p>
             <div :if={@lazy_context == nil} class="text-xs text-base-content/40 italic">
               Loading...
-              <span phx-hook="LoadContext" id={"ctx-upm-#{@notif.id}"} phx-value-id={@notif.id} phx-value-type="upm" style="display:none" />
+              <span
+                phx-hook="LoadContext"
+                id={"ctx-upm-#{@notif.id}"}
+                phx-value-id={@notif.id}
+                phx-value-type="upm"
+                style="display:none"
+              />
             </div>
             <div :if={@lazy_context != nil} class="space-y-1 font-mono text-xs text-base-content/70">
-              <.meta_row :if={@lazy_context[:story_id]} label="Story" value={to_string(@lazy_context[:story_id])} />
-              <.meta_row :if={@lazy_context[:story_title]} label="Title" value={to_string(@lazy_context[:story_title])} />
-              <.meta_row :if={@lazy_context[:feature_name]} label="Feature" value={to_string(@lazy_context[:feature_name])} />
-              <.meta_row :if={@lazy_context[:status]} label="Status" value={to_string(@lazy_context[:status])} />
-              <.meta_row :if={@lazy_context[:wave]} label="Wave" value={to_string(@lazy_context[:wave])} />
-              <.meta_row :if={@lazy_context[:project_name]} label="Project" value={to_string(@lazy_context[:project_name])} />
-              <.meta_row :if={@lazy_context[:upm_session_id]} label="Session" value={to_string(@lazy_context[:upm_session_id])} />
-              <div :if={@lazy_context[:story_id] == nil && @lazy_context[:feature_name] == nil && @lazy_context[:status] == nil} class="text-base-content/30 italic text-xs">
+              <.meta_row
+                :if={@lazy_context[:story_id]}
+                label="Story"
+                value={to_string(@lazy_context[:story_id])}
+              />
+              <.meta_row
+                :if={@lazy_context[:story_title]}
+                label="Title"
+                value={to_string(@lazy_context[:story_title])}
+              />
+              <.meta_row
+                :if={@lazy_context[:feature_name]}
+                label="Feature"
+                value={to_string(@lazy_context[:feature_name])}
+              />
+              <.meta_row
+                :if={@lazy_context[:status]}
+                label="Status"
+                value={to_string(@lazy_context[:status])}
+              />
+              <.meta_row
+                :if={@lazy_context[:wave]}
+                label="Wave"
+                value={to_string(@lazy_context[:wave])}
+              />
+              <.meta_row
+                :if={@lazy_context[:project_name]}
+                label="Project"
+                value={to_string(@lazy_context[:project_name])}
+              />
+              <.meta_row
+                :if={@lazy_context[:upm_session_id]}
+                label="Session"
+                value={to_string(@lazy_context[:upm_session_id])}
+              />
+              <div
+                :if={
+                  @lazy_context[:story_id] == nil && @lazy_context[:feature_name] == nil &&
+                    @lazy_context[:status] == nil
+                }
+                class="text-base-content/30 italic text-xs"
+              >
                 No active UPM session — start a session to see story progress
               </div>
             </div>
@@ -797,15 +1016,18 @@ defmodule ApmWeb.NotificationLive do
   attr :val, :any, required: true
 
   defp ref_link_tag(%{key: key, val: val} = assigns) do
-    href = case key do
-      :agent_id     -> "/agents?id=#{val}"
-      :formation_id -> "/formation?id=#{val}"
-      :session_id   -> "/agents?session=#{val}"
-      :task_id      -> "/tasks?id=#{val}"
-      :event_id     -> "/ag-ui?event_id=#{val}"
-      _             -> nil
-    end
+    href =
+      case key do
+        :agent_id -> "/agents?id=#{val}"
+        :formation_id -> "/formation?id=#{val}"
+        :session_id -> "/agents?session=#{val}"
+        :task_id -> "/tasks?id=#{val}"
+        :event_id -> "/ag-ui?event_id=#{val}"
+        _ -> nil
+      end
+
     assigns = assign(assigns, href: href)
+
     ~H"""
     <a :if={@href} href={@href} class="font-mono text-info text-xs hover:underline">{@val}</a>
     <span :if={!@href} class="font-mono text-base-content/70 text-xs">{@val}</span>
@@ -834,10 +1056,12 @@ defmodule ApmWeb.NotificationLive do
   def handle_event("toggle_expand", %{"id" => id_str}, socket) do
     id = String.to_integer(id_str)
     expanded = socket.assigns.expanded_ids
+
     new_expanded =
       if MapSet.member?(expanded, id),
         do: MapSet.delete(expanded, id),
         else: MapSet.put(expanded, id)
+
     {:noreply, assign(socket, :expanded_ids, new_expanded)}
   end
 
@@ -847,13 +1071,17 @@ defmodule ApmWeb.NotificationLive do
 
   def handle_event("dismiss_category", %{"category" => cat}, socket) do
     cats = @tab_categories[cat] || []
+
     if cats != [] do
       Enum.each(socket.assigns.notifications, fn n ->
         if to_string(n[:category]) in cats, do: AgentRegistry.mark_read(n.id)
       end)
     end
+
     notifications = load_notifications()
-    {:noreply, socket
+
+    {:noreply,
+     socket
      |> assign(:notifications, notifications)
      |> assign(:tab_counts, compute_tab_counts(notifications))}
   end
@@ -861,7 +1089,9 @@ defmodule ApmWeb.NotificationLive do
   def handle_event("mark_all_read", _params, socket) do
     AgentRegistry.mark_all_read()
     notifications = load_notifications()
-    {:noreply, socket
+
+    {:noreply,
+     socket
      |> assign(:notifications, notifications)
      |> assign(:tab_counts, compute_tab_counts(notifications))}
   end
@@ -869,7 +1099,10 @@ defmodule ApmWeb.NotificationLive do
   def handle_event("approve_action", %{"id" => id_str}, socket) do
     id = String.to_integer(id_str)
     notif = Enum.find(socket.assigns.notifications, fn n -> n.id == id end)
-    request_id = get_in(notif, [:metadata, "request_id"]) || get_in(notif, [:metadata, :request_id])
+
+    request_id =
+      get_in(notif, [:metadata, "request_id"]) || get_in(notif, [:metadata, :request_id])
+
     if request_id, do: Task.start(fn -> PendingDecisions.decide(request_id, :approve) end)
     Phoenix.PubSub.broadcast(Apm.PubSub, "apm:decisions", {:decision, id, :approved})
     pending = Map.put(socket.assigns.pending_decisions, id, :approved)
@@ -879,7 +1112,10 @@ defmodule ApmWeb.NotificationLive do
   def handle_event("reject_action", %{"id" => id_str}, socket) do
     id = String.to_integer(id_str)
     notif = Enum.find(socket.assigns.notifications, fn n -> n.id == id end)
-    request_id = get_in(notif, [:metadata, "request_id"]) || get_in(notif, [:metadata, :request_id])
+
+    request_id =
+      get_in(notif, [:metadata, "request_id"]) || get_in(notif, [:metadata, :request_id])
+
     if request_id, do: Task.start(fn -> PendingDecisions.decide(request_id, :deny) end)
     Phoenix.PubSub.broadcast(Apm.PubSub, "apm:decisions", {:decision, id, :rejected})
     pending = Map.put(socket.assigns.pending_decisions, id, :rejected)
@@ -889,20 +1125,24 @@ defmodule ApmWeb.NotificationLive do
   def handle_event("toggle_formation_panel", %{"id" => id_str}, socket) do
     id = String.to_integer(id_str)
     expanded = socket.assigns.expanded_formations
+
     new_expanded =
       if MapSet.member?(expanded, id),
         do: MapSet.delete(expanded, id),
         else: MapSet.put(expanded, id)
+
     {:noreply, assign(socket, :expanded_formations, new_expanded)}
   end
 
   def handle_event("toggle_upm_panel", %{"id" => id_str}, socket) do
     id = String.to_integer(id_str)
     expanded = socket.assigns.expanded_upm
+
     new_expanded =
       if MapSet.member?(expanded, id),
         do: MapSet.delete(expanded, id),
         else: MapSet.put(expanded, id)
+
     {:noreply, assign(socket, :expanded_upm, new_expanded)}
   end
 
@@ -919,10 +1159,12 @@ defmodule ApmWeb.NotificationLive do
 
   def handle_event("toggle_group", %{"category" => cat}, socket) do
     collapsed = socket.assigns.collapsed_groups
+
     new_collapsed =
       if MapSet.member?(collapsed, cat),
         do: MapSet.delete(collapsed, cat),
         else: MapSet.put(collapsed, cat)
+
     {:noreply, assign(socket, :collapsed_groups, new_collapsed)}
   end
 
@@ -930,28 +1172,34 @@ defmodule ApmWeb.NotificationLive do
 
   def handle_event("toggle_agentlock_group", %{"group" => group_id}, socket) do
     expanded = socket.assigns.agentlock_groups_expanded
+
     new_expanded =
       if MapSet.member?(expanded, group_id),
         do: MapSet.delete(expanded, group_id),
         else: MapSet.put(expanded, group_id)
+
     {:noreply, assign(socket, :agentlock_groups_expanded, new_expanded)}
   end
 
   def handle_event("approve_pending", %{"request-id" => request_id}, socket) do
     # Call APM to approve the pending decision
     case :httpc.request(
-      :post,
-      {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json", Jason.encode!(%{request_id: request_id, decision: "approve"})},
-      [{:timeout, 3_000}],
-      []
-    ) do
+           :post,
+           {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json",
+            Jason.encode!(%{request_id: request_id, decision: "approve"})},
+           [{:timeout, 3_000}],
+           []
+         ) do
       {:ok, _} ->
         Logger.info("[NotificationLive] Approved: #{request_id}")
         # Reload notifications to reflect the approval
         notifications = load_notifications()
-        {:noreply, socket
+
+        {:noreply,
+         socket
          |> assign(:notifications, notifications)
          |> assign(:tab_counts, compute_tab_counts(notifications))}
+
       {:error, reason} ->
         Logger.warning("[NotificationLive] Approve failed: #{inspect(reason)}")
         {:noreply, socket}
@@ -961,18 +1209,22 @@ defmodule ApmWeb.NotificationLive do
   def handle_event("deny_pending", %{"request-id" => request_id}, socket) do
     # Call APM to deny the pending decision
     case :httpc.request(
-      :post,
-      {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json", Jason.encode!(%{request_id: request_id, decision: "deny"})},
-      [{:timeout, 3_000}],
-      []
-    ) do
+           :post,
+           {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json",
+            Jason.encode!(%{request_id: request_id, decision: "deny"})},
+           [{:timeout, 3_000}],
+           []
+         ) do
       {:ok, _} ->
         Logger.info("[NotificationLive] Denied: #{request_id}")
         # Reload notifications to reflect the denial
         notifications = load_notifications()
-        {:noreply, socket
+
+        {:noreply,
+         socket
          |> assign(:notifications, notifications)
          |> assign(:tab_counts, compute_tab_counts(notifications))}
+
       {:error, reason} ->
         Logger.warning("[NotificationLive] Deny failed: #{inspect(reason)}")
         {:noreply, socket}
@@ -981,13 +1233,16 @@ defmodule ApmWeb.NotificationLive do
 
   def handle_event("agentlock_approve_all", _params, socket) do
     # Show confirmation dialog before approving all
-    agentlock_notifs = Enum.filter(socket.assigns.notifications, fn n ->
-      to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock")
-    end)
+    agentlock_notifs =
+      Enum.filter(socket.assigns.notifications, fn n ->
+        to_string(n[:category]) == "agentlock" or
+          String.contains?(to_string(n[:type]), "agentlock")
+      end)
 
     case length(agentlock_notifs) do
       0 ->
         {:noreply, socket}
+
       count ->
         socket = assign(socket, confirmation_dialog: {:approve_all, count})
         {:noreply, socket}
@@ -995,15 +1250,19 @@ defmodule ApmWeb.NotificationLive do
   end
 
   def handle_event("confirm_approve_all", _params, socket) do
-    agentlock_notifs = Enum.filter(socket.assigns.notifications, fn n ->
-      to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock")
-    end)
+    agentlock_notifs =
+      Enum.filter(socket.assigns.notifications, fn n ->
+        to_string(n[:category]) == "agentlock" or
+          String.contains?(to_string(n[:type]), "agentlock")
+      end)
 
     Enum.each(agentlock_notifs, fn notif ->
       request_id = notif[:metadata][:request_id] || notif.id
+
       :httpc.request(
         :post,
-        {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json", Jason.encode!(%{request_id: request_id, decision: "approve"})},
+        {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json",
+         Jason.encode!(%{request_id: request_id, decision: "approve"})},
         [{:timeout, 3_000}],
         []
       )
@@ -1012,7 +1271,9 @@ defmodule ApmWeb.NotificationLive do
     Logger.info("[NotificationLive] Approved all #{length(agentlock_notifs)} pending requests")
     # Reload notifications to reflect all approvals
     notifications = load_notifications()
-    {:noreply, socket
+
+    {:noreply,
+     socket
      |> assign(:confirmation_dialog, nil)
      |> assign(:notifications, notifications)
      |> assign(:tab_counts, compute_tab_counts(notifications))}
@@ -1020,13 +1281,16 @@ defmodule ApmWeb.NotificationLive do
 
   def handle_event("deny_all_agentlock", _params, socket) do
     # Show confirmation dialog before denying all
-    agentlock_notifs = Enum.filter(socket.assigns.notifications, fn n ->
-      to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock")
-    end)
+    agentlock_notifs =
+      Enum.filter(socket.assigns.notifications, fn n ->
+        to_string(n[:category]) == "agentlock" or
+          String.contains?(to_string(n[:type]), "agentlock")
+      end)
 
     case length(agentlock_notifs) do
       0 ->
         {:noreply, socket}
+
       count ->
         socket = assign(socket, confirmation_dialog: {:deny_all, count})
         {:noreply, socket}
@@ -1034,15 +1298,19 @@ defmodule ApmWeb.NotificationLive do
   end
 
   def handle_event("confirm_deny_all", _params, socket) do
-    agentlock_notifs = Enum.filter(socket.assigns.notifications, fn n ->
-      to_string(n[:category]) == "agentlock" or String.contains?(to_string(n[:type]), "agentlock")
-    end)
+    agentlock_notifs =
+      Enum.filter(socket.assigns.notifications, fn n ->
+        to_string(n[:category]) == "agentlock" or
+          String.contains?(to_string(n[:type]), "agentlock")
+      end)
 
     Enum.each(agentlock_notifs, fn notif ->
       request_id = notif[:metadata][:request_id] || notif.id
+
       :httpc.request(
         :post,
-        {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json", Jason.encode!(%{request_id: request_id, decision: "deny"})},
+        {~c"http://localhost:3032/api/v2/auth/decide", [], ~c"application/json",
+         Jason.encode!(%{request_id: request_id, decision: "deny"})},
         [{:timeout, 3_000}],
         []
       )
@@ -1051,7 +1319,9 @@ defmodule ApmWeb.NotificationLive do
     Logger.info("[NotificationLive] Denied all #{length(agentlock_notifs)} pending requests")
     # Reload notifications to reflect all denials
     notifications = load_notifications()
-    {:noreply, socket
+
+    {:noreply,
+     socket
      |> assign(:confirmation_dialog, nil)
      |> assign(:notifications, notifications)
      |> assign(:tab_counts, compute_tab_counts(notifications))}
@@ -1063,19 +1333,26 @@ defmodule ApmWeb.NotificationLive do
     expires_at = DateTime.add(DateTime.utc_now(), minutes * 60, :second)
 
     case AutoApprovalStore.create(%{
-      allowed_tools: :all,
-      allowed_risk_levels: :all,
-      expires_at: expires_at,
-      created_by: "user",
-      reason: "User-initiated auto-approve for #{minutes} minutes"
-    }) do
+           allowed_tools: :all,
+           allowed_risk_levels: :all,
+           expires_at: expires_at,
+           created_by: "user",
+           reason: "User-initiated auto-approve for #{minutes} minutes"
+         }) do
       {:ok, policy_id} ->
-        Logger.info("[NotificationLive] Auto-approve policy created: #{policy_id} for #{minutes}m")
+        Logger.info(
+          "[NotificationLive] Auto-approve policy created: #{policy_id} for #{minutes}m"
+        )
+
         socket
         |> assign(:confirmation_dialog, nil)
         |> assign(:auto_approve_minutes, minutes)
+
       {:error, reason} ->
-        Logger.warning("[NotificationLive] Failed to create auto-approve policy: #{inspect(reason)}")
+        Logger.warning(
+          "[NotificationLive] Failed to create auto-approve policy: #{inspect(reason)}"
+        )
+
         socket
     end
     |> then(&{:noreply, &1})
@@ -1088,17 +1365,19 @@ defmodule ApmWeb.NotificationLive do
     expires_at = DateTime.add(DateTime.utc_now(), minutes * 60, :second)
 
     case AutoApprovalStore.create(%{
-      allowed_tools: [],
-      allowed_risk_levels: [],
-      expires_at: expires_at,
-      created_by: "user",
-      reason: "User-initiated auto-deny for #{minutes} minutes"
-    }) do
+           allowed_tools: [],
+           allowed_risk_levels: [],
+           expires_at: expires_at,
+           created_by: "user",
+           reason: "User-initiated auto-deny for #{minutes} minutes"
+         }) do
       {:ok, policy_id} ->
         Logger.info("[NotificationLive] Auto-deny policy created: #{policy_id} for #{minutes}m")
+
         socket
         |> assign(:confirmation_dialog, nil)
         |> assign(:auto_approve_minutes, nil)
+
       {:error, reason} ->
         Logger.warning("[NotificationLive] Failed to create auto-deny policy: #{inspect(reason)}")
         socket
@@ -1130,7 +1409,9 @@ defmodule ApmWeb.NotificationLive do
   @impl true
   def handle_info({:notification_added, _notif}, socket) do
     notifications = load_notifications()
-    {:noreply, socket
+
+    {:noreply,
+     socket
      |> assign(:notifications, notifications)
      |> assign(:tab_counts, compute_tab_counts(notifications))}
   end
@@ -1152,8 +1433,10 @@ defmodule ApmWeb.NotificationLive do
   end
 
   defp filtered_notifications(notifications, "all"), do: notifications
+
   defp filtered_notifications(notifications, tab) do
     cats = @tab_categories[tab] || []
+
     Enum.filter(notifications, fn n ->
       to_string(n[:category]) in cats
     end)
@@ -1165,6 +1448,7 @@ defmodule ApmWeb.NotificationLive do
     notifications
     |> Enum.group_by(fn n ->
       cat = Map.get(n, :category)
+
       if cat && cat != "" && !is_nil(cat),
         do: to_string(cat),
         else: derive_category(Map.get(n, :type, "system"))
@@ -1179,11 +1463,21 @@ defmodule ApmWeb.NotificationLive do
 
   defp derive_category(type) when is_binary(type) do
     cond do
-      String.contains?(type, "agentlock") or String.contains?(type, "auth") -> "agentlock"
-      String.contains?(type, "formation") or String.contains?(type, "squadron") or String.contains?(type, "swarm") -> "formation"
-      String.contains?(type, "agent") -> "agent"
-      String.contains?(type, "error") or String.contains?(type, "fail") -> "error"
-      true -> "system"
+      String.contains?(type, "agentlock") or String.contains?(type, "auth") ->
+        "agentlock"
+
+      String.contains?(type, "formation") or String.contains?(type, "squadron") or
+          String.contains?(type, "swarm") ->
+        "formation"
+
+      String.contains?(type, "agent") ->
+        "agent"
+
+      String.contains?(type, "error") or String.contains?(type, "fail") ->
+        "error"
+
+      true ->
+        "system"
     end
   end
 
@@ -1204,6 +1498,7 @@ defmodule ApmWeb.NotificationLive do
   defp group_badge_class(_), do: "badge-ghost"
 
   defp maybe_hide_showcase(notifications, false), do: notifications
+
   defp maybe_hide_showcase(notifications, true) do
     Enum.reject(notifications, fn n ->
       cat = to_string(n[:category])
@@ -1219,6 +1514,7 @@ defmodule ApmWeb.NotificationLive do
     |> Enum.map(fn {_key, group} ->
       most_recent = hd(group)
       count = length(group)
+
       if count > 1 do
         Map.put(most_recent, :dupe_count, count)
       else
@@ -1256,22 +1552,24 @@ defmodule ApmWeb.NotificationLive do
 
   defp has_metadata?(notif) do
     notif[:wave_number] || notif[:story_id] || notif[:squadron_id] ||
-    notif[:namespace] || notif[:project_name] || notif[:action_url] || notif[:pr_url] ||
-    (is_map(notif[:refs]) && map_size(notif[:refs]) > 0) ||
-    (is_map(notif[:trace]) && map_size(notif[:trace]) > 0) ||
-    (is_map(notif[:metadata]) && map_size(notif[:metadata]) > 0) ||
-    (is_list(notif[:actions]) && length(notif[:actions]) > 0)
+      notif[:namespace] || notif[:project_name] || notif[:action_url] || notif[:pr_url] ||
+      (is_map(notif[:refs]) && map_size(notif[:refs]) > 0) ||
+      (is_map(notif[:trace]) && map_size(notif[:trace]) > 0) ||
+      (is_map(notif[:metadata]) && map_size(notif[:metadata]) > 0) ||
+      (is_list(notif[:actions]) && length(notif[:actions]) > 0)
   end
 
-  defp humanize_key(key) when is_atom(key), do: key |> Atom.to_string() |> String.replace("_", " ") |> String.capitalize()
+  defp humanize_key(key) when is_atom(key),
+    do: key |> Atom.to_string() |> String.replace("_", " ") |> String.capitalize()
+
   defp humanize_key(key), do: to_string(key)
 
-  defp ref_endpoint_hint(:agent_id, id),     do: "GET /api/agents/#{id}"
+  defp ref_endpoint_hint(:agent_id, id), do: "GET /api/agents/#{id}"
   defp ref_endpoint_hint(:formation_id, id), do: "GET /api/v2/formations/#{id}"
-  defp ref_endpoint_hint(:session_id, id),   do: "GET /api/agents?session_id=#{id}"
-  defp ref_endpoint_hint(:task_id, id),      do: "GET /api/bg-tasks/#{id}"
-  defp ref_endpoint_hint(:event_id, id),     do: "GET /api/v2/ag-ui/events/#{id}"
-  defp ref_endpoint_hint(_, _),             do: ""
+  defp ref_endpoint_hint(:session_id, id), do: "GET /api/agents?session_id=#{id}"
+  defp ref_endpoint_hint(:task_id, id), do: "GET /api/bg-tasks/#{id}"
+  defp ref_endpoint_hint(:event_id, id), do: "GET /api/v2/ag-ui/events/#{id}"
+  defp ref_endpoint_hint(_, _), do: ""
 
   defp inspect_meta(val) when is_binary(val), do: val
   defp inspect_meta(val) when is_number(val), do: to_string(val)
@@ -1314,19 +1612,24 @@ defmodule ApmWeb.NotificationLive do
   defp category_badge_class(_), do: "badge-ghost"
 
   defp relative_time(nil), do: ""
+
   defp relative_time(ts) when is_binary(ts) do
     case DateTime.from_iso8601(ts) do
       {:ok, dt, _} ->
         diff = DateTime.diff(DateTime.utc_now(), dt, :second)
+
         cond do
           diff < 60 -> "#{diff}s ago"
           diff < 3600 -> "#{div(diff, 60)}m ago"
           diff < 86400 -> "#{div(diff, 3600)}h ago"
           true -> "#{div(diff, 86400)}d ago"
         end
-      _ -> ts
+
+      _ ->
+        ts
     end
   end
+
   defp relative_time(_), do: ""
 
   # Lazy-loads context data for a notification panel.
@@ -1339,25 +1642,30 @@ defmodule ApmWeb.NotificationLive do
     {session_id, squadrons, swarms, agents} =
       if formation_id do
         members = AgentRegistry.list_formation(formation_id)
+
         session =
           members
           |> Enum.map(& &1[:session_id])
           |> Enum.reject(&is_nil/1)
           |> List.first()
+
         sq_list =
           members
           |> Enum.map(& &1[:squadron])
           |> Enum.reject(&is_nil/1)
           |> Enum.uniq()
+
         sw_list =
           members
           |> Enum.map(& &1[:swarm_id])
           |> Enum.reject(&is_nil/1)
           |> Enum.uniq()
+
         ag_list =
           members
           |> Enum.map(& &1[:agent_id])
           |> Enum.reject(&is_nil/1)
+
         {session, sq_list, sw_list, ag_list}
       else
         session = notif[:session_id]
@@ -1391,7 +1699,8 @@ defmodule ApmWeb.NotificationLive do
       if story_id == nil and feature_name == nil do
         try do
           status = UpmStore.get_status()
-          session = (status[:session] || status["session"] || %{})
+          session = status[:session] || status["session"] || %{}
+
           %{
             story_id: session[:current_story_id] || session["current_story_id"],
             story_title: session[:current_story_title] || session["current_story_title"],
@@ -1436,9 +1745,12 @@ defmodule ApmWeb.NotificationLive do
       action = extract_action_type(notif)
       {risk, action}
     end)
-    |> Enum.sort_by(fn {_key, entries} ->
-      entries |> Enum.map(& &1.id) |> Enum.max(fn -> 0 end)
-    end, :desc)
+    |> Enum.sort_by(
+      fn {_key, entries} ->
+        entries |> Enum.map(& &1.id) |> Enum.max(fn -> 0 end)
+      end,
+      :desc
+    )
   end
 
   defp extract_risk_level(notif) do

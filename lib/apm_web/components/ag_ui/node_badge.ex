@@ -16,7 +16,13 @@ defmodule ApmWeb.Components.AgUi.NodeBadge do
   attr :status, :string, default: "idle"
 
   def node_badge(assigns) do
-    assigns = assign(assigns, :cls, Map.get(@levels, assigns.level, "bg-gray-500/20 text-gray-300 border-gray-500/40"))
+    assigns =
+      assign(
+        assigns,
+        :cls,
+        Map.get(@levels, assigns.level, "bg-gray-500/20 text-gray-300 border-gray-500/40")
+      )
+
     ~H"""
     <span class={"inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium #{@cls}"}>
       <span class="uppercase tracking-wider opacity-70">{@level}</span>

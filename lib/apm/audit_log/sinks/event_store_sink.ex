@@ -135,7 +135,7 @@ defmodule Apm.AuditLog.Sinks.EventStoreSink do
   # Test: a capture lambda injected via Application.put_env/3.
   defp resolve_adapter do
     Application.get_env(:apm, :event_store_adapter_fn) ||
-      &default_adapter/4
+      (&default_adapter/4)
   end
 
   defp default_adapter(stream_id, expected_version, events, opts) do

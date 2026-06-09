@@ -60,6 +60,7 @@ defmodule Apm.Auth.OpaPoliciesTest do
 
       Enum.each(expected_packages, fn {filename, expected_pkg} ->
         content = File.read!(Path.join(@policies_dir, filename))
+
         assert String.contains?(content, expected_pkg),
                "#{filename} missing package declaration: #{expected_pkg}"
       end)
@@ -69,6 +70,7 @@ defmodule Apm.Auth.OpaPoliciesTest do
       ~w[time_of_day.rego environment.rego path_pattern.rego formation_role.rego]
       |> Enum.each(fn filename ->
         content = File.read!(Path.join(@policies_dir, filename))
+
         assert String.contains?(content, "default allow = false"),
                "#{filename} missing 'default allow = false'"
       end)

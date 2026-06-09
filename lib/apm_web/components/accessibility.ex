@@ -52,8 +52,11 @@ defmodule ApmWeb.Accessibility do
 
     ~H"""
     <span class={["badge badge-sm", @badge_class, @class]} role="status">
-      <span class={["inline-block w-1.5 h-1.5 rounded-full mr-1", status_dot_class(@status)]}
-            aria-hidden="true"></span>
+      <span
+        class={["inline-block w-1.5 h-1.5 rounded-full mr-1", status_dot_class(@status)]}
+        aria-hidden="true"
+      >
+      </span>
       {@status}
     </span>
     """
@@ -71,14 +74,15 @@ defmodule ApmWeb.Accessibility do
   attr :color, :string, default: "bg-primary"
 
   def metric_meter(assigns) do
-    pct = if assigns.max > assigns.min do
-      ((assigns.value - assigns.min) / (assigns.max - assigns.min) * 100)
-      |> min(100)
-      |> max(0)
-      |> trunc()
-    else
-      0
-    end
+    pct =
+      if assigns.max > assigns.min do
+        ((assigns.value - assigns.min) / (assigns.max - assigns.min) * 100)
+        |> min(100)
+        |> max(0)
+        |> trunc()
+      else
+        0
+      end
 
     assigns = assign(assigns, :pct, pct)
 

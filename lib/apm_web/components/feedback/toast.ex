@@ -36,8 +36,11 @@ defmodule ApmWeb.Components.Feedback.Toast do
   alias Phoenix.LiveView.JS
 
   attr :id, :string, required: true
-  attr :tone, :string, default: "success",
+
+  attr :tone, :string,
+    default: "success",
     values: ~w(success warning error info neutral)
+
   attr :title, :string, required: true
   attr :body, :string, default: nil
   attr :rest, :global
@@ -56,11 +59,38 @@ defmodule ApmWeb.Components.Feedback.Toast do
         <%!-- Icon: success=check, error=x, *=bell (rendered by CSS or helper) --%>
         <%= case @tone do %>
           <% "success" -> %>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 5 5L20 6"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="m5 12 5 5L20 6" />
+            </svg>
           <% "error" -> %>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
           <% _ -> %>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21a2 2 0 0 0 4 0"/></svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+            >
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21a2 2 0 0 0 4 0" />
+            </svg>
         <% end %>
       </span>
       <div class="apm-toast__content">
@@ -75,7 +105,16 @@ defmodule ApmWeb.Components.Feedback.Toast do
         phx-click={JS.hide(to: "##{@id}")}
         type="button"
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+        >
+          <path d="m6 6 12 12M18 6 6 18" />
+        </svg>
       </button>
     </div>
     """

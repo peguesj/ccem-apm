@@ -75,7 +75,8 @@ defmodule ApmWeb.ToolCallLive do
 
   @impl true
   def handle_event("select_call", %{"id" => call_id}, socket) do
-    selected = Enum.find(socket.assigns.tool_calls, &(to_string(&1.id || &1.tool_call_id) == call_id))
+    selected =
+      Enum.find(socket.assigns.tool_calls, &(to_string(&1.id || &1.tool_call_id) == call_id))
 
     {:noreply,
      assign(socket,
@@ -155,7 +156,9 @@ defmodule ApmWeb.ToolCallLive do
         <%!-- Tool calls table --%>
         <.card padded={false} style="margin-bottom: 16px;">
           <div style="padding: 12px 16px 8px; border-bottom: 1px solid var(--ccem-line);">
-            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">Recent Tool Calls</span>
+            <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+              Recent Tool Calls
+            </span>
           </div>
           <.data_table id="tool-calls-table" rows={@tool_calls}>
             <:col :let={call} label="Tool">
@@ -253,7 +256,11 @@ defmodule ApmWeb.ToolCallLive do
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                   <.inspector_kv label="ID" value={to_string(call_id(@selected_call))} mono />
                   <.inspector_kv label="Agent" value={to_string(@selected_call.agent_id || "—")} mono />
-                  <.inspector_kv label="Duration" value={format_duration(@selected_call.duration_ms)} mono />
+                  <.inspector_kv
+                    label="Duration"
+                    value={format_duration(@selected_call.duration_ms)}
+                    mono
+                  />
                   <.inspector_kv label="Tokens" value={format_tokens(@selected_call)} mono />
                   <.inspector_kv label="Started" value={format_timestamp(@selected_call)} />
                 </div>
@@ -372,7 +379,10 @@ defmodule ApmWeb.ToolCallLive do
 
   @spec format_duration(number() | nil) :: String.t()
   defp format_duration(nil), do: "—"
-  defp format_duration(ms) when is_number(ms) and ms >= 1_000, do: "#{Float.round(ms / 1_000, 2)}s"
+
+  defp format_duration(ms) when is_number(ms) and ms >= 1_000,
+    do: "#{Float.round(ms / 1_000, 2)}s"
+
   defp format_duration(ms) when is_number(ms), do: "#{round(ms)}ms"
   defp format_duration(_), do: "—"
 

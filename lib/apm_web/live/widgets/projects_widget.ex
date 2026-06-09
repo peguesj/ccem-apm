@@ -53,8 +53,12 @@ defmodule ApmWeb.Live.Widgets.ProjectsWidget do
         <%= if Enum.empty?(@projects) do %>
           <div class="flex flex-col items-center justify-center h-24 text-base-content/40">
             <svg class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              />
             </svg>
             <p class="text-xs">No projects configured</p>
           </div>
@@ -63,10 +67,17 @@ defmodule ApmWeb.Live.Widgets.ProjectsWidget do
             <%= for project <- @projects do %>
               <li class={[
                 "flex items-center gap-2 px-2 py-1.5 hover:bg-base-300/30 transition-colors group",
-                if(@scope_value == project.name, do: "bg-primary/10 border-l-2 border-primary", else: "")
+                if(@scope_value == project.name,
+                  do: "bg-primary/10 border-l-2 border-primary",
+                  else: ""
+                )
               ]}>
                 <%!-- Status indicator --%>
-                <div class={["w-2 h-2 rounded-full flex-shrink-0", project_status_color(project.status)]}></div>
+                <div class={[
+                  "w-2 h-2 rounded-full flex-shrink-0",
+                  project_status_color(project.status)
+                ]}>
+                </div>
 
                 <%!-- Project info --%>
                 <div class="flex-1 min-w-0">
@@ -133,7 +144,8 @@ defmodule ApmWeb.Live.Widgets.ProjectsWidget do
           name: name,
           agent_count: length(project_agents),
           session_count: length(Enum.uniq_by(project_agents, & &1.session_id)),
-          status: if(Enum.any?(project_agents, &(&1.status == "active")), do: "active", else: "idle")
+          status:
+            if(Enum.any?(project_agents, &(&1.status == "active")), do: "active", else: "idle")
         }
       end)
       |> Enum.reject(fn p -> !show_inactive && p.agent_count == 0 && p.status == "idle" end)

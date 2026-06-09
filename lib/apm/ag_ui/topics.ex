@@ -94,10 +94,13 @@ defmodule Apm.AgUi.Topics do
   @spec matches?(String.t(), String.t()) :: boolean()
   def matches?(pattern, topic) do
     cond do
-      pattern == "*" -> true
+      pattern == "*" ->
+        true
+
       String.ends_with?(pattern, ":*") ->
         prefix = String.trim_trailing(pattern, ":*")
         String.starts_with?(topic, prefix <> ":")
+
       true ->
         pattern == topic
     end

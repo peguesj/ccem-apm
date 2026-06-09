@@ -24,12 +24,13 @@ defmodule ApmWeb.V2.AutoApprovalController do
   alias Apm.Auth.AutoApprovalStore
 
   @doc "List all active auto-approval policies."
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["Approvals"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, _params) do
     policies = AutoApprovalStore.list_active()
@@ -37,12 +38,13 @@ defmodule ApmWeb.V2.AutoApprovalController do
   end
 
   @doc "Get a specific auto-approval policy by ID."
-  operation :show,
+  operation(:show,
     summary: "Get one",
     tags: ["Approvals"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def show(conn, %{"id" => policy_id}) do
     case AutoApprovalStore.get(policy_id) do
@@ -66,12 +68,13 @@ defmodule ApmWeb.V2.AutoApprovalController do
     "created_by": string (optional)
   }
   """
-  operation :create,
+  operation(:create,
     summary: "Create",
     tags: ["Approvals"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def create(conn, params) do
     attrs = extract_policy_attrs(params)
@@ -91,12 +94,13 @@ defmodule ApmWeb.V2.AutoApprovalController do
 
   Allowed updates: reason, allowed_tools, allowed_risk_levels, expires_at
   """
-  operation :update,
+  operation(:update,
     summary: "Update",
     tags: ["Approvals"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def update(conn, %{"id" => policy_id} = params) do
     updates = extract_policy_attrs(params, :update)
@@ -111,12 +115,13 @@ defmodule ApmWeb.V2.AutoApprovalController do
   end
 
   @doc "Delete an auto-approval policy by ID."
-  operation :delete,
+  operation(:delete,
     summary: "Delete",
     tags: ["Approvals"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def delete(conn, %{"id" => policy_id}) do
     case AutoApprovalStore.delete(policy_id) do
@@ -141,12 +146,13 @@ defmodule ApmWeb.V2.AutoApprovalController do
 
   Returns the matching policy or null.
   """
-  operation :test_match,
+  operation(:test_match,
     summary: "Test match",
     tags: ["Approvals"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def test_match(conn, params) do
     agent_id = params["agent_id"]
@@ -162,7 +168,14 @@ defmodule ApmWeb.V2.AutoApprovalController do
         _ -> :low
       end
 
-    case AutoApprovalStore.find_matching(agent_id, formation_id, session_id, project, tool_name, risk_level) do
+    case AutoApprovalStore.find_matching(
+           agent_id,
+           formation_id,
+           session_id,
+           project,
+           tool_name,
+           risk_level
+         ) do
       nil ->
         json(conn, %{
           matched: false,
@@ -242,6 +255,7 @@ defmodule ApmWeb.V2.AutoApprovalController do
   defp normalize_risk_levels(_), do: :all
 
   defp normalize_datetime(nil), do: nil
+
   defp normalize_datetime(str) when is_binary(str) do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> dt

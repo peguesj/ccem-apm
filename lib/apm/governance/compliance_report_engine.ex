@@ -147,13 +147,15 @@ defmodule Apm.Governance.ComplianceReportEngine do
     %{
       "generated_at" => DateTime.to_iso8601(report.generated_at),
       "overall_score" => report.overall_score,
-      "controls_by_status" => Map.new(report.controls_by_status, fn {k, v} -> {to_string(k), v} end),
+      "controls_by_status" =>
+        Map.new(report.controls_by_status, fn {k, v} -> {to_string(k), v} end),
       "by_framework" =>
         Map.new(report.by_framework, fn {fw, fw_report} ->
-          {to_string(fw), %{
-            "score" => fw_report.score,
-            "controls" => Enum.map(fw_report.controls, &stringify_control/1)
-          }}
+          {to_string(fw),
+           %{
+             "score" => fw_report.score,
+             "controls" => Enum.map(fw_report.controls, &stringify_control/1)
+           }}
         end),
       "controls" => Enum.map(report.controls, &stringify_control/1),
       "kri_snapshot" => Map.new(report.kri_snapshot, fn {k, v} -> {to_string(k), v} end)
@@ -459,7 +461,8 @@ defmodule Apm.Governance.ComplianceReportEngine do
             denial_rate: Float.round(denied / total, 4),
             escalation_rate: Float.round(escalated / total, 4),
             critical_command_rate: Float.round(critical / total, 4),
-            trust_degradation_events: Enum.count(decisions, &(&1.risk_level in [:high, :critical])),
+            trust_degradation_events:
+              Enum.count(decisions, &(&1.risk_level in [:high, :critical])),
             policy_rule_changes: count_policy_rule_changes()
           }
         end
@@ -498,7 +501,9 @@ defmodule Apm.Governance.ComplianceReportEngine do
   end
 
   defp put_cache(report) do
-    Agent.update(__MODULE__, fn _ -> %{report: report, generated_at: DateTime.utc_now()} end,
+    Agent.update(
+      __MODULE__,
+      fn _ -> %{report: report, generated_at: DateTime.utc_now()} end,
       5_000
     )
   rescue
@@ -516,6 +521,7 @@ defmodule Apm.Governance.ComplianceReportEngine do
     |> Map.new(fn
       {:frameworks, fws} ->
         {:frameworks, Map.new(fws, fn {k, v} -> {to_string(k), v} end)}
+
       {k, v} ->
         {k, v}
     end)

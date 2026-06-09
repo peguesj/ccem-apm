@@ -125,7 +125,12 @@ defmodule ApmWeb.FleetLive do
 
   @impl true
   def render(assigns) do
-    assigns = assign(assigns, :filtered_agents, filter_agents(assigns.agents, assigns.filter, assigns.status_filter))
+    assigns =
+      assign(
+        assigns,
+        :filtered_agents,
+        filter_agents(assigns.agents, assigns.filter, assigns.status_filter)
+      )
 
     ~H"""
     <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
@@ -216,8 +221,21 @@ defmodule ApmWeb.FleetLive do
         <%!-- Empty state --%>
         <%= if @filtered_agents == [] do %>
           <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px; color: var(--ccem-fg-dim);">
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="opacity: 0.3; margin-bottom: 12px;">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="40"
+              height="40"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              style="opacity: 0.3; margin-bottom: 12px;"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+              />
             </svg>
             <p style="font-size: 14px; font-weight: 500; margin: 0 0 4px;">No agents found</p>
             <p style="font-size: 12px; margin: 0; opacity: 0.6;">
@@ -229,7 +247,7 @@ defmodule ApmWeb.FleetLive do
             </p>
           </div>
 
-        <%!-- Grid view --%>
+          <%!-- Grid view --%>
         <% else %>
           <%= if @view_mode == "Grid" do %>
             <div style="display: flex; flex-wrap: wrap; gap: 12px;">
@@ -264,7 +282,7 @@ defmodule ApmWeb.FleetLive do
               <% end %>
             </div>
 
-          <%!-- List view --%>
+            <%!-- List view --%>
           <% else %>
             <.card padded={false}>
               <.data_table id="fleet-table" rows={@filtered_agents}>
@@ -279,7 +297,14 @@ defmodule ApmWeb.FleetLive do
                     >
                       <%= for {row, col, on} <- identicon_cells(to_string(agent.id)) do %>
                         <%= if on do %>
-                          <rect x={col} y={row} width="1" height="1" fill="var(--ccem-accent)" opacity="0.9" />
+                          <rect
+                            x={col}
+                            y={row}
+                            width="1"
+                            height="1"
+                            fill="var(--ccem-accent)"
+                            opacity="0.9"
+                          />
                         <% end %>
                       <% end %>
                     </svg>
@@ -298,7 +323,10 @@ defmodule ApmWeb.FleetLive do
                   </span>
                 </:col>
                 <:col :let={agent} label="Status">
-                  <.badge tone={status_tone(agent_status(agent))} dot={agent_status(agent) == "active"}>
+                  <.badge
+                    tone={status_tone(agent_status(agent))}
+                    dot={agent_status(agent) == "active"}
+                  >
                     {String.capitalize(agent_status(agent))}
                   </.badge>
                 </:col>
@@ -347,14 +375,19 @@ defmodule ApmWeb.FleetLive do
 
                 <%!-- Status badge --%>
                 <div>
-                  <.badge tone={status_tone(agent_status(@selected_agent))} dot={agent_status(@selected_agent) == "active"}>
+                  <.badge
+                    tone={status_tone(agent_status(@selected_agent))}
+                    dot={agent_status(@selected_agent) == "active"}
+                  >
                     {String.capitalize(agent_status(@selected_agent))}
                   </.badge>
                 </div>
 
                 <%!-- Sparkline --%>
                 <div style="border: 1px solid var(--ccem-line); border-radius: 6px; padding: 10px;">
-                  <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 6px;">Activity</div>
+                  <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 6px;">
+                    Activity
+                  </div>
                   <.sparkline
                     data={@selected_agent.sparkline_data}
                     live_dot={agent_status(@selected_agent) == "active"}
@@ -366,8 +399,17 @@ defmodule ApmWeb.FleetLive do
                 <%!-- Metadata rows --%>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                   <.inspector_row label="Role" value={agent_role(@selected_agent) || "—"} />
-                  <.inspector_row label="Formation" value={Map.get(@selected_agent, :formation_id, "—") |> to_string()} />
-                  <.inspector_row label="Wave" value={Map.get(@selected_agent, :wave, Map.get(@selected_agent, :wave_number, "—")) |> to_string()} />
+                  <.inspector_row
+                    label="Formation"
+                    value={Map.get(@selected_agent, :formation_id, "—") |> to_string()}
+                  />
+                  <.inspector_row
+                    label="Wave"
+                    value={
+                      Map.get(@selected_agent, :wave, Map.get(@selected_agent, :wave_number, "—"))
+                      |> to_string()
+                    }
+                  />
                   <.inspector_row label="Tokens" value={format_tokens(@selected_agent)} mono />
                   <.inspector_row label="Last Active" value={format_last_active(@selected_agent)} />
                 </div>
@@ -375,7 +417,9 @@ defmodule ApmWeb.FleetLive do
                 <%!-- Project tag if present --%>
                 <%= if project = Map.get(@selected_agent, :project) || Map.get(@selected_agent, :project_name) do %>
                   <div>
-                    <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 4px;">Project</div>
+                    <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 4px;">
+                      Project
+                    </div>
                     <.badge tone="iris">{project}</.badge>
                   </div>
                 <% end %>
@@ -396,7 +440,9 @@ defmodule ApmWeb.FleetLive do
           <:filters>
             <div style="display: flex; flex-direction: column; gap: 12px;">
               <div>
-                <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 6px;">Status</div>
+                <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 6px;">
+                  Status
+                </div>
                 <div style="display: flex; flex-direction: column; gap: 4px;">
                   <%= for status <- @status_filters do %>
                     <button
@@ -473,7 +519,9 @@ defmodule ApmWeb.FleetLive do
   @spec generate_sparkline(map()) :: [number()]
   defp generate_sparkline(agent) do
     case Map.get(agent, :token_history) do
-      data when is_list(data) and length(data) >= 2 -> Enum.take(data, 60)
+      data when is_list(data) and length(data) >= 2 ->
+        Enum.take(data, 60)
+
       _ ->
         # Derive from token count as a single-bar pseudo-history
         tokens = Map.get(agent, :tokens, Map.get(agent, :token_count, 0)) || 0
@@ -550,7 +598,8 @@ defmodule ApmWeb.FleetLive do
 
   @spec format_last_active(map()) :: String.t()
   defp format_last_active(agent) do
-    case Map.get(agent, :last_active) || Map.get(agent, :updated_at) || Map.get(agent, :registered_at) do
+    case Map.get(agent, :last_active) || Map.get(agent, :updated_at) ||
+           Map.get(agent, :registered_at) do
       nil ->
         "—"
 
@@ -627,5 +676,4 @@ defmodule ApmWeb.FleetLive do
   defp truncate_id(""), do: "unknown"
   defp truncate_id(id) when byte_size(id) > 20, do: String.slice(id, 0, 20) <> "…"
   defp truncate_id(id), do: id
-
 end

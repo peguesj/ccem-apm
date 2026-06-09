@@ -21,16 +21,24 @@ defmodule ApmWeb.V2.CoalesceController do
     replace_params: false,
     render_error: ApmWeb.Plugs.OpenApiErrorRenderer
 
-  alias Apm.Coalesce.{CoalesceOrchestrator, DecisionGateStore, SkillLogicEngine, SwarmCoordinator, SourceFetcher}
+  alias Apm.Coalesce.{
+    CoalesceOrchestrator,
+    DecisionGateStore,
+    SkillLogicEngine,
+    SwarmCoordinator,
+    SourceFetcher
+  }
+
   alias ApmWeb.Schemas
 
   # POST /api/v2/coalesce/start
-  operation :start,
+  operation(:start,
     summary: "Start",
     tags: ["Coalesce"],
     responses: [
       ok: {"OK", "application/json", Schemas.CoalesceRunSummary}
     ]
+  )
 
   def start(conn, params) do
     sources = params["sources"] || []
@@ -63,7 +71,8 @@ defmodule ApmWeb.V2.CoalesceController do
           scope: scope,
           source_count: length(sources),
           dashboard_url: "http://localhost:3032/coalesce?run=#{run_id}",
-          message: "Coalesce run started. Monitor at /coalesce or poll GET /api/v2/coalesce/#{run_id}"
+          message:
+            "Coalesce run started. Monitor at /coalesce or poll GET /api/v2/coalesce/#{run_id}"
         })
 
       {:error, reason} ->
@@ -74,12 +83,13 @@ defmodule ApmWeb.V2.CoalesceController do
   end
 
   # GET /api/v2/coalesce
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["Coalesce"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, _params) do
     runs = CoalesceOrchestrator.list_runs()
@@ -93,12 +103,13 @@ defmodule ApmWeb.V2.CoalesceController do
   end
 
   # GET /api/v2/coalesce/:id
-  operation :show,
+  operation(:show,
     summary: "Get one",
     tags: ["Coalesce"],
     responses: [
       ok: {"OK", "application/json", Schemas.CoalesceRunSummary}
     ]
+  )
 
   def show(conn, %{"id" => run_id}) do
     case CoalesceOrchestrator.get_run(run_id) do
@@ -111,18 +122,19 @@ defmodule ApmWeb.V2.CoalesceController do
         json(conn, %{
           run: _run_detail(run),
           gates: Enum.map(gates, &_gate_summary/1),
-          pending_gate_count: Enum.count(gates, & &1.status == :pending)
+          pending_gate_count: Enum.count(gates, &(&1.status == :pending))
         })
     end
   end
 
   # GET /api/v2/coalesce/:id/diff
-  operation :diff,
+  operation(:diff,
     summary: "Diff",
     tags: ["Coalesce"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def diff(conn, %{"id" => run_id}) do
     case CoalesceOrchestrator.get_diffs(run_id) do
@@ -139,12 +151,13 @@ defmodule ApmWeb.V2.CoalesceController do
   end
 
   # POST /api/v2/coalesce/:id/gate/:gate_id/decide
-  operation :gate_decide,
+  operation(:gate_decide,
     summary: "Gate decide",
     tags: ["Coalesce"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def gate_decide(conn, %{"id" => run_id, "gate_id" => gate_id} = params) do
     composite_id = "#{run_id}:#{gate_id}"
@@ -152,12 +165,20 @@ defmodule ApmWeb.V2.CoalesceController do
     reason = params["reason"] || ""
     approver = params["approver"] || "api"
 
-    result = case decision do
-      "approve" -> DecisionGateStore.approve(composite_id, %{approver: approver, reason: reason})
-      "reject" -> DecisionGateStore.reject(composite_id, reason)
-      "defer" -> DecisionGateStore.defer(composite_id, reason)
-      _ -> {:error, {:invalid_decision, decision}}
-    end
+    result =
+      case decision do
+        "approve" ->
+          DecisionGateStore.approve(composite_id, %{approver: approver, reason: reason})
+
+        "reject" ->
+          DecisionGateStore.reject(composite_id, reason)
+
+        "defer" ->
+          DecisionGateStore.defer(composite_id, reason)
+
+        _ ->
+          {:error, {:invalid_decision, decision}}
+      end
 
     case result do
       :ok ->
@@ -180,12 +201,13 @@ defmodule ApmWeb.V2.CoalesceController do
   end
 
   # POST /api/v2/coalesce/:id/apply
-  operation :apply_run,
+  operation(:apply_run,
     summary: "Apply run",
     tags: ["Coalesce"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def apply_run(conn, %{"id" => run_id}) do
     case CoalesceOrchestrator.apply_run(run_id) do
@@ -215,12 +237,13 @@ defmodule ApmWeb.V2.CoalesceController do
   end
 
   # DELETE /api/v2/coalesce/:id
-  operation :cancel,
+  operation(:cancel,
     summary: "Cancel",
     tags: ["Coalesce"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def cancel(conn, %{"id" => run_id}) do
     case CoalesceOrchestrator.cancel_run(run_id) do
@@ -238,12 +261,13 @@ defmodule ApmWeb.V2.CoalesceController do
   # ── Dry-Run Preview Endpoint ───────────────────────────────────────────────
 
   # POST /api/v2/coalesce/preview
-  operation :preview,
+  operation(:preview,
     summary: "Preview",
     tags: ["Coalesce"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def preview(conn, params) do
     sources = params["sources"] || []
@@ -256,7 +280,9 @@ defmodule ApmWeb.V2.CoalesceController do
     fetched_sources = SourceFetcher.fetch_all(sources)
     analysis = SkillLogicEngine.analyze_sources(fetched_sources)
     affected_skills = SkillLogicEngine.resolve_affected_skills(skills_path, scope, analysis)
-    formation_plan = SwarmCoordinator.build_formation_plan(formation_id, affected_skills, %{squadrons: 6})
+
+    formation_plan =
+      SwarmCoordinator.build_formation_plan(formation_id, affected_skills, %{squadrons: 6})
 
     json(conn, %{
       preview: true,
@@ -271,10 +297,15 @@ defmodule ApmWeb.V2.CoalesceController do
         %{gate: "G1", type: "auto", condition: "Source confidence ≥ 0.70"},
         %{gate: "G2", type: "human", condition: "Scope confirmation before formation deploy"},
         %{gate: "G3", type: "human", condition: "Diff preview — approve before applying"},
-        %{gate: "G4", type: "auto or human", condition: "Validation: auto if avg_confidence ≥ 0.85"}
+        %{
+          gate: "G4",
+          type: "auto or human",
+          condition: "Validation: auto if avg_confidence ≥ 0.85"
+        }
       ],
       estimated_duration: "#{_estimate_duration_minutes(formation_plan.total_agents)} minutes",
-      dry_run_note: "This is a preview — no files will be written until /apply is called after G3 approval"
+      dry_run_note:
+        "This is a preview — no files will be written until /apply is called after G3 approval"
     })
   end
 
@@ -331,9 +362,10 @@ defmodule ApmWeb.V2.CoalesceController do
       confidence: diff.confidence,
       approved: diff.approved,
       addition_count: length(diff.additions),
-      additions: Enum.map(diff.additions, fn a ->
-        %{section: a.section, type: a.type}
-      end),
+      additions:
+        Enum.map(diff.additions, fn a ->
+          %{section: a.section, type: a.type}
+        end),
       generated_at: diff.generated_at
     }
   end

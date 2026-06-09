@@ -24,7 +24,8 @@ defmodule Apm.Plugins.Memory.MemoryPlugin do
   @impl true
   @spec plugin_description() :: String.t()
   def plugin_description,
-    do: "Claude-Mem integration — observation browsing, semantic search, timeline, and conversation correlation"
+    do:
+      "Claude-Mem integration — observation browsing, semantic search, timeline, and conversation correlation"
 
   @impl true
   @spec plugin_version() :: String.t()
@@ -46,7 +47,12 @@ defmodule Apm.Plugins.Memory.MemoryPlugin do
 
   @impl true
   def default_config do
-    %{observation_ttl_ms: 300_000, max_cache_size: 1000, auto_correlate: true, sqlite_fallback: true}
+    %{
+      observation_ttl_ms: 300_000,
+      max_cache_size: 1000,
+      auto_correlate: true,
+      sqlite_fallback: true
+    }
   end
 
   @impl true
@@ -71,7 +77,10 @@ defmodule Apm.Plugins.Memory.MemoryPlugin do
       %{
         action: "timeline",
         description: "Observations in date range via claude-mem worker",
-        params: %{from: "ISO8601 datetime string (optional)", to: "ISO8601 datetime string (optional)"}
+        params: %{
+          from: "ISO8601 datetime string (optional)",
+          to: "ISO8601 datetime string (optional)"
+        }
       },
       %{
         action: "health_check",
@@ -80,7 +89,8 @@ defmodule Apm.Plugins.Memory.MemoryPlugin do
       },
       %{
         action: "route_query",
-        description: "Federated fanout search across claude_mem, viki, and (future) serena sources",
+        description:
+          "Federated fanout search across claude_mem, viki, and (future) serena sources",
         params: %{
           query: "string (required)",
           sources: "list of atoms — [:claude_mem, :viki, :serena] (optional)",

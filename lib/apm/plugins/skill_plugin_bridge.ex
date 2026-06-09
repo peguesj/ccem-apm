@@ -82,7 +82,9 @@ defmodule Apm.Plugins.SkillPluginBridge do
       try do
         apply(plugin_module, :dispatch_skill_command, [command, params])
       rescue
-        e -> require Logger; Logger.warning("[SkillPluginBridge] dispatch_async failed: #{inspect(e)}")
+        e ->
+          require Logger
+          Logger.warning("[SkillPluginBridge] dispatch_async failed: #{inspect(e)}")
       end
     end)
 

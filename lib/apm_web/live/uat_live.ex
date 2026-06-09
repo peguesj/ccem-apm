@@ -94,20 +94,146 @@ defmodule ApmWeb.UatLive do
 
   defp initial_tests do
     [
-      %{id: "event_types", name: "EventType Constants", category: "ag_ui_ex", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "event_type_valid", name: "EventType.valid?/1", category: "ag_ui_ex", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "event_type_all", name: "EventType.all/0", category: "ag_ui_ex", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "event_stream_emit", name: "EventStream Emit", category: "event_stream", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "event_stream_retrieve", name: "EventStream Retrieve", category: "event_stream", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "event_router_route", name: "EventRouter Route", category: "event_router", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "event_router_stats", name: "EventRouter Stats", category: "event_router", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "hook_bridge_register", name: "HookBridge Register→RUN_STARTED", category: "hook_bridge", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "hook_bridge_heartbeat", name: "HookBridge Heartbeat→STEP_*", category: "hook_bridge", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "hook_bridge_notify", name: "HookBridge Notify→CUSTOM", category: "hook_bridge", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "state_snapshot", name: "StateManager Snapshot", category: "state_manager", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "state_delta", name: "StateManager Delta", category: "state_manager", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "chat_store", name: "ChatStore Persistence", category: "chat_store", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0},
-      %{id: "lifecycle_e2e", name: "Full Lifecycle E2E", category: "e2e", status: :pending, duration_ms: 0, log: [], assertions: 0, failures: 0}
+      %{
+        id: "event_types",
+        name: "EventType Constants",
+        category: "ag_ui_ex",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "event_type_valid",
+        name: "EventType.valid?/1",
+        category: "ag_ui_ex",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "event_type_all",
+        name: "EventType.all/0",
+        category: "ag_ui_ex",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "event_stream_emit",
+        name: "EventStream Emit",
+        category: "event_stream",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "event_stream_retrieve",
+        name: "EventStream Retrieve",
+        category: "event_stream",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "event_router_route",
+        name: "EventRouter Route",
+        category: "event_router",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "event_router_stats",
+        name: "EventRouter Stats",
+        category: "event_router",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "hook_bridge_register",
+        name: "HookBridge Register→RUN_STARTED",
+        category: "hook_bridge",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "hook_bridge_heartbeat",
+        name: "HookBridge Heartbeat→STEP_*",
+        category: "hook_bridge",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "hook_bridge_notify",
+        name: "HookBridge Notify→CUSTOM",
+        category: "hook_bridge",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "state_snapshot",
+        name: "StateManager Snapshot",
+        category: "state_manager",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "state_delta",
+        name: "StateManager Delta",
+        category: "state_manager",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "chat_store",
+        name: "ChatStore Persistence",
+        category: "chat_store",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      },
+      %{
+        id: "lifecycle_e2e",
+        name: "Full Lifecycle E2E",
+        category: "e2e",
+        status: :pending,
+        duration_ms: 0,
+        log: [],
+        assertions: 0,
+        failures: 0
+      }
     ]
   end
 
@@ -128,12 +254,13 @@ defmodule ApmWeb.UatLive do
 
     duration = System.monotonic_time(:millisecond) - start
 
-    %{test |
-      status: status,
-      duration_ms: duration,
-      log: log,
-      assertions: assertions,
-      failures: failures
+    %{
+      test
+      | status: status,
+        duration_ms: duration,
+        log: log,
+        assertions: assertions,
+        failures: failures
     }
   end
 
@@ -163,10 +290,14 @@ defmodule ApmWeb.UatLive do
     {log, assertions, failures} =
       Enum.reduce(expected, {log, assertions, failures}, fn {func, expected_val}, {l, a, f} ->
         actual = apply(EventType, func, [])
+
         if actual == expected_val do
           {l ++ ["PASS: EventType.#{func}() == #{inspect(expected_val)}"], a + 1, f}
         else
-          {l ++ ["FAIL: EventType.#{func}() returned #{inspect(actual)}, expected #{inspect(expected_val)}"], a + 1, f + 1}
+          {l ++
+             [
+               "FAIL: EventType.#{func}() returned #{inspect(actual)}, expected #{inspect(expected_val)}"
+             ], a + 1, f + 1}
         end
       end)
 
@@ -215,6 +346,7 @@ defmodule ApmWeb.UatLive do
 
     # Verify key types are in the list
     required = ["RUN_STARTED", "RUN_FINISHED", "CUSTOM", "STATE_SNAPSHOT", "TOOL_CALL_START"]
+
     {log, assertions, failures} =
       Enum.reduce(required, {log, assertions, failures}, fn type, {l, a, f} ->
         if type in all do
@@ -229,11 +361,12 @@ defmodule ApmWeb.UatLive do
   end
 
   defp run_test_case("event_stream_emit") do
-    event = EventStream.emit(EventType.custom(), %{
-      agent_id: @test_agent_id,
-      name: "uat_test",
-      value: %{test: true}
-    })
+    event =
+      EventStream.emit(EventType.custom(), %{
+        agent_id: @test_agent_id,
+        name: "uat_test",
+        value: %{test: true}
+      })
 
     log = ["Emitted event: #{inspect(Map.take(event, [:type, :id]))}"]
     assertions = 0
@@ -243,7 +376,8 @@ defmodule ApmWeb.UatLive do
       if is_map(event) and event[:type] == EventType.custom() do
         {log ++ ["PASS: Event emitted with correct type"], assertions + 1, failures}
       else
-        {log ++ ["FAIL: Event not emitted correctly: #{inspect(event)}"], assertions + 1, failures + 1}
+        {log ++ ["FAIL: Event not emitted correctly: #{inspect(event)}"], assertions + 1,
+         failures + 1}
       end
 
     {log, assertions, failures} =
@@ -267,6 +401,7 @@ defmodule ApmWeb.UatLive do
   defp run_test_case("event_stream_retrieve") do
     # Emit a unique event
     unique_id = "uat-retrieve-#{System.monotonic_time()}"
+
     EventStream.emit(EventType.custom(), %{
       agent_id: unique_id,
       name: "uat_retrieve_test"
@@ -287,6 +422,7 @@ defmodule ApmWeb.UatLive do
 
     # Check our event is in there
     found = Enum.any?(events, fn e -> get_in(e, [:data, :agent_id]) == unique_id end)
+
     {log, assertions, failures} =
       if found do
         {log ++ ["PASS: Our test event found in stream"], assertions + 1, failures}
@@ -300,11 +436,12 @@ defmodule ApmWeb.UatLive do
 
   defp run_test_case("event_router_route") do
     # Emit and route a test event
-    event = EventRouter.emit_and_route(EventType.custom(), %{
-      agent_id: @test_agent_id,
-      name: "uat_router_test",
-      value: %{routed: true}
-    })
+    event =
+      EventRouter.emit_and_route(EventType.custom(), %{
+        agent_id: @test_agent_id,
+        name: "uat_router_test",
+        value: %{routed: true}
+      })
 
     log = ["Emitted and routed event: #{inspect(Map.take(event, [:type, :id]))}"]
     assertions = 0
@@ -336,7 +473,8 @@ defmodule ApmWeb.UatLive do
 
     {log, assertions, failures} =
       if Map.has_key?(stats, :by_type) and is_map(stats.by_type) do
-        {log ++ ["PASS: Stats has by_type map with #{map_size(stats.by_type)} entries"], assertions + 1, failures}
+        {log ++ ["PASS: Stats has by_type map with #{map_size(stats.by_type)} entries"],
+         assertions + 1, failures}
       else
         {log ++ ["FAIL: Stats missing by_type"], assertions + 1, failures + 1}
       end
@@ -369,7 +507,8 @@ defmodule ApmWeb.UatLive do
       if run_started do
         {log ++ ["PASS: RUN_STARTED event emitted"], assertions + 1, failures}
       else
-        {log ++ ["FAIL: No RUN_STARTED event found. New events: #{length(new_events)}"], assertions + 1, failures + 1}
+        {log ++ ["FAIL: No RUN_STARTED event found. New events: #{length(new_events)}"],
+         assertions + 1, failures + 1}
       end
 
     status = if failures == 0, do: :pass, else: :fail
@@ -390,9 +529,10 @@ defmodule ApmWeb.UatLive do
     after_events = EventStream.get_events(%{})
     new_events = after_events -- before_events
 
-    step_events = Enum.filter(new_events, fn e ->
-      e[:type] in [EventType.step_started(), EventType.step_finished()]
-    end)
+    step_events =
+      Enum.filter(new_events, fn e ->
+        e[:type] in [EventType.step_started(), EventType.step_finished()]
+      end)
 
     log = ["HookBridge.on_heartbeat called for agent #{agent_id}"]
     assertions = 0
@@ -462,8 +602,10 @@ defmodule ApmWeb.UatLive do
     case StateManager.get_state_versioned(agent_id) do
       {_state, version} when is_integer(version) and version > 0 ->
         {log ++ ["PASS: Versioned state has version #{version}"], assertions + 1, failures}
+
       other ->
-        {log ++ ["FAIL: Versioned state returned #{inspect(other)}"], assertions + 1, failures + 1}
+        {log ++ ["FAIL: Versioned state returned #{inspect(other)}"], assertions + 1,
+         failures + 1}
     end
     |> then(fn {l, a, f} ->
       # Cleanup
@@ -478,10 +620,11 @@ defmodule ApmWeb.UatLive do
     StateManager.set_state(agent_id, %{"status" => "idle", "count" => 0})
 
     # Apply delta
-    result = StateManager.apply_delta(agent_id, [
-      %{"op" => "replace", "path" => "/status", "value" => "working"},
-      %{"op" => "add", "path" => "/new_field", "value" => "added"}
-    ])
+    result =
+      StateManager.apply_delta(agent_id, [
+        %{"op" => "replace", "path" => "/status", "value" => "working"},
+        %{"op" => "add", "path" => "/new_field", "value" => "added"}
+      ])
 
     log = ["Applied delta to agent #{agent_id}"]
     assertions = 0
@@ -512,11 +655,16 @@ defmodule ApmWeb.UatLive do
 
     # Test delta on non-existent agent
     {log, assertions, failures} =
-      case StateManager.apply_delta("nonexistent-agent", [%{"op" => "replace", "path" => "/x", "value" => 1}]) do
+      case StateManager.apply_delta("nonexistent-agent", [
+             %{"op" => "replace", "path" => "/x", "value" => 1}
+           ]) do
         {:error, :no_state} ->
-          {log ++ ["PASS: Delta on non-existent agent returns {:error, :no_state}"], assertions + 1, failures}
+          {log ++ ["PASS: Delta on non-existent agent returns {:error, :no_state}"],
+           assertions + 1, failures}
+
         other ->
-          {log ++ ["FAIL: Expected {:error, :no_state}, got #{inspect(other)}"], assertions + 1, failures + 1}
+          {log ++ ["FAIL: Expected {:error, :no_state}, got #{inspect(other)}"], assertions + 1,
+           failures + 1}
       end
 
     StateManager.remove_state(agent_id)
@@ -537,12 +685,14 @@ defmodule ApmWeb.UatLive do
 
     {log, assertions, failures} =
       if length(messages) > 0 do
-        {log ++ ["PASS: Message persisted (#{length(messages)} messages in scope)"], assertions + 1, failures}
+        {log ++ ["PASS: Message persisted (#{length(messages)} messages in scope)"],
+         assertions + 1, failures}
       else
         {log ++ ["FAIL: No messages found in scope"], assertions + 1, failures + 1}
       end
 
     msg = List.last(messages)
+
     {log, assertions, failures} =
       if msg && msg[:content] == "UAT test message" do
         {log ++ ["PASS: Message content matches"], assertions + 1, failures}
@@ -553,11 +703,13 @@ defmodule ApmWeb.UatLive do
     # Clear
     Apm.ChatStore.clear_scope(scope)
     after_clear = Apm.ChatStore.list_messages(scope)
+
     {log, assertions, failures} =
       if length(after_clear) == 0 do
         {log ++ ["PASS: Messages cleared successfully"], assertions + 1, failures}
       else
-        {log ++ ["FAIL: Messages not cleared: #{length(after_clear)} remaining"], assertions + 1, failures + 1}
+        {log ++ ["FAIL: Messages not cleared: #{length(after_clear)} remaining"], assertions + 1,
+         failures + 1}
       end
 
     status = if failures == 0, do: :pass, else: :fail
@@ -576,6 +728,7 @@ defmodule ApmWeb.UatLive do
       "project" => "uat-test",
       "role" => "individual"
     })
+
     Process.sleep(50)
 
     # 2. Set state (STATE_SNAPSHOT)
@@ -587,6 +740,7 @@ defmodule ApmWeb.UatLive do
       "status" => "working",
       "message" => "E2E step"
     })
+
     Process.sleep(50)
 
     # 4. Apply delta (STATE_DELTA)
@@ -601,36 +755,46 @@ defmodule ApmWeb.UatLive do
       "message" => "Full lifecycle test passed",
       "category" => "uat"
     })
+
     Process.sleep(50)
 
     # Verify events exist in stream
     events = EventStream.get_events(%{})
-    agent_events = Enum.filter(events, fn e ->
-      get_in(e, [:data, :agent_id]) == agent_id
-    end)
+
+    agent_events =
+      Enum.filter(events, fn e ->
+        get_in(e, [:data, :agent_id]) == agent_id
+      end)
 
     {log, assertions, failures} =
       if length(agent_events) >= 2 do
         types = Enum.map(agent_events, & &1[:type]) |> Enum.uniq() |> Enum.join(", ")
-        {log ++ ["PASS: #{length(agent_events)} events found for agent. Types: #{types}"], assertions + 1, failures}
+
+        {log ++ ["PASS: #{length(agent_events)} events found for agent. Types: #{types}"],
+         assertions + 1, failures}
       else
-        {log ++ ["FAIL: Expected >= 2 events, found #{length(agent_events)}"], assertions + 1, failures + 1}
+        {log ++ ["FAIL: Expected >= 2 events, found #{length(agent_events)}"], assertions + 1,
+         failures + 1}
       end
 
     # Verify state
     state = StateManager.get_state(agent_id)
+
     {log, assertions, failures} =
       if state && state["phase"] == "complete" do
         {log ++ ["PASS: State delta applied (phase=complete)"], assertions + 1, failures}
       else
-        {log ++ ["FAIL: State not in expected state: #{inspect(state)}"], assertions + 1, failures + 1}
+        {log ++ ["FAIL: State not in expected state: #{inspect(state)}"], assertions + 1,
+         failures + 1}
       end
 
     # Verify router stats updated
     stats = EventRouter.stats()
+
     {log, assertions, failures} =
       if stats.routed_count > 0 do
-        {log ++ ["PASS: Router has processed #{stats.routed_count} events"], assertions + 1, failures}
+        {log ++ ["PASS: Router has processed #{stats.routed_count} events"], assertions + 1,
+         failures}
       else
         {log ++ ["FAIL: Router routed_count is 0"], assertions + 1, failures + 1}
       end
@@ -657,7 +821,9 @@ defmodule ApmWeb.UatLive do
       <:main>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">UAT Integration Testing</h1>
+            <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+              UAT Integration Testing
+            </h1>
             <.badge tone={summary_tone(@tests)}>{test_summary(@tests)}</.badge>
           </div>
           <div style="display: flex; align-items: center; gap: 10px;">
@@ -672,10 +838,18 @@ defmodule ApmWeb.UatLive do
 
         <div style="display: flex; gap: 12px; margin-bottom: 16px;">
           <.card padded={false} style="flex: 1; padding: 12px 16px;">
-            <.stat_tile label="Passed" value={to_string(count_status(@tests, :pass))} delta_direction="up" />
+            <.stat_tile
+              label="Passed"
+              value={to_string(count_status(@tests, :pass))}
+              delta_direction="up"
+            />
           </.card>
           <.card padded={false} style="flex: 1; padding: 12px 16px;">
-            <.stat_tile label="Failed" value={to_string(count_status(@tests, :fail))} delta_direction="down" />
+            <.stat_tile
+              label="Failed"
+              value={to_string(count_status(@tests, :fail))}
+              delta_direction="down"
+            />
           </.card>
           <.card padded={false} style="flex: 1; padding: 12px 16px;">
             <.stat_tile label="Errors" value={to_string(count_status(@tests, :error))} />
@@ -697,7 +871,9 @@ defmodule ApmWeb.UatLive do
               <span style="font-size: 13px; color: var(--ccem-fg);">{row[:name]}</span>
             </:col>
             <:col :let={row} label="Category">
-              <span style="font-size: 11px; color: var(--ccem-fg-muted); font-family: monospace;">{row[:category]}</span>
+              <span style="font-size: 11px; color: var(--ccem-fg-muted); font-family: monospace;">
+                {row[:category]}
+              </span>
             </:col>
             <:col :let={row} label="Status">
               <.badge tone={status_tone(row[:status])}>{to_string(row[:status])}</.badge>
@@ -706,20 +882,33 @@ defmodule ApmWeb.UatLive do
               <span :if={row[:assertions] > 0} style="font-size: 12px; color: var(--ccem-fg-muted);">
                 {row[:assertions] - row[:failures]}/{row[:assertions]}
               </span>
-              <span :if={row[:assertions] == 0} style="font-size: 12px; color: var(--ccem-fg-muted);">—</span>
+              <span :if={row[:assertions] == 0} style="font-size: 12px; color: var(--ccem-fg-muted);">
+                —
+              </span>
             </:col>
             <:col :let={row} label="Duration">
-              <span :if={row[:duration_ms] > 0} style="font-size: 12px; font-family: monospace; color: var(--ccem-fg-muted);">
+              <span
+                :if={row[:duration_ms] > 0}
+                style="font-size: 12px; font-family: monospace; color: var(--ccem-fg-muted);"
+              >
                 {row[:duration_ms]}ms
               </span>
-              <span :if={row[:duration_ms] == 0} style="font-size: 12px; color: var(--ccem-fg-muted);">—</span>
+              <span :if={row[:duration_ms] == 0} style="font-size: 12px; color: var(--ccem-fg-muted);">
+                —
+              </span>
             </:col>
             <:col :let={row} label="">
               <div style="display: flex; gap: 6px; justify-content: flex-end;">
                 <.btn variant="ghost" size="xs" phx-click="select_test" phx-value-id={row[:id]}>
                   View
                 </.btn>
-                <.btn variant="ghost" size="xs" phx-click="run_test" phx-value-id={row[:id]} disabled={@running}>
+                <.btn
+                  variant="ghost"
+                  size="xs"
+                  phx-click="run_test"
+                  phx-value-id={row[:id]}
+                  disabled={@running}
+                >
                   Run
                 </.btn>
               </div>
@@ -733,14 +922,21 @@ defmodule ApmWeb.UatLive do
             <% test = Enum.find(@tests, &(&1.id == @selected_test)) %>
             <div :if={test}>
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">{test.name}</span>
+                <span style="font-size: 13px; font-weight: 600; color: var(--ccem-fg);">
+                  {test.name}
+                </span>
                 <.badge tone={status_tone(test.status)}>{to_string(test.status)}</.badge>
               </div>
               <div style="margin-bottom: 12px;">
                 <div style="display: flex; gap: 16px; font-size: 11px; color: var(--ccem-fg-muted);">
-                  <span>Category: <strong style="color: var(--ccem-fg);">{test.category}</strong></span>
+                  <span>
+                    Category: <strong style="color: var(--ccem-fg);">{test.category}</strong>
+                  </span>
                   <span :if={test.assertions > 0}>
-                    Assertions: <strong style="color: var(--ccem-fg);">{test.assertions - test.failures}/{test.assertions}</strong>
+                    Assertions:
+                    <strong style="color: var(--ccem-fg);">
+                      {test.assertions - test.failures}/{test.assertions}
+                    </strong>
                   </span>
                   <span :if={test.duration_ms > 0}>
                     Duration: <strong style="color: var(--ccem-fg);">{test.duration_ms}ms</strong>

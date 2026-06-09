@@ -22,7 +22,10 @@ defmodule ApmWeb.Components.ScopeBreadcrumb do
           <button
             phx-click="scope:set"
             phx-value-scope="global"
-            class={["hover:text-primary transition-colors", if(@scope == "global", do: "text-primary font-semibold", else: "text-base-content/50")]}
+            class={[
+              "hover:text-primary transition-colors",
+              if(@scope == "global", do: "text-primary font-semibold", else: "text-base-content/50")
+            ]}
           >
             All
           </button>
@@ -36,7 +39,10 @@ defmodule ApmWeb.Components.ScopeBreadcrumb do
               phx-value-scope={segment.scope}
               class={[
                 "hover:text-primary transition-colors truncate max-w-[80px]",
-                if(idx == length(@parsed_path) - 1, do: "text-primary font-semibold", else: "text-base-content/60")
+                if(idx == length(@parsed_path) - 1,
+                  do: "text-primary font-semibold",
+                  else: "text-base-content/60"
+                )
               ]}
               title={segment.label}
             >
@@ -68,11 +74,18 @@ defmodule ApmWeb.Components.ScopeBreadcrumb do
     parts = String.split(squadron_id, "-")
     formation_scope = if length(parts) >= 3, do: Enum.take(parts, 3) |> Enum.join("-"), else: nil
 
-    path = if formation_scope do
-      [%{type: :formation, label: short_id(formation_scope), scope: "formation:#{formation_scope}"}]
-    else
-      []
-    end
+    path =
+      if formation_scope do
+        [
+          %{
+            type: :formation,
+            label: short_id(formation_scope),
+            scope: "formation:#{formation_scope}"
+          }
+        ]
+      else
+        []
+      end
 
     path ++ [%{type: :squadron, label: short_id(squadron_id), scope: "squadron:#{squadron_id}"}]
   end

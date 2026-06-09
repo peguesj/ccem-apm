@@ -39,7 +39,9 @@ defmodule ApmWeb.OpenDesignController do
         json(conn, %{agents: agents, count: length(agents)})
 
       {:error, :daemon_unreachable} ->
-        conn |> put_status(503) |> json(%{error: "open-design daemon not running on port #{@daemon_port}"})
+        conn
+        |> put_status(503)
+        |> json(%{error: "open-design daemon not running on port #{@daemon_port}"})
 
       {:error, reason} ->
         conn |> put_status(502) |> json(%{error: inspect(reason)})
@@ -94,10 +96,17 @@ defmodule ApmWeb.OpenDesignController do
 
   def design_system_detail(conn, %{"id" => id}) do
     case OpenDesignClient.get_design_system(id, @daemon_port) do
-      {:ok, ds} -> json(conn, ds)
-      {:error, {:http_error, 404}} -> conn |> put_status(404) |> json(%{error: "not found: #{id}"})
-      {:error, :daemon_unreachable} -> conn |> put_status(503) |> json(%{error: "daemon not running"})
-      {:error, reason} -> conn |> put_status(502) |> json(%{error: inspect(reason)})
+      {:ok, ds} ->
+        json(conn, ds)
+
+      {:error, {:http_error, 404}} ->
+        conn |> put_status(404) |> json(%{error: "not found: #{id}"})
+
+      {:error, :daemon_unreachable} ->
+        conn |> put_status(503) |> json(%{error: "daemon not running"})
+
+      {:error, reason} ->
+        conn |> put_status(502) |> json(%{error: inspect(reason)})
     end
   end
 
@@ -118,10 +127,17 @@ defmodule ApmWeb.OpenDesignController do
 
   def project_detail(conn, %{"id" => id}) do
     case OpenDesignClient.get_project(id, @daemon_port) do
-      {:ok, project} -> json(conn, project)
-      {:error, {:http_error, 404}} -> conn |> put_status(404) |> json(%{error: "not found: #{id}"})
-      {:error, :daemon_unreachable} -> conn |> put_status(503) |> json(%{error: "daemon not running"})
-      {:error, reason} -> conn |> put_status(502) |> json(%{error: inspect(reason)})
+      {:ok, project} ->
+        json(conn, project)
+
+      {:error, {:http_error, 404}} ->
+        conn |> put_status(404) |> json(%{error: "not found: #{id}"})
+
+      {:error, :daemon_unreachable} ->
+        conn |> put_status(503) |> json(%{error: "daemon not running"})
+
+      {:error, reason} ->
+        conn |> put_status(502) |> json(%{error: inspect(reason)})
     end
   end
 

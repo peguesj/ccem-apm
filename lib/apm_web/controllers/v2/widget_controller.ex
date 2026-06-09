@@ -29,12 +29,13 @@ defmodule ApmWeb.V2.WidgetController do
   # ── GET /api/v2/widgets ───────────────────────────────────────────────────────
 
   @doc "List all registered widget definitions."
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["Widgets"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, _params) do
     widgets = WidgetRegistry.list_widgets()
@@ -44,12 +45,13 @@ defmodule ApmWeb.V2.WidgetController do
   # ── GET /api/v2/widgets/:id ───────────────────────────────────────────────────
 
   @doc "Get a single widget definition by id."
-  operation :show,
+  operation(:show,
     summary: "Get one",
     tags: ["Widgets"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def show(conn, %{"id" => id}) do
     case WidgetRegistry.get_widget(id) do
@@ -66,12 +68,13 @@ defmodule ApmWeb.V2.WidgetController do
   # ── PATCH /api/v2/widgets/:id/config ─────────────────────────────────────────
 
   @doc "Update widget config for a session."
-  operation :update_config,
+  operation(:update_config,
     summary: "Update config",
     tags: ["Widgets"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def update_config(conn, %{"id" => widget_id} = params) do
     session_id = Map.get(params, "session_id", "api")
@@ -93,12 +96,13 @@ defmodule ApmWeb.V2.WidgetController do
   # ── GET /api/v2/dashboard/layout ─────────────────────────────────────────────
 
   @doc "Get the current layout for a session (user overrides merged with preset)."
-  operation :get_layout,
+  operation(:get_layout,
     summary: "Get layout",
     tags: ["Widgets"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def get_layout(conn, params) do
     session_id = Map.get(params, "session_id", "api")
@@ -111,8 +115,10 @@ defmodule ApmWeb.V2.WidgetController do
       cond do
         user_layout && Map.get(user_layout, :placements) ->
           Map.get(user_layout, :placements)
+
         preset ->
           preset.placements
+
         true ->
           []
       end
@@ -132,12 +138,13 @@ defmodule ApmWeb.V2.WidgetController do
   # ── POST /api/v2/dashboard/layout ────────────────────────────────────────────
 
   @doc "Save a custom layout for a session."
-  operation :save_layout,
+  operation(:save_layout,
     summary: "Save layout",
     tags: ["Widgets"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def save_layout(conn, %{"session_id" => session_id} = params) do
     placements = Map.get(params, "placements", [])
@@ -162,12 +169,13 @@ defmodule ApmWeb.V2.WidgetController do
   # ── POST /api/v2/dashboard/pin ────────────────────────────────────────────────
 
   @doc "Pin a widget as the scope source for a session, or unpin if widget_id is nil/missing."
-  operation :pin_widget,
+  operation(:pin_widget,
     summary: "Pin widget",
     tags: ["Widgets"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def pin_widget(conn, %{"session_id" => session_id} = params) do
     widget_id = Map.get(params, "widget_id")

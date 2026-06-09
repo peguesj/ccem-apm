@@ -68,7 +68,9 @@ defmodule Apm.ApiKeyStore do
     keys =
       :ets.tab2list(@table)
       |> Enum.map(fn {key, meta} ->
-        masked = String.duplicate("*", max(String.length(key) - 4, 0)) <> String.slice(key, -4..-1//1)
+        masked =
+          String.duplicate("*", max(String.length(key) - 4, 0)) <> String.slice(key, -4..-1//1)
+
         %{key: masked, label: meta.label, created_at: meta.created_at}
       end)
 
@@ -84,11 +86,16 @@ defmodule Apm.ApiKeyStore do
 
     Enum.each(keys, fn entry ->
       key = entry["key"]
+
       if key do
-        :ets.insert(@table, {key, %{
-          label: entry["label"] || "unknown",
-          created_at: entry["created_at"] || ""
-        }})
+        :ets.insert(
+          @table,
+          {key,
+           %{
+             label: entry["label"] || "unknown",
+             created_at: entry["created_at"] || ""
+           }}
+        )
       end
     end)
   end
@@ -103,7 +110,9 @@ defmodule Apm.ApiKeyStore do
             {:ok, c} -> c
             _ -> %{}
           end
-        _ -> %{}
+
+        _ ->
+          %{}
       end
 
     keys_list =

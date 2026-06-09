@@ -16,7 +16,7 @@ defmodule ApmWeb.MetricsController do
   use ApmWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
-  operation :index,
+  operation(:index,
     summary: "Prometheus metrics",
     description: """
     Renders all registered CCEM APM metrics in Prometheus text exposition format
@@ -28,8 +28,10 @@ defmodule ApmWeb.MetricsController do
     tags: ["Health"],
     responses: [
       ok: {"Prometheus text format", "text/plain", %OpenApiSpex.Schema{type: :string}},
-      service_unavailable: {"Metrics unavailable", "text/plain", %OpenApiSpex.Schema{type: :string}}
+      service_unavailable:
+        {"Metrics unavailable", "text/plain", %OpenApiSpex.Schema{type: :string}}
     ]
+  )
 
   # Catch-all for any action not explicitly annotated above.
   def open_api_operation(_action), do: nil

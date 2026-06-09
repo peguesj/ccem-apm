@@ -32,13 +32,22 @@ defmodule ApmWeb.SessionTimelineLive do
   # Prefix patterns that map an event_type string to a category.
   # Order matters — first match wins; "system" is the catch-all.
   @category_patterns [
-    {"lifecycle", ["agent_register", "agent_update", "ag_ui.run_started", "ag_ui.run_finished",
-                   "ag_ui.run_error", "register", "deregister", "session"]},
-    {"auth",      ["auth", "agentlock", "ag_ui.approval", "authorization", "token", "rate_limit"]},
+    {"lifecycle",
+     [
+       "agent_register",
+       "agent_update",
+       "ag_ui.run_started",
+       "ag_ui.run_finished",
+       "ag_ui.run_error",
+       "register",
+       "deregister",
+       "session"
+     ]},
+    {"auth", ["auth", "agentlock", "ag_ui.approval", "authorization", "token", "rate_limit"]},
     {"formation", ["formation", "fmt", "squadron", "swarm", "cluster", "orchestrat"]},
-    {"task",      ["task", "bg_task", "background", "action"]},
-    {"tool",      ["tool", "ag_ui.tool", "TOOL_CALL", "call_start", "call_end", "call_args"]},
-    {"system",    []}
+    {"task", ["task", "bg_task", "background", "action"]},
+    {"tool", ["tool", "ag_ui.tool", "TOOL_CALL", "call_start", "call_end", "call_args"]},
+    {"system", []}
   ]
 
   # ---------------------------------------------------------------------------
@@ -105,7 +114,8 @@ defmodule ApmWeb.SessionTimelineLive do
   end
 
   def handle_event("select_event", %{"id" => id}, socket) do
-    {:noreply, assign(socket, selected_event: id, inspector_open: true, inspector_mode: "selection")}
+    {:noreply,
+     assign(socket, selected_event: id, inspector_open: true, inspector_mode: "selection")}
   end
 
   def handle_event("close_event", _params, socket) do
@@ -152,7 +162,10 @@ defmodule ApmWeb.SessionTimelineLive do
     assigns =
       assigns
       |> assign(:visible_lanes, visible_lanes(assigns.swim_lanes, assigns.show_empty_lanes))
-      |> assign(:total_events, total_visible_events(assigns.swim_lanes, assigns.hidden_categories))
+      |> assign(
+        :total_events,
+        total_visible_events(assigns.swim_lanes, assigns.hidden_categories)
+      )
 
     ~H"""
     <.page_layout sidebar_collapsed={@sidebar_collapsed} inspector_open={@inspector_open}>
@@ -242,11 +255,28 @@ defmodule ApmWeb.SessionTimelineLive do
 
           <%= if @visible_lanes == [] do %>
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px; color: var(--ccem-fg-dim);">
-              <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="opacity: 0.3; margin-bottom: 10px;">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="36"
+                height="36"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                style="opacity: 0.3; margin-bottom: 10px;"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
-              <p style="font-size: 13px; font-weight: 500; margin: 0 0 4px;">No events in this window</p>
-              <p style="font-size: 11px; margin: 0; opacity: 0.6;">Try a wider time window or enable empty lanes.</p>
+              <p style="font-size: 13px; font-weight: 500; margin: 0 0 4px;">
+                No events in this window
+              </p>
+              <p style="font-size: 11px; margin: 0; opacity: 0.6;">
+                Try a wider time window or enable empty lanes.
+              </p>
             </div>
           <% else %>
             <.swim_lane
@@ -261,7 +291,9 @@ defmodule ApmWeb.SessionTimelineLive do
         <%!-- D3 Gantt chart (agent-level swim lanes from SessionTimeline hook) --%>
         <.card style="margin-top: 16px; padding: 0; overflow: hidden;">
           <div style="padding: 10px 14px; border-bottom: 1px solid var(--ccem-line-subtle); display: flex; align-items: center; justify-content: space-between;">
-            <span style="font-size: 12px; font-weight: 600; color: var(--ccem-fg);">Agent Activity</span>
+            <span style="font-size: 12px; font-weight: 600; color: var(--ccem-fg);">
+              Agent Activity
+            </span>
             <.badge tone="neutral">{@stats.peak_agents} agents</.badge>
           </div>
           <div
@@ -294,7 +326,11 @@ defmodule ApmWeb.SessionTimelineLive do
                   <.inspector_row label="Event type" value={to_string(evt.event_type)} mono />
                   <.inspector_row label="Actor" value={to_string(evt.actor)} />
                   <.inspector_row label="Resource" value={to_string(evt.resource)} />
-                  <.inspector_row label="Timestamp" value={String.slice(to_string(evt.timestamp), 0, 19)} mono />
+                  <.inspector_row
+                    label="Timestamp"
+                    value={String.slice(to_string(evt.timestamp), 0, 19)}
+                    mono
+                  />
                   <%= if evt.correlation_id do %>
                     <.inspector_row label="Correlation" value={to_string(evt.correlation_id)} mono />
                   <% end %>
@@ -303,7 +339,9 @@ defmodule ApmWeb.SessionTimelineLive do
                 <%!-- Details map --%>
                 <%= if map_size(evt.details || %{}) > 0 do %>
                   <div>
-                    <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 6px;">Details</div>
+                    <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccem-fg-dim); margin-bottom: 6px;">
+                      Details
+                    </div>
                     <div style="background: var(--ccem-bg-2); border-radius: 5px; padding: 8px; font-family: var(--ccem-font-mono, monospace); font-size: 11px; word-break: break-all; display: flex; flex-direction: column; gap: 4px;">
                       <div :for={{k, v} <- Map.to_list(evt.details || %{})}>
                         <span style="color: var(--ccem-accent);">{k}</span>
@@ -502,19 +540,21 @@ defmodule ApmWeb.SessionTimelineLive do
       registered_at = parse_dt(agent[:registered_at])
 
       if registered_at && DateTime.compare(registered_at, cutoff) != :lt do
-        [%{
-          id: "agent-reg-#{agent.id}",
-          timestamp: DateTime.to_iso8601(registered_at),
-          event_type: "agent_registered",
-          actor: to_string(agent.id),
-          resource: to_string(agent.id),
-          details: %{
-            name: agent[:name] || agent.id,
-            status: agent[:status],
-            project: agent[:project_name]
-          },
-          correlation_id: nil
-        }]
+        [
+          %{
+            id: "agent-reg-#{agent.id}",
+            timestamp: DateTime.to_iso8601(registered_at),
+            event_type: "agent_registered",
+            actor: to_string(agent.id),
+            resource: to_string(agent.id),
+            details: %{
+              name: agent[:name] || agent.id,
+              status: agent[:status],
+              project: agent[:project_name]
+            },
+            correlation_id: nil
+          }
+        ]
       else
         []
       end
@@ -530,7 +570,9 @@ defmodule ApmWeb.SessionTimelineLive do
   defp build_timeline_entries(agents, cutoff, now) do
     Enum.map(agents, fn agent ->
       registered_at = parse_dt(agent[:registered_at]) || cutoff
-      start_time = if DateTime.compare(registered_at, cutoff) == :lt, do: cutoff, else: registered_at
+
+      start_time =
+        if DateTime.compare(registered_at, cutoff) == :lt, do: cutoff, else: registered_at
 
       %{
         name: truncate(to_string(agent[:name] || agent.id), 20),
@@ -719,10 +761,17 @@ defmodule ApmWeb.SessionTimelineLive do
     type_str = to_string(type)
 
     cond do
-      String.contains?(type_str, ["error", "denied", "blocked", "failed"]) -> "error"
-      String.contains?(type_str, ["escalated", "warning", "pending"]) -> "warning"
-      String.contains?(type_str, ["granted", "approved", "success", "complete", "finished"]) -> "success"
-      true -> "neutral"
+      String.contains?(type_str, ["error", "denied", "blocked", "failed"]) ->
+        "error"
+
+      String.contains?(type_str, ["escalated", "warning", "pending"]) ->
+        "warning"
+
+      String.contains?(type_str, ["granted", "approved", "success", "complete", "finished"]) ->
+        "success"
+
+      true ->
+        "neutral"
     end
   end
 

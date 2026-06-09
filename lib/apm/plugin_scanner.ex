@@ -41,10 +41,12 @@ defmodule Apm.PluginScanner do
   @impl true
   def handle_continue(:initial_scan, state) do
     server = self()
+
     Task.start(fn ->
       new_state = do_scan(state)
       send(server, {:scan_result, new_state})
     end)
+
     {:noreply, state}
   end
 
@@ -72,10 +74,12 @@ defmodule Apm.PluginScanner do
   def handle_info(:refresh, state) do
     schedule_refresh()
     server = self()
+
     Task.start(fn ->
       new_state = do_scan(state)
       send(server, {:scan_result, new_state})
     end)
+
     {:noreply, state}
   end
 
@@ -141,9 +145,11 @@ defmodule Apm.PluginScanner do
                     description: Map.get(manifest, "description", ""),
                     path: plugin_path
                   }
+
                 _ ->
                   %{name: entry, version: "?", description: "No manifest", path: plugin_path}
               end
+
             _ ->
               %{name: entry, version: "?", description: "No manifest", path: plugin_path}
           end

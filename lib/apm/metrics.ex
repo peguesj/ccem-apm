@@ -76,7 +76,8 @@ defmodule Apm.Metrics do
         event_name: [:ccem, :token, :usage],
         measurement: :count,
         tags: [:model, :project, :token_type],
-        description: "Cumulative token usage by model, project and type (input/output/cache_read/cache_creation).",
+        description:
+          "Cumulative token usage by model, project and type (input/output/cache_read/cache_creation).",
         reporter_options: [prometheus_type: :counter]
       ),
 
@@ -97,7 +98,8 @@ defmodule Apm.Metrics do
         measurement: :duration,
         unit: {:native, :millisecond},
         tags: [:decision],
-        description: "Time between approval request and decision (approve/deny/auto_approve) in milliseconds.",
+        description:
+          "Time between approval request and decision (approve/deny/auto_approve) in milliseconds.",
         reporter_options: [buckets: [100, 500, 1_000, 5_000, 15_000, 30_000, 60_000]]
       )
     ]

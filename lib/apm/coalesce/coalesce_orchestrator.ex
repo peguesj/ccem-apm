@@ -150,7 +150,12 @@ defmodule Apm.Coalesce.CoalesceOrchestrator do
         {:reply, {:error, :already_done}, state}
 
       run ->
-        updated = %{run | status: :cancelled, completed_at: DateTime.utc_now() |> DateTime.to_iso8601()}
+        updated = %{
+          run
+          | status: :cancelled,
+            completed_at: DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+
         :ets.insert(@table, {run_id, updated})
         SwarmCoordinator.stop_swarms(run.formation_id)
         _broadcast_run_event("coalesce_run_cancelled", updated)
@@ -165,11 +170,14 @@ defmodule Apm.Coalesce.CoalesceOrchestrator do
 
       %{status: :awaiting_gate} = run ->
         result = _apply_diffs(run)
-        updated = %{run |
-          status: :complete,
-          completed_at: DateTime.utc_now() |> DateTime.to_iso8601(),
-          result: result
+
+        updated = %{
+          run
+          | status: :complete,
+            completed_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+            result: result
         }
+
         :ets.insert(@table, {run_id, updated})
         _broadcast_run_event("coalesce_run_applied", updated)
         {:reply, {:ok, result}, state}
@@ -192,6 +200,7 @@ defmodule Apm.Coalesce.CoalesceOrchestrator do
 
       # G1: confidence gate (auto)
       confidence = intel_results[:source_confidence] || 0.0
+
       _register_gate(run_id, "G1", :auto, %{
         description: "Source confidence check (≥ 0.70 to proceed)",
         confidence: confidence,
@@ -201,14 +210,21 @@ defmodule Apm.Coalesce.CoalesceOrchestrator do
       if confidence >= 0.70 or run.auto_approve do
         DecisionGateStore.auto_approve("#{run_id}:G1", %{confidence: confidence})
 
-        updated = %{run |
-          status: :analysis,
-          affected_skills: intel_results[:affected_skills] || []
+        updated = %{
+          run
+          | status: :analysis,
+            affected_skills: intel_results[:affected_skills] || []
         }
+
         :ets.insert(@table, {run_id, updated})
         send(self(), {:phase_analysis, run_id, intel_results})
       else
-        updated = %{run | status: :failed, error: "Source confidence #{confidence} below threshold 0.70"}
+        updated = %{
+          run
+          | status: :failed,
+            error: "Source confidence #{confidence} below threshold 0.70"
+        }
+
         :ets.insert(@table, {run_id, updated})
         _broadcast_run_event("coalesce_run_failed", updated)
       end
@@ -227,8 +243,10 @@ defmodule Apm.Coalesce.CoalesceOrchestrator do
 
       # G2: scope confirmation (human unless auto_approve)
       gate_type = if run.auto_approve, do: :auto, else: :human
+
       _register_gate(run_id, "G2", gate_type, %{
-        description: "#{length(affected)} skills affected. Proceed with #{swarm_count} swarm agents?",
+        description:
+          "#{length(affected)} skills affected. Proceed with #{swarm_count} swarm agents?",
         affected_count: length(affected),
         swarm_count: swarm_count
       })
@@ -267,6 +285,7 @@ defmodule Apm.Coalesce.CoalesceOrchestrator do
 
       if run.auto_approve do
         all_confident = Enum.all?(diffs, &(&1.confidence >= 0.80))
+
         if all_confident do
           DecisionGateStore.auto_approve("#{run_id}:G3", %{actor: "auto_approve"})
           send(self(), {:phase_validation, run_id})
@@ -283,14 +302,20 @@ defmodule Apm.Coalesce.CoalesceOrchestrator do
       Logger.info("[Coalesce] #{run_id} — Phase 4: Validation")
 
       validation = _run_validation_phase(run)
-      all_pass = Enum.all?(validation, &(&1.passes))
-      avg_confidence = validation
+      all_pass = Enum.all?(validation, & &1.passes)
+
+      avg_confidence =
+        validation
         |> Enum.map(& &1.confidence)
-        |> then(fn scores -> if Enum.empty?(scores), do: 0.0, else: Enum.sum(scores) / length(scores) end)
+        |> then(fn scores ->
+          if Enum.empty?(scores), do: 0.0, else: Enum.sum(scores) / length(scores)
+        end)
 
       gate_type = if avg_confidence >= 0.85 or run.auto_approve, do: :auto, else: :human
+
       _register_gate(run_id, "G4", gate_type, %{
-        description: "Validation complete — #{length(Enum.filter(validation, & &1.passes))}/#{length(validation)} passed",
+        description:
+          "Validation complete — #{length(Enum.filter(validation, & &1.passes))}/#{length(validation)} passed",
         all_pass: all_pass,
         avg_confidence: avg_confidence,
         results: validation
@@ -309,14 +334,19 @@ defmodule Apm.Coalesce.CoalesceOrchestrator do
 
   def handle_info({:do_apply, run_id}, state) do
     case get_run(run_id) do
-      nil -> :ok
+      nil ->
+        :ok
+
       run ->
         result = _apply_diffs(run)
-        updated = %{run |
-          status: :complete,
-          completed_at: DateTime.utc_now() |> DateTime.to_iso8601(),
-          result: result
+
+        updated = %{
+          run
+          | status: :complete,
+            completed_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+            result: result
         }
+
         :ets.insert(@table, {run_id, updated})
         _broadcast_run_event("coalesce_run_applied", updated)
     end
@@ -339,11 +369,13 @@ defmodule Apm.Coalesce.CoalesceOrchestrator do
 
   def handle_info({:gate_decided, run_id, gate_id, :rejected}, state) do
     with %{} = run <- get_run(run_id) do
-      updated = %{run |
-        status: :cancelled,
-        completed_at: DateTime.utc_now() |> DateTime.to_iso8601(),
-        error: "Gate #{gate_id} rejected by user"
+      updated = %{
+        run
+        | status: :cancelled,
+          completed_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+          error: "Gate #{gate_id} rejected by user"
       }
+
       :ets.insert(@table, {run_id, updated})
       _broadcast_run_event("coalesce_run_cancelled", updated)
     end
@@ -365,7 +397,9 @@ defmodule Apm.Coalesce.CoalesceOrchestrator do
     # Determine affected skills from scope + source findings
     affected = SkillLogicEngine.resolve_affected_skills(@skills_path, scope, source_analysis)
 
-    Logger.info("[Coalesce] Intelligence: #{length(affected)} skills in scope, confidence=#{source_analysis[:confidence]}")
+    Logger.info(
+      "[Coalesce] Intelligence: #{length(affected)} skills in scope, confidence=#{source_analysis[:confidence]}"
+    )
 
     %{
       source_analysis: source_analysis,
@@ -408,15 +442,16 @@ defmodule Apm.Coalesce.CoalesceOrchestrator do
   end
 
   defp _apply_diffs(run) do
-    results = Enum.map(run.diffs, fn diff ->
-      if diff.approved && diff.confidence >= 0.70 do
-        path = Path.join(@skills_path, "#{diff.skill_name}/SKILL.md")
-        File.write!(path, diff.new_content)
-        {:applied, diff.skill_name}
-      else
-        {:skipped, diff.skill_name}
-      end
-    end)
+    results =
+      Enum.map(run.diffs, fn diff ->
+        if diff.approved && diff.confidence >= 0.70 do
+          path = Path.join(@skills_path, "#{diff.skill_name}/SKILL.md")
+          File.write!(path, diff.new_content)
+          {:applied, diff.skill_name}
+        else
+          {:skipped, diff.skill_name}
+        end
+      end)
 
     applied = Enum.count(results, fn {status, _} -> status == :applied end)
     skipped = Enum.count(results, fn {status, _} -> status == :skipped end)

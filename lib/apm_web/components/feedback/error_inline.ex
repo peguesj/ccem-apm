@@ -28,8 +28,15 @@ defmodule ApmWeb.Components.Feedback.ErrorInline do
     ~H"""
     <div class="apm-error-inline" role="alert" {@rest}>
       <div class="apm-error-inline__icon" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M6 6l12 12M18 6 6 18"/>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M6 6l12 12M18 6 6 18" />
         </svg>
       </div>
       <div class="apm-error-inline__title">Something went wrong</div>

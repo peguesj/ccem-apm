@@ -115,6 +115,7 @@ defmodule Apm.UpmStore do
       squadrons: formation.squadrons,
       upm_session_id: formation.upm_session_id
     })
+
     {:ok, id}
   end
 
@@ -190,7 +191,8 @@ defmodule Apm.UpmStore do
           name: formation_id,
           agent_count: length(agents),
           status: "active",
-          registered_at: agents |> Enum.map(&Map.get(&1, :registered_at)) |> Enum.min(fn -> nil end),
+          registered_at:
+            agents |> Enum.map(&Map.get(&1, :registered_at)) |> Enum.min(fn -> nil end),
           source: :agents
         }
       end)
@@ -209,9 +211,14 @@ defmodule Apm.UpmStore do
 
         status =
           cond do
-            Enum.any?(notifs, &String.contains?(Map.get(&1, :title, ""), "Complete")) -> "complete"
-            Enum.any?(notifs, &(&1.type == "error")) -> "error"
-            true -> "active"
+            Enum.any?(notifs, &String.contains?(Map.get(&1, :title, ""), "Complete")) ->
+              "complete"
+
+            Enum.any?(notifs, &(&1.type == "error")) ->
+              "error"
+
+            true ->
+              "active"
           end
 
         %{
@@ -237,7 +244,9 @@ defmodule Apm.UpmStore do
         :ets.insert(@formations_table, {formation_id, updated})
         Phoenix.PubSub.broadcast(Apm.PubSub, "apm:upm", {:formation_updated, updated})
         :ok
-      [] -> {:error, :not_found}
+
+      [] ->
+        {:error, :not_found}
     end
   end
 
@@ -253,7 +262,9 @@ defmodule Apm.UpmStore do
         event_type = Map.get(event, :type) || Map.get(event, "type") || :formation_event
         persist_event(formation_id, event_type, Map.drop(event, [:timestamp]))
         :ok
-      [] -> {:error, :not_found}
+
+      [] ->
+        {:error, :not_found}
     end
   end
 
@@ -281,62 +292,178 @@ defmodule Apm.UpmStore do
       "total_waves" => 2,
       "squadrons" => [
         %{
-          "name" => "alpha", "wave" => 1, "role" => "Public Pages",
+          "name" => "alpha",
+          "wave" => 1,
+          "role" => "Public Pages",
           "agents" => [
-            %{"id" => "#{fmt_id}-alpha-w1", "name" => "nextjs-developer", "role" => "Route verification", "publishes" => ["alpha.w1.results"]},
-            %{"id" => "#{fmt_id}-alpha-w2", "name" => "accessibility-tester", "role" => "A11y audit", "publishes" => ["alpha.w2.results"]},
-            %{"id" => "#{fmt_id}-alpha-w3", "name" => "performance-optimizer", "role" => "Core Web Vitals", "publishes" => ["alpha.w3.results"]}
+            %{
+              "id" => "#{fmt_id}-alpha-w1",
+              "name" => "nextjs-developer",
+              "role" => "Route verification",
+              "publishes" => ["alpha.w1.results"]
+            },
+            %{
+              "id" => "#{fmt_id}-alpha-w2",
+              "name" => "accessibility-tester",
+              "role" => "A11y audit",
+              "publishes" => ["alpha.w2.results"]
+            },
+            %{
+              "id" => "#{fmt_id}-alpha-w3",
+              "name" => "performance-optimizer",
+              "role" => "Core Web Vitals",
+              "publishes" => ["alpha.w3.results"]
+            }
           ],
-          "lead" => %{"id" => "#{fmt_id}-alpha-lead", "subscribes" => ["alpha.w1.results", "alpha.w2.results", "alpha.w3.results"], "publishes" => ["alpha.results"]}
+          "lead" => %{
+            "id" => "#{fmt_id}-alpha-lead",
+            "subscribes" => ["alpha.w1.results", "alpha.w2.results", "alpha.w3.results"],
+            "publishes" => ["alpha.results"]
+          }
         },
         %{
-          "name" => "bravo", "wave" => 1, "role" => "Auth & RBAC",
+          "name" => "bravo",
+          "wave" => 1,
+          "role" => "Auth & RBAC",
           "agents" => [
-            %{"id" => "#{fmt_id}-bravo-w4", "name" => "security-auditor", "publishes" => ["bravo.w4.results"]},
-            %{"id" => "#{fmt_id}-bravo-w5", "name" => "penetration-tester", "publishes" => ["bravo.w5.results"]},
-            %{"id" => "#{fmt_id}-bravo-w6", "name" => "qa-expert", "publishes" => ["bravo.w6.results"]}
+            %{
+              "id" => "#{fmt_id}-bravo-w4",
+              "name" => "security-auditor",
+              "publishes" => ["bravo.w4.results"]
+            },
+            %{
+              "id" => "#{fmt_id}-bravo-w5",
+              "name" => "penetration-tester",
+              "publishes" => ["bravo.w5.results"]
+            },
+            %{
+              "id" => "#{fmt_id}-bravo-w6",
+              "name" => "qa-expert",
+              "publishes" => ["bravo.w6.results"]
+            }
           ],
-          "lead" => %{"id" => "#{fmt_id}-bravo-lead", "subscribes" => ["bravo.w4.results", "bravo.w5.results", "bravo.w6.results"], "publishes" => ["bravo.results"], "exports" => ["auth_session_cookie"]}
+          "lead" => %{
+            "id" => "#{fmt_id}-bravo-lead",
+            "subscribes" => ["bravo.w4.results", "bravo.w5.results", "bravo.w6.results"],
+            "publishes" => ["bravo.results"],
+            "exports" => ["auth_session_cookie"]
+          }
         },
         %{
-          "name" => "echo", "wave" => 1, "role" => "Infrastructure",
+          "name" => "echo",
+          "wave" => 1,
+          "role" => "Infrastructure",
           "agents" => [
-            %{"id" => "#{fmt_id}-echo-w13", "name" => "sre-engineer", "publishes" => ["echo.w13.results"]},
-            %{"id" => "#{fmt_id}-echo-w14", "name" => "error-detective", "publishes" => ["echo.w14.results"]}
+            %{
+              "id" => "#{fmt_id}-echo-w13",
+              "name" => "sre-engineer",
+              "publishes" => ["echo.w13.results"]
+            },
+            %{
+              "id" => "#{fmt_id}-echo-w14",
+              "name" => "error-detective",
+              "publishes" => ["echo.w14.results"]
+            }
           ],
-          "lead" => %{"id" => "#{fmt_id}-echo-lead", "subscribes" => ["echo.w13.results", "echo.w14.results"], "publishes" => ["echo.results"]}
+          "lead" => %{
+            "id" => "#{fmt_id}-echo-lead",
+            "subscribes" => ["echo.w13.results", "echo.w14.results"],
+            "publishes" => ["echo.results"]
+          }
         },
         %{
-          "name" => "charlie", "wave" => 2, "role" => "Core Features", "depends_on" => ["bravo"],
+          "name" => "charlie",
+          "wave" => 2,
+          "role" => "Core Features",
+          "depends_on" => ["bravo"],
           "agents" => [
-            %{"id" => "#{fmt_id}-charlie-w7", "name" => "frontend-developer", "publishes" => ["charlie.w7.results"]},
-            %{"id" => "#{fmt_id}-charlie-w8", "name" => "fullstack-developer", "publishes" => ["charlie.w8.results"]},
-            %{"id" => "#{fmt_id}-charlie-w9", "name" => "ui-designer", "publishes" => ["charlie.w9.results"]}
+            %{
+              "id" => "#{fmt_id}-charlie-w7",
+              "name" => "frontend-developer",
+              "publishes" => ["charlie.w7.results"]
+            },
+            %{
+              "id" => "#{fmt_id}-charlie-w8",
+              "name" => "fullstack-developer",
+              "publishes" => ["charlie.w8.results"]
+            },
+            %{
+              "id" => "#{fmt_id}-charlie-w9",
+              "name" => "ui-designer",
+              "publishes" => ["charlie.w9.results"]
+            }
           ],
-          "lead" => %{"id" => "#{fmt_id}-charlie-lead", "subscribes" => ["charlie.w7.results", "charlie.w8.results", "charlie.w9.results"], "publishes" => ["charlie.results"], "imports" => ["auth_session_cookie"]}
+          "lead" => %{
+            "id" => "#{fmt_id}-charlie-lead",
+            "subscribes" => ["charlie.w7.results", "charlie.w8.results", "charlie.w9.results"],
+            "publishes" => ["charlie.results"],
+            "imports" => ["auth_session_cookie"]
+          }
         },
         %{
-          "name" => "delta", "wave" => 2, "role" => "Admin & Org Portals", "depends_on" => ["bravo"],
+          "name" => "delta",
+          "wave" => 2,
+          "role" => "Admin & Org Portals",
+          "depends_on" => ["bravo"],
           "agents" => [
-            %{"id" => "#{fmt_id}-delta-w10", "name" => "code-reviewer", "publishes" => ["delta.w10.results"]},
-            %{"id" => "#{fmt_id}-delta-w11", "name" => "qa-expert", "publishes" => ["delta.w11.results"]},
-            %{"id" => "#{fmt_id}-delta-w12", "name" => "database-optimizer", "publishes" => ["delta.w12.results"]}
+            %{
+              "id" => "#{fmt_id}-delta-w10",
+              "name" => "code-reviewer",
+              "publishes" => ["delta.w10.results"]
+            },
+            %{
+              "id" => "#{fmt_id}-delta-w11",
+              "name" => "qa-expert",
+              "publishes" => ["delta.w11.results"]
+            },
+            %{
+              "id" => "#{fmt_id}-delta-w12",
+              "name" => "database-optimizer",
+              "publishes" => ["delta.w12.results"]
+            }
           ],
-          "lead" => %{"id" => "#{fmt_id}-delta-lead", "subscribes" => ["delta.w10.results", "delta.w11.results", "delta.w12.results"], "publishes" => ["delta.results"], "imports" => ["auth_session_cookie"]}
+          "lead" => %{
+            "id" => "#{fmt_id}-delta-lead",
+            "subscribes" => ["delta.w10.results", "delta.w11.results", "delta.w12.results"],
+            "publishes" => ["delta.results"],
+            "imports" => ["auth_session_cookie"]
+          }
         }
       ],
       "orchestrator" => %{
         "id" => "#{fmt_id}-orch",
-        "subscribes" => ["alpha.results", "bravo.results", "charlie.results", "delta.results", "echo.results"],
+        "subscribes" => [
+          "alpha.results",
+          "bravo.results",
+          "charlie.results",
+          "delta.results",
+          "echo.results"
+        ],
         "publishes" => ["formation.complete"]
       },
-      "exports" => %{"bravo" => %{"keys" => ["auth_session_cookie"], "targets" => ["charlie", "delta"]}},
+      "exports" => %{
+        "bravo" => %{"keys" => ["auth_session_cookie"], "targets" => ["charlie", "delta"]}
+      },
       "channels" => [
-        "alpha.w1.results", "alpha.w2.results", "alpha.w3.results", "alpha.results",
-        "bravo.w4.results", "bravo.w5.results", "bravo.w6.results", "bravo.results",
-        "echo.w13.results", "echo.w14.results", "echo.results",
-        "charlie.w7.results", "charlie.w8.results", "charlie.w9.results", "charlie.results",
-        "delta.w10.results", "delta.w11.results", "delta.w12.results", "delta.results",
+        "alpha.w1.results",
+        "alpha.w2.results",
+        "alpha.w3.results",
+        "alpha.results",
+        "bravo.w4.results",
+        "bravo.w5.results",
+        "bravo.w6.results",
+        "bravo.results",
+        "echo.w13.results",
+        "echo.w14.results",
+        "echo.results",
+        "charlie.w7.results",
+        "charlie.w8.results",
+        "charlie.w9.results",
+        "charlie.results",
+        "delta.w10.results",
+        "delta.w11.results",
+        "delta.w12.results",
+        "delta.results",
         "formation.complete"
       ]
     }
@@ -372,12 +499,13 @@ defmodule Apm.UpmStore do
 
   def parse_design_handoff_readme(readme) do
     with {:ok, waves} <- extract_implementation_order(readme) do
-      {:ok, %{
-        waves: waves,
-        components: extract_list_section(readme, "Component Inventory"),
-        tokens: extract_list_section(readme, "Design Tokens"),
-        wireframes: extract_list_section(readme, "Wireframe Coverage")
-      }}
+      {:ok,
+       %{
+         waves: waves,
+         components: extract_list_section(readme, "Component Inventory"),
+         tokens: extract_list_section(readme, "Design Tokens"),
+         wireframes: extract_list_section(readme, "Wireframe Coverage")
+       }}
     end
   end
 
@@ -666,16 +794,22 @@ defmodule Apm.UpmStore do
 
             "story_pass" ->
               story_id = data["story_id"]
-              stories = Enum.map(session.stories, fn s ->
-                if s.id == story_id, do: %{s | status: "passed"}, else: s
-              end)
+
+              stories =
+                Enum.map(session.stories, fn s ->
+                  if s.id == story_id, do: %{s | status: "passed"}, else: s
+                end)
+
               %{session | stories: stories, updated_at: now}
 
             "story_fail" ->
               story_id = data["story_id"]
-              stories = Enum.map(session.stories, fn s ->
-                if s.id == story_id, do: %{s | status: "failed"}, else: s
-              end)
+
+              stories =
+                Enum.map(session.stories, fn s ->
+                  if s.id == story_id, do: %{s | status: "failed"}, else: s
+                end)
+
               %{session | stories: stories, updated_at: now}
 
             "verify_start" ->

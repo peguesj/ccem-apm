@@ -159,8 +159,7 @@ defmodule Apm.A2A.ArtifactVersionStore do
         "[ArtifactVersionStore] CAS conflict #{inspect(key)}: expected=#{expected_version} actual=#{current} by #{agent_id}"
       )
 
-      {:reply, {:error, :conflict, current},
-       %{state | conflict_count: state.conflict_count + 1}}
+      {:reply, {:error, :conflict, current}, %{state | conflict_count: state.conflict_count + 1}}
     end
   end
 

@@ -80,7 +80,14 @@ defmodule Apm.Plugins.Plane.PlanePlugin do
 
   @impl true
   def default_config do
-    %{project_id: "", workspace_slug: "", api_key: "", base_url: "https://plane.lgtm.build", sync_interval_ms: 60_000, auto_sync: true}
+    %{
+      project_id: "",
+      workspace_slug: "",
+      api_key: "",
+      base_url: "https://plane.lgtm.build",
+      sync_interval_ms: 60_000,
+      auto_sync: true
+    }
   end
 
   @impl Apm.Plugins.PluginBehaviour
@@ -118,12 +125,21 @@ defmodule Apm.Plugins.Plane.PlanePlugin do
       %{
         action: "create_issue",
         description: "Create a new issue",
-        params: %{project_id: "string (optional)", name: "string (required)", description: "string (optional)", state: "string (optional)"}
+        params: %{
+          project_id: "string (optional)",
+          name: "string (required)",
+          description: "string (optional)",
+          state: "string (optional)"
+        }
       },
       %{
         action: "update_issue_state",
         description: "Update an issue's state by name",
-        params: %{project_id: "string (optional)", issue_id: "string (required)", state_name: "string (required)"}
+        params: %{
+          project_id: "string (optional)",
+          issue_id: "string (required)",
+          state_name: "string (required)"
+        }
       },
       %{
         action: "list_cycles",
@@ -201,7 +217,11 @@ defmodule Apm.Plugins.Plane.PlanePlugin do
         board =
           @state_order
           |> Enum.map(fn state ->
-            %{state: state, issues: Map.get(grouped, state, []), count: length(Map.get(grouped, state, []))}
+            %{
+              state: state,
+              issues: Map.get(grouped, state, []),
+              count: length(Map.get(grouped, state, []))
+            }
           end)
 
         {:ok, %{board: board, total: length(issues), project_id: project_id}}
@@ -243,11 +263,15 @@ defmodule Apm.Plugins.Plane.PlanePlugin do
 
   def handle_action("create_issue", %{"name" => name} = params, _opts) when is_binary(name) do
     project_id = Map.get(params, "project_id", @ccem_project_id)
-    body = %{
-      "name" => name,
-      "description_html" => Map.get(params, "description", ""),
-      "state" => Map.get(params, "state")
-    } |> Enum.reject(fn {_k, v} -> is_nil(v) end) |> Map.new()
+
+    body =
+      %{
+        "name" => name,
+        "description_html" => Map.get(params, "description", ""),
+        "state" => Map.get(params, "state")
+      }
+      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+      |> Map.new()
 
     if function_exported?(PlaneClient, :create_issue, 2) do
       case apply(PlaneClient, :create_issue, [project_id, body]) do
@@ -262,7 +286,11 @@ defmodule Apm.Plugins.Plane.PlanePlugin do
   def handle_action("create_issue", _params, _opts),
     do: {:error, {:missing_param, "name is required"}}
 
-  def handle_action("update_issue_state", %{"issue_id" => issue_id, "state_name" => state_name} = params, _opts) do
+  def handle_action(
+        "update_issue_state",
+        %{"issue_id" => issue_id, "state_name" => state_name} = params,
+        _opts
+      ) do
     project_id = Map.get(params, "project_id", @ccem_project_id)
 
     case Enum.find(@state_map, fn {_id, name} -> name == state_name end) do
@@ -293,7 +321,12 @@ defmodule Apm.Plugins.Plane.PlanePlugin do
         {:error, reason} -> {:error, reason}
       end
     else
-      {:ok, %{cycles: [], project_id: project_id, note: "PlaneClient.list_cycles/1 not yet implemented"}}
+      {:ok,
+       %{
+         cycles: [],
+         project_id: project_id,
+         note: "PlaneClient.list_cycles/1 not yet implemented"
+       }}
     end
   end
 
@@ -306,7 +339,12 @@ defmodule Apm.Plugins.Plane.PlanePlugin do
         {:error, reason} -> {:error, reason}
       end
     else
-      {:ok, %{modules: [], project_id: project_id, note: "PlaneClient.list_modules/1 not yet implemented"}}
+      {:ok,
+       %{
+         modules: [],
+         project_id: project_id,
+         note: "PlaneClient.list_modules/1 not yet implemented"
+       }}
     end
   end
 

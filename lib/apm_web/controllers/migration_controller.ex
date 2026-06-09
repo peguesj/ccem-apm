@@ -34,29 +34,60 @@ defmodule ApmWeb.V2.MigrationController do
   }
 
   @migrated_liveviews [
-    %{name: "DashboardLive", route: "/", status: "migrated", topics: ["lifecycle:*", "state:*", "activity:*", "special:custom"]},
+    %{
+      name: "DashboardLive",
+      route: "/",
+      status: "migrated",
+      topics: ["lifecycle:*", "state:*", "activity:*", "special:custom"]
+    },
     %{name: "FormationLive", route: "/formation", status: "migrated", topics: ["lifecycle:*"]},
-    %{name: "NotificationLive", route: "/notifications", status: "migrated", topics: ["special:custom"]},
-    %{name: "SessionTimelineLive", route: "/timeline", status: "migrated", topics: ["lifecycle:*", "text:*", "tool:*", "state:*", "activity:*"]},
+    %{
+      name: "NotificationLive",
+      route: "/notifications",
+      status: "migrated",
+      topics: ["special:custom"]
+    },
+    %{
+      name: "SessionTimelineLive",
+      route: "/timeline",
+      status: "migrated",
+      topics: ["lifecycle:*", "text:*", "tool:*", "state:*", "activity:*"]
+    },
     %{name: "SkillsLive", route: "/skills", status: "migrated", topics: ["special:custom"]},
     %{name: "TasksLive", route: "/tasks", status: "migrated", topics: ["activity:*"]},
     %{name: "ScannerLive", route: "/scanner", status: "migrated", topics: ["activity:*"]},
     %{name: "ActionsLive", route: "/actions", status: "migrated", topics: ["activity:*"]},
-    %{name: "AnalyticsLive", route: "/analytics", status: "migrated", topics: ["lifecycle:*", "tool:*"]},
+    %{
+      name: "AnalyticsLive",
+      route: "/analytics",
+      status: "migrated",
+      topics: ["lifecycle:*", "tool:*"]
+    },
     %{name: "HealthCheckLive", route: "/health", status: "migrated", topics: ["lifecycle:*"]},
-    %{name: "ConversationMonitorLive", route: "/conversations", status: "migrated", topics: ["lifecycle:*"]},
+    %{
+      name: "ConversationMonitorLive",
+      route: "/conversations",
+      status: "migrated",
+      topics: ["lifecycle:*"]
+    },
     %{name: "ToolCallLive", route: "/tool-calls", status: "migrated", topics: ["tool:*"]},
-    %{name: "GenerativeUILive", route: "/generative-ui", status: "migrated", topics: ["special:custom"]},
+    %{
+      name: "GenerativeUILive",
+      route: "/generative-ui",
+      status: "migrated",
+      topics: ["special:custom"]
+    },
     %{name: "A2ALive", route: "/a2a", status: "migrated", topics: ["a2a:*", "special:custom"]}
   ]
 
   @doc "GET /api/v2/ag-ui/migration — migration guide and status"
-  operation :migration_status,
+  operation(:migration_status,
     summary: "Migration status",
     tags: ["AG-UI"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def migration_status(conn, _params) do
     v4_compat_enabled = Application.get_env(:apm, :ag_ui_native_events, false) == false
@@ -64,13 +95,16 @@ defmodule ApmWeb.V2.MigrationController do
     json(conn, %{
       version: "5.1.0",
       migration_guide: %{
-        summary: "CCEM APM v5.1.0 introduces the AG-UI EventBus as the primary event transport. " <>
-                 "Legacy PubSub topics are preserved via V4Compat shim during migration.",
+        summary:
+          "CCEM APM v5.1.0 introduces the AG-UI EventBus as the primary event transport. " <>
+            "Legacy PubSub topics are preserved via V4Compat shim during migration.",
         v4_compat_enabled: v4_compat_enabled,
-        v4_compat_toggle: "Application.put_env(:apm, :ag_ui_native_events, true) to disable V4Compat",
+        v4_compat_toggle:
+          "Application.put_env(:apm, :ag_ui_native_events, true) to disable V4Compat",
         event_bus_module: "Apm.AgUi.EventBus",
         topic_taxonomy: %{
-          lifecycle: "Agent run lifecycle (RUN_STARTED, RUN_FINISHED, RUN_ERROR, STEP_STARTED, STEP_FINISHED)",
+          lifecycle:
+            "Agent run lifecycle (RUN_STARTED, RUN_FINISHED, RUN_ERROR, STEP_STARTED, STEP_FINISHED)",
           text: "Text streaming (TEXT_MESSAGE_START, TEXT_MESSAGE_CONTENT, TEXT_MESSAGE_END)",
           tool: "Tool calls (TOOL_CALL_START, TOOL_CALL_ARGS, TOOL_CALL_END, TOOL_CALL_RESULT)",
           state: "Agent state (STATE_SNAPSHOT, STATE_DELTA, MESSAGES_SNAPSHOT)",
@@ -83,9 +117,11 @@ defmodule ApmWeb.V2.MigrationController do
       deprecated_topics: @deprecated_topics,
       migrated_liveviews: @migrated_liveviews,
       new_subsystems: %{
-        event_bus: "Centralized pub/sub with typed topics, wildcard matching, sequence numbering, replay",
+        event_bus:
+          "Centralized pub/sub with typed topics, wildcard matching, sequence numbering, replay",
         tool_call_tracker: "ETS-backed tool call lifecycle tracking with auto-prune",
-        generative_ui: "Agent-declared dynamic UI components (card, chart, table, alert, progress, badge)",
+        generative_ui:
+          "Agent-declared dynamic UI components (card, chart, table, alert, progress, badge)",
         approval_gate: "Human-in-the-loop approval with pending/approve/reject/expire lifecycle",
         a2a_messaging: "Agent-to-Agent messaging with structured addressing, queues, correlation",
         websocket_channel: "Bidirectional WebSocket channel at ag_ui:lobby and ag_ui:{agent_id}",

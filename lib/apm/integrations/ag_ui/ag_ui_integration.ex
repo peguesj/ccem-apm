@@ -20,7 +20,8 @@ defmodule Apm.Integrations.AgUi.AgUiIntegration do
   @impl true
   @spec integration_description() :: String.t()
   def integration_description,
-    do: "AG-UI protocol bridge — translates APM lifecycle events to 33-type AG-UI event model via ag_ui_ex Hex SDK."
+    do:
+      "AG-UI protocol bridge — translates APM lifecycle events to 33-type AG-UI event model via ag_ui_ex Hex SDK."
 
   @impl true
   @spec integration_version() :: String.t()

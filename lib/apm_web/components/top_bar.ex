@@ -110,39 +110,45 @@ defmodule ApmWeb.Components.TopBar do
           <span style="color: var(--ccem-accent);">CCEM</span>
           <span style="color: var(--ccem-fg);"> APM</span>
         </span>
-
-        <!-- Project switcher (details/summary — zero JS)
+        
+    <!-- Project switcher (details/summary — zero JS)
              CP-337 (US-517): hide chip entirely when project name duplicates the
              brand wordmark; show clean chip otherwise. -->
         <details
-          :if={String.trim(to_string(@project_name || "")) not in ["CCEM APM", "CCEM_APM", "ccem-apm", "ccem", ""]}
+          :if={
+            String.trim(to_string(@project_name || "")) not in [
+              "CCEM APM",
+              "CCEM_APM",
+              "ccem-apm",
+              "ccem",
+              ""
+            ]
+          }
           style="position: relative;"
         >
-          <summary
-            style={[
-              "display: flex;",
-              "align-items: center;",
-              "gap: 6px;",
-              "height: 28px;",
-              "padding: 0 10px;",
-              "background: var(--ccem-bg-2);",
-              "border: 1px solid var(--ccem-line);",
-              "border-radius: 14px;",
-              "font-size: 12px;",
-              "color: var(--ccem-fg);",
-              "cursor: pointer;",
-              "white-space: nowrap;",
-              "list-style: none;",
-              "user-select: none;"
-            ]}
-          >
+          <summary style={[
+            "display: flex;",
+            "align-items: center;",
+            "gap: 6px;",
+            "height: 28px;",
+            "padding: 0 10px;",
+            "background: var(--ccem-bg-2);",
+            "border: 1px solid var(--ccem-line);",
+            "border-radius: 14px;",
+            "font-size: 12px;",
+            "color: var(--ccem-fg);",
+            "cursor: pointer;",
+            "white-space: nowrap;",
+            "list-style: none;",
+            "user-select: none;"
+          ]}>
             <span style="max-width: 160px; overflow: hidden; text-overflow: ellipsis;">
               {@project_name}
             </span>
             <span style="color: var(--ccem-fg-dim); font-size: 10px;">&#9660;</span>
           </summary>
-
-          <!-- Dropdown — only rendered if there are entries to switch to -->
+          
+    <!-- Dropdown — only rendered if there are entries to switch to -->
           <ul
             :if={@project_list != []}
             style={[
@@ -182,8 +188,8 @@ defmodule ApmWeb.Components.TopBar do
           </ul>
         </details>
       </div>
-
-      <!-- ── Right: ⌘K + presence stack + account ────────────────────────── -->
+      
+    <!-- ── Right: ⌘K + presence stack + account ────────────────────────── -->
       <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
         <!-- ⌘K trigger button -->
         <button
@@ -212,14 +218,14 @@ defmodule ApmWeb.Components.TopBar do
           <span style="font-size: 12px;">&#8984;</span>
           <span>K</span>
         </button>
-
-        <!-- Notifications bell -->
+        
+    <!-- Notifications bell -->
         <.notifications_bell count={@notification_count} on_click={@on_notifications} />
-
-        <!-- Presence stack -->
+        
+    <!-- Presence stack -->
         <.presence_stack slots={@presence_slots} session_count={@session_count} />
-
-        <!-- Account circle -->
+        
+    <!-- Account circle -->
         <.account_circle initial={@account_initial} />
       </div>
     </header>
@@ -261,8 +267,8 @@ defmodule ApmWeb.Components.TopBar do
     >
       <!-- Bell glyph (Unicode 0x1F514 fallback to ‎-style; using \u{1F514} bell) -->
       <span style="font-size: 14px; line-height: 1;" aria-hidden="true">&#128276;</span>
-
-      <!-- Unread count badge -->
+      
+    <!-- Unread count badge -->
       <span
         :if={@count > 0}
         style={[
@@ -309,20 +315,18 @@ defmodule ApmWeb.Components.TopBar do
       <!-- Coloured dot for each visible slot (max 3) -->
       <div style="display: flex; align-items: center;">
         <%= for {color, idx} <- @slots do %>
-          <div
-            style={[
-              "width: 10px;",
-              "height: 10px;",
-              "border-radius: 50%;",
-              "background: #{color};",
-              "border: 1.5px solid var(--ccem-bg-1);",
-              "margin-left: #{if idx == 0, do: "0", else: "-3px"};"
-            ]}
-          />
+          <div style={[
+            "width: 10px;",
+            "height: 10px;",
+            "border-radius: 50%;",
+            "background: #{color};",
+            "border: 1.5px solid var(--ccem-bg-1);",
+            "margin-left: #{if idx == 0, do: "0", else: "-3px"};"
+          ]} />
         <% end %>
       </div>
-
-      <!-- Overflow count -->
+      
+    <!-- Overflow count -->
       <span
         :if={@overflow > 0}
         style={[

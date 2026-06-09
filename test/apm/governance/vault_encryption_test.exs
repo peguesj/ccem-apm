@@ -107,7 +107,10 @@ defmodule Apm.Governance.VaultEncryptionTest do
     test "stored ETS entry has ciphertext, not plaintext, for :pii field" do
       ssn = "987-65-4321"
 
-      AuditLog.log_sync(:access_attempt, "agent-007", "/secrets",
+      AuditLog.log_sync(
+        :access_attempt,
+        "agent-007",
+        "/secrets",
         %{pii: ssn, action: "read"},
         "corr-001"
       )
@@ -126,7 +129,10 @@ defmodule Apm.Governance.VaultEncryptionTest do
     test "query with include_decrypted: true returns plaintext" do
       email = "alice@example.com"
 
-      AuditLog.log_sync(:user_event, "system", "/users",
+      AuditLog.log_sync(
+        :user_event,
+        "system",
+        "/users",
         %{sensitive: email, category: "auth"},
         nil
       )

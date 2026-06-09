@@ -83,10 +83,26 @@ defmodule Apm.Plugins.Lvm.ClaudePlatformLvmPlugin do
   @spec list_endpoints() :: [map()]
   def list_endpoints do
     [
-      %{action: "list_models", description: "List all known Claude models with capabilities", params: %{}},
-      %{action: "get_model_info", description: "Get info for a specific model", params: %{model: "string"}},
-      %{action: "check_limits", description: "Check usage against model limits", params: %{project: "string"}},
-      %{action: "model_comparison", description: "Compare models side by side", params: %{models: "list"}}
+      %{
+        action: "list_models",
+        description: "List all known Claude models with capabilities",
+        params: %{}
+      },
+      %{
+        action: "get_model_info",
+        description: "Get info for a specific model",
+        params: %{model: "string"}
+      },
+      %{
+        action: "check_limits",
+        description: "Check usage against model limits",
+        params: %{project: "string"}
+      },
+      %{
+        action: "model_comparison",
+        description: "Compare models side by side",
+        params: %{models: "list"}
+      }
     ]
   end
 
@@ -128,7 +144,11 @@ defmodule Apm.Plugins.Lvm.ClaudePlatformLvmPlugin do
 
     limits =
       Enum.map(usage, fn {model, stats} ->
-        caps = Map.get(@model_capabilities, model, %{context_window: 200_000, max_output_tokens: 16_000})
+        caps =
+          Map.get(@model_capabilities, model, %{
+            context_window: 200_000,
+            max_output_tokens: 16_000
+          })
 
         %{
           model: model,
@@ -141,11 +161,16 @@ defmodule Apm.Plugins.Lvm.ClaudePlatformLvmPlugin do
       end)
 
     # Broadcast status update
-    Phoenix.PubSub.broadcast(@pubsub, @lvm_topic, {:lvm_limits_checked, %{
-      project: project,
-      effort: effort,
-      checked_at: DateTime.utc_now() |> DateTime.to_iso8601()
-    }})
+    Phoenix.PubSub.broadcast(
+      @pubsub,
+      @lvm_topic,
+      {:lvm_limits_checked,
+       %{
+         project: project,
+         effort: effort,
+         checked_at: DateTime.utc_now() |> DateTime.to_iso8601()
+       }}
+    )
 
     {:ok, %{project: project, effort_level: effort, limits: limits, summary: summary}}
   end

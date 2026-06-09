@@ -128,7 +128,10 @@ defmodule Apm.Instrumentation do
       Map.has_key?(measurements, :duration) and
           measurements.duration > config.threshold_native ->
         ms = System.convert_time_unit(measurements.duration, :native, :millisecond)
-        Logger.warning("[telemetry] slow span #{inspect(event)} took #{ms}ms metadata=#{inspect(metadata)}")
+
+        Logger.warning(
+          "[telemetry] slow span #{inspect(event)} took #{ms}ms metadata=#{inspect(metadata)}"
+        )
 
       true ->
         :ok

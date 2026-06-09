@@ -53,15 +53,51 @@ defmodule Apm.Plugins.Upm.UpmPlugin do
   @impl Apm.Plugins.PluginBehaviour
   def list_endpoints do
     [
-      %{action: "plan",      description: "Generate prd.json from a feature description",  params: %{feature_description: "string (required)"}},
-      %{action: "build",     description: "Execute the active wave of the current prd.json", params: %{wave: "integer (optional)"}},
-      %{action: "verify",    description: "Run double-verify + test matrix for current work", params: %{story_ids: "array (optional)"}},
-      %{action: "ship",      description: "Run SCX ship workflow (commit, push, PR, tag)", params: %{version: "string (optional)"}},
-      %{action: "status",    description: "Report prd.json wave/story/checkpoint state",   params: %{cwd: "string (optional)"}},
-      %{action: "sync",      description: "Bidirectional Plane PM sync",                   params: %{project_id: "string (optional)"}},
-      %{action: "integrity", description: "Checkpoint/story drift detection",              params: %{cwd: "string (optional)"}},
-      %{action: "usage",     description: "Usage/effort-level report for the active project", params: %{project: "string (optional)"}},
-      %{action: "formation", description: "Deploy a formation aligned to the active wave", params: %{wave: "integer (optional)", dry_run: "boolean (optional)"}}
+      %{
+        action: "plan",
+        description: "Generate prd.json from a feature description",
+        params: %{feature_description: "string (required)"}
+      },
+      %{
+        action: "build",
+        description: "Execute the active wave of the current prd.json",
+        params: %{wave: "integer (optional)"}
+      },
+      %{
+        action: "verify",
+        description: "Run double-verify + test matrix for current work",
+        params: %{story_ids: "array (optional)"}
+      },
+      %{
+        action: "ship",
+        description: "Run SCX ship workflow (commit, push, PR, tag)",
+        params: %{version: "string (optional)"}
+      },
+      %{
+        action: "status",
+        description: "Report prd.json wave/story/checkpoint state",
+        params: %{cwd: "string (optional)"}
+      },
+      %{
+        action: "sync",
+        description: "Bidirectional Plane PM sync",
+        params: %{project_id: "string (optional)"}
+      },
+      %{
+        action: "integrity",
+        description: "Checkpoint/story drift detection",
+        params: %{cwd: "string (optional)"}
+      },
+      %{
+        action: "usage",
+        description: "Usage/effort-level report for the active project",
+        params: %{project: "string (optional)"}
+      },
+      %{
+        action: "formation",
+        description: "Deploy a formation aligned to the active wave",
+        params: %{wave: "integer (optional)", dry_run: "boolean (optional)"}
+      }
     ]
   end
 
@@ -73,16 +109,17 @@ defmodule Apm.Plugins.Upm.UpmPlugin do
     base = "/plugins/upm"
 
     [
-      {"Plan",   "#{base}/plan",   "hero-document-text"},
-      {"Build",  "#{base}/build",  "hero-wrench-screwdriver"},
+      {"Plan", "#{base}/plan", "hero-document-text"},
+      {"Build", "#{base}/build", "hero-wrench-screwdriver"},
       {"Verify", "#{base}/verify", "hero-check-badge"},
-      {"Ship",   "#{base}/ship",   "hero-rocket-launch"},
+      {"Ship", "#{base}/ship", "hero-rocket-launch"},
       {"Status", "#{base}/status", "hero-chart-bar"}
     ]
   end
 
   @impl Apm.Plugins.PluginBehaviour
-  def handle_action("plan", %{"feature_description" => desc}, _opts) when is_binary(desc) and desc != "" do
+  def handle_action("plan", %{"feature_description" => desc}, _opts)
+      when is_binary(desc) and desc != "" do
     {:ok,
      %{
        action: "plan",
@@ -131,15 +168,26 @@ defmodule Apm.Plugins.Upm.UpmPlugin do
   end
 
   def handle_action("verify", params, _opts) do
-    {:ok, %{action: "verify", story_ids: Map.get(params, "story_ids", []), note: "Delegate to /upm verify via skill invocation."}}
+    {:ok,
+     %{
+       action: "verify",
+       story_ids: Map.get(params, "story_ids", []),
+       note: "Delegate to /upm verify via skill invocation."
+     }}
   end
 
   def handle_action("ship", params, _opts) do
-    {:ok, %{action: "ship", version: Map.get(params, "version"), note: "Delegate to /ship skill."}}
+    {:ok,
+     %{action: "ship", version: Map.get(params, "version"), note: "Delegate to /ship skill."}}
   end
 
   def handle_action("sync", params, _opts) do
-    {:ok, %{action: "sync", project_id: Map.get(params, "project_id"), note: "Delegate to Plane sync via PlanePmAlign."}}
+    {:ok,
+     %{
+       action: "sync",
+       project_id: Map.get(params, "project_id"),
+       note: "Delegate to Plane sync via PlanePmAlign."
+     }}
   end
 
   def handle_action("integrity", params, _opts) do
@@ -148,6 +196,7 @@ defmodule Apm.Plugins.Upm.UpmPlugin do
     case read_prd(cwd) do
       {:ok, prd, _path} ->
         stories = Map.get(prd, "userStories", [])
+
         drift =
           Enum.filter(stories, fn s ->
             status = Map.get(s, "status")
@@ -155,7 +204,12 @@ defmodule Apm.Plugins.Upm.UpmPlugin do
             (status == "completed" and not passes) or (status == "pending" and passes)
           end)
 
-        {:ok, %{action: "integrity", drift_count: length(drift), drift_stories: Enum.map(drift, &Map.get(&1, "id"))}}
+        {:ok,
+         %{
+           action: "integrity",
+           drift_count: length(drift),
+           drift_stories: Enum.map(drift, &Map.get(&1, "id"))
+         }}
 
       {:error, reason} ->
         {:error, reason}
@@ -163,11 +217,21 @@ defmodule Apm.Plugins.Upm.UpmPlugin do
   end
 
   def handle_action("usage", params, _opts) do
-    {:ok, %{action: "usage", project: Map.get(params, "project"), note: "See /api/usage/summary for live data."}}
+    {:ok,
+     %{
+       action: "usage",
+       project: Map.get(params, "project"),
+       note: "See /api/usage/summary for live data."
+     }}
   end
 
   def handle_action("formation", params, _opts) do
-    {:ok, %{action: "formation", wave: Map.get(params, "wave"), dry_run: Map.get(params, "dry_run", true)}}
+    {:ok,
+     %{
+       action: "formation",
+       wave: Map.get(params, "wave"),
+       dry_run: Map.get(params, "dry_run", true)
+     }}
   end
 
   def handle_action(action, _params, _opts),
@@ -214,7 +278,9 @@ defmodule Apm.Plugins.Upm.UpmPlugin do
     ]
 
     case Enum.find(candidates, &File.exists?/1) do
-      nil -> {:error, :prd_not_found}
+      nil ->
+        {:error, :prd_not_found}
+
       path ->
         with {:ok, body} <- File.read(path),
              {:ok, json} <- Jason.decode(body) do

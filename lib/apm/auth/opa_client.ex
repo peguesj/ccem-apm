@@ -134,7 +134,12 @@ defmodule Apm.Auth.OpaClient do
     body_charlist = String.to_charlist(body)
     opts = [{:timeout, timeout_ms()}]
 
-    case :httpc.request(:post, {url_charlist, headers, ~c"application/json", body_charlist}, opts, []) do
+    case :httpc.request(
+           :post,
+           {url_charlist, headers, ~c"application/json", body_charlist},
+           opts,
+           []
+         ) do
       {:ok, {{_version, 200, _reason}, _headers, resp_body}} ->
         {:ok, List.to_string(resp_body)}
 

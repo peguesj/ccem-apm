@@ -28,10 +28,14 @@ defmodule Apm.Architectures.ArchitectureStore do
   @spec list_architectures() :: [map()]
   def list_architectures do
     case :ets.info(@table) do
-      :undefined -> []
+      :undefined ->
+        []
+
       _ ->
         :ets.tab2list(@table)
-        |> Enum.filter(fn {key, _} -> is_binary(key) and not String.starts_with?(key, "tree:") end)
+        |> Enum.filter(fn {key, _} ->
+          is_binary(key) and not String.starts_with?(key, "tree:")
+        end)
         |> Enum.map(fn {_name, meta} -> meta end)
     end
   end
@@ -91,7 +95,10 @@ defmodule Apm.Architectures.ArchitectureStore do
       :ets.insert(table, {mod.architecture_name(), meta})
     end)
 
-    Logger.info("[ArchitectureStore] Initialized with #{length(@default_architectures)} architectures")
+    Logger.info(
+      "[ArchitectureStore] Initialized with #{length(@default_architectures)} architectures"
+    )
+
     {:ok, %{table: table}}
   end
 

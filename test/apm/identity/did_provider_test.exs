@@ -21,6 +21,7 @@ defmodule Apm.Identity.DIDProviderTest do
       pub_key = :crypto.strong_rand_bytes(32)
       did = DIDProvider.did_for_public_key(pub_key)
       assert is_binary(did)
+
       assert String.starts_with?(did, "did:key:z6Mk"),
              "Expected DID to start with 'did:key:z6Mk', got: #{did}"
     end
@@ -62,6 +63,7 @@ defmodule Apm.Identity.DIDProviderTest do
       assert is_list(context) or is_binary(context)
 
       contexts = List.wrap(context)
+
       assert "https://www.w3.org/ns/did/v1" in contexts,
              "DID Doc must include W3C DID v1 context"
     end
@@ -100,6 +102,7 @@ defmodule Apm.Identity.DIDProviderTest do
 
       body = Jason.decode!(conn.resp_body)
       assert is_map(body)
+
       assert String.starts_with?(body["id"] || "", "did:key:z6Mk"),
              "Response 'id' must be a did:key DID, got: #{inspect(body["id"])}"
 

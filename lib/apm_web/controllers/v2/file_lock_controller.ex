@@ -25,12 +25,13 @@ defmodule ApmWeb.V2.FileLockController do
 
   @doc "GET /api/v2/locks"
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :index,
+  operation(:index,
     summary: "List",
     tags: ["File Locks"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def index(conn, _params) do
     locks =
@@ -42,12 +43,13 @@ defmodule ApmWeb.V2.FileLockController do
 
   @doc "POST /api/v2/locks/acquire"
   @spec acquire(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :acquire,
+  operation(:acquire,
     summary: "Acquire",
     tags: ["File Locks"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def acquire(conn, params) do
     agent_id = Map.get(params, "agent_id")
@@ -95,12 +97,13 @@ defmodule ApmWeb.V2.FileLockController do
 
   @doc "DELETE /api/v2/locks/:lock_id"
   @spec release(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :release,
+  operation(:release,
     summary: "Release",
     tags: ["File Locks"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def release(conn, %{"lock_id" => lock_id}) do
     FileLockRegistry.release(lock_id)

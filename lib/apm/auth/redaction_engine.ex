@@ -24,8 +24,7 @@ defmodule Apm.Auth.RedactionEngine do
     {:phone, ~r/\b(?:\+1[\s\-]?)?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4}\b/, "[REDACTED:phone]"},
     {:ip_address, ~r/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/, "[REDACTED:ip]"},
     {:aws_key, ~r/\bAKIA[0-9A-Z]{16}\b/, "[REDACTED:aws_key]"},
-    {:api_key,
-     ~r/(?:api[_\-]?key|token|secret)\s*[:=]\s*["']?([A-Za-z0-9_\-]{32,64})["']?/i,
+    {:api_key, ~r/(?:api[_\-]?key|token|secret)\s*[:=]\s*["']?([A-Za-z0-9_\-]{32,64})["']?/i,
      "[REDACTED:api_key]"}
   ]
 

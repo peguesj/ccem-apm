@@ -19,8 +19,14 @@ defmodule Apm.Orchestration.FormationPersistenceStoreTest do
   describe "append_event/3 and events_for/1" do
     test "appended events are retrievable" do
       formation_id = unique_formation_id("retrieve")
-      :ok = FormationPersistenceStore.append_event(formation_id, :formation_registered, %{name: "test"})
-      :ok = FormationPersistenceStore.append_event(formation_id, :squadron_started, %{squadron: "s1"})
+
+      :ok =
+        FormationPersistenceStore.append_event(formation_id, :formation_registered, %{
+          name: "test"
+        })
+
+      :ok =
+        FormationPersistenceStore.append_event(formation_id, :squadron_started, %{squadron: "s1"})
 
       events = FormationPersistenceStore.events_for(formation_id)
       assert length(events) == 2
@@ -96,12 +102,17 @@ defmodule Apm.Orchestration.FormationPersistenceStoreTest do
       # The formation should now be visible in UpmStore
       result = Apm.UpmStore.get_formation(formation_id)
       # It was either already registered or replay put it there
-      assert result != nil or true  # replay is best-effort; test that it doesn't crash
+      # replay is best-effort; test that it doesn't crash
+      assert result != nil or true
     end
 
     test "replay/0 does not crash even if UpmStore has the formation already" do
       formation_id = unique_formation_id("replay-idempotent")
-      :ok = FormationPersistenceStore.append_event(formation_id, :formation_registered, %{name: "Idempotent"})
+
+      :ok =
+        FormationPersistenceStore.append_event(formation_id, :formation_registered, %{
+          name: "Idempotent"
+        })
 
       # First replay
       assert :ok = FormationPersistenceStore.replay()
@@ -132,6 +143,7 @@ defmodule Apm.Orchestration.FormationPersistenceStoreTest do
       assert length(events) == 6
 
       stored_types = Enum.map(events, & &1.event_type)
+
       Enum.each(event_types, fn etype ->
         assert to_string(etype) in stored_types
       end)

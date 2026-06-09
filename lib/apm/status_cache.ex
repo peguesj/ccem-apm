@@ -90,7 +90,10 @@ defmodule Apm.StatusCache do
     warmup_async(:health_payload, &Apm.StatusPayloadBuilder.build_health_payload/0)
 
     # Notify via PubSub that warmup started (used by BootReporter)
-    safe_broadcast("apm:boot", {:status_cache_warmup_started, System.monotonic_time(:millisecond)})
+    safe_broadcast(
+      "apm:boot",
+      {:status_cache_warmup_started, System.monotonic_time(:millisecond)}
+    )
 
     # Schedule periodic refresh
     Process.send_after(self(), :refresh, @refresh_ms)

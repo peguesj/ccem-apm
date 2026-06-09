@@ -18,6 +18,7 @@ defmodule ApmWeb.AnalyticsLive do
       Apm.AgUi.EventBus.subscribe("lifecycle:*")
       Apm.AgUi.EventBus.subscribe("tool:*")
     end
+
     {:ok,
      socket
      |> assign(sidebar_collapsed: false, inspector_open: false)
@@ -40,6 +41,7 @@ defmodule ApmWeb.AnalyticsLive do
   defp assign_data(socket) do
     summary = Apm.AnalyticsStore.get_summary()
     sessions = Apm.AnalyticsStore.get_sessions()
+
     assign(socket,
       summary: summary,
       sessions: Enum.take(sessions, 20),
@@ -56,7 +58,9 @@ defmodule ApmWeb.AnalyticsLive do
       <:main>
         <%!-- Page header --%>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-          <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">Analytics</h1>
+          <h1 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ccem-fg);">
+            Analytics
+          </h1>
           <.btn variant="ghost" size="xs" phx-click="refresh">Refresh</.btn>
         </div>
 
@@ -82,12 +86,16 @@ defmodule ApmWeb.AnalyticsLive do
             <div style="font-size: var(--ccem-t-sm, 13px); font-weight: 600; color: var(--ccem-fg); margin-bottom: 12px;">
               Model Distribution
             </div>
-            <div :if={@summary.model_distribution == %{}}
-                 style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
+            <div
+              :if={@summary.model_distribution == %{}}
+              style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);"
+            >
               No data yet
             </div>
-            <div :for={{model, count} <- @summary.model_distribution}
-                 style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <div
+              :for={{model, count} <- @summary.model_distribution}
+              style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"
+            >
               <span style="font-size: var(--ccem-t-sm, 13px); font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ccem-fg);">
                 {model}
               </span>
@@ -99,12 +107,16 @@ defmodule ApmWeb.AnalyticsLive do
             <div style="font-size: var(--ccem-t-sm, 13px); font-weight: 600; color: var(--ccem-fg); margin-bottom: 12px;">
               Top Tools
             </div>
-            <div :if={@summary.top_tools == %{}}
-                 style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
+            <div
+              :if={@summary.top_tools == %{}}
+              style="font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);"
+            >
               No data yet
             </div>
-            <div :for={{tool, count} <- @summary.top_tools}
-                 style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <div
+              :for={{tool, count} <- @summary.top_tools}
+              style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"
+            >
               <span style="font-size: var(--ccem-t-sm, 13px); font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ccem-fg);">
                 {tool}
               </span>
@@ -118,8 +130,10 @@ defmodule ApmWeb.AnalyticsLive do
           Recent Sessions ({length(@sessions)})
         </div>
         <.card padded={false}>
-          <div :if={@sessions == []}
-               style="padding: 24px; text-align: center; font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);">
+          <div
+            :if={@sessions == []}
+            style="padding: 24px; text-align: center; font-size: var(--ccem-t-sm, 13px); color: var(--ccem-fg-dim);"
+          >
             No sessions found in ~/.claude/projects/
           </div>
           <.data_table :if={@sessions != []} id="analytics-sessions-table" rows={@sessions}>
@@ -151,12 +165,14 @@ defmodule ApmWeb.AnalyticsLive do
   defp format_number(n), do: to_string(n)
 
   defp format_mtime(nil), do: "?"
+
   defp format_mtime({date, time}) do
     case NaiveDateTime.from_erl({date, time}) do
       {:ok, dt} -> Calendar.strftime(dt, "%m/%d %H:%M")
       _ -> "?"
     end
   end
+
   defp format_mtime(%NaiveDateTime{} = dt), do: Calendar.strftime(dt, "%m/%d %H:%M")
   defp format_mtime(_), do: "?"
 end

@@ -95,14 +95,18 @@ defmodule Apm.LibraryStore do
     server = self()
     pubsub_topic = @pubsub_topic
     last_hash = state.last_hash
+
     Task.start(fn ->
       do_full_scan()
       hash = compute_hash()
+
       if hash != last_hash do
         Phoenix.PubSub.broadcast(Apm.PubSub, pubsub_topic, {:library_updated, summary()})
       end
+
       send(server, {:scan_complete, hash})
     end)
+
     Process.send_after(self(), :scan, @refresh_interval)
     {:noreply, state}
   end
@@ -122,7 +126,9 @@ defmodule Apm.LibraryStore do
 
   defp get_category(key) do
     case :ets.whereis(@ets_table) do
-      :undefined -> []
+      :undefined ->
+        []
+
       _ ->
         case :ets.lookup(@ets_table, key) do
           [{^key, items}] -> items
@@ -133,7 +139,9 @@ defmodule Apm.LibraryStore do
 
   defp get_meta(key) do
     case :ets.whereis(@ets_table) do
-      :undefined -> nil
+      :undefined ->
+        nil
+
       _ ->
         case :ets.lookup(@ets_table, {:meta, key}) do
           [{{:meta, ^key}, value}] -> value
@@ -153,6 +161,7 @@ defmodule Apm.LibraryStore do
       get_category(:patterns),
       get_category(:learnings)
     ]
+
     :erlang.phash2(data)
   end
 
@@ -186,24 +195,39 @@ defmodule Apm.LibraryStore do
         entries
         |> Enum.filter(fn entry ->
           path = Path.join(@agents_dir, entry)
+
           String.ends_with?(entry, ".md") or
-          String.ends_with?(entry, ".py") or
-          File.dir?(path)
+            String.ends_with?(entry, ".py") or
+            File.dir?(path)
         end)
         |> Enum.map(fn entry ->
           path = Path.join(@agents_dir, entry)
           name = entry |> String.replace_suffix(".md", "") |> String.replace_suffix(".py", "")
-          description = if File.regular?(path), do: extract_description(path), else: "Agent directory: #{entry}"
-          type = cond do
-            String.contains?(name, "orchestrat") -> "orchestrator"
-            String.contains?(name, "registry") -> "persistent_service"
-            String.contains?(name, "analysis") or String.contains?(name, "analyzer") -> "quality_agent"
-            true -> "individual"
-          end
+
+          description =
+            if File.regular?(path),
+              do: extract_description(path),
+              else: "Agent directory: #{entry}"
+
+          type =
+            cond do
+              String.contains?(name, "orchestrat") ->
+                "orchestrator"
+
+              String.contains?(name, "registry") ->
+                "persistent_service"
+
+              String.contains?(name, "analysis") or String.contains?(name, "analyzer") ->
+                "quality_agent"
+
+              true ->
+                "individual"
+            end
 
           %{
             name: name,
-            display_name: name |> String.replace("-", " ") |> String.replace("_", " ") |> titlecase(),
+            display_name:
+              name |> String.replace("-", " ") |> String.replace("_", " ") |> titlecase(),
             type: type,
             source: "~/.claude/agents/",
             path: path,
@@ -212,7 +236,8 @@ defmodule Apm.LibraryStore do
           }
         end)
 
-      {:error, _} -> []
+      {:error, _} ->
+        []
     end
   end
 
@@ -249,7 +274,8 @@ defmodule Apm.LibraryStore do
 
           %{
             name: skill_name,
-            display_name: Map.get(frontmatter, "name", skill_name |> String.replace("-", " ") |> titlecase()),
+            display_name:
+              Map.get(frontmatter, "name", skill_name |> String.replace("-", " ") |> titlecase()),
             description: Map.get(frontmatter, "description", extract_first_paragraph(content)),
             triggers: parse_triggers(content),
             source: "~/.claude/skills/#{skill_name}/",
@@ -261,7 +287,8 @@ defmodule Apm.LibraryStore do
         end)
         |> Enum.sort_by(& &1.name)
 
-      {:error, _} -> []
+      {:error, _} ->
+        []
     end
   end
 
@@ -290,7 +317,8 @@ defmodule Apm.LibraryStore do
           }
         end)
 
-      {:error, _} -> []
+      {:error, _} ->
+        []
     end
   end
 
@@ -312,7 +340,8 @@ defmodule Apm.LibraryStore do
           }
         end)
 
-      {:error, _} -> []
+      {:error, _} ->
+        []
     end
   end
 
@@ -326,9 +355,11 @@ defmodule Apm.LibraryStore do
     project_roots
     |> Enum.flat_map(fn root ->
       mcp_path = Path.join(root, ".mcp.json")
+
       case safe_read_json(mcp_path) do
         {:ok, data} ->
           servers = Map.get(data, "mcpServers", %{})
+
           Enum.map(servers, fn {name, config} ->
             %{
               name: name,
@@ -339,7 +370,9 @@ defmodule Apm.LibraryStore do
               description: "Project MCP: #{Map.get(config, "command", name)}"
             }
           end)
-        {:error, _} -> []
+
+        {:error, _} ->
+          []
       end
     end)
   end
@@ -360,15 +393,17 @@ defmodule Apm.LibraryStore do
         |> Enum.map(fn file ->
           path = Path.join(@hooks_dir, file)
           name = String.replace_suffix(file, ".sh", "")
-          category = cond do
-            String.contains?(name, "agentlock") -> "agentlock"
-            String.contains?(name, "usage") -> "usage"
-            String.contains?(name, "session") -> "session"
-            String.contains?(name, "subagent") -> "subagent"
-            String.contains?(name, "pre_tool") -> "pre_tool_use"
-            String.contains?(name, "post_tool") -> "post_tool_use"
-            true -> "general"
-          end
+
+          category =
+            cond do
+              String.contains?(name, "agentlock") -> "agentlock"
+              String.contains?(name, "usage") -> "usage"
+              String.contains?(name, "session") -> "session"
+              String.contains?(name, "subagent") -> "subagent"
+              String.contains?(name, "pre_tool") -> "pre_tool_use"
+              String.contains?(name, "post_tool") -> "post_tool_use"
+              true -> "general"
+            end
 
           %{
             name: name,
@@ -382,7 +417,8 @@ defmodule Apm.LibraryStore do
           }
         end)
 
-      {:error, _} -> []
+      {:error, _} ->
+        []
     end
   end
 
@@ -391,6 +427,7 @@ defmodule Apm.LibraryStore do
     case safe_read_json(@settings_path) do
       {:ok, data} ->
         hooks = Map.get(data, "hooks", %{})
+
         hooks
         |> Enum.flat_map(fn {hook_type, entries} ->
           entries
@@ -398,10 +435,13 @@ defmodule Apm.LibraryStore do
           |> Enum.map(fn {entry, idx} ->
             matcher = Map.get(entry, "matcher", "*")
             hook_list = Map.get(entry, "hooks", [])
-            command = case hook_list do
-              [%{"command" => cmd} | _] -> cmd
-              _ -> "unknown"
-            end
+
+            command =
+              case hook_list do
+                [%{"command" => cmd} | _] -> cmd
+                _ -> "unknown"
+              end
+
             short_cmd = command |> String.split("/") |> List.last() |> String.slice(0, 60)
 
             %{
@@ -417,7 +457,8 @@ defmodule Apm.LibraryStore do
           end)
         end)
 
-      {:error, _} -> []
+      {:error, _} ->
+        []
     end
   end
 
@@ -432,6 +473,7 @@ defmodule Apm.LibraryStore do
 
   defp scan_user_hooks_dir do
     user_hooks_dir = Path.expand("~/.claude/hooks")
+
     case File.ls(user_hooks_dir) do
       {:ok, files} ->
         files
@@ -439,17 +481,19 @@ defmodule Apm.LibraryStore do
         |> Enum.map(fn file ->
           path = Path.join(user_hooks_dir, file)
           name = String.replace_suffix(file, ".sh", "")
+
           %{
             name: "user-#{name}",
             display_name: name |> String.replace("_", " ") |> titlecase(),
             type: "user_hook",
-            category: cond do
-              String.contains?(name, "529") -> "rate_limit"
-              String.contains?(name, "pre_tool") -> "pre_tool_use"
-              String.contains?(name, "post_tool") -> "post_tool_use"
-              String.contains?(name, "usage") -> "usage"
-              true -> "custom"
-            end,
+            category:
+              cond do
+                String.contains?(name, "529") -> "rate_limit"
+                String.contains?(name, "pre_tool") -> "pre_tool_use"
+                String.contains?(name, "post_tool") -> "post_tool_use"
+                String.contains?(name, "usage") -> "usage"
+                true -> "custom"
+              end,
             source: "~/.claude/hooks/",
             scope: "user",
             path: path,
@@ -457,7 +501,9 @@ defmodule Apm.LibraryStore do
             last_modified: file_mtime_iso(path)
           }
         end)
-      {:error, _} -> []
+
+      {:error, _} ->
+        []
     end
   end
 
@@ -478,9 +524,12 @@ defmodule Apm.LibraryStore do
         end)
         |> Enum.map(fn entry ->
           path = Path.join(@commands_dir, entry)
-          name = entry
+
+          name =
+            entry
             |> String.replace_suffix(".md", "")
             |> String.replace_suffix(".json", "")
+
           content = safe_read(path)
 
           %{
@@ -494,18 +543,21 @@ defmodule Apm.LibraryStore do
           }
         end)
 
-      {:error, _} -> []
+      {:error, _} ->
+        []
     end
   end
 
   defp scan_command_registry do
     slash_path = Path.join(@config_dir, "slash-commands.json")
+
     case safe_read_json(slash_path) do
       {:ok, data} ->
         commands = Map.get(data, "commands", [])
         normalize_commands(commands, slash_path)
 
-      {:error, _} -> []
+      {:error, _} ->
+        []
     end
   end
 
@@ -536,7 +588,8 @@ defmodule Apm.LibraryStore do
         display_name: "/" <> name,
         source: "~/.claude/config/slash-commands.json",
         path: slash_path,
-        description: if(is_map(info), do: Map.get(info, "description", ""), else: to_string(info)),
+        description:
+          if(is_map(info), do: Map.get(info, "description", ""), else: to_string(info)),
         file_type: ".json",
         last_modified: nil
       }
@@ -553,7 +606,8 @@ defmodule Apm.LibraryStore do
         name: "formation-topology",
         display_name: "Formation Topology",
         category: "architecture",
-        description: "Hierarchical agent deployment: Orchestrator > Squadron > Swarm > Cluster > Individual. 5-level tree with wave-based execution.",
+        description:
+          "Hierarchical agent deployment: Orchestrator > Squadron > Swarm > Cluster > Individual. 5-level tree with wave-based execution.",
         source: "~/.claude/skills/formation/",
         related_skills: ["formation", "orchestrator", "upm"]
       },
@@ -561,7 +615,8 @@ defmodule Apm.LibraryStore do
         name: "ralph-autonomous-loop",
         display_name: "Ralph Autonomous Loop",
         category: "methodology",
-        description: "PRD-driven autonomous fix loop with backpressure management. Reads prd.json, implements stories, runs quality gates, commits, and iterates.",
+        description:
+          "PRD-driven autonomous fix loop with backpressure management. Reads prd.json, implements stories, runs quality gates, commits, and iterates.",
         source: "~/.claude/skills/ralph/",
         related_skills: ["ralph", "fix-loop"]
       },
@@ -569,7 +624,8 @@ defmodule Apm.LibraryStore do
         name: "tdd-red-green-refactor",
         display_name: "TDD Red-Green-Refactor",
         category: "methodology",
-        description: "Test-driven development with 95% coverage target. Red (failing test) > Green (make it pass) > Refactor. Squadron-based parallel execution.",
+        description:
+          "Test-driven development with 95% coverage target. Red (failing test) > Green (make it pass) > Refactor. Squadron-based parallel execution.",
         source: "~/.claude/methodologies/claude-flow-tdd.md",
         related_skills: ["spawn", "tdd"]
       },
@@ -577,7 +633,8 @@ defmodule Apm.LibraryStore do
         name: "fix-loop",
         display_name: "Fix Loop Process",
         category: "methodology",
-        description: "4-phase fix loop: Designate agents > Generate combined todo > Create agent tasks with callbacks > Run concurrently in git worktrees.",
+        description:
+          "4-phase fix loop: Designate agents > Generate combined todo > Create agent tasks with callbacks > Run concurrently in git worktrees.",
         source: "~/.claude/methodologies/fix-loop.md",
         related_skills: ["autofix", "worktree"]
       },
@@ -585,7 +642,8 @@ defmodule Apm.LibraryStore do
         name: "coalesce-refinement",
         display_name: "Coalesce Refinement",
         category: "methodology",
-        description: "5-phase skill refinement from external sources: Research > Analyze > Plan > Apply > Verify. Deploys max-agentic formation (32-128 agents).",
+        description:
+          "5-phase skill refinement from external sources: Research > Analyze > Plan > Apply > Verify. Deploys max-agentic formation (32-128 agents).",
         source: "~/.claude/skills/coalesce/",
         related_skills: ["coalesce", "drtw"]
       },
@@ -593,7 +651,8 @@ defmodule Apm.LibraryStore do
         name: "ship-scx-workflow",
         display_name: "Ship / SCX Workflow",
         category: "workflow",
-        description: "Source Control Excellence: PRD activation > structured commits > QA gates > PR creation > semver tagging > release.",
+        description:
+          "Source Control Excellence: PRD activation > structured commits > QA gates > PR creation > semver tagging > release.",
         source: "~/.claude/skills/ship/",
         related_skills: ["ship", "double-verify"]
       },
@@ -601,7 +660,8 @@ defmodule Apm.LibraryStore do
         name: "agentlock-authorization",
         display_name: "AgentLock Authorization",
         category: "security",
-        description: "3-layer authorization for Claude Code tool invocations. PolicyEngine > TokenStore > RateLimiter with trust ceiling and redaction.",
+        description:
+          "3-layer authorization for Claude Code tool invocations. PolicyEngine > TokenStore > RateLimiter with trust ceiling and redaction.",
         source: "~/.claude/skills/apm-auth/",
         related_skills: ["apm-auth", "apm"]
       },
@@ -609,7 +669,8 @@ defmodule Apm.LibraryStore do
         name: "upm-project-management",
         display_name: "UPM Project Management",
         category: "workflow",
-        description: "Unified Project Management: Plane PM integration > Ralph PRD > Formation deployment > TDD verification > Live integration testing.",
+        description:
+          "Unified Project Management: Plane PM integration > Ralph PRD > Formation deployment > TDD verification > Live integration testing.",
         source: "~/.claude/skills/upm/",
         related_skills: ["upm", "plane-pm", "formation"]
       },
@@ -617,7 +678,8 @@ defmodule Apm.LibraryStore do
         name: "double-verify",
         display_name: "Double Verify",
         category: "quality",
-        description: "Cross-agent verification protocol. Spawns independent verification agents to confirm output of primary operations for high-confidence validation.",
+        description:
+          "Cross-agent verification protocol. Spawns independent verification agents to confirm output of primary operations for high-confidence validation.",
         source: "~/.claude/skills/double-verify/",
         related_skills: ["double-verify", "ship"]
       },
@@ -625,7 +687,8 @@ defmodule Apm.LibraryStore do
         name: "opsdoc-generation",
         display_name: "OpsDoc Generation",
         category: "documentation",
-        description: "Production-grade interactive knowledge reports with glassmorphism UI, multi-scenario support, slideshow summaries, and presenter console.",
+        description:
+          "Production-grade interactive knowledge reports with glassmorphism UI, multi-scenario support, slideshow summaries, and presenter console.",
         source: "~/.claude/skills/opsdoc/",
         related_skills: ["opsdoc", "showcase"]
       }
@@ -644,15 +707,16 @@ defmodule Apm.LibraryStore do
           name = String.replace_suffix(file, ".md", "")
           content = safe_read(path)
 
-          category = cond do
-            String.starts_with?(name, "design_") -> "design_decision"
-            String.starts_with?(name, "feedback_") -> "feedback"
-            String.starts_with?(name, "project_") -> "project"
-            String.starts_with?(name, "reference_") -> "reference"
-            String.starts_with?(name, "usage_") -> "usage"
-            name == "MEMORY" -> "index"
-            true -> "general"
-          end
+          category =
+            cond do
+              String.starts_with?(name, "design_") -> "design_decision"
+              String.starts_with?(name, "feedback_") -> "feedback"
+              String.starts_with?(name, "project_") -> "project"
+              String.starts_with?(name, "reference_") -> "reference"
+              String.starts_with?(name, "usage_") -> "usage"
+              name == "MEMORY" -> "index"
+              true -> "general"
+            end
 
           %{
             name: name,
@@ -666,7 +730,8 @@ defmodule Apm.LibraryStore do
           }
         end)
 
-      {:error, _} -> []
+      {:error, _} ->
+        []
     end
   end
 
@@ -686,7 +751,9 @@ defmodule Apm.LibraryStore do
           {:ok, data} -> {:ok, data}
           {:error, reason} -> {:error, reason}
         end
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -702,7 +769,8 @@ defmodule Apm.LibraryStore do
           end
         end)
 
-      _ -> %{}
+      _ ->
+        %{}
     end
   end
 
@@ -712,9 +780,10 @@ defmodule Apm.LibraryStore do
     |> String.split("\n")
     |> Enum.filter(fn line ->
       lower = String.downcase(line)
+
       String.contains?(lower, "trigger") or
-      String.contains?(lower, "use when") or
-      String.contains?(lower, "use this when")
+        String.contains?(lower, "use when") or
+        String.contains?(lower, "use this when")
     end)
     |> Enum.take(3)
     |> Enum.map(&String.trim/1)
@@ -724,6 +793,7 @@ defmodule Apm.LibraryStore do
     content = safe_read(path)
     # Try frontmatter first
     fm = parse_frontmatter(content)
+
     case Map.get(fm, "description") do
       nil -> extract_first_paragraph(content) |> String.slice(0, 200)
       desc -> desc
@@ -746,7 +816,9 @@ defmodule Apm.LibraryStore do
     case File.stat(path, time: :posix) do
       {:ok, %File.Stat{mtime: mtime}} ->
         mtime |> DateTime.from_unix!() |> DateTime.to_iso8601()
-      _ -> nil
+
+      _ ->
+        nil
     end
   end
 

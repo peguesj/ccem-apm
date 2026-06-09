@@ -27,7 +27,8 @@ defmodule ApmWeb.Components.Core.Button do
 
   import ApmWeb.Components.Core.Icon, only: [icon: 1]
 
-  attr :variant, :string, default: "secondary",
+  attr :variant, :string,
+    default: "secondary",
     values: ~w(primary secondary ghost outline danger)
 
   attr :size, :string, default: "md", values: ~w(xs sm md lg)
@@ -65,7 +66,7 @@ defmodule ApmWeb.Components.Core.Button do
       <%= if @icon && !@loading do %>
         <span class="apm-btn__icon apm-btn__icon--leading"><.icon name={@icon} /></span>
       <% end %>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
       <%= if @icon_right do %>
         <span class="apm-btn__icon apm-btn__icon--trailing"><.icon name={@icon_right} /></span>
       <% end %>

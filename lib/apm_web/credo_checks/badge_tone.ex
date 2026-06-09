@@ -65,7 +65,8 @@ defmodule ApmWeb.CredoChecks.BadgeTone do
     canonical = canonical_for(stale_tone)
 
     format_issue(issue_meta,
-      message: "Non-canonical tone literal #{literal} — use \"#{canonical}\" (Phase 0.2 canonical vocab)",
+      message:
+        "Non-canonical tone literal #{literal} — use \"#{canonical}\" (Phase 0.2 canonical vocab)",
       line_no: line_no,
       trigger: literal
     )

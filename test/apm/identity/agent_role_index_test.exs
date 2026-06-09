@@ -59,7 +59,11 @@ defmodule Apm.Identity.AgentRoleIndexTest do
 
     test "returned role_id is a UUID-format string (8-4-4-4-12 hex)" do
       {:ok, role_id} = AgentRoleIndex.touch("orchestrator", "formation-20260101-sprint")
-      assert String.match?(role_id, ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+
+      assert String.match?(
+               role_id,
+               ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+             )
     end
 
     test "calling touch/2 multiple times with same args is idempotent" do

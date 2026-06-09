@@ -51,6 +51,7 @@ defmodule ApmWeb.Components.PageLayoutTest do
 
     test "main content zone has inline padding chrome" do
       html = render_shell()
+
       assert html =~ ~r/padding:\s*var\(--ccem-s-4/,
              "main zone must carry inline padding so content has breathing room"
     end

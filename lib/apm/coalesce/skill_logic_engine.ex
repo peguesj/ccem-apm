@@ -24,7 +24,7 @@ defmodule Apm.Coalesce.SkillLogicEngine do
   """
   @spec analyze_sources([map()]) :: map()
   def analyze_sources(sources) when is_list(sources) do
-    combined = Enum.map_join(sources, "\n\n", & &1[:content] || "")
+    combined = Enum.map_join(sources, "\n\n", &(&1[:content] || ""))
 
     frameworks = _extract_frameworks(combined)
     insights = _extract_insights(combined)
@@ -64,7 +64,10 @@ defmodule Apm.Coalesce.SkillLogicEngine do
 
       scope =~ ~r/product management|pm skills/i ->
         pm_skills = _pm_skill_names()
-        dep_skills = if scope =~ ~r/dep skills/, do: _dep_skill_names(pm_skills, skills_path), else: []
+
+        dep_skills =
+          if scope =~ ~r/dep skills/, do: _dep_skill_names(pm_skills, skills_path), else: []
+
         Enum.uniq(pm_skills ++ dep_skills)
 
       scope =~ ~r/engineering/i ->
@@ -124,11 +127,28 @@ defmodule Apm.Coalesce.SkillLogicEngine do
   def validate_diff(diff) do
     issues = []
 
-    issues = if String.starts_with?(diff.new_content, "---"), do: issues, else: ["missing YAML frontmatter" | issues]
-    issues = if String.contains?(diff.new_content, "name:"), do: issues, else: ["missing name field" | issues]
-    issues = if String.contains?(diff.new_content, "description:"), do: issues, else: ["missing description field" | issues]
-    issues = if String.length(diff.new_content) > String.length(diff.current_content), do: issues, else: ["no content added" | issues]
-    issues = if diff.confidence >= 0.40, do: issues, else: ["low confidence #{diff.confidence}" | issues]
+    issues =
+      if String.starts_with?(diff.new_content, "---"),
+        do: issues,
+        else: ["missing YAML frontmatter" | issues]
+
+    issues =
+      if String.contains?(diff.new_content, "name:"),
+        do: issues,
+        else: ["missing name field" | issues]
+
+    issues =
+      if String.contains?(diff.new_content, "description:"),
+        do: issues,
+        else: ["missing description field" | issues]
+
+    issues =
+      if String.length(diff.new_content) > String.length(diff.current_content),
+        do: issues,
+        else: ["no content added" | issues]
+
+    issues =
+      if diff.confidence >= 0.40, do: issues, else: ["low confidence #{diff.confidence}" | issues]
 
     passes = Enum.empty?(issues)
     confidence = if passes, do: diff.confidence, else: max(0.0, diff.confidence - 0.20)
@@ -146,14 +166,33 @@ defmodule Apm.Coalesce.SkillLogicEngine do
   defp _extract_frameworks(content) do
     # Known framework patterns to detect in source text
     known = [
-      "Customer Decision Journey", "CDJ", "Three-Goal Marketing Model",
-      "Jobs-to-be-Done", "JTBD", "C4 Model", "Double Diamond",
-      "Lean UX", "OKR", "RICE", "WSJF", "Kano", "MoSCoW",
-      "PESTEL", "Porter's Five Forces", "Value Proposition Canvas",
-      "Opportunity Solution Tree", "OST", "Story Mapping",
-      "Geoffrey Moore", "Crossing the Chasm", "Demand Creation",
-      "Demand Capture", "Demand Conversion", "Answer Audit",
-      "Behavioral Pillars", "Stream Search Shop Convert"
+      "Customer Decision Journey",
+      "CDJ",
+      "Three-Goal Marketing Model",
+      "Jobs-to-be-Done",
+      "JTBD",
+      "C4 Model",
+      "Double Diamond",
+      "Lean UX",
+      "OKR",
+      "RICE",
+      "WSJF",
+      "Kano",
+      "MoSCoW",
+      "PESTEL",
+      "Porter's Five Forces",
+      "Value Proposition Canvas",
+      "Opportunity Solution Tree",
+      "OST",
+      "Story Mapping",
+      "Geoffrey Moore",
+      "Crossing the Chasm",
+      "Demand Creation",
+      "Demand Capture",
+      "Demand Conversion",
+      "Answer Audit",
+      "Behavioral Pillars",
+      "Stream Search Shop Convert"
     ]
 
     content_lower = String.downcase(content)
@@ -168,8 +207,8 @@ defmodule Apm.Coalesce.SkillLogicEngine do
     content
     |> String.split(~r/\n/)
     |> Enum.filter(fn line ->
-      line =~ ~r/\b(shift|replace|replace|evolve|new|key|critical|important|transform)\b/i
-      and String.length(line) > 40
+      line =~ ~r/\b(shift|replace|replace|evolve|new|key|critical|important|transform)\b/i and
+        String.length(line) > 40
     end)
     |> Enum.take(20)
   end
@@ -178,26 +217,58 @@ defmodule Apm.Coalesce.SkillLogicEngine do
     signals = []
     content_lower = String.downcase(content)
 
-    signals = if String.contains?(content_lower, "product manag"), do: [:product_management | signals], else: signals
-    signals = if String.contains?(content_lower, "customer journey"), do: [:customer_journey | signals], else: signals
-    signals = if String.contains?(content_lower, "ai"), do: [:artificial_intelligence | signals], else: signals
+    signals =
+      if String.contains?(content_lower, "product manag"),
+        do: [:product_management | signals],
+        else: signals
+
+    signals =
+      if String.contains?(content_lower, "customer journey"),
+        do: [:customer_journey | signals],
+        else: signals
+
+    signals =
+      if String.contains?(content_lower, "ai"),
+        do: [:artificial_intelligence | signals],
+        else: signals
+
     signals = if String.contains?(content_lower, "search"), do: [:search | signals], else: signals
     signals = if String.contains?(content_lower, "market"), do: [:market | signals], else: signals
-    signals = if String.contains?(content_lower, "position"), do: [:positioning | signals], else: signals
-    signals = if String.contains?(content_lower, "discovery"), do: [:discovery | signals], else: signals
-    signals = if String.contains?(content_lower, "engineer"), do: [:engineering | signals], else: signals
+
+    signals =
+      if String.contains?(content_lower, "position"), do: [:positioning | signals], else: signals
+
+    signals =
+      if String.contains?(content_lower, "discovery"), do: [:discovery | signals], else: signals
+
+    signals =
+      if String.contains?(content_lower, "engineer"), do: [:engineering | signals], else: signals
 
     signals
   end
 
   defp _score_source_confidence(sources) do
     cond do
-      Enum.empty?(sources) -> 0.0
-      Enum.any?(sources, & &1[:domain] in ["google.com", "hbr.org", "mckinsey.com", "gartner.com"]) -> 0.95
-      Enum.any?(sources, & String.contains?(to_string(&1[:url] || ""), "think.google")) -> 0.92
-      length(sources) >= 3 -> 0.80
-      length(sources) == 2 -> 0.75
-      true -> 0.70
+      Enum.empty?(sources) ->
+        0.0
+
+      Enum.any?(
+        sources,
+        &(&1[:domain] in ["google.com", "hbr.org", "mckinsey.com", "gartner.com"])
+      ) ->
+        0.95
+
+      Enum.any?(sources, &String.contains?(to_string(&1[:url] || ""), "think.google")) ->
+        0.92
+
+      length(sources) >= 3 ->
+        0.80
+
+      length(sources) == 2 ->
+        0.75
+
+      true ->
+        0.70
     end
   end
 
@@ -230,29 +301,53 @@ defmodule Apm.Coalesce.SkillLogicEngine do
 
   defp _pm_skill_names do
     [
-      "customer-journey-map", "customer-journey-mapping-workshop",
-      "discovery-process", "discovery-interview-prep",
-      "jobs-to-be-done", "positioning-statement", "positioning-workshop",
-      "proto-persona", "prd", "prd-development", "product-strategy-session",
-      "press-release", "storyboard", "user-story", "user-story-mapping",
-      "user-story-mapping-workshop", "user-story-splitting",
-      "epic-hypothesis", "epic-breakdown-advisor",
-      "roadmap-planning", "prioritization-advisor",
-      "acquisition-channel-advisor", "tam-sam-som-calculator",
-      "business-health-diagnostic", "company-research",
-      "opportunity-solution-tree", "lean-ux-canvas",
-      "problem-statement", "problem-framing-canvas",
-      "recommendation-canvas", "eol-message", "workshop-facilitation"
+      "customer-journey-map",
+      "customer-journey-mapping-workshop",
+      "discovery-process",
+      "discovery-interview-prep",
+      "jobs-to-be-done",
+      "positioning-statement",
+      "positioning-workshop",
+      "proto-persona",
+      "prd",
+      "prd-development",
+      "product-strategy-session",
+      "press-release",
+      "storyboard",
+      "user-story",
+      "user-story-mapping",
+      "user-story-mapping-workshop",
+      "user-story-splitting",
+      "epic-hypothesis",
+      "epic-breakdown-advisor",
+      "roadmap-planning",
+      "prioritization-advisor",
+      "acquisition-channel-advisor",
+      "tam-sam-som-calculator",
+      "business-health-diagnostic",
+      "company-research",
+      "opportunity-solution-tree",
+      "lean-ux-canvas",
+      "problem-statement",
+      "problem-framing-canvas",
+      "recommendation-canvas",
+      "eol-message",
+      "workshop-facilitation"
     ]
   end
 
   defp _dep_skill_names(base_skills, skills_path) do
     # Dep skills: mentioned or cross-referenced in base skill files
     dep_candidates = [
-      "context-engineering-advisor", "ai-shaped-readiness-advisor",
-      "pestel-analysis", "pol-probe", "pol-probe-advisor",
-      "saas-revenue-growth-metrics", "finance-metrics-quickref",
-      "feature-investment-advisor", "double-verify"
+      "context-engineering-advisor",
+      "ai-shaped-readiness-advisor",
+      "pestel-analysis",
+      "pol-probe",
+      "pol-probe-advisor",
+      "saas-revenue-growth-metrics",
+      "finance-metrics-quickref",
+      "feature-investment-advisor",
+      "double-verify"
     ]
 
     base_set = MapSet.new(base_skills)
@@ -265,18 +360,40 @@ defmodule Apm.Coalesce.SkillLogicEngine do
 
   defp _engineering_skill_names do
     [
-      "claude-api", "ag-ui", "formation", "orchestrator", "ralph",
-      "ship", "upm", "feature-dev", "swiftui-expert", "elixir-architect",
-      "frontend-design", "prototype", "refactor-max", "simplify",
-      "drtw", "double-verify", "tdd-spawn"
+      "claude-api",
+      "ag-ui",
+      "formation",
+      "orchestrator",
+      "ralph",
+      "ship",
+      "upm",
+      "feature-dev",
+      "swiftui-expert",
+      "elixir-architect",
+      "frontend-design",
+      "prototype",
+      "refactor-max",
+      "simplify",
+      "drtw",
+      "double-verify",
+      "tdd-spawn"
     ]
   end
 
   defp _ops_skill_names do
     [
-      "ccem", "ccem-apm", "apm", "azure", "lfg", "docksock",
-      "safesecret", "screenshot", "live-integration-testing",
-      "gandi", "porkbun", "setup"
+      "ccem",
+      "ccem-apm",
+      "apm",
+      "azure",
+      "lfg",
+      "docksock",
+      "safesecret",
+      "screenshot",
+      "live-integration-testing",
+      "gandi",
+      "porkbun",
+      "setup"
     ]
   end
 
@@ -292,55 +409,75 @@ defmodule Apm.Coalesce.SkillLogicEngine do
     # Build additions list
     additions = []
 
-    additions = if length(relevant_frameworks) > 0 do
-      [%{
-        section: "AI-Native & CDJ Alignment",
-        type: :new_section,
-        content: _build_cdj_section(skill_name, relevant_frameworks, insights)
-      } | additions]
-    else
-      additions
-    end
+    additions =
+      if length(relevant_frameworks) > 0 do
+        [
+          %{
+            section: "AI-Native & CDJ Alignment",
+            type: :new_section,
+            content: _build_cdj_section(skill_name, relevant_frameworks, insights)
+          }
+          | additions
+        ]
+      else
+        additions
+      end
 
-    additions = if skill_name in ["customer-journey-map", "customer-journey-mapping-workshop"] do
-      [%{
-        section: "CDJ Behavioral Pillars",
-        type: :enhancement,
-        content: _build_cdj_pillars_addition()
-      } | additions]
-    else
-      additions
-    end
+    additions =
+      if skill_name in ["customer-journey-map", "customer-journey-mapping-workshop"] do
+        [
+          %{
+            section: "CDJ Behavioral Pillars",
+            type: :enhancement,
+            content: _build_cdj_pillars_addition()
+          }
+          | additions
+        ]
+      else
+        additions
+      end
 
-    additions = if skill_name in ["positioning-statement", "positioning-workshop"] do
-      [%{
-        section: "Solution Precision Positioning",
-        type: :enhancement,
-        content: _build_solution_precision_addition()
-      } | additions]
-    else
-      additions
-    end
+    additions =
+      if skill_name in ["positioning-statement", "positioning-workshop"] do
+        [
+          %{
+            section: "Solution Precision Positioning",
+            type: :enhancement,
+            content: _build_solution_precision_addition()
+          }
+          | additions
+        ]
+      else
+        additions
+      end
 
-    additions = if skill_name in ["jobs-to-be-done"] do
-      [%{
-        section: "AI-Native Context Queries",
-        type: :enhancement,
-        content: _build_jtbd_ai_addition()
-      } | additions]
-    else
-      additions
-    end
+    additions =
+      if skill_name in ["jobs-to-be-done"] do
+        [
+          %{
+            section: "AI-Native Context Queries",
+            type: :enhancement,
+            content: _build_jtbd_ai_addition()
+          }
+          | additions
+        ]
+      else
+        additions
+      end
 
-    additions = if skill_name in ["discovery-process", "discovery-interview-prep"] do
-      [%{
-        section: "Answer Audit Methodology",
-        type: :new_section,
-        content: _build_answer_audit_addition()
-      } | additions]
-    else
-      additions
-    end
+    additions =
+      if skill_name in ["discovery-process", "discovery-interview-prep"] do
+        [
+          %{
+            section: "Answer Audit Methodology",
+            type: :new_section,
+            content: _build_answer_audit_addition()
+          }
+          | additions
+        ]
+      else
+        additions
+      end
 
     additions
   end
@@ -491,7 +628,8 @@ defmodule Apm.Coalesce.SkillLogicEngine do
 
   defp _apply_additions(current_content, additions) do
     # Append additions as new sections at the end of the skill file
-    extra = additions
+    extra =
+      additions
       |> Enum.map(& &1.content)
       |> Enum.join("\n\n---\n\n")
 
@@ -504,8 +642,11 @@ defmodule Apm.Coalesce.SkillLogicEngine do
 
     # Higher confidence for skills with direct framework alignment
     high_alignment = [
-      "customer-journey-map", "customer-journey-mapping-workshop",
-      "jobs-to-be-done", "positioning-statement", "discovery-process"
+      "customer-journey-map",
+      "customer-journey-mapping-workshop",
+      "jobs-to-be-done",
+      "positioning-statement",
+      "discovery-process"
     ]
 
     base = if skill_name in high_alignment, do: base + 0.15, else: base

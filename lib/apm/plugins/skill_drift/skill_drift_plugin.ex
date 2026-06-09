@@ -40,7 +40,8 @@ defmodule Apm.Plugins.SkillDrift.SkillDriftPlugin do
   @impl true
   @spec plugin_description() :: String.t()
   def plugin_description,
-    do: "Skill Drift Detector — scans SKILL.md files for stale port, version, endpoint, and hook references"
+    do:
+      "Skill Drift Detector — scans SKILL.md files for stale port, version, endpoint, and hook references"
 
   @impl true
   @spec plugin_version() :: String.t()
@@ -147,7 +148,7 @@ defmodule Apm.Plugins.SkillDrift.SkillDriftPlugin do
     fix_results =
       Enum.flat_map(files, fn file ->
         findings = scan_file(file, current_version, router_paths)
-        fixable = Enum.filter(findings, &(&1.fixable))
+        fixable = Enum.filter(findings, & &1.fixable)
 
         if fixable != [] and not dry_run do
           apply_fixes(file, fixable, current_version)
@@ -374,7 +375,8 @@ defmodule Apm.Plugins.SkillDrift.SkillDriftPlugin do
             found: "v#{found_version}",
             expected: "v#{current_version}",
             fixable: true,
-            message: "Version reference v#{found_version} does not match current v#{current_version}"
+            message:
+              "Version reference v#{found_version} does not match current v#{current_version}"
           }
         ]
       else
@@ -468,17 +470,27 @@ defmodule Apm.Plugins.SkillDrift.SkillDriftPlugin do
             case finding.drift_type do
               :wrong_port ->
                 fixed =
-                  String.replace(acc_content, "localhost:#{extract_port(finding.found)}", "localhost:#{@correct_port}")
+                  String.replace(
+                    acc_content,
+                    "localhost:#{extract_port(finding.found)}",
+                    "localhost:#{@correct_port}"
+                  )
 
                 {fixed,
-                 [%{file: file, drift_type: :wrong_port, fixed: true, dry_run: false} | acc_applied]}
+                 [
+                   %{file: file, drift_type: :wrong_port, fixed: true, dry_run: false}
+                   | acc_applied
+                 ]}
 
               :stale_version ->
                 old_ver = extract_version(finding.found)
                 fixed = String.replace(acc_content, "v#{old_ver}", "v#{current_version}")
 
                 {fixed,
-                 [%{file: file, drift_type: :stale_version, fixed: true, dry_run: false} | acc_applied]}
+                 [
+                   %{file: file, drift_type: :stale_version, fixed: true, dry_run: false}
+                   | acc_applied
+                 ]}
 
               _ ->
                 {acc_content, acc_applied}

@@ -38,7 +38,9 @@ defmodule Apm.Orchestration.ApprovalStepTest do
       {:ok, run} = OrchestrationManager.start_run(approval_params())
       step_id = approval_step_id(run)
 
-      assert {:ok, advanced} = OrchestrationManager.grant_approval(run.id, step_id, %{approver_id: "admin"})
+      assert {:ok, advanced} =
+               OrchestrationManager.grant_approval(run.id, step_id, %{approver_id: "admin"})
+
       # After approval, current_step should advance beyond the approval step
       assert advanced.current_step != step_id or advanced.current_step == step_id
       # The run is still running (not failed)

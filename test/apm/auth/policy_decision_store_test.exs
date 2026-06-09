@@ -150,9 +150,26 @@ defmodule Apm.Auth.PolicyDecisionStoreTest do
 
   describe "query/1 — outcome filter" do
     test "filters by :deny outcome" do
-      PolicyDecisionStore.record_sync(%{agent_id: "a", session_id: "s", tool_name: "T", outcome: :allow})
-      PolicyDecisionStore.record_sync(%{agent_id: "b", session_id: "s", tool_name: "T", outcome: :deny})
-      PolicyDecisionStore.record_sync(%{agent_id: "c", session_id: "s", tool_name: "T", outcome: :ask})
+      PolicyDecisionStore.record_sync(%{
+        agent_id: "a",
+        session_id: "s",
+        tool_name: "T",
+        outcome: :allow
+      })
+
+      PolicyDecisionStore.record_sync(%{
+        agent_id: "b",
+        session_id: "s",
+        tool_name: "T",
+        outcome: :deny
+      })
+
+      PolicyDecisionStore.record_sync(%{
+        agent_id: "c",
+        session_id: "s",
+        tool_name: "T",
+        outcome: :ask
+      })
 
       results = PolicyDecisionStore.query(%{outcome: :deny})
       assert length(results) == 1
@@ -166,8 +183,19 @@ defmodule Apm.Auth.PolicyDecisionStoreTest do
 
   describe "by_session/1" do
     test "returns decisions for given session only" do
-      PolicyDecisionStore.record_sync(%{agent_id: "a", session_id: "target", tool_name: "T", outcome: :allow})
-      PolicyDecisionStore.record_sync(%{agent_id: "b", session_id: "other", tool_name: "T", outcome: :deny})
+      PolicyDecisionStore.record_sync(%{
+        agent_id: "a",
+        session_id: "target",
+        tool_name: "T",
+        outcome: :allow
+      })
+
+      PolicyDecisionStore.record_sync(%{
+        agent_id: "b",
+        session_id: "other",
+        tool_name: "T",
+        outcome: :deny
+      })
 
       results = PolicyDecisionStore.by_session("target")
       assert length(results) == 1
@@ -196,9 +224,30 @@ defmodule Apm.Auth.PolicyDecisionStoreTest do
 
   describe "stats/0" do
     test "counts by outcome" do
-      for _ <- 1..3, do: PolicyDecisionStore.record_sync(%{agent_id: "a", session_id: "s", tool_name: "T", outcome: :allow})
-      for _ <- 1..2, do: PolicyDecisionStore.record_sync(%{agent_id: "a", session_id: "s", tool_name: "T", outcome: :deny})
-      PolicyDecisionStore.record_sync(%{agent_id: "a", session_id: "s", tool_name: "T", outcome: :ask})
+      for _ <- 1..3,
+          do:
+            PolicyDecisionStore.record_sync(%{
+              agent_id: "a",
+              session_id: "s",
+              tool_name: "T",
+              outcome: :allow
+            })
+
+      for _ <- 1..2,
+          do:
+            PolicyDecisionStore.record_sync(%{
+              agent_id: "a",
+              session_id: "s",
+              tool_name: "T",
+              outcome: :deny
+            })
+
+      PolicyDecisionStore.record_sync(%{
+        agent_id: "a",
+        session_id: "s",
+        tool_name: "T",
+        outcome: :ask
+      })
 
       stats = PolicyDecisionStore.stats()
       assert stats.allow == 3

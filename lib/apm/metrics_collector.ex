@@ -44,9 +44,7 @@ defmodule Apm.MetricsCollector do
         end
 
       match_spec = [
-        {{{agent_id, :"$1"}, :"$2"},
-         [{:>=, :"$1", min_bucket}],
-         [{{:"$1", :"$2"}}]}
+        {{{agent_id, :"$1"}, :"$2"}, [{:>=, :"$1", min_bucket}], [{{:"$1", :"$2"}}]}
       ]
 
       results =
@@ -92,7 +90,8 @@ defmodule Apm.MetricsCollector do
     heartbeat_score = compute_heartbeat_score(agent_id)
     response_score = compute_response_score(recent_metrics, fleet)
 
-    score = error_score * 0.4 + completion_score * 0.3 + heartbeat_score * 0.2 + response_score * 0.1
+    score =
+      error_score * 0.4 + completion_score * 0.3 + heartbeat_score * 0.2 + response_score * 0.1
 
     score |> max(0.0) |> min(100.0) |> Float.round(1)
   end
@@ -315,7 +314,9 @@ defmodule Apm.MetricsCollector do
     agent = Apm.AgentRegistry.get_agent(agent_id)
 
     case agent do
-      nil -> 50.0
+      nil ->
+        50.0
+
       %{status: status} ->
         case status do
           s when s in ["completed", "finished"] -> 100.0
@@ -331,7 +332,9 @@ defmodule Apm.MetricsCollector do
     agent = Apm.AgentRegistry.get_agent(agent_id)
 
     case agent do
-      nil -> 0.0
+      nil ->
+        0.0
+
       %{last_seen: last_seen} ->
         case DateTime.from_iso8601(last_seen) do
           {:ok, dt, _} ->
@@ -339,7 +342,8 @@ defmodule Apm.MetricsCollector do
             # Within 60s = 100, decays to 0 over 10 min
             max(0.0, 100.0 - seconds_ago / 6.0)
 
-          _ -> 0.0
+          _ ->
+            0.0
         end
     end
   end

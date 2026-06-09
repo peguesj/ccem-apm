@@ -132,9 +132,7 @@ defmodule Apm.AgUi.A2A.TaskBridge do
     if agent_id do
       case find_open_task(agent_id, :working) do
         nil ->
-          Logger.debug(
-            "[A2A.TaskBridge] approval_requested but no :working task for #{agent_id}"
-          )
+          Logger.debug("[A2A.TaskBridge] approval_requested but no :working task for #{agent_id}")
 
         task ->
           do_transition(task.id, :input_required, "approval_requested")

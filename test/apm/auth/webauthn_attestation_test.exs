@@ -29,6 +29,7 @@ defmodule Apm.Auth.WebAuthnAttestationTest do
       {cred_id, pub_key_cose} = synthetic_credential()
 
       assert :ok = WebAuthnAttestation.put_credential(user_id, cred_id, pub_key_cose, 0)
+
       assert {:ok, [%{credential_id: ^cred_id, sign_count: 0}]} =
                WebAuthnAttestation.list_credentials(user_id)
     end
@@ -155,7 +156,9 @@ defmodule Apm.Auth.WebAuthnAttestationTest do
     sign_count_bin = <<sign_count::unsigned-big-integer-size(32)>>
     auth_data = rp_id_hash <> flags <> sign_count_bin
 
-    client_data_json = Jason.encode!(%{type: "webauthn.get", challenge: "test", origin: "http://localhost"})
+    client_data_json =
+      Jason.encode!(%{type: "webauthn.get", challenge: "test", origin: "http://localhost"})
+
     client_data_hash = :crypto.hash(:sha256, client_data_json)
     sig = :crypto.sign(:eddsa, :none, auth_data <> client_data_hash, [priv, :ed25519])
     {auth_data, sig, client_data_json}

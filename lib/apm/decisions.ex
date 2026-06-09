@@ -54,7 +54,9 @@ defmodule Apm.Decisions do
 
     approval_items =
       case :ets.whereis(:approval_queue) do
-        :undefined -> []
+        :undefined ->
+          []
+
         _ ->
           try do
             :ets.tab2list(:approval_queue)
@@ -94,7 +96,8 @@ defmodule Apm.Decisions do
         ttl_s = max(0, 120 - DateTime.diff(now, inserted, :second))
 
         %{
-          id: to_string(Map.get(item, :id, item[:request_id] || System.unique_integer([:positive]))),
+          id:
+            to_string(Map.get(item, :id, item[:request_id] || System.unique_integer([:positive]))),
           kind: :approval,
           tool_name: Map.get(item, :tool_name, "unknown"),
           session_id: Map.get(item, :session_id, ""),

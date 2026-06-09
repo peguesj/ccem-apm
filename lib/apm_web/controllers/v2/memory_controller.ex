@@ -29,12 +29,13 @@ defmodule ApmWeb.V2.MemoryController do
 
   @doc "List cached observations with optional limit/offset pagination."
   @spec list_observations(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :list_observations,
+  operation(:list_observations,
     summary: "List observations",
     tags: ["Memory"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def list_observations(conn, params) do
     action_params =
@@ -49,12 +50,13 @@ defmodule ApmWeb.V2.MemoryController do
 
   @doc "Get a single observation by ID."
   @spec get_observation(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :get_observation,
+  operation(:get_observation,
     summary: "Get observation",
     tags: ["Memory"],
     responses: [
       ok: {"OK", "application/json", Schemas.Observation}
     ]
+  )
 
   def get_observation(conn, %{"id" => id} = _params) do
     dispatch(conn, "get_observation", %{"id" => id})
@@ -64,12 +66,13 @@ defmodule ApmWeb.V2.MemoryController do
 
   @doc "Semantic search across observations; falls back to ETS substring match."
   @spec search(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :search,
+  operation(:search,
     summary: "Search",
     tags: ["Memory"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def search(conn, %{"query" => _} = params) do
     dispatch(conn, "search_observations", Map.take(params, ["query"]))
@@ -85,12 +88,13 @@ defmodule ApmWeb.V2.MemoryController do
 
   @doc "Observations in date range; from/to are optional ISO8601 datetime strings."
   @spec timeline(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :timeline,
+  operation(:timeline,
     summary: "Timeline",
     tags: ["Memory"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def timeline(conn, params) do
     action_params = Map.take(params, ["from", "to"])
@@ -101,12 +105,13 @@ defmodule ApmWeb.V2.MemoryController do
 
   @doc "Claude-mem worker reachability status."
   @spec health(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  operation :health,
+  operation(:health,
     summary: "Health check",
     tags: ["Memory"],
     responses: [
       ok: {"OK", "application/json", %OpenApiSpex.Schema{type: :object}}
     ]
+  )
 
   def health(conn, _params) do
     dispatch(conn, "health_check", %{})

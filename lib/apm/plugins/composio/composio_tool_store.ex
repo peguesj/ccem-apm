@@ -92,7 +92,10 @@ defmodule Apm.Plugins.Composio.ComposioToolStore do
         {:noreply, %{state | last_refreshed: DateTime.utc_now()}}
 
       {:error, reason} ->
-        Logger.warning("[ComposioToolStore] Refresh failed: #{inspect(reason)}, retry in #{@retry_interval_ms}ms")
+        Logger.warning(
+          "[ComposioToolStore] Refresh failed: #{inspect(reason)}, retry in #{@retry_interval_ms}ms"
+        )
+
         Process.send_after(self(), :refresh, @retry_interval_ms)
         {:noreply, state}
     end

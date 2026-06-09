@@ -136,9 +136,10 @@ defmodule Apm.Provenance.ArtifactAttestationTest do
     end
 
     test "stored attestation is retrievable from ETS" do
-      _attest = Signer.sign_artifact("Edit", "lib/test_retrieve.ex", "agent-retrieve", %{
-        session_id: "sess-ets-test"
-      })
+      _attest =
+        Signer.sign_artifact("Edit", "lib/test_retrieve.ex", "agent-retrieve", %{
+          session_id: "sess-ets-test"
+        })
 
       # Scan the ring buffer for our attestation by session_id
       found =
@@ -175,6 +176,7 @@ defmodule Apm.Provenance.ArtifactAttestationTest do
       Process.sleep(50)
 
       after_size = :ets.info(:apm_artifact_attestations, :size)
+
       assert after_size > before_size or after_size >= 1,
              "AuditLog Write event should produce an attestation in ETS"
     end
@@ -204,6 +206,7 @@ defmodule Apm.Provenance.ArtifactAttestationTest do
 
       assert found != nil,
              "Edit tool_call audit event should produce an attestation"
+
       assert found.tool_name == "Edit"
     end
 

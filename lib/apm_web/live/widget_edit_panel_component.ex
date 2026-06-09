@@ -65,7 +65,12 @@ defmodule ApmWeb.Live.WidgetEditPanelComponent do
             aria-label="Close edit panel"
           >
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -90,7 +95,7 @@ defmodule ApmWeb.Live.WidgetEditPanelComponent do
         <%!-- Dynamic config_schema fields --%>
         <%= for {key, schema_type} <- @widget.config_schema do %>
           <div class="form-control mb-2">
-            <%= render_field(assigns, key, schema_type) %>
+            {render_field(assigns, key, schema_type)}
           </div>
         <% end %>
 
@@ -166,7 +171,7 @@ defmodule ApmWeb.Live.WidgetEditPanelComponent do
 
     ~H"""
     <label class="label cursor-pointer py-0.5">
-      <span class="label-text text-xs"><%= @label %></span>
+      <span class="label-text text-xs">{@label}</span>
       <input
         type="checkbox"
         class="toggle toggle-primary toggle-xs"
@@ -189,7 +194,7 @@ defmodule ApmWeb.Live.WidgetEditPanelComponent do
     ~H"""
     <div>
       <label class="label py-0.5">
-        <span class="label-text text-xs"><%= @label %></span>
+        <span class="label-text text-xs">{@label}</span>
       </label>
       <input
         type="number"
@@ -214,7 +219,7 @@ defmodule ApmWeb.Live.WidgetEditPanelComponent do
     ~H"""
     <div>
       <label class="label py-0.5">
-        <span class="label-text text-xs"><%= @label %></span>
+        <span class="label-text text-xs">{@label}</span>
       </label>
       <select
         class="select select-bordered select-xs w-full"
@@ -223,7 +228,7 @@ defmodule ApmWeb.Live.WidgetEditPanelComponent do
         phx-target={@myself}
       >
         <%= for opt <- @options do %>
-          <option value={opt} selected={opt == @current}><%= opt %></option>
+          <option value={opt} selected={opt == @current}>{opt}</option>
         <% end %>
       </select>
     </div>
@@ -241,7 +246,7 @@ defmodule ApmWeb.Live.WidgetEditPanelComponent do
     ~H"""
     <div>
       <label class="label py-0.5">
-        <span class="label-text text-xs"><%= @label %></span>
+        <span class="label-text text-xs">{@label}</span>
       </label>
       <input
         type="text"

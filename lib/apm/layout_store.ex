@@ -159,7 +159,13 @@ defmodule Apm.LayoutStore do
   def save_widget_config(session_id, widget_id, config)
       when is_binary(session_id) and is_binary(widget_id) and is_map(config) do
     :ets.insert(@table, {"widget_config:#{session_id}:#{widget_id}", config})
-    Phoenix.PubSub.broadcast(Apm.PubSub, "dashboard:session:#{session_id}", {:widget_config_updated, widget_id, config})
+
+    Phoenix.PubSub.broadcast(
+      Apm.PubSub,
+      "dashboard:session:#{session_id}",
+      {:widget_config_updated, widget_id, config}
+    )
+
     :ok
   end
 
@@ -177,12 +183,19 @@ defmodule Apm.LayoutStore do
   @spec set_pinned_widget(String.t(), String.t() | nil) :: :ok
   def set_pinned_widget(session_id, widget_id) when is_binary(session_id) do
     key = "pinned_widget:#{session_id}"
+
     if is_nil(widget_id) do
       :ets.delete(@table, key)
     else
       :ets.insert(@table, {key, widget_id})
     end
-    Phoenix.PubSub.broadcast(Apm.PubSub, "dashboard:session:#{session_id}", {:pinned_widget_changed, widget_id})
+
+    Phoenix.PubSub.broadcast(
+      Apm.PubSub,
+      "dashboard:session:#{session_id}",
+      {:pinned_widget_changed, widget_id}
+    )
+
     :ok
   end
 

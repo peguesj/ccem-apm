@@ -122,7 +122,9 @@ defmodule Apm.SessionParser do
   defp update_timestamps(acc, nil), do: acc
 
   defp update_timestamps(acc, timestamp) when is_binary(timestamp) do
-    first = if acc.first_timestamp == nil, do: timestamp, else: min(acc.first_timestamp, timestamp)
+    first =
+      if acc.first_timestamp == nil, do: timestamp, else: min(acc.first_timestamp, timestamp)
+
     last = if acc.last_timestamp == nil, do: timestamp, else: max(acc.last_timestamp, timestamp)
     %{acc | first_timestamp: first, last_timestamp: last}
   end
@@ -172,7 +174,11 @@ defmodule Apm.SessionParser do
   defp process_assistant_message(message, acc) do
     # Extract token usage
     usage = message["usage"] || %{}
-    input = (usage["input_tokens"] || 0) + (usage["cache_creation_input_tokens"] || 0) + (usage["cache_read_input_tokens"] || 0)
+
+    input =
+      (usage["input_tokens"] || 0) + (usage["cache_creation_input_tokens"] || 0) +
+        (usage["cache_read_input_tokens"] || 0)
+
     output = usage["output_tokens"] || 0
 
     acc = %{
@@ -188,9 +194,11 @@ defmodule Apm.SessionParser do
       Enum.reduce(content, acc, fn
         %{"type" => "tool_use", "name" => "Skill", "input" => %{"skill" => skill_name}}, acc
         when is_binary(skill_name) ->
-          tools = acc.tools
-                  |> Map.update("Skill", 1, &(&1 + 1))
-                  |> Map.update("skill:#{skill_name}", 1, &(&1 + 1))
+          tools =
+            acc.tools
+            |> Map.update("Skill", 1, &(&1 + 1))
+            |> Map.update("skill:#{skill_name}", 1, &(&1 + 1))
+
           skills = Map.update(acc.skills, skill_name, 1, &(&1 + 1))
           %{acc | tools: tools, skills: skills}
 
