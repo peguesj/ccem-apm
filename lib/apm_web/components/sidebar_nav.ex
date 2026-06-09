@@ -44,6 +44,23 @@ defmodule ApmWeb.Components.SidebarNav do
     <aside
       id="apm-sidebar"
       class="w-52 bg-base-200 border-r border-base-300 flex flex-col flex-shrink-0 h-screen sticky top-0 overflow-hidden"
+      style={[
+        # Defense-in-depth (formation-934): inline styles so the sidebar
+        # renders chrome even if the Tailwind utility layer is missing or
+        # the @source scanner regresses (root cause was @source pointing at
+        # the renamed lib/apm_v5_web → lib/apm_web).
+        # Width matches the outer page_layout sidebar zone (220px default,
+        # 48px collapsed) — use 100% so the inner aside fills the slot.
+        "width:208px;",
+        "min-width:192px;",
+        "background:var(--apm-surface-raised);",
+        "border-right:1px solid var(--apm-border-subtle);",
+        "display:flex;",
+        "flex-direction:column;",
+        "height:100vh;",
+        "overflow:hidden;",
+        "flex-shrink:0;"
+      ]}
     >
       <%!-- CP-337 (US-517): restore sidebar identity. The "doubled wordmark" defect
            was the top-bar project switcher chip echoing "CCEM APM" — NOT the sidebar
