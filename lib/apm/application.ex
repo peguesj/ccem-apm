@@ -103,6 +103,12 @@ defmodule Apm.Application do
       Apm.Skills.SkillAnalyzer,
       Apm.Skills.SkillHealthScorer,
       Apm.Showcases.ShowcaseManager,
+      # Showcase engine pattern (project-scoped engine plugins, e.g. feature-flow).
+      # Registry owns the engines ETS table; PayloadStore owns the per-engine payload ETS table.
+      # Built-in engines are registered atomically via handle_continue inside Registry.init,
+      # so by the time the supervisor reports Registry as `started` they are queryable.
+      {ApmWeb.Showcase.Registry, engines: [ApmWeb.Showcase.Engines.FeatureFlow]},
+      ApmWeb.Showcase.PayloadStore,
       Apm.Plugins.ClaudeCodePluginBridge,
       Apm.Plugins.PluginRepositoryStore,
       Apm.Plugins.PluginConfigStore,
@@ -170,6 +176,14 @@ defmodule Apm.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Apm.Supervisor]
     Supervisor.start_link(children, opts)
+
+    # Built-in showcase engines are registered atomically inside
+    # ApmWeb.Showcase.Registry.handle_continue/2, gated on init/1 returning,
+    # so no post-boot registration step is needed here. The previous
+    # register_showcase_engines/0 hook hit a race where the Registry's ETS
+    # table could vanish between init/1 completing and this line running
+    # (e.g. via GenServer restart), causing every /api/showcase/engines/*
+    # call to 500 on the implicit :ets.lookup raise.
   end
 
   # Install fuse circuit breakers for hot-path API endpoints.

@@ -149,6 +149,12 @@ defmodule ApmWeb.Router do
 
       # Extension: showcase
       live "/showcase", ShowcaseLive, :index
+      # Showcase engine pattern (project-scoped engine plugins).
+      # NOTE: declared BEFORE "/showcase/:project" because both could match
+      # "/showcase/engines/<id>"; Phoenix uses first-match-wins per scope.
+      # The explicit "engines/" prefix also sidesteps the catchall.
+      live "/showcase/engines/:engine_id", Showcase.Live.EngineLive, :show
+      live "/showcase/engines/:engine_id/health", Showcase.Live.EngineLive, :health
       live "/showcase/:project", ShowcaseLive, :project
       live "/ccem", CcemOverviewLive, :index
 
@@ -422,6 +428,12 @@ defmodule ApmWeb.Router do
 
     # ── EXTENSION: showcase (v1) ──────────────────────────────────────────
     get "/showcase", ShowcaseApiController, :index
+    # Showcase engine pattern — project-scoped REST surface for engine plugins.
+    # Declared before "/showcase/:project" so engine ids do not collide with the
+    # catchall :project segment.
+    get  "/showcase/engines/:engine_id/health", ShowcaseEngineApiController, :health
+    get  "/showcase/engines/:engine_id",        ShowcaseEngineApiController, :fetch_json
+    post "/showcase/engines/:engine_id",        ShowcaseEngineApiController, :ingest
     get "/showcase/:project", ShowcaseApiController, :show
     post "/showcase/:project/reload", ShowcaseApiController, :reload
 
